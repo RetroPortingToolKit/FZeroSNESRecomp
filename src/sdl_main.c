@@ -22,6 +22,7 @@
 #include "snes_overlay_draw.h"    /* SNES_PAD_*, panel compositing */
 #include "snes_rewind.h"          /* local rewind ring + filmstrip */
 #include "snes_savestate_menu.h"  /* slot browser overlay */
+#include "snes_osd.h"
 #include "cpu_trace.h"
 #include "debug_server.h"
 #include "host_report.h"
@@ -77,6 +78,11 @@ static const char kBuildVersion[] = SNESRECOMP_BUILD_VERSION;
 bool g_new_ppu = true;
 static SDL_mutex *g_audio_mutex;
 static const char kWindowTitle[] = "F-Zero";
+static const char *const kQuickLabels[] = {"Quick Save", "Quick Load"};
+static const char *const kQuickKeys[] = {"QuickSaveKey", "QuickLoadKey"};
+static const char *const kQuickPads[] = {"QuickSavePad", "QuickLoadPad"};
+static int g_quick_keys[2], g_quick_pads[2];
+static uint32_t g_previous_quick_actions;
 static FzeroVideoSettings g_video;
 Config g_config;
 static bool g_reset_presentation_clock;
@@ -415,6 +421,10 @@ static void trim_ini_value(char *s) {
 static void load_launcher_settings(RecompLauncherCSettings *settings) {
   int value = 0;
   char text[sizeof(settings->shader_path)];
+  for (int i = 0; i < 2; ++i) {
+    FzeroIniReadInt(g_config_path, "SaveStates", kQuickKeys[i], &settings->assist_key_bind[i]);
+    FzeroIniReadInt(g_config_path, "SaveStates", kQuickPads[i], &settings->assist_pad_bind[i]);
+  }
 
   if (FzeroIniReadInt(g_config_path, "General", "SkipLauncher", &value))
     settings->skip_launcher = value != 0;
@@ -474,6 +484,12 @@ static void load_launcher_settings(RecompLauncherCSettings *settings) {
  */
 static void save_launcher_settings(const RecompLauncherCSettings *settings) {
   char number[32];
+  for (int i = 0; i < 2; ++i) {
+    snprintf(number, sizeof(number), "%d", settings->assist_key_bind[i]);
+    launcher_ini_kv_write(g_config_path, "SaveStates", kQuickKeys[i], number);
+    snprintf(number, sizeof(number), "%d", settings->assist_pad_bind[i]);
+    launcher_ini_kv_write(g_config_path, "SaveStates", kQuickPads[i], number);
+  }
   snprintf(number, sizeof(number), "%d", settings->skip_launcher ? 1 : 0);
   launcher_ini_kv_write(g_config_path, "General", "SkipLauncher", number);
   snprintf(number, sizeof(number), "%d", settings->window_scale);
@@ -569,6 +585,8 @@ static int resolve_rom(const char *executable, const char *explicit_rom,
    * reads back. */
   game.config_path = g_config_path;
   game.has_rewind_depth = 1;
+  game.assist_binding_labels = kQuickLabels;
+  game.assist_binding_count = 2;
 
   char initial_rom[1024] = {0};
   char assets_dir[1024] = ".";
@@ -648,9 +666,7 @@ static FzeroAspect launcher_aspect(int index) {
   return (FzeroAspect)index;
 }
 
-static uint32_t keyboard_input(void) {
-  /* SDL3 returns const bool*, SDL2 const Uint8*; the shim normalizes both. */
-  const uint8_t *keys = snesrecomp_sdl_get_keyboard_state();
+static uint32_t keyboard_input_from_keys(const uint8_t *keys) {
   /* keybinds_read_player() is the engine's shared keybinds.ini reader, so the
    * launcher's Controls page and the game agree on the bindings. Its bitmask
    * layout (keybinds.h) is bit0=R,1=L,2=X,3=A,4=Right,5=Left,6=Down,7=Up,
@@ -678,6 +694,27 @@ static uint32_t keyboard_input(void) {
   for (int i = 0; i < 12; i++)
     if ((kb >> kKbBitForInputBit[i]) & 1) input |= (1u << i);
   return input;
+}
+
+static uint32_t keyboard_input(void) {
+  return keyboard_input_from_keys(snesrecomp_sdl_get_keyboard_state());
+}
+
+static uint32_t keyboard_guest_input(void) {
+  uint8_t keys[SDL_SCANCODE_COUNT];
+  memcpy(keys, snesrecomp_sdl_get_keyboard_state(), sizeof(keys));
+  for (int i = 0; i < 2; ++i)
+    if (g_quick_keys[i] > 0 && g_quick_keys[i] < SDL_SCANCODE_COUNT) keys[g_quick_keys[i]] = 0;
+  return keyboard_input_from_keys(keys);
+}
+
+static uint32_t quick_actions(SDL_GameController *pad) {
+  uint32_t active = 0;
+  (void)FzeroGamepadReadShortcuts(pad, g_quick_pads, 2, &active);
+  const uint8_t *keys = snesrecomp_sdl_get_keyboard_state();
+  for (int i = 0; i < 2; ++i)
+    if (g_quick_keys[i] > 0 && g_quick_keys[i] < SDL_SCANCODE_COUNT && keys[g_quick_keys[i]]) active |= 1u << i;
+  return active;
 }
 
 static uint32_t controller_input(SDL_GameController *pad) {
@@ -821,9 +858,13 @@ static void set_title_message(SDL_Window *window, const char *message,
 static void set_state_feedback(SDL_Window *window, const char *operation,
                                int slot, int ok, Uint64 *until) {
   char message[160];
-  snprintf(message, sizeof(message), "State %s %s (slot %d)", operation,
-           ok ? "succeeded" : "failed", slot + 1);
+  if (slot == SNES_SAVESTATE_QUICK_SLOT)
+    snprintf(message, sizeof(message), "Quick %s %s", operation, ok ? "succeeded" : "failed");
+  else
+    snprintf(message, sizeof(message), "State %s %s (slot %d)", operation,
+             ok ? "succeeded" : "failed", slot + 1);
   set_title_message(window, message, until);
+  snes_osd_push(message, 0);
 }
 
 static int perform_state_action(SDL_Window *window, int save, int slot,
@@ -837,6 +878,7 @@ static int perform_state_action(SDL_Window *window, int save, int slot,
   int ok;
   if (save) {
     ok = RtlSaveSnapshot(path);
+    if (ok) snes_savestate_menu_note_slot_saved(slot);
   } else if (!FzeroStateFileAcceptable(path)) {
     /* Checked before the engine is called at all. RtlLoadSnapshot applies the
      * guest blob before the game's trailer is read, so a snapshot taken on
@@ -983,14 +1025,19 @@ typedef struct FzeroPresenter {
 
 static SDL_Texture *g_overlay_texture;
 static int g_overlay_texture_w, g_overlay_texture_h;
+static SDL_Texture *g_osd_texture;
+static int g_osd_texture_w, g_osd_texture_h;
 
-/* Where a panel sits inside the game's destination rect. The browser is an
- * opaque full-rect panel; the filmstrip annotates the frame it describes and
- * belongs across the bottom third of it, not centred over the middle. */
+/* The browser keeps a centered 4:3 display aspect. The filmstrip annotates
+ * the game frame across its bottom third. */
 static FzeroRect overlay_rect(const FzeroPresenter *p, int is_menu) {
   FzeroRect game =
       FzeroDestination(p->viewport, p->drawable_width, p->drawable_height);
-  if (is_menu) return game;
+  if (is_menu) {
+    snes_savestate_menu_viewport(p->drawable_width, p->drawable_height,
+                                &game.x, &game.y, &game.w, &game.h);
+    return game;
+  }
   int strip = game.h / 3;
   if (strip < 1) strip = 1;
   game.y += game.h - strip;
@@ -1031,6 +1078,36 @@ static void overlay_draw_sdl(const FzeroPresenter *p, const uint32_t *panel,
  * after a present, what a read-back returns is undefined. */
 static void overlay_dump(const FzeroPresenter *p, int is_menu);
 
+static void present_osd(const FzeroPresenter *p) {
+  const uint32_t *image = NULL;
+  int w = 0, h = 0;
+  if (snes_osd_image(&image, &w, &h)) {
+    int scale = p->drawable_height / 448;
+    if (scale < 1) scale = 1;
+    FzeroRect rect = {12, 12, w * scale, h * scale};
+    if (p->gl) {
+      fzero_gl_draw_overlay(p->gl, image, w, h, rect, p->drawable_height);
+    } else {
+      if (g_osd_texture && (g_osd_texture_w != w || g_osd_texture_h != h)) {
+        SDL_DestroyTexture(g_osd_texture);
+        g_osd_texture = NULL;
+      }
+      if (!g_osd_texture) {
+        g_osd_texture = SDL_CreateTexture(p->renderer, SDL_PIXELFORMAT_ARGB8888,
+                                           SDL_TEXTUREACCESS_STREAMING, w, h);
+        g_osd_texture_w = w; g_osd_texture_h = h;
+        if (g_osd_texture) SDL_SetTextureBlendMode(g_osd_texture, SDL_BLENDMODE_BLEND);
+      }
+      if (g_osd_texture) {
+        SDL_UpdateTexture(g_osd_texture, NULL, image, w * 4);
+        SDL_Rect destination = {rect.x, rect.y, rect.w, rect.h};
+        snesrecomp_sdl_render_texture(p->renderer, g_osd_texture, NULL, &destination);
+      }
+    }
+  }
+  snes_osd_present_done();
+}
+
 /* One present, with an optional panel over it. The game image is whatever is
  * already in `pixels`: while a panel is up the guest is frozen, so the frame
  * behind it is the moment the player stopped at. */
@@ -1047,8 +1124,9 @@ static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
     if (panel) {
       fzero_gl_draw_overlay(p->gl, panel, pw, ph, overlay_rect(p, is_menu),
                             p->drawable_height);
-      overlay_dump(p, is_menu);
     }
+    if (!panel || !is_menu) present_osd(p);
+    if (panel) overlay_dump(p, is_menu);
     uint64_t diagnostic_start = FzeroDiagnosticsBegin();
     SDL_GL_SwapWindow(p->gl->window);
     FzeroDiagnosticsEnd(FZERO_DIAG_PRESENT, diagnostic_start);
@@ -1066,6 +1144,7 @@ static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
   SDL_Rect destination = {rect.x, rect.y, rect.w, rect.h};
   snesrecomp_sdl_render_texture(p->renderer, p->texture, &source, &destination);
   overlay_draw_sdl(p, panel, pw, ph, is_menu);
+  if (!panel || !is_menu) present_osd(p);
   if (panel) overlay_dump(p, is_menu);
   FzeroDiagnosticsEnd(FZERO_DIAG_DRAW, diagnostic_start);
   diagnostic_start = FzeroDiagnosticsBegin();
@@ -1595,6 +1674,8 @@ int main(int argc, char **argv) {
   /* After the launcher, which may have just rewritten [KeyMap]. */
   g_hotkey_menu = resolve_hotkey("SaveStateMenu", "F7");
   g_hotkey_rewind = resolve_hotkey("Rewind", "R");
+  memcpy(g_quick_keys, launcher_settings.assist_key_bind, sizeof(g_quick_keys));
+  memcpy(g_quick_pads, launcher_settings.assist_pad_bind, sizeof(g_quick_pads));
   configure_rewind(&launcher_settings);
   size_t rom_size = 0;
   uint8_t *rom = read_rom(rom_path, &rom_size);
@@ -1901,6 +1982,14 @@ int main(int argc, char **argv) {
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) running = 0;
       FzeroGamepadEvent(&pad, &event);
+      if (event.type == SDL_KEYDOWN) {
+#if SNESRECOMP_SDL3
+        int scancode = event.key.scancode;
+#else
+        int scancode = event.key.keysym.scancode;
+#endif
+        if (scancode > 0 && (scancode == g_quick_keys[0] || scancode == g_quick_keys[1])) continue;
+      }
       if (event.type == SDL_KEYDOWN && !event.key.repeat) {
         /* Hotkeys are tested before the quick slots, so a binding on an
          * F-key takes that key from the slot behind it. */
@@ -1977,6 +2066,13 @@ int main(int argc, char **argv) {
       }
     }
 
+    uint32_t active_quick = quick_actions(pad);
+    uint32_t pressed_quick = active_quick & ~g_previous_quick_actions;
+    g_previous_quick_actions = active_quick;
+    if (pressed_quick) {
+      perform_state_action(window, (pressed_quick & 1u) != 0,
+                           SNES_SAVESTATE_QUICK_SLOT, &state_feedback_until);
+    }
     update_state_feedback(window, &state_feedback_until);
     {
       int slot = debug_server_consume_loadstate();
@@ -2066,7 +2162,8 @@ int main(int argc, char **argv) {
         logical_width = viewport.width;
         FzeroBeginDrawing(pixels, (size_t)logical_width * kBytesPerPixel);
       }
-      uint32_t input = keyboard_input() | controller_input(pad) |
+      uint32_t input = keyboard_guest_input() |
+                       FzeroGamepadReadShortcuts(pad, g_quick_pads, 2, NULL) |
                        debug_server_get_controller_inputs() | (1u << 30) |
                        debug_server_get_controller_active_mask();
       if (FzeroReplayHasInput() && !g_menu_pad_replay) input = FzeroReplayInput((unsigned)frames);
@@ -2137,6 +2234,7 @@ int main(int argc, char **argv) {
        * on_state_loaded, and the pacing clock has to stop owing the frames
        * the freeze consumed or the first seconds back run as catch-up. */
       g_reset_presentation_clock = true;
+      g_previous_quick_actions = quick_actions(pad);
       continue;
     }
 
@@ -2208,6 +2306,10 @@ int main(int argc, char **argv) {
   if (g_overlay_texture) {
     SDL_DestroyTexture(g_overlay_texture);
     g_overlay_texture = NULL;
+  }
+  if (g_osd_texture) {
+    SDL_DestroyTexture(g_osd_texture);
+    g_osd_texture = NULL;
   }
   if (use_gl_renderer) {
     fzero_gl_destroy(&gl_renderer);

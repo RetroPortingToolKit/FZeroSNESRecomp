@@ -1,4 +1,5 @@
 #include "fzero_gamepad.h"
+#include "recomp_launcher.h"
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -53,6 +54,27 @@ int main(void) {
   CHECK(SDL_SetJoystickVirtualAxis(joy, SDL_GAMEPAD_AXIS_LEFT_TRIGGER, 32767));
   pump(&pad);
   CHECK(FzeroGamepadRead(pad) == (0x0080u | 0x0100u)); /* profile deadzone + L2 */
+  int shortcuts[2] = {
+    RECOMP_LAUNCHER_PAD_BUTTON(SDL_GAMEPAD_BUTTON_WEST),
+    RECOMP_LAUNCHER_PAD_BUTTON_COMBO((1u << SDL_GAMEPAD_BUTTON_WEST) | (1u << SDL_GAMEPAD_BUTTON_NORTH))
+  };
+  uint32_t active;
+  CHECK(SDL_SetJoystickVirtualButton(joy, SDL_GAMEPAD_BUTTON_WEST, true));
+  pump(&pad);
+  CHECK(FzeroGamepadReadShortcuts(pad, shortcuts, 2, &active) == (0x0080u | 0x0100u));
+  CHECK(active == 1u); /* single shortcut consumed, incomplete chord ignored */
+  CHECK(SDL_SetJoystickVirtualButton(joy, SDL_GAMEPAD_BUTTON_NORTH, true));
+  pump(&pad);
+  CHECK(FzeroGamepadReadShortcuts(pad, shortcuts, 2, &active) == (0x0080u | 0x0100u));
+  CHECK(active == 3u); /* complete chord consumed */
+  shortcuts[0] = RECOMP_LAUNCHER_PAD_AXIS(SDL_GAMEPAD_AXIS_LEFT_TRIGGER, 1);
+  shortcuts[1] = RECOMP_LAUNCHER_PAD_AXIS(SDL_GAMEPAD_AXIS_LEFTX, 1);
+  CHECK(FzeroGamepadReadShortcuts(pad, shortcuts, 2, &active) == (1u | (1u << 9)));
+  CHECK(active == 3u); /* trigger and stick shortcut suppress guest equivalents */
+  shortcuts[0] = shortcuts[1] = 0;
+  CHECK(FzeroGamepadReadShortcuts(pad, shortcuts, 2, &active) ==
+        (0x0080u | 0x0100u | 1u | (1u << 9)));
+  CHECK(active == 0); /* explicit unbind remains unbound */
   CHECK(SDL_DetachVirtualJoystick(decoy));
   pump(&pad);
   CHECK(pad && SDL_GetGamepadID(pad) == selected); /* other device removal */

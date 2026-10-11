@@ -20,6 +20,7 @@
 
 #include "audio_trace.h"
 #include "common_rtl.h"
+#include "save_state_slots.h"
 #include "cpu_state.h"
 #include "sha256.h"
 #include "snes_rewind.h"
@@ -662,6 +663,23 @@ int main(int argc, char **argv) {
   }
 
   if (wram_trace && fclose(wram_trace)) return 10;
+  if (getenv("FZERO_TEST_QUICK_SLOT")) {
+    /* Quick load must still find the saved race after the host returns to
+     * a title or selects a different course's battery-record namespace. */
+    char original_root[96], path[256], next_path[256];
+    snprintf(original_root, sizeof(original_root), "%s", RtlSaveRoot());
+    RtlEnsureSaveDir();
+    RtlSaveSlotPath(SNES_SAVESTATE_QUICK_SLOT, path, sizeof(path));
+    if (!RtlSaveSnapshot(path)) return 8;
+    static uint8_t saved_ram[0x20000];
+    memcpy(saved_ram, g_ram, sizeof(saved_ram));
+    RtlSetSaveRoot("quick-root-test-unused");
+    RtlSaveSlotPath(SNES_SAVESTATE_QUICK_SLOT, next_path, sizeof(next_path));
+    if (strcmp(path, next_path) || !RtlLoadSnapshot(next_path) ||
+        memcmp(saved_ram, g_ram, sizeof(saved_ram))) return 8;
+    RtlSetSaveRoot(original_root);
+    fprintf(stderr, "quick-slot: saved/loaded across course namespaces at %s\n", path);
+  }
   /* Private verification artifact: inspect the actual composed cartridge,
    * including the selected Practice rival's relocated art and metadata. */
   const char *cart_dump = getenv("FZERO_CART_DUMP");

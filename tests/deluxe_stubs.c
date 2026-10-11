@@ -14,3 +14,4 @@ void interp_bridge_set_scheduler_aot_policy(int enabled) { (void)enabled; }
 const char *RtlSaveRoot(void) { return "."; }
 void RtlEnsureSaveDir(void) {}
 void RtlSetSaveRoot(const char *root) { (void)root; }
+void RtlSetQuickSaveRoot(const char *root) { (void)root; }

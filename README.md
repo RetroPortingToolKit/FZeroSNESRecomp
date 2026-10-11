@@ -164,14 +164,28 @@ Press **F7**, or hold **Select + R** on a gamepad, to open the save-state
 browser. The game freezes while it is open, so a state you take is that exact
 moment.
 
-- **Up / Down** or the **arrow keys** pick one of 12 slots.
+- **Up / Down** or the **arrow keys** pick one of 12 numbered slots or the **Quick** slot.
 - **A** on a pad, or **X** on the keyboard, loads the selected slot.
 - **X** on a pad, or **S** on the keyboard, saves to it.
 - **B** on a pad, or **Escape**, closes the menu without doing anything.
 - **1**-**9** jump straight to a slot.
+- **Q** jumps to the Quick slot.
 
 Each slot shows a thumbnail of the moment it was saved, so you can tell them
-apart without loading them.
+apart without loading them. The browser stays centered at 4:3, including in
+widescreen windows.
+
+### Quick save and quick load
+
+Open **Controls** in recomp-ui and find **Host Shortcuts**. Assign **Quick Save**
+and **Quick Load** to keyboard keys, controller buttons, or controller button
+combinations. These start unbound so they don't take over a gameplay button.
+
+Quick Save overwrites the dedicated Quick slot. Quick Load restores it. Each
+press performs one action, even if you hold the button. A message confirms the
+result. The Quick slot also appears in the save browser and has a thumbnail;
+it is separate from your 12 numbered saves.
+The Quick slot stays accessible when you return to the title or change courses.
 
 ### Rewind
 
@@ -204,10 +218,11 @@ F-Zero's keyboard shoulder defaults are **D = L** and **C = R**. These and
 the rewind binding apply only to F-Zero; saved custom bindings remain respected.
 **Ctrl+R** still resets the game.
 
-The quick-slot keys - **F1**-**F12** to load a slot, **Shift + F1**-**F12**
+The numbered-slot keys - **F1**-**F12** to load a slot, **Shift + F1**-**F12**
 to save one - still work. **F7** is reserved for the save-state browser by
 default; its slot is available through that browser. **F8** is now a normal
-quick-slot key. Rebinding the browser elsewhere frees F7 as well.
+numbered-slot key. Rebinding the browser elsewhere frees F7 as well. A key
+assigned to Quick Save or Quick Load takes priority over its old action.
 
 ### Where states are kept
 

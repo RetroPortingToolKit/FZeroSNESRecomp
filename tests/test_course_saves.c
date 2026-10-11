@@ -26,11 +26,15 @@ static uint8 sram[0x8000];
 uint8 *g_sram = sram;
 int g_sram_size = 0x800;
 static char root[96] = "test-course-records";
+static char quick_root[96];
 const char *RtlSaveRoot(void) {
   return root;
 }
 void RtlSetSaveRoot(const char *s) {
   snprintf(root, sizeof(root), "%s", s);
+}
+void RtlSetQuickSaveRoot(const char *s) {
+  snprintf(quick_root, sizeof(quick_root), "%s", s);
 }
 void RtlEnsureSaveDir(void) {
   MKDIR(root);
@@ -66,6 +70,7 @@ int main(void) {
   uint8_t a[32] = {1}, b[32] = {2}, original[0x800], mirror[0x200];
   MKDIR(root);
   FzeroTracksSavesInit();
+  CHECK(!strcmp(quick_root, "test-course-records"));
   memset(sram, 0x42, sizeof(sram));
   memset(g_ram + 0x14800, 0x73, 0x200);
   memcpy(original, sram, sizeof(original));
@@ -81,6 +86,7 @@ int main(void) {
   sram[5] = 0x82;
   g_ram[0x14805] = 0x82;
   CHECK(FzeroTracksRecordsSelect(a) && sram[5] == 0x81 && g_ram[0x14805] == 0x81);
+  CHECK(!strcmp(quick_root, "test-course-records"));
   FzeroTracksSavesFinish();
   CHECK(!memcmp(original, sram, sizeof(original)) &&
         !memcmp(mirror, g_ram + 0x14800, sizeof(mirror)));

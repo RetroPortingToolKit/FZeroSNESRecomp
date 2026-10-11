@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## 0.9.0 - Quick saves and Practice results
+
+- Add a dedicated Quick save slot with a thumbnail. Bind Quick Save and
+  Quick Load to keyboard keys, controller buttons or controller combinations
+  in Controls. The Quick slot stays accessible when switching courses.
+- Keep the save-state browser centered at 4:3 in widescreen windows.
+- Show the actual custom vehicle beside BEST 5 and BEST LAP times after
+  Practice, including Dragon Bird and the other CGP car packs.
+- Include the legacy course import fixes described in 0.8.4 below.
+
 ## 0.8.4 - Legacy Fuzee course imports
 
 - Import supported Fuzee layouts used by Nebula Highway, Alternate Strike

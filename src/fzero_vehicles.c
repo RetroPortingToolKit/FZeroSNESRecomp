@@ -680,6 +680,10 @@ static unsigned pane_obj_base, pane_map_base;
 static const unsigned pane_sprite_x[] = {0, 16, 32, 0, 16, 32, 48, 48};
 static const unsigned pane_sprite_y[] = {0, 0, 0, 16, 16, 16, 0, 16};
 static bool pane_active;
+static bool practice_results_active;
+static unsigned practice_results_base, practice_results_sprites[6], practice_results_count;
+static uint16_t practice_results_tiles[2][128], practice_results_palette[16];
+static uint16_t practice_results_attrs[6];
 static int pane_offset(const uint8_t *ram) {
   int column = (ram[0x14c84] & 4) / 4;
   int remaining = abs(column * 48 - (int)read16(ram + 0x14c86));
@@ -694,6 +698,45 @@ static unsigned pane_id(const uint8_t *ram, int relative, unsigned row) {
   return index < count ? roster[index] : 99;
 }
 void FzeroVehiclesBeginFrame(Ppu *ppu, const uint8_t *ram) {
+  /* Practice's native BEST 5/BEST LAP screen loads retail car icons from its
+   * own OBJ stream. Records already belong to the selected stable identity;
+   * replace only those icon tiles and their palette during presentation.
+   * Keep the guest's times, text, sprite positions and transparent backdrop. */
+  unsigned id = FzeroVehicleSelected();
+  practice_results_active = count > 4 && id >= 4 && ram[0x58] &&
+      ram[0x54] == 3 && ram[0x55] == 3 && ram[0x56] >= 4 && ram[0x56] <= 6;
+  practice_results_count = 0;
+  if (practice_results_active) {
+    for (unsigned i = 0; i < 128 && practice_results_count < 6; ++i) {
+      unsigned position = ppu->oam[i * 2], attr = ppu->oam[i * 2 + 1];
+      unsigned high = ppu->highOam[i / 4] >> ((i % 4) * 2) & 3;
+      /* Native 16x16 car reservations use bank 1, even tiles 0..6 and
+       * the corresponding retail car palette (0..3). Empty ranked rows
+       * have their sprites hidden offscreen. */
+      if (high != 2 || (position >> 8) >= 224 ||
+          (attr & 0x1ff) < 0x100 || (attr & 0x1ff) > 0x106 ||
+          (attr & 1) || (attr & 0xe00) != (((attr & 7) / 2) << 9)) continue;
+      unsigned n = practice_results_count++;
+      practice_results_sprites[n] = i;
+      practice_results_attrs[n] = (uint16_t)attr;
+    }
+    practice_results_active = practice_results_count != 0;
+    if (practice_results_active) {
+      practice_results_base = (((ppu->obsel & 7) << 13) +
+          (((ppu->obsel & 0x18) + 8) << 9)) & 0x7fff;
+      for (unsigned row = 0; row < 2; ++row)
+        memcpy(practice_results_tiles[row],
+               ppu->vram + practice_results_base + row * 256, sizeof(practice_results_tiles[row]));
+      memcpy(practice_results_palette, ppu->cgram + 240, sizeof(practice_results_palette));
+      const uint8_t *source = art[group_for(id) - 1] +
+          0x40000 + vehicles[id].slot * 0x8000 + 0x6aa0;
+      for (unsigned slot = 0; slot < 4; ++slot)
+        for (unsigned tile = 0; tile < 4; ++tile)
+          for (unsigned word = 0; word < 16; ++word)
+            ppu->vram[practice_results_base + slot * 32 + tile / 2 * 256 +
+                      tile % 2 * 16 + word] = (uint16_t)read16(source + tile * 32 + word * 2);
+    }
+  }
   pane_active = count > 4 && ram[MENU_STATE] == 1 &&
                 ram[0x54] == 1 && (ram[0x55] == 1 || ram[0x55] == 7) &&
                 ram[0x56] <= (ram[0x58] ? 1 : 2);
@@ -775,6 +818,15 @@ void FzeroVehiclesBeginFrame(Ppu *ppu, const uint8_t *ram) {
         (uint16_t)(0x920 + column * 8 + row * 2 + y);
 }
 void FzeroVehiclesRaster(Ppu *ppu, const uint8_t *ram, unsigned line) {
+  if (practice_results_active) {
+    unsigned id = FzeroVehicleSelected();
+    const uint8_t *palette = art[group_for(id) - 1] + 0x7cd80 + vehicles[id].slot * 32;
+    for (unsigned i = 0; i < 16; ++i) ppu->cgram[240 + i] = (uint16_t)read16(palette + i * 2);
+    for (unsigned n = 0; n < practice_results_count; ++n) {
+      unsigned sprite = practice_results_sprites[n];
+      ppu->oam[sprite * 2 + 1] = (uint16_t)((ppu->oam[sprite * 2 + 1] & ~0xe00) | 0xe00);
+    }
+  }
   if (!pane_active) return;
   int offset = pane_offset(ram);
   ppu->hScroll[1] = (uint16_t)-offset;
@@ -804,6 +856,15 @@ void FzeroVehiclesRaster(Ppu *ppu, const uint8_t *ram, unsigned line) {
   }
 }
 void FzeroVehiclesEndFrame(Ppu *ppu) {
+  if (practice_results_active) {
+    for (unsigned row = 0; row < 2; ++row)
+      memcpy(ppu->vram + practice_results_base + row * 256,
+             practice_results_tiles[row], sizeof(practice_results_tiles[row]));
+    memcpy(ppu->cgram + 240, practice_results_palette, sizeof(practice_results_palette));
+    for (unsigned n = 0; n < practice_results_count; ++n)
+      ppu->oam[practice_results_sprites[n] * 2 + 1] = practice_results_attrs[n];
+    practice_results_active = false;
+  }
   if (!pane_active) return;
   memcpy(ppu->vram + pane_map_base, pane_map_backup, sizeof(pane_map_backup));
   memcpy(ppu->vram + PANE_TILES, pane_tiles_backup, sizeof(pane_tiles_backup));

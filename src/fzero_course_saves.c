@@ -49,6 +49,9 @@ static bool set_root(const uint8_t *key) {
 void FzeroTracksSavesInit(void) {
   memset(&state, 0, sizeof(state));
   snprintf(base_root, sizeof(base_root), "%s", RtlSaveRoot());
+  /* The quick slot must remain reachable after returning to the title or
+   * changing courses. Course/vehicle battery records still switch roots. */
+  RtlSetQuickSaveRoot(base_root);
 }
 void FzeroTracksFlush(void) {
   if (!state.external || state.read_only)

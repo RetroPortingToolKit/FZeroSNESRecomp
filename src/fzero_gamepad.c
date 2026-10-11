@@ -1,5 +1,6 @@
 #include "fzero_gamepad.h"
 #include "fzero_hotkeys.h"
+#include "recomp_launcher.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -130,18 +131,52 @@ void FzeroGamepadEvent(SDL_GameController **pad, const SDL_Event *event) {
 }
 
 uint32_t FzeroGamepadRead(SDL_GameController *pad) {
+  return FzeroGamepadReadShortcuts(pad, NULL, 0, NULL);
+}
+
+uint32_t FzeroGamepadReadShortcuts(SDL_GameController *pad, const int *bindings,
+                                  unsigned count, uint32_t *active) {
+  if (active) *active = 0;
   if (!pad || !SDL_GameControllerGetAttached(pad)) return 0;
+  uint32_t raw = 0, consumed = 0, axes_consumed = 0;
+  int axes[SDL_CONTROLLER_AXIS_MAX];
+  for (int i = 0; i < SDL_CONTROLLER_BUTTON_MAX && i < 32; ++i)
+    if (SDL_GameControllerGetButton(pad, (SDL_GameControllerButton)i)) raw |= 1u << i;
+  for (int i = 0; i < SDL_CONTROLLER_AXIS_MAX; ++i)
+    axes[i] = SDL_GameControllerGetAxis(pad, (SDL_GameControllerAxis)i);
+  for (unsigned i = 0; bindings && i < count && i < 32; ++i) {
+    int value = bindings[i], axis = -1;
+    uint32_t mask = 0;
+    if (RECOMP_LAUNCHER_PAD_IS_BUTTON(value)) {
+      int code = RECOMP_LAUNCHER_PAD_BUTTON_CODE(value);
+      if (code < SDL_CONTROLLER_BUTTON_MAX && code < 32) mask = 1u << code;
+    } else if (RECOMP_LAUNCHER_PAD_IS_BUTTON_COMBO(value)) {
+      mask = (uint32_t)RECOMP_LAUNCHER_PAD_BUTTON_COMBO_MASK(value);
+    } else if (RECOMP_LAUNCHER_PAD_IS_AXIS(value)) {
+      int code = RECOMP_LAUNCHER_PAD_AXIS_CODE(value);
+      if (code < SDL_CONTROLLER_AXIS_MAX &&
+          (RECOMP_LAUNCHER_PAD_AXIS_POSITIVE(value) ? axes[code] > s_deadzone : axes[code] < -s_deadzone))
+        axis = code;
+    }
+    if ((mask && (raw & mask) == mask) || axis >= 0) {
+      if (active) *active |= 1u << i;
+      consumed |= mask;
+      if (axis >= 0) axes_consumed |= 1u << axis;
+    }
+  }
+  raw &= ~consumed;
+  for (int i = 0; i < SDL_CONTROLLER_AXIS_MAX; ++i)
+    if (axes_consumed & (1u << i)) axes[i] = 0;
   uint32_t buttons = 0, input = 0;
-  for (int i = 0; i < 15; ++i)
-    if (SDL_GameControllerGetButton(pad, (SDL_GameControllerButton)i)) buttons |= 1u << i;
-  if (SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERLEFT) > s_deadzone)
+  buttons = raw & 0x7fffu;
+  if (axes[SDL_CONTROLLER_AXIS_TRIGGERLEFT] > s_deadzone)
     buttons |= 1u << 15;
-  if (SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_TRIGGERRIGHT) > s_deadzone)
+  if (axes[SDL_CONTROLLER_AXIS_TRIGGERRIGHT] > s_deadzone)
     buttons |= 1u << 16;
   for (int i = 0; i < 12; ++i)
     if (s_bind[i] && (buttons & s_bind[i]) == s_bind[i]) input |= 1u << s_input_bits[i];
-  int x = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTX);
-  int y = SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_LEFTY);
+  int x = axes[SDL_CONTROLLER_AXIS_LEFTX];
+  int y = axes[SDL_CONTROLLER_AXIS_LEFTY];
   if (x < -s_deadzone) input |= 0x0040u;
   if (x > s_deadzone) input |= 0x0080u;
   if (y < -s_deadzone) input |= 0x0010u;
