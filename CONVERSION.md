@@ -124,13 +124,10 @@ Extend the supported resource decoder, or add a validated exact revision to
 the reviewed registry and exporter profile for unattended conversion.
 Arbitrary donor code is never run.
 
-Nebula Highway v0.1.1 is an example of an older stock-format hack. It retains
-the original GP course selector and SPC theme selector, with relocated course
-resources. It does not use the FZEdit table format supported by the current
-decoder. Changing cup labels in the review form cannot fix that difference.
-A future legacy decoder must recover its map blocks, checkpoint paths and
-venue resources before exporting and round-trip checking editable projects.
-Until then, it is rejected without installing partial courses.
+Supported Fuzee layouts can also be imported, including Nebula Highway v0.1.1,
+Alternate Strike V2.4 and Parallel Dimension 1.3. Select their IPS or ZIP through
+the same Import button, then confirm the pack name and cup assignments. These
+remain optional downloads; they are not included in the default course list.
 
 Vintage Velocity I v2.1 is a different case: its included README explicitly
 targets F-Zero: Maximum Velocity on Game Boy Advance. Its IPS files must not
@@ -160,13 +157,23 @@ Fuzee is a different, older editor. Its projects use `regionN.txt` and
 `globalsetting.txt`, rather than F-Zero Edit's FZM and companion files.
 Keep that complete project and the author's credits if you have them.
 
-Nebula Highway uses a Fuzee-compatible ROM layout. We have located the original
-editor source and decoded its roads and checkpoints, but complete playable
-conversion is still pending. These files cannot yet be imported just by naming
-the courses. The importer identifies this format and explains the limitation.
+For a supported Fuzee-based hack, import its patch or ROM. The importer converts
+all fifteen GP courses to editable F-Zero Edit ZIPs. The seven original Practice
+entries are aliases of those courses, so they share their records. Native song
+choices come from the actual patched music selector, including relocated tables.
+The native road rules retain repair strips, barriers, jumps and boost plates.
+
+Conversion also preserves tile art, palettes, skies, minimaps, intro lettering,
+checkpoint/AI data and explosive-opponent frequencies. Native palette cycling
+is represented as course data. Cup labels remain editable suggestions. Donor
+vehicles, menus and global code changes are excluded. Unrecognized resource
+consumers, separate Practice routes and active hard-coded shortcut penalties
+are rejected rather than silently omitted. Raw `regionN.txt` projects are not
+yet a direct import format; use the author's patch or ROM for this adapter.
+
 Maintainers can use the inspection tool and source references in
-[FUZEE_FORMAT.md](docs/FUZEE_FORMAT.md). Its audit output belongs in `captures`,
-not `mods/packs`.
+[FUZEE_FORMAT.md](docs/FUZEE_FORMAT.md). Its raw audit output belongs in
+`captures`, not `mods/packs`. The final converted folder is the installable pack.
 
 ## F-Zero Edit
 

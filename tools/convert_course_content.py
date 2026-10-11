@@ -25,6 +25,8 @@ from audit_intro_font import atlas
 from course_tool_paths import ROOT, native_tool
 from export_runtime_packs import export_pack
 from fuzee_course_format import decode as decode_fuzee, recognized as recognized_fuzee
+from native_course_format import native_terrain_properties, decode_native_horizon
+from fuzee_course_import import probe_metadata as probe_fuzee_metadata, infer_layout as infer_fuzee_layout
 from import_astra_front import SOURCE_SHA256 as ASTRA_SOURCE_SHA256
 from inspect_bs_deluxe import STOCK_SHA256
 from parse_track_pack import donor, fields, recognize
@@ -65,35 +67,6 @@ REVIEW = """The course resources could not be decoded and validated. No pack was
 
 See CONVERSION.md and mods/PARSE_MANIFEST.md. Keep patched ROMs private.
 """
-
-
-def native_terrain_properties(target, stock):
-    """Translate the verified USA tile classifier to FZEdit properties.
-
-    Skipping the separate mine-location bitmap does not disable terrain. Older
-    projects still use $00:8E36 and $03:9187 to classify each sampled tile.
-    Require the donor's classifiers, landing and recovery checks to be stock;
-    custom classifiers need their own decoder rather than a guessed mapping.
-    """
-    for address, size in ((0x008e36, 0x98), (0x039187, 0x84),
-                          (0x009c9a, 0x27), (0x00eb90, 0x1d)):
-        if span(target, address, size) != span(stock, address, size):
-            raise ValueError('Unsupported native terrain classifier')
-    terrain = bytearray(0x400)
-    for tile in range(256):
-        # Native ground-height classes; the low flag bits also mark barriers.
-        terrain[0x300+tile] = (16 if tile < 0x69 else 32 if tile < 0x82 or tile == 0xa5
-                              else 128 if tile >= 0xd0 else 0)
-        terrain[tile] = (128 if tile in (0x69, 0xc0) else 64 if tile in (0xa5, 0xc1) else 0)
-        terrain[0x100+tile] = (128 if 0xa7 <= tile < 0xb0 or 0xcc <= tile < 0xd0
-                              else 64 if 0xba <= tile < 0xc0
-                              else 32 if 0xc8 <= tile < 0xcc
-                              else 16 if 0xc3 <= tile < 0xc8
-                              else 8 if tile == 0xa6
-                              else 4 if tile in (0x9e, 0xa1, 0xa2) else 0)
-        terrain[0x200+tile] = (128 if 0xb0 <= tile < 0xb9 else 16 if tile == 0xb9
-                              else 64 if tile == 0xa0 else 32 if tile == 0x9c else 0)
-    return bytes(terrain)
 
 
 def digest(data):
@@ -454,31 +427,6 @@ def find_consumer(target, prefix, middle, tail=None, delta=0):
     return matches[0]
 
 
-def decode_native_horizon(target, address, expected):
-    """Bounded tile RLE used by the unchanged $03:9806 native decoder."""
-    output=bytearray()
-    for _ in range(expected//2+1):
-        control=span(target,address,1)[0]
-        if control==0xfc:
-            if len(output)!=expected:
-                raise ValueError('Native horizon has an unexpected decoded size')
-            return bytes(output)
-        kind=control&3
-        if kind==3:
-            value=b'\x80\x1d';count=(control>>2)+1;address+=1
-        else:
-            low=span(target,address+1,1)[0]
-            value=bytes([low,(control|0x18) if kind==0 else (control&0xc4)|0x18])
-            count=1 if kind==0 else ((control>>3)&7)+1
-            address+=2
-            if kind==2:
-                count=span(target,address,1)[0]+1;address+=1
-        if len(output)+count*2>expected:
-            raise ValueError('Native horizon exceeds its tilemap bounds')
-        output+=value*count
-    raise ValueError('Unterminated native horizon stream')
-
-
 def probe_older_fzedit(target):
     """Older FZEdit loaders retain venue SPC selection and relocate routines."""
     order, consumer, _ = find_consumer(target,'8a c2 30 29 ff 00 8d 5b 10 bb bf',
@@ -586,8 +534,8 @@ def probe_fzedit_metadata(target):
         classic = bytes.fromhex('08 e2 30 a9 0f a6 58 d0 06 a5 90 0a 0a 65 90 '
                                 '18 65 53 aa bf 29 e1 02 8d de 0a 29 0f 8d f5 0c a8')
         if (span(target, 0x009f08, len(classic)) == classic
-                and span(target, 0x00f7e0, 17) == bytes.fromhex(
-                    '08 e2 30 ae d8 0a bf 71 9e 03 0a 0a 0a 7f 71 9e 03')):
+                and (recognized_fuzee(target) or span(target, 0x00f7e0, 17) == bytes.fromhex(
+                    '08 e2 30 ae d8 0a bf 71 9e 03 0a 0a 0a 7f 71 9e 03'))):
             if recognized_fuzee(target):
                 result.update(status='recognized-incomplete-resource-layout', loader_family='fuzee-0.04',
                     unsupported_reason='This hack uses the Fuzee course format. Its road and checkpoint '
@@ -599,6 +547,9 @@ def probe_fzedit_metadata(target):
                         unique_road_variants=len(maps),
                         checkpoint_sections=sum(len(course['checkpoints']) for course in audit['courses']),
                         decoded_fields=audit['decoded_fields'], remaining_fields=audit['remaining_fields'])
+                    metadata = probe_fuzee_metadata(target)
+                    result.update(metadata)
+                    result.pop('unsupported_reason', None)
                 except ValueError as error:
                     result['structural_error'] = str(error)
                 return result
@@ -695,6 +646,8 @@ def infer_fzedit_layout(target, stock, probe):
     """Recognize bounded data consumers; no donor instructions are executed."""
     if probe.get('status') != 'recognized-resource-metadata':
         raise ValueError('The course order/resource count could not be identified safely')
+    if probe.get('loader_family') == 'fuzee-0.04':
+        return infer_fuzee_layout(target, stock, probe)
     count = probe['internal_resource_count']
     layout = dict(format=['fzero-course-1'], count=[str(count)],
                   names=[probe['name_table']], music=[probe['music_table']])
@@ -1013,9 +966,9 @@ def convert_inferred(source, out, target, stock, report, probe, exporter, inspec
         write_fields(base.with_suffix('.ini'),data); write_fields(base.with_suffix('.layout'),layout)
         credits=(f'{values["pack_name"]}\nCourse author: {values["author"]}\n'
                  f'Imported from {report["input_name"]}. Preserve the original author files and credits.\n'
-                 'Editable reconstruction from inferred FZEdit resource data; not original author project.\n').encode('utf-8')
+            f'Editable reconstruction from {probe.get("loader_family", "FZEdit")} resource data; not original author project.\n').encode('utf-8')
         extraction=export_pack(stock,normalized,base,pack,exporter,native_resources=baseline,
-                               credit_bytes=credits, source_label='recognized FZEdit extraction; user-confirmed course pack')
+            credit_bytes=credits, source_label=f'recognized {probe.get("loader_family", "FZEdit")} extraction; user-confirmed course pack')
         report['validation']=inspect_roundtrip(inspector,temp,pack,baseline,extraction)
         report['validation']['byte_exact_to_extracted_courses']=report['validation'].pop('byte_exact_to_donor_courses')
         report['validation']['basis']='Typed donor resources plus the explicit opponent policy in inference'

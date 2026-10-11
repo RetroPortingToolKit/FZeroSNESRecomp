@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## 0.8.4 - Legacy Fuzee course imports
+
+- Import supported Fuzee layouts used by Nebula Highway, Alternate Strike
+  and Parallel Dimension into editable course ZIPs. Preserve source order,
+  course names, native music, terrain, art, skies, minimaps and checkpoint/AI data.
+- Recognize relocated native music tables from their actual instruction
+  operands. Keep donor vehicles and global code excluded from course imports.
+- Validate real driving across repair strips, walls, jump/boost pads and
+  controller fuzz, alongside saved-record checks.
+
 ## 0.8.3 - Native terrain preservation
 
 - Preserve Maximum Velocity's original repair strips, jump pads, dash plates

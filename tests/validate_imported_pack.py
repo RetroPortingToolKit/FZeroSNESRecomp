@@ -42,15 +42,30 @@ def main():
     (out/'packs').mkdir()
     shutil.copytree(a.packs_root/a.pack,out/'mods/packs'/a.pack)
     registry = ROOT/'assets/track-packs'
-    manifest, layout = fields(registry/f'{a.pack}.ini'), fields(registry/f'{a.pack}.layout')
     original = stock.read_bytes()
-    packed = donor(original, (registry/f'{a.pack}.ips').read_bytes())
-    report = audit_metadata(packed, layout, manifest)
-    if a.source:
-        source_report = audit_metadata(a.source.read_bytes(), layout, manifest)
-        assert source_report['tracks'] == report['tracks'], 'Source/packed metadata differs'
-    tracks = report['tracks']
-    cups = [c.split('|')[0] for c in manifest['cup']]
+    if (registry/f'{a.pack}.ini').is_file():
+        manifest, layout = fields(registry/f'{a.pack}.ini'), fields(registry/f'{a.pack}.layout')
+        packed = donor(original, (registry/f'{a.pack}.ips').read_bytes())
+        report = audit_metadata(packed, layout, manifest)
+        if a.source:
+            source_report = audit_metadata(a.source.read_bytes(), layout, manifest)
+            assert source_report['tracks'] == report['tracks'], 'Source/packed metadata differs'
+        tracks = report['tracks']
+        cups = [c.split('|')[0] for c in manifest['cup']]
+    else:
+        # Qualify an actual interactive import without adding it to defaults.
+        from audit_track_metadata import SONGS
+        content = json.loads((a.packs_root/a.pack/'courses.json').read_text(encoding='utf-8'))
+        by_id = {c['id']: c for c in content['courses']}
+        cups = [c['id'] for c in content['cups']]
+        tracks = [dict(id=identity, name=by_id[identity]['name'], cup=cup['id'],
+                       snes_music=SONGS[by_id[identity]['music']['spc']])
+                  for cup in content['cups'] for identity in cup['courses']]
+        if a.source:
+            from convert_course_content import probe_fzedit_metadata
+            decoded = probe_fzedit_metadata(a.source.read_bytes())['tracks']
+            assert [(t['name'], t['snes_music']) for t in tracks] == \
+                   [(t['name'], t['stock_spc_theme']) for t in decoded], 'Source/imported metadata differs'
     if a.cup: cups=[c for c in cups if c==a.cup]
     assert cups, 'No matching cups'
     clean = {k:v for k,v in os.environ.items() if not k.startswith(('FZERO_', 'SNESRECOMP_', 'SDL_', 'LNG_'))}
@@ -104,7 +119,7 @@ def main():
                                     FZERO_STATE_SAVE=state, FZERO_TEST_SAVE_FRAME='6300')
                 assert ram[0x54:0x57] == b'\0\3\0' and log.count('records-fixture: finish crossing') == 5, label
                 vehicle = 'BLUE FALCON' if expanded else 'SHARED RECORDS'
-                match = re.findall(rf'\[records-browser\] page=(\d+) vehicle={vehicle} mode=gp selected=(\d+)', log)[-1]
+                match = re.findall(rf'\[records-browser\] page=(\d+) vehicle={vehicle} selected=(\d+)', log)[-1]
                 selected = int(match[1]); column = selected//5
                 offset = (5, 0xac, 0x153)[column]-5
                 assert totals(sram[offset:]) == [BEST]*5, (label, 'completed times missing')

@@ -82,13 +82,35 @@ All dictionary indices, replacement coordinates, pointers, counts and
 terminators are bounded. Malformed data is rejected; it is never wrapped with
 the editor's modulo-ROM access macros.
 
-## Remaining work before importing
+## Playable course conversion
 
-Roads and checkpoints are only part of a course. Full conversion still needs
-tile art, palettes, skies, minimaps, terrain, opponents and shortcuts, plus
-verified names, cup labels and music assignments. Other ASM must be reviewed
-separately. Rebuild into native course resources, round-trip through editable
-FZEdit ZIPs, then validate racing and records before enabling this import path.
+`tools/fuzee_course_import.py` adapts verified Fuzee dictionaries and native
+resource consumers to the typed exporter. Custom Content uses it automatically
+for supported patches and ROMs, including Nebula Highway v0.1.1, Alternate
+Strike V2.4 and Parallel Dimension 1.3. The original audit command above remains
+an inspection tool, not a pack installer.
+
+The adapter reconstructs tile art, palette cycles, compressed horizons,
+minimaps, native terrain, checkpoint/AI arrays and opponent frequencies. Used
+chip definitions are reindexed without changing their pixel quads; animated
+mine pointers and row sharing are preserved. Native name suffixes and SPC
+selection are decoded from verified consumers. Both music-table operands must
+agree, so a relocated table remains supported without a hack-name whitelist.
+
+The fifteen GP courses are retained in order. Seven Practice entries must
+match GP maps and routes; separate Practice-only data needs another adapter.
+User-confirmed cup labels are not presented as decoded author menu labels.
+Changed classifiers, unknown presentation consumers and active hard-coded
+shortcut penalties fail before publishing a pack. Donor vehicles, menus and
+global executable changes are excluded.
+
+Each course passes native extraction, editable ZIP reconstruction and byte-exact
+round-trip checks. Private validation on these three patches includes driving
+courses from each cup through repairs and barriers, present jump/boost surfaces,
+and input fuzz. Nebula's first course was compared against the patched donor
+running in Snes9x: all 131,072 map chips matched. These are spot checks, not
+certification of every complete race. Raw Fuzee text projects remain unsupported
+as direct inputs.
 
 Reconstructing a ROM cannot recover the author's editing history or original
 working layers. Even the initial checkpoint's editor-only parameters are not
