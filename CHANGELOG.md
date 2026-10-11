@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 0.9.1 - Title demo vehicle fix
+
+- Keep the recorded Blue Thunder title demo independent of a previously
+  selected CGP vehicle's artwork, HUD, rivals and handling.
+- Preserve Blue Thunder's native steering and complete replay, with normal
+  custom vehicle selection working again when starting a race.
+
 ## 0.9.0 - Quick saves and Practice results
 
 - Add a dedicated Quick save slot with a thumbnail. Bind Quick Save and

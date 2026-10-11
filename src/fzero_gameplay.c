@@ -370,7 +370,9 @@ static void rule_hook(CpuState *cpu, uint32_t pc) {
     unsigned value;
     if (magnet)
       value = 0x38;
-    else if (FzeroVehiclesActive())
+    /* BS slots, including the title replay's Blue Thunder, retain native
+     * turning data rather than the selected four-slot CGP cohort. */
+    else if (FzeroVehiclesActive() && car < 4)
       value = FzeroVehicleTurn(speed);
     else if (FzeroRuleEnabled(FZERO_RULE_TUNING) && car < 4)
       value = turn[car][speed < 30 ? speed : 29];

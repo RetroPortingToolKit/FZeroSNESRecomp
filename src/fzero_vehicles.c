@@ -468,14 +468,19 @@ void FzeroVehiclesSync(void) {
   if (!count || !g_snes || !g_snes->cart || g_snes->cart->romSize != IMAGE_SIZE)
     return;
   unsigned id = FzeroVehicleSelected();
-  unsigned group = g_ram[0x58] ? group_for(id) : gp_group_for(id);
+  /* The native recorded title demo uses Blue Thunder's BS slot and its own
+   * replay. A previously selected CGP car must not lend its cohort's shared
+   * HUD, palettes or mechanics to that replay. Leave the stored selection
+   * untouched; switch only the active presentation/handling image. */
+  bool demo = g_ram[0x5b] != 0;
+  unsigned group = demo ? 0 : g_ram[0x58] ? group_for(id) : gp_group_for(id);
   /* No Rival clears the native rival workspace on race entry. Preserve its
    * sentinel instead of interpreting that cleared byte as Blue Falcon. */
   if (g_ram[0x58] && g_ram[0x54] >= 2 && g_ram[0xcf2] >= 0xfe) {
     g_ram[RIVAL_ID] = g_ram[0xcf2];
     g_ram[RIVAL_VERSION] = 1;
   }
-  unsigned rival = g_ram[0x58] ? g_ram[RIVAL_ID] : 99;
+  unsigned rival = !demo && g_ram[0x58] ? g_ram[RIVAL_ID] : 99;
   if (rival >= 12 || !enabled(rival)) rival = 99;
   if (g_ram[0x54] < 2)
     g_ram[RIVAL_SLOT] = (uint8_t)((vehicles[id].slot + 1) % 4);
