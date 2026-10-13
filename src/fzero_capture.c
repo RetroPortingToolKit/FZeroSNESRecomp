@@ -9,6 +9,7 @@
 #include "snes/saveload.h"
 #include <errno.h>
 #include <inttypes.h>
+#include <stdatomic.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -24,7 +25,12 @@
  * changes. Input is flushed BEFORE execution so a mid-frame crash retains
  * its triggering input. Disk work and snapshots stay outside fault handlers. */
 static FILE *inputs, *segments, *replay;
-static char root[1400], report[4096] = "\"fzero_replay\":{\"enabled\":false},\n";
+static char root[1400];
+/* A fault may originate on an audio/render worker while the main thread
+ * updates its summary. Publish complete versions without a fault-path lock.
+ * Atomic bytes keep even an overlapping two-buffer wrap free of data races. */
+static _Atomic unsigned char reports[2][4096];
+static atomic_uint_fast64_t report_sequence;
 static uint64_t frame, completed, generation, segment_start;
 static unsigned segment;
 static bool recording, pending;
@@ -62,6 +68,7 @@ static void update_report(const char *status) {
     else path[n++]=*s;
   }
   path[n]=0;
+  char report[4096];
   snprintf(report,sizeof(report),"\"fzero_replay\":{\"enabled\":true,\"status\":\"%s\","
            "\"directory\":\"%s\",\"segment\":%u,\"next_frame\":%" PRIu64 ","
            "\"completed_frames\":%" PRIu64 ",\"pending_input\":%s,\"last_input\":%u,"
@@ -69,6 +76,11 @@ static void update_report(const char *status) {
            "\"scene\":[%u,%u,%u],\"vehicle_slot\":%u}},\n",
            status,path,segment,frame,completed,pending?"true":"false",last_input,
            FzeroResumePc(),g_cpu.master_cycles,g_ram[0x54],g_ram[0x55],g_ram[0x56],g_ram[0x52]);
+  uint_fast64_t next=atomic_load_explicit(&report_sequence,memory_order_relaxed)+1;
+  size_t length=strlen(report);
+  for (size_t i=0;i<=length;++i)
+    atomic_store_explicit(&reports[next&1][i],(unsigned char)report[i],memory_order_relaxed);
+  atomic_store_explicit(&report_sequence,next,memory_order_release);
 }
 static void disable(void) {
   if (inputs) fclose(inputs);
@@ -185,7 +197,21 @@ void FzeroCaptureStop(void) {
   if(segments) fclose(segments);
   inputs=segments=NULL; recording=false;
 }
-void FzeroCaptureReport(FILE *f) { fputs(report,f); }
+void FzeroCaptureReport(FILE *f) {
+  char report[4096];
+  for (unsigned attempt=0;attempt<3;++attempt) {
+    uint_fast64_t seq=atomic_load_explicit(&report_sequence,memory_order_acquire);
+    if (!seq) { fputs("\"fzero_replay\":{\"enabled\":false},\n",f); return; }
+    for (size_t i=0;i<sizeof(report);++i) {
+      report[i]=(char)atomic_load_explicit(&reports[seq&1][i],memory_order_relaxed);
+      if (!report[i]) break;
+    }
+    report[sizeof(report)-1]=0;
+    if (seq==atomic_load_explicit(&report_sequence,memory_order_acquire)) { fputs(report,f); return; }
+  }
+  /* Never spin or emit torn JSON if the simulation still advances rapidly. */
+  fputs("\"fzero_replay\":{\"enabled\":true,\"status\":\"summary_busy\"},\n",f);
+}
 const char *FzeroCaptureDirectory(void) { return root; }
 void FzeroCaptureHost(const FzeroDiagnosticSession *s, int width, int height, int aspect) {
   if (!recording) return;
