@@ -21,6 +21,8 @@ bool FzeroTracksMenuVisible(void);
 bool FzeroTracksClassSelected(void);
 void FzeroTracksSavesInit(void);
 void FzeroTracksSavesFinish(void);
+const char *FzeroTracksSaveBaseRoot(void);
+const char *FzeroTracksSaveNamespace(void);
 bool FzeroTracksRecordsSelect(const uint8_t *key);
 size_t FzeroTracksSaveStateSize(void);
 struct SaveLoadInfo;

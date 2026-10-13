@@ -36,7 +36,7 @@ def main():
         video = state / 'fzero-video.ini'
         video.write_text('[FZeroVideo]\nEnhancedRenderer=1\nAspect=16:9\n'
                          'HDMode7=1\nHDMode7Scale=4\nBSDeluxe=0\n'
-                         'PresentationEnabled=1\nPresentationFPS=60\n' +
+                         'PresentationEnabled=1\nPresentationFPS=60\nCrashReplay=0\n' +
                          ('' if enabled is None else f'Diagnostics={enabled}\n'))
         (state / 'config.ini').write_text('[Rewind]\nEnabled=0\n')
         diagnostics = state / 'diagnostics'

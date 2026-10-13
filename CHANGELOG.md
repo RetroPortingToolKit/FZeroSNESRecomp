@@ -1,5 +1,16 @@
 ﻿# Changelog
 
+## 0.10.0 - Crash capture and replay
+
+- Keep recent inputs and game checkpoints automatically, including existing
+  installations. Crash diagnostics and replay defaults on in Mods for testing.
+- Write shared engine crash reports and Windows minidumps alongside the
+  recording. Later launches preserve earlier crash evidence.
+- Capture effective pack/video choices, renderer details and course records.
+  Start a new checkpoint after loading a state or rewinding.
+- Add an isolated developer replay tool that checks build/content identity and
+  detects guest-state divergence. Performance diagnostics remain separate.
+
 ## 0.9.1 - Title demo vehicle fix
 
 - Keep the recorded Blue Thunder title demo independent of a previously

@@ -25,6 +25,7 @@ _Static_assert(sizeof(FzeroRecordsView) <= 32, "Records view must fit the snapsh
 _Static_assert(sizeof(CourseSaveState) == 4 + 32 + 0x8000 + 0x200,
                "Preserve the legacy course-save snapshot layout");
 static char base_root[96];
+const char *FzeroTracksSaveBaseRoot(void) { return base_root; }
 static bool set_root(const uint8_t *key) {
   if (!key) {
     RtlSetSaveRoot(base_root);

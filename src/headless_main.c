@@ -17,6 +17,7 @@
 #include "fzero_msu.h"
 #include "fzero_state_mode.h"
 #include "fzero_replay.h"
+#include "fzero_capture.h"
 
 #include "audio_trace.h"
 #include "common_rtl.h"
@@ -362,6 +363,16 @@ int main(int argc, char **argv) {
                        )) { fprintf(stderr, "%s\n", FzeroTracksError()); free(rom); return 2; }
   const char *deluxe_data = getenv("FZERO_DELUXE_DATA");
   FzeroGameplayHeadless(deluxe_data && *deluxe_data);
+  FzeroVideoSettings capture_video;
+  FzeroVideoStock(&capture_video);
+  const char *replay_config=getenv("FZERO_REPLAY_VIDEO");
+  if (replay_config && *replay_config) {
+    if (!FzeroVideoLoad(&capture_video,replay_config)) return 11;
+    FzeroGameplayConfigure(&capture_video.gameplay,capture_video.bs_deluxe,capture_video.bs_tracks);
+  } else {
+    capture_video.gameplay=*FzeroGameplaySettingsCurrent();
+    capture_video.bs_deluxe=FzeroBsCars(); capture_video.bs_tracks=FzeroBsTracks();
+  }
   if (!FzeroMsuConfigure(getenv("SNESRECOMP_MSU1"), FzeroRuleEnabled(FZERO_RULE_MSU), argv[1])) {
     fprintf(stderr,"[fzero-msu1] %s\n",FzeroMsuError());free(rom);return 2;
   }
@@ -389,6 +400,9 @@ int main(int argc, char **argv) {
     return 3;
   }
   RtlReadSram();
+  if (!FzeroCaptureReplayLoad()) return 11;
+  const char *capture_directory=getenv("FZERO_CAPTURE_DIR");
+  if (capture_directory && !FzeroCaptureStart(true,capture_directory,&capture_video)) return 11;
   /* Reproduce a reported transition from a private, mode-checked snapshot. */
   const char *initial_state = getenv("FZERO_STATE_LOAD");
   if (initial_state && *initial_state) {
@@ -607,11 +621,21 @@ int main(int argc, char **argv) {
       FzeroBeginDrawing(pixels, (size_t)frame_width * 4u);
       fprintf(stderr, "[fzero-viewport] frame=%ld width=%d\n", frame, frame_width);
     }
-    uint16_t frame_input = scripted_input(input_spans, input_span_count, frame);
+    uint32_t frame_input = scripted_input(input_spans, input_span_count, frame);
     if (records_racing) frame_input |= 1;
     if (records_test && g_ram[0x54] == 3 && g_ram[0x55] == 1 &&
         g_ram[0x56] == 3 && !(frame & 15))
       frame_input |= 8;
+    if (FzeroCaptureReplayActive()) {
+      FzeroViewport viewport;
+      int result=FzeroCaptureReplayNext(&frame_input,&viewport);
+      if (result<0) return 11;
+      if (!result) break;
+      FzeroSetViewport(viewport);
+      frame_width=viewport.width;
+      FzeroBeginDrawing(pixels,(size_t)frame_width*4u);
+    }
+    FzeroCaptureBefore(frame_input,FzeroCalculateViewport(&replay_video,drawable_width,drawable_height));
     (void)RtlRunFrame(frame_input);
     if (wram_trace && fwrite(g_ram, 1, 0x2000, wram_trace) != 0x2000) return 10;
     if (getenv("FZERO_SCENE_TRACE"))
@@ -638,6 +662,7 @@ int main(int argc, char **argv) {
     stats.logic_hash = next_logic;
 
     FzeroDrawPpuFrame();
+    FzeroCaptureAfter();
     /* Private UI regressions need the final composed frame, including host
      * course/records labels which are absent from the raw PPU captures. */
     const char *frame_dir = getenv("FZERO_TEST_FRAME_DIR");
@@ -656,6 +681,7 @@ int main(int argc, char **argv) {
     collect_audio(&stats, audio, audio_frames);
     if (!wav_append(&wav, audio, audio_frames)) {
       fputs("unable to write WAV capture\n", stderr);
+      FzeroCaptureStop();
       wav_close(&wav);
       free(rom);
       return 7;
@@ -734,6 +760,7 @@ int main(int argc, char **argv) {
           (unsigned long long)stats.audio_active_frames, stats.audio_peak,
           (unsigned long long)stats.audio_underruns);
   FzeroTracksSavesFinish();
+  FzeroCaptureStop();
   /* Opt-in persistence for private records QA, matching the SDL host's exit.
    * The caller must choose an isolated SNESRECOMP_SAVE_ROOT. */
   if (getenv("FZERO_TEST_SAVE_SRAM")) RtlWriteSram();

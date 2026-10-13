@@ -223,7 +223,11 @@ shutil.copy2(ROOT / "assets/music/README.md", stage / "assets/music/README.md")
     "The included CGP, Astra, Bower and MAX packs add 15 cups / 75 course versions.\n"
     "Vehicle packs, rules and screen override remain separate options. CGP preset enables the full experience.\n\n"
     "Required course mechanics load automatically with their pack and have no separate switches.\n"
-    "Legend difficulty defaults on; diagnostics and MSU-1 default off. Saved choices are respected.\n\n"
+    "Legend difficulty defaults on; performance diagnostics and MSU-1 default off. Saved choices are respected.\n\n"
+    "Mods > Crash diagnostics and replay defaults on for testing. Files stay local.\n"
+    "After a crash, ZIP the newest diagnostics/replay-* folder beside the game and send it with your report.\n"
+    "The folder contains recent inputs, game checkpoints, settings, records and crash evidence, never your ROM file.\n"
+    "See MODS.md for details.\n\n"
     "Mods > Always show Records defaults on, making Records available before setting a time.\n\n"
     + ("CGP and Astra audio are included in their mods/packs/<pack>/music folders.\n" if bundled_music else "Audio is not included; you can add it to each pack's music folder.\n") +
     "Course ZIPs contain editable projects; example.zip contains example.fzm and uses music/example.pcm.\n"

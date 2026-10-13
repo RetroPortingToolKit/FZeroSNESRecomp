@@ -210,6 +210,11 @@ bool FzeroTracksInit(const char *root, bool deluxe_available) {
     loader_enabled = !strcmp(enabled, "1");
   return true;
 }
+bool FzeroTracksWriteSettings(FILE *f) {
+  return fprintf(f, "enabled=%u\ntitle=%s\ntitle_enabled=%u\n",
+                 loader_enabled, title_style, title_enabled) > 0 &&
+         FzeroMenuMusicWrite(f);
+}
 bool FzeroTracksSave(void) {
   if (!ensure_directory(root_path))
     return fail("Cannot create pack settings directory");
@@ -219,9 +224,7 @@ bool FzeroTracksSave(void) {
   FILE *f = fopen(tmp, "wb");
   if (!f)
     return fail("Cannot write loader settings");
-  bool ok = fprintf(f, "enabled=%u\ntitle=%s\ntitle_enabled=%u\n",
-                    loader_enabled, title_style, title_enabled) > 0;
-  if (!FzeroMenuMusicWrite(f)) ok = false;
+  bool ok = FzeroTracksWriteSettings(f);
   if (fclose(f))
     ok = false;
 #ifdef _WIN32

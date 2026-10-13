@@ -1,6 +1,7 @@
 #pragma once
 #include "content_pack.h"
 #include <stdbool.h>
+#include <stdio.h>
 #include "fzero_music_sources.h"
 
 /* The catalog is independent of the running cartridge. Registering a pack
@@ -28,6 +29,8 @@ const char *FzeroTracksTitleStyle(void);
 bool FzeroTracksSetTitleStyle(const char *style);
 bool FzeroTracksSetPatch(const CpPack *pack, const char *path);
 bool FzeroTracksSave(void);
+/* Serialize effective choices without altering the installed settings. */
+bool FzeroTracksWriteSettings(FILE *file);
 /* Diagnostics are catalog-wide: bad files never disappear silently. */
 unsigned FzeroTracksDiagnosticCount(void);
 const char *FzeroTracksDiagnostic(unsigned index);

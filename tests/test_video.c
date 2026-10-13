@@ -17,6 +17,7 @@ static void viewport_tests(void) {
   CHECK(settings.enhanced && settings.aspect == FZERO_ASPECT_FIT && settings.fps == 0 &&
         settings.fps_enabled && settings.bs_deluxe);
   CHECK(!settings.hd_mode7 && settings.hd_scale == 2 && !settings.diagnostics);
+  CHECK(settings.crash_replay);
   CHECK(settings.gameplay.enabled == FZERO_RULE_DEFAULT_MASK);
   FzeroVideoStock(&settings);
   CHECK(!settings.enhanced && settings.aspect == FZERO_ASPECT_STOCK && !settings.fps_enabled && !settings.bs_deluxe);
@@ -171,6 +172,9 @@ static void config_tests(void) {
   CHECK(FzeroVideoLoad(&b, "test-video.ini"));
   CHECK(b.enhanced && b.fps_enabled && b.bs_deluxe && b.aspect == FZERO_ASPECT_FIT);
   CHECK(b.gameplay.always_records); /* Missing key defaults on, including old configs. */
+  CHECK(b.crash_replay); /* Old performance Diagnostics=0 never disables crash capture. */
+  b.crash_replay=false;
+  CHECK(FzeroVideoSave(&b,"test-video.ini") && FzeroVideoLoad(&a,"test-video.ini") && !a.crash_replay);
   b.gameplay.always_records=false;
   CHECK(FzeroVideoSave(&b,"test-video.ini") && FzeroVideoLoad(&a,"test-video.ini") && !a.gameplay.always_records);
   remove("test-video.ini");

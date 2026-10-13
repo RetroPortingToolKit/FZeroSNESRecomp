@@ -216,6 +216,7 @@ add_executable(FZeroSNESRecomp
     src/sdl_main.c
     src/fzero_content_ui.cpp
     src/fzero_diagnostics.c
+    src/fzero_fault.c
     src/fzero_mods.c
     src/fzero_tracks_mods.c
     src/fzero_hotkeys.c
@@ -231,6 +232,9 @@ target_compile_definitions(FZeroSNESRecomp PRIVATE
     RECOMP_UI_DEFAULT_RENDERER_KEY="")
 
 function(configure_fzero_target target)
+    target_sources(${target} PRIVATE src/fzero_capture.c src/fzero_capture_records.cpp)
+    target_include_directories(${target} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
+    target_compile_definitions(${target} PRIVATE SNESRECOMP_BUILD_VERSION="${SNESRECOMP_BUILD_VERSION}")
     target_sources(${target} PRIVATE src/fzero_deluxe.c src/fzero_gameplay.c src/fzero_vehicles.c src/fzero_state_mode.c src/fzero_msu.c src/fzero_track_runtime.c src/fzero_course_hooks.c src/fzero_course_menu.c src/fzero_course_saves.c src/fzero_records.c)
     target_link_libraries(${target} PRIVATE fzero_tracks)
     if(FZERO_DELUXE_GEN_DIR)
@@ -263,6 +267,7 @@ endfunction()
 
 configure_fzero_target(FZeroSNESRecompHeadless)
 configure_fzero_target(FZeroSNESRecomp)
+snesrecomp_target_post_mortem(FZeroSNESRecomp)
 set(FZERO_DESKTOP_NAME "FZeroSNESRecomp" CACHE STRING "Desktop executable name for isolated experiments")
 set_target_properties(FZeroSNESRecomp PROPERTIES OUTPUT_NAME "${FZERO_DESKTOP_NAME}")
 # Hosts include "desktop/sdl_compat.h" rather than <SDL.h> so both majors build.
@@ -294,6 +299,17 @@ endfunction()
 fzero_revision("${CMAKE_CURRENT_SOURCE_DIR}" FZERO_SOURCE_REVISION)
 fzero_revision("${SNESRECOMP_ROOT}" FZERO_FRAMEWORK_REVISION)
 fzero_revision("${RECOMP_UI_ROOT}" FZERO_UI_REVISION)
+# Dirty builds need more than an unchanged Git commit stamp for safe replay.
+file(GLOB FZERO_BUILD_INPUTS CONFIGURE_DEPENDS src/*.c src/*.cpp src/*.h)
+list(APPEND FZERO_BUILD_INPUTS "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt")
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${FZERO_BUILD_INPUTS})
+set(fingerprint "${SNESRECOMP_BUILD_VERSION};${FZERO_SOURCE_REVISION};${FZERO_FRAMEWORK_REVISION};${FZERO_UI_REVISION};${CMAKE_BUILD_TYPE};${CMAKE_C_COMPILER_ID};${CMAKE_C_COMPILER_VERSION};${CMAKE_C_FLAGS};${CMAKE_C_FLAGS_RELEASE}")
+foreach(input IN LISTS FZERO_BUILD_INPUTS)
+    file(SHA256 "${input}" input_hash)
+    get_filename_component(input_name "${input}" NAME)
+    string(APPEND fingerprint ";${input_name}:${input_hash}")
+endforeach()
+string(SHA256 FZERO_REPLAY_BUILD_ID "${fingerprint}")
 configure_file(src/fzero_build.h.in generated/fzero_build.h @ONLY)
 target_include_directories(FZeroSNESRecomp PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/generated")
 add_custom_command(TARGET FZeroSNESRecomp POST_BUILD

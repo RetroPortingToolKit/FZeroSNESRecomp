@@ -1,5 +1,29 @@
 # Mods and differences from the source games
 
+## Reporting a crash
+
+**Crash diagnostics and replay** is on by default in Mods for these test builds.
+Just play normally. If the game crashes, open the `diagnostics` folder beside
+the game and ZIP the newest folder whose name starts with `replay-`. Send that
+ZIP with a short description of what happened. Keep it before starting another
+test. Existing recordings survive later launches.
+
+Each launch keeps roughly the last minute to minute and a half of play: recent
+inputs, game checkpoints, settings and records. Loading a state or rewinding
+starts a new checkpoint. A Windows crash also produces a crash report and,
+when possible, a minidump in that same folder. This lets us replay your inputs
+with the matching build and check where the run differs.
+
+Files stay on your computer; nothing is uploaded automatically. They include
+game memory, records and local paths. They do not include your ROM file. If
+you were using an imported pack or custom music, include that pack separately
+so we can reproduce the same setup. Old diagnostic folders can be deleted
+when you no longer need them.
+
+The separate **Diagnostics** option records performance timings and remains
+off by default. It does not control crash recording. Turning off **Crash
+diagnostics and replay** takes effect after restarting the game.
+
 ## Adding custom courses
 
 Open **Custom Content** in the launcher and choose **Import**. Pick the ZIP you

@@ -30,7 +30,14 @@ static const FzeroRule menu_rules[] = {
   FZERO_RULE_RED_BUMPER, FZERO_RULE_HITBOX, FZERO_RULE_FOG
 };
 enum { VEHICLE_COUNT=2, VEHICLE_START=6+sizeof(menu_rules)/sizeof(*menu_rules), TITLE_INDEX=VEHICLE_START+VEHICLE_COUNT,
-       RECORDS_INDEX=TITLE_INDEX+1, TRACK_START=RECORDS_INDEX+1, TITLE_KIND=200, RECORDS_KIND=201 };
+       RECORDS_INDEX=TITLE_INDEX+1, CRASH_INDEX=RECORDS_INDEX+1, TRACK_START=CRASH_INDEX+1,
+       TITLE_KIND=200, RECORDS_KIND=201, CRASH_KIND=202 };
+static const char crash_description[] =
+  "Automatically keep recent inputs and checkpoints in diagnostics beside the game. "
+  "Enabled by default for testing, including existing installations. After a crash, "
+  "send the newest replay folder so we can investigate and replay it. "
+  "Stays local; includes game memory and save data, never a ROM file. "
+  "Restart after changing this setting.";
 static const char records_description[] =
   "Keep RECORDS available on the title menu, even before setting a record. "
   "Enabled by default for testing. Does not create records or change race results. "
@@ -52,6 +59,7 @@ static bool vehicle_enabled(unsigned i) {
 }
 static int count(void *ctx) { (void)ctx; return TRACK_START + FzeroTrackModsProvider()->feature_count(ctx); }
 static int identity(const char *package, const char *feature) {
+  if (package && feature && !strcmp(package,"fzero-crash-replay") && !strcmp(feature,"crash-replay")) return CRASH_KIND;
   if (package && feature && !strcmp(package,"fzero-always-records") && !strcmp(feature,"always-records")) return RECORDS_KIND;
   if (package && feature && !strcmp(package,"fzero-title") && !strcmp(feature,"title-screen")) return TITLE_KIND;
   if (package && feature) for (int i = 0; i < 6; ++i)
@@ -64,6 +72,11 @@ static int identity(const char *package, const char *feature) {
   return 0;
 }
 static int package_get(void *ctx, int index, RecompLauncherCModPackage *out) {
+  if (index == CRASH_INDEX && out) {
+    memset(out,0,sizeof(*out)); COPY(out->id,"fzero-crash-replay"); COPY(out->name,"Crash diagnostics and replay");
+    COPY(out->version,"1"); COPY(out->author,"FZeroSNESRecomp contributors");
+    COPY(out->description,crash_description); out->enabled=video->crash_replay; return 1;
+  }
   if (index >= TRACK_START) return FzeroTrackModsProvider()->package_get(ctx, index-TRACK_START, out);
   if (index == RECORDS_INDEX && out) {
     memset(out,0,sizeof(*out)); COPY(out->id,"fzero-always-records"); COPY(out->name,"Always show Records");
@@ -97,6 +110,13 @@ static int package_get(void *ctx, int index, RecompLauncherCModPackage *out) {
   return 1;
 }
 static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
+  if (index == CRASH_INDEX && out) {
+    memset(out,0,sizeof(*out)); COPY(out->id,"crash-replay"); COPY(out->package_id,"fzero-crash-replay");
+    COPY(out->name,"Crash diagnostics and replay"); COPY(out->package_name,out->name); COPY(out->package_version,"1");
+    COPY(out->group,"Testing"); COPY(out->author,"FZeroSNESRecomp contributors");
+    COPY(out->description,crash_description); out->enabled=video->crash_replay;
+    COPY(out->status,out->enabled?"Enabled":"Disabled"); return 1;
+  }
   if (index >= TRACK_START) return FzeroTrackModsProvider()->feature_get(ctx, index-TRACK_START, out);
   if (index == RECORDS_INDEX && out) {
     memset(out,0,sizeof(*out)); COPY(out->id,"always-records"); COPY(out->package_id,"fzero-always-records");
@@ -205,6 +225,9 @@ static int choice_get(void *ctx, const char *package, const char *feature,
   return 1;
 }
 static int enable(void *ctx, const char *package, const char *feature, int enabled) {
+  if (package && feature && !strcmp(package,"fzero-crash-replay") && !strcmp(feature,"crash-replay")) {
+    video->crash_replay=enabled!=0; return 1;
+  }
   if (!identity(package, feature)) {
     int ok=FzeroTrackModsProvider()->feature_enable(ctx,package,feature,enabled);
     if (ok && enabled && !strcmp(package,"track-pack-loader")) video->bs_tracks=false;

@@ -105,3 +105,9 @@ ghidra/*
 
 # Reproducibly imported retained music; packaged separately from source.
 /music/
+
+# Private tester recordings, memory checkpoints and crash reports.
+/diagnostics/
+/last_run_report.json
+/crash_report_*.json
+/crash_*.dmp

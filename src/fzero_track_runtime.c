@@ -25,6 +25,8 @@ static const CpCup *active_cup;
 static unsigned menu_index;
 static uint8_t identity[32];
 static uint16_t menu_last_input;
+static char save_namespace[96];
+const char *FzeroTracksSaveNamespace(void) { return save_namespace; }
 static unsigned menu_hold;
 static const FzeroCourse *course;
 bool FzeroTracksActive(void) {
@@ -331,6 +333,7 @@ bool FzeroTracksPrepare(uint8_t **rom, size_t *size, bool deluxe, const char *de
   return true;
 }
 bool FzeroTracksSelectSaveRoot(void) {
+  size_t original_root_length=strlen(RtlSaveRoot());
   if (!FzeroDeluxeSelectSaveRoot())
     return false;
   if (FzeroGameplaySettingsCurrent()->enabled || FzeroVehiclesActive()) {
@@ -344,6 +347,9 @@ bool FzeroTracksSelectSaveRoot(void) {
     return false;
   }
   FzeroTracksSavesInit();
+  const char *suffix=RtlSaveRoot()+original_root_length;
+  if (*suffix=='/' || *suffix=='\\') ++suffix;
+  snprintf(save_namespace,sizeof(save_namespace),"%s",suffix);
   return true;
 }
 static bool cup_menu(const uint8_t *ram) {

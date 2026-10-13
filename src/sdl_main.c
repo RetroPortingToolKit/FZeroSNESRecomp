@@ -15,6 +15,8 @@
 #include "fzero_replay.h"
 #include "fzero_state_mode.h"
 #include "fzero_diagnostics.h"
+#include "fzero_capture.h"
+#include "fzero_fault.h"
 #include "fzero_build.h"
 
 #include "common_rtl.h"
@@ -112,9 +114,10 @@ static SpcPlayer g_sdl_spc_player = {
 SpcPlayer *g_spc_player = &g_sdl_spc_player;
 
 void NORETURN Die(const char *error) {
+  host_report_fatal(error ? error : "unknown error");
   fprintf(stderr, "fatal: %s\n", error ? error : "unknown error");
   fflush(stderr);
-  SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "F-Zero",
+  if (!getenv("SNESRECOMP_CRASH_TEST") && !getenv("FZERO_REPLAY_INPUT_FILE")) SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "F-Zero",
                            error ? error : "Unknown error", NULL);
   exit(EXIT_FAILURE);
 }
@@ -1621,6 +1624,8 @@ int main(int argc, char **argv) {
     explicit_rom = command_line_rom;
   }
   snesrecomp_anchor_to_exe_dir();
+  host_report_init(kWindowTitle, kBuildVersion);
+  FzeroFaultInstall();
   const char *config_override = getenv("FZERO_VIDEO_CONFIG");
   if (config_override && *config_override) kVideoConfig = config_override;
   else {
@@ -1659,7 +1664,6 @@ int main(int argc, char **argv) {
     fprintf(stderr, "[fzero] Invalid validation replay\n");
     return 2;
   }
-  host_report_init(kWindowTitle, kBuildVersion);
   char rom_path[1024] = {0};
   RecompLauncherCSettings launcher_settings;
   int resolve_result =
@@ -1899,7 +1903,18 @@ int main(int argc, char **argv) {
   double hz = g_video.fps_enabled ? FzeroPresentationHz(g_video.fps, actual_refresh) : FZERO_SIMULATION_HZ;
   /* Profiling is session-only: do not persist it as a player's Mods setting. */
   const bool diagnostics_enabled = g_video.diagnostics || profile_mode7;
-  if (diagnostics_enabled) {
+  {
+    char directory[1200];
+    const char *override = getenv("FZERO_DIAGNOSTICS_DIR");
+    if (override && *override) snprintf(directory,sizeof(directory),"%s",override);
+    else if (!snesrecomp_exe_dir_path("diagnostics",directory,sizeof(directory)))
+      snprintf(directory,sizeof(directory),"diagnostics");
+    if (!FzeroCaptureReplayLoad()) Die("Unable to restore diagnostic replay");
+    if (!FzeroCaptureStart(g_video.crash_replay && !FzeroCaptureReplayActive(),directory,&g_video))
+      fprintf(stderr,"[fzero-replay] Cannot start capture in %s; gameplay continues.\n",directory);
+    if (*FzeroCaptureDirectory()) host_report_set_output_directory(FzeroCaptureDirectory());
+  }
+  if (diagnostics_enabled || g_video.crash_replay) {
     FzeroDiagnosticSession session = {
       .version = kBuildVersion, .revision = FZERO_SOURCE_REVISION,
       .framework_revision = FZERO_FRAMEWORK_REVISION, .ui_revision = FZERO_UI_REVISION,
@@ -1933,11 +1948,17 @@ int main(int argc, char **argv) {
       }
 #endif
     }
-    char directory[1200];
-    if (!snesrecomp_exe_dir_path("diagnostics", directory, sizeof(directory)))
-      snprintf(directory, sizeof(directory), "diagnostics");
-    FzeroDiagnosticsStart(true, directory, &session);
-    if (profile_mode7) FzeroDiagnosticsEvent("mode7_profile", 1);
+    FzeroCaptureHost(&session,drawable_width,drawable_height,launcher_settings.aspect_index);
+    host_report_breadcrumb("Renderer=%s scale=%u output=%dx%d vsync=%d shader=%s",
+        session.backend,session.allocated_scale,drawable_width,drawable_height,
+        session.vsync,session.shader?session.shader:"");
+    if (diagnostics_enabled) {
+      char directory[1200];
+      if (!snesrecomp_exe_dir_path("diagnostics", directory, sizeof(directory)))
+        snprintf(directory, sizeof(directory), "diagnostics");
+      FzeroDiagnosticsStart(true, directory, &session);
+      if (profile_mode7) FzeroDiagnosticsEvent("mode7_profile", 1);
+    }
   }
   FzeroClockReset(&clock, monotonic_seconds(), hz);
   bool suspended = false;
@@ -2186,6 +2207,16 @@ int main(int argc, char **argv) {
         break;
       }
       uint64_t diagnostic_start = FzeroDiagnosticsBegin();
+      if (FzeroCaptureReplayActive()) {
+        int result=FzeroCaptureReplayNext(&input,&viewport);
+        if (result<0) Die("Diagnostic replay diverged");
+        if (!result) { running=0; break; }
+        FzeroSetViewport(viewport);
+        logical_width=viewport.width;
+        FzeroBeginDrawing(pixels,(size_t)logical_width*kBytesPerPixel);
+      }
+      FzeroCaptureBefore(input,viewport);
+      host_report_crash_test_tick();
       (void)RtlRunFrame(input);
       FzeroDiagnosticsEnd(FZERO_DIAG_SIMULATION, diagnostic_start);
       if (g_fail || !FzeroLastLleResult()) {
@@ -2197,6 +2228,7 @@ int main(int argc, char **argv) {
       diagnostic_start = FzeroDiagnosticsBegin();
       FzeroDrawPpuFrame();
       FzeroDiagnosticsEnd(FZERO_DIAG_PPU, diagnostic_start);
+      FzeroCaptureAfter();
       /* One emulated frame elapsed: the ring captures on its own cadence. */
       snes_rewind_note_frame();
       frames++;
@@ -2284,6 +2316,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "Unable to write WRAM capture\n");
     if (dump) fclose(dump);
   }
+  FzeroFaultFinish();
   FzeroTracksSavesFinish();
   RtlWriteSram();
   FzeroSetMode7Hd(0, NULL, 0);
