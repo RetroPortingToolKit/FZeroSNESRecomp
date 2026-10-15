@@ -427,17 +427,95 @@ The live oracle is headless-only and enabled by `FZERO_TEST_ACTOR_PARITY`.
 Use its dedicated driver; reset/load/rewind observation is not qualified by
 this test. The driver isolates settings/saves/output under `--out`, disables
 content/physics modifications, and does not write approach states or expected
-outcomes into guest RAM. `tests/fzero_actor_fields.inc` is the explicit field
+outcomes into guest RAM. `src/fzero_actor_fields.inc` is the explicit field
 manifest shared by the scalar and live observation tests. For example:
 
 ```powershell
 & 'C:/msys64/mingw64/bin/python3.13.exe' tests/validate_actor_live.py --build build --stock '<private verified USA ROM>' --out captures/local-2p-validation/live-windows
 ```
 
-Outstanding implementation includes complete world/boundary responses and
-checkpoint progression, one shared two-human contact resolution, session
-clock/flow/results, real second-camera/display generation, both host control
-paths/setup/disconnect handling, and whole-session persistence/replay/rewind/
-crash capture. All-course driving, pair contacts, real controllers, two-view
-visual QA/performance and complete-session platform/render-rate determinism
-are unperformed. Keep `beads-8uc1` in progress.
+### Shared simulation implementation checkpoint (2026-10-15)
+
+The following now exists in portable game-owned C, below the host integration
+boundary. It does not yet make Local 2 Player available in either host.
+
+- `fzero_actor_progress.c` ports human checkpoint lookup, ordered forward and
+  backward gates, previous/next gate pairs, authored branches, wrong-way
+  hysteresis and wall rebound (`$E309`, `$DE07`, `$E5CF`, `$E67B`, `$E7A8`,
+  `$E85E`, and the human prefix `$DD25..$DDA3`). It also ports finish-strip
+  detection without stock rank/lives/record writes (`$9968..$99BF`) and authored
+  shortcut-recovery triggers (`$D9C8..$DAB7`). The actor owns takeoff/landing
+  history and the full branch word, including the high byte cleared by recovery.
+- `fzero_actor_contact.c` ports the exact toroidal world/body projection
+  (`$DBC4..$DD1F`), one speed/momentum exchange (`$BD51`), direct spin (`$BE02`)
+  and lateral rebound (`$BC4A`). Damage adapters retain `$87A3`'s low-byte
+  momentum reads and carry set by `SEP #$21`. Both human participants receive
+  independent damage and their selected machine's player response table.
+  Visibility, OAM slots, cameras and viewport settings never gate contact.
+- `FzeroActorTick` evaluates one human against an immutable whole-course image.
+  Both humans latch inputs before either runs. A shared session resolves the
+  pair once afterwards, then commits mine events in stable actor-ID order.
+  `FzeroActorCommitMine` implements the four crater-pointer writes through
+  `$A23D/$A3F5..$A443`, so simultaneous evaluations see the same initial mine.
+- `fzero_versus.c/h` owns an opaque session, two actors, one clock, ready mask,
+  shared 180-tick countdown, pause reasons, race/results phases, five-lap
+  progress, boosts, per-lap/finish ticks, DNF, ties and rematch. Finished/crashed
+  actors freeze while the other actor continues. Backwards checkpoint travel
+  repays gate credit; the finish strip alone cannot farm laps or boosts.
+  Final-gate confirmation retains the actual finish-crossing tick and pose
+  when the before-movement checkpoint stage confirms on the following tick.
+- The versioned session image is canonical little-endian field data rather
+  than a C-struct dump. It includes both actors, spawn seeds, current and initial
+  course images, contact, mine events, phase/clock/configuration, lap times and
+  pending crossings. An FNV-64 integrity check detects accidental corruption;
+  rules/version and semantic/configuration validation run on a temporary
+  session before applying it. Rematch restores the initial terrain, including
+  mines. There is no session RNG dependency in the implemented adapters.
+
+This is simulation profile/rules 1: stock human physics, movement followed by
+one stable-ID two-human contact. Stock resolves player/CPU contact before
+movement; component parity does not assert whole-frame update-order parity.
+The second human deliberately uses player spin tables where stock's other
+slot uses CPU tables. Both adaptations require versus integration qualification.
+
+Expanded private-ROM oracle results on Windows and Linux/UBSan:
+
+- 28 scalar entries x 40,000 = 1,120,000 comparisons, including shortcut rescue.
+- 40,000 whole-course surface samples; 48,000 chained actor ticks. Current
+  continuation hash: `450ebd35dddd6e0d` (the named-field schema expanded).
+- Four checkpoint entries x 40,000 = 160,000 comparisons, with RAM ownership
+  checks, branch changes, exact gate/axis points and boundary response.
+- 80,000 physical projections; five contact entries x 40,000 = 200,000
+  comparisons, with RAM ownership checks. Shared-pair scenarios cover all
+  16 machine pairs, direct/lateral response, contact latching, toroidal seams
+  and airborne exclusion.
+- 40,000 finish-strip comparisons, stopping before native lives/record effects;
+  10,000 whole-bank mine-mutation comparisons.
+- Synthetic-course session tests cover independent controls, ready/countdown,
+  pause/frozen clock/cleared input, canonical round trips, corrupt/incompatible
+  rejection without live mutation, deterministic continuation, contact/mine
+  restores, simultaneous mine evaluation, DNF from actual surface damage with
+  the other racer continuing, end/rematch and initial-terrain restoration.
+  Ordinary integer-generated pad inputs also complete two five-lap synthetic
+  races, checking same-tick ties, unequal finish times, frozen terminal pose,
+  one-finished saves and capped lap boosts. These are not stock-course races.
+  The session fixture hash is `09e2a5a898890af4`.
+- The Windows live driver now checks progress as well as movement. Over its
+  3,000-frame ordinary-input routes, checkpoint comparisons are Blue Falcon
+  970, Wild Goose 1,103, Golden Fox 1,020 and Fire Stingray 1,009: 4,102, zero
+  mismatches. Movement remains 4,098 comparisons, zero mismatches. The driver
+  uses the existing target exclusion `SNESRECOMP_LLE_INTERP_TARGET=00dd20`
+  to observe the real opcodes inside the otherwise compiled checkpoint call.
+  It never writes guest state. Linux live checks and final full regression
+  builds are being refreshed for this checkpoint; do not infer their results
+  from the standalone Linux oracle.
+
+Outstanding implementation: connect the session to stock guest asset/race
+setup and both hosts; generate true independent cameras, complete sprites,
+effects, skyline and HUDs; implement discoverable setup/device binding and
+pause/disconnect/reassignment controls; connect the session image to snapshot
+extras, guards, save namespaces, quick saves, rewind, two-player replay and
+crash capture. The core APIs alone do not fulfill those host/lifecycle gates.
+All fifteen stock-course versus races, human two-controller play, split-view
+visual/performance qualification and full host session determinism across
+platforms/presentation rates remain unperformed. Keep `beads-8uc1` in progress.

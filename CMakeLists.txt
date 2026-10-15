@@ -10,7 +10,7 @@ find_path(RAPIDJSON_INCLUDE_DIR rapidjson/document.h REQUIRED)
 
 include(CTest)
 set(SNESRECOMP_ROOT "${CMAKE_SOURCE_DIR}/snesrecomp" CACHE PATH "Framework checkout")
-add_library(fzero_actor STATIC src/fzero_actor.c)
+add_library(fzero_actor STATIC src/fzero_actor.c src/fzero_actor_progress.c src/fzero_actor_contact.c src/fzero_actor_tick.c src/fzero_versus.c)
 target_include_directories(fzero_actor PUBLIC "${CMAKE_SOURCE_DIR}/src")
 if(NOT MSVC)
     target_compile_options(fzero_actor PRIVATE -Wall -Wextra -Werror)

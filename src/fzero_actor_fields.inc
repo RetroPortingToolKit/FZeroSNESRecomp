@@ -21,4 +21,11 @@ FIELD(0xe9,effect_timer), FIELD(0xad2,sound_flags2), FIELD(0x48,sound_port3), FI
 FIELD(0xee6,recovery_active), FIELD(0xd0,boost_beep_guard), FIELD(0xf3c,boost_beep), FIELD(0xd90,black_flash),
 FIELD(0xde,animation_scale), FIELD(0xdf,animation_transition), FIELD(0x47,countdown_acceleration),
 FIELD(0xee2,recovery_x), FIELD(0xee0,recovery_y), FIELD(0xee5,recovery_angle),
-FIELD(0xf3,pit_phase), FIELD(0xcc,pit_departure), FIELD(0xeb,beam_top), FIELD(0xec,beam_bottom)
+FIELD(0xf3,pit_phase), FIELD(0xcc,pit_departure), FIELD(0xeb,beam_top), FIELD(0xec,beam_bottom),
+FIELD(0x1080,next_checkpoint_x), FIELD(0x108e,next_checkpoint_y),
+FIELD(0x108c,previous_checkpoint_x), FIELD(0x109a,previous_checkpoint_y),
+FIELD(0xd00,checkpoint), FIELD(0x109d,next_checkpoint_angle), FIELD(0x10a9,previous_checkpoint_angle),
+FIELD(0x10aa,next_checkpoint_flags), FIELD(0x10b6,previous_checkpoint_flags),
+FIELD(0xb01,status2), FIELD(0x1130,branch), FIELD(0x1190,wall_angle), FIELD(0xd41,finish_side),
+FIELD(0x106c,jump_watch), FIELD(0x106d,takeoff_x), FIELD(0x106f,takeoff_y),
+FIELD(0x1071,landing_x), FIELD(0x1073,landing_y)

@@ -25,7 +25,8 @@ def main():
     env.update(SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy',
                FZERO_PACK_LOADER='0', FZERO_BS_CARS='0', FZERO_BS_TRACKS='0',
                FZERO_CGP_CARS='0', FZERO_CGP_REBALANCE='0', FZERO_RULES='',
-               FZERO_TEST_ACTOR_PARITY='1', SNESRECOMP_SAVE_ROOT='s')
+               FZERO_TEST_ACTOR_PARITY='1', SNESRECOMP_SAVE_ROOT='s',
+               SNESRECOMP_LLE_INTERP_TARGET='00dd20')
     if os.name == 'nt':
         env['PATH'] = 'C:/msys64/mingw64/bin;' + env.get('PATH', '')
     executable = build / ('FZeroSNESRecompHeadless' + ('.exe' if os.name == 'nt' else ''))
@@ -53,7 +54,10 @@ def main():
         assert len(ram) == 0x20000 and ram[0x52] == machine, (name, ram[0x52])
         counts = re.search(r'actor-live: comparisons=(\d+) mismatches=(\d+)', log)
         assert counts and int(counts[1]) >= 100 and int(counts[2]) == 0, (name, log[-1000:])
-        results[name] = dict(machine=machine, frames=3000, comparisons=int(counts[1]), mismatches=0)
+        progress = re.search(r'actor-live: checkpoint comparisons=(\d+)', log)
+        assert progress and int(progress[1]) >= 100, (name, log[-1000:])
+        results[name] = dict(machine=machine, frames=3000, comparisons=int(counts[1]),
+                             checkpoint_comparisons=int(progress[1]), mismatches=0)
         print(name, results[name], flush=True)
     (out / 'validation.json').write_text(json.dumps(results, indent=2) + '\n', encoding='utf-8')
 

@@ -374,6 +374,25 @@ static void actor_damage(FzeroActor *a, unsigned damage) {
   }
 }
 
+void FzeroActorDamageContact(FzeroActor *a,const FzeroActor *b,FzeroActorTables t,bool direct) {
+  unsigned damage;
+  a->sound_flags2|=0x80;
+  if (direct) {
+    /* $87BC deliberately reads the LOW momentum bytes at M8, with carry
+     * set from SEP #$21. Preserve those verified cartridge semantics. */
+    unsigned own=(a->speed>>5)&255,other=(b->speed>>4)&255;
+    int difference=(int)(b->momentum&255)-(int)(a->momentum&255);
+    unsigned index=(unsigned)(difference<0?difference+192:difference)&255;
+    unsigned projected=(other*table8(t,0x08ec30+index))>>8;
+    unsigned relative=table8(t,0x08ed20+index)?((own+projected)&255)
+        :(own>projected?own-projected:projected-own);
+    if (relative>=127) relative=127;
+    damage=(relative*table8(t,0xfab1+a->machine))>>8;
+    a->sound_port3|=3;
+  } else { damage=table8(t,0xfab5+a->machine);a->sound_port3|=1; }
+  actor_damage(a,damage);
+}
+
 void FzeroActorDamageSurface(FzeroActor *a, FzeroActorTables t) {
   unsigned flags = a->ground_flags;
   if (!(a->state & 0x80)) flags |= a->surface & 12;
@@ -515,9 +534,9 @@ uint8_t FzeroActorSampleSurface(const uint8_t world[0x20000], uint16_t x, uint16
  * human must not lose mine interaction when outside the other camera. The
  * event is committed to the shared course only after both actors evaluate. */
 void FzeroActorMine(FzeroActor *a, FzeroActorTables t, FzeroActorMineEvent *event) {
-  *event = (FzeroActorMineEvent){false,0,0};
+  *event = (FzeroActorMineEvent){0};
   if (!(a->surface & 0x20) || (a->state & 0x80)) return;
-  *event = (FzeroActorMineEvent){true,a->x,a->y};
+  *event = (FzeroActorMineEvent){true,a->x,a->y,a->surface_id};
   a->no_control = (a->no_control & 0xff00) | 0x20;
   a->black_flash = 0x85;
   actor_damage(a, table8(t, 0xfac1 + a->machine));
@@ -536,6 +555,28 @@ void FzeroActorMine(FzeroActor *a, FzeroActorTables t, FzeroActorMineEvent *even
     high = (high + 20) % 192; a->animation = 0x47;
   }
   a->momentum = (a->momentum & 255) | (uint16_t)high << 8;
+}
+
+/* $A3F5..$A443's shared course mutation via $A23D. Each 32x32 mine
+ * replaces four 16x16 cell pointers with the prepared crater tile groups.
+ * Read both actors first; commit their events once in actor-ID order. */
+void FzeroActorCommitMine(uint8_t world[0x20000],const FzeroActorMineEvent *event) {
+  if (!event->hit) return;
+  uint8_t *bank=world+0x10000;
+  unsigned x=(event->x-((event->surface_id&1)?16:0))&8191;
+  unsigned y=(event->y-((event->surface_id&2)?16:0))&4095;
+  unsigned grid=world[0xb0]|(unsigned)world[0xb1]<<8;
+  for (unsigned row=0;row<2;++row) {
+    unsigned yy=(y+row*16)&4095;
+    unsigned block=bank[(grid+(yy>>8)*32+(x>>8))&65535];
+    unsigned pointer=world_word(bank,0x5000+block*32+((yy>>4)&15)*2);
+    unsigned address=(pointer+((x>>4)&15)*2)&65535;
+    for (unsigned column=0;column<2;++column) {
+      unsigned value=0x3ff0+row*8+column*4;
+      bank[(address+column*2)&65535]=(uint8_t)value;
+      bank[(address+column*2+1)&65535]=(uint8_t)(value>>8);
+    }
+  }
 }
 
 /* $FA1C..$FA65 is called twice per native countdown tick. */
