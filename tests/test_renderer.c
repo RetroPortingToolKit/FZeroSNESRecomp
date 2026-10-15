@@ -26,6 +26,44 @@ static void setup(void) {
   FzeroRendererReset();
 }
 
+static void view_publish(FzeroRenderView *view, unsigned frame) {
+  FzeroRenderViewBeginFrame(view, ram, frame);
+  for (unsigned y = 1; y <= 224; ++y) FzeroRenderViewCaptureLine(view, &p, y);
+  FzeroRenderViewEndFrame(view, &p, stock);
+}
+
+static void test_view_isolation(void) {
+  FzeroRenderView *a = FzeroRenderViewCreate(), *b = FzeroRenderViewCreate();
+  CHECK(a && b);
+  static uint32_t first[FZERO_MAX_WIDTH * 224], again[FZERO_MAX_WIDTH * 224];
+  static uint32_t hd[FZERO_MAX_WIDTH * 224 * 4];
+  FzeroVideoSettings settings; FzeroVideoStock(&settings);
+  settings.enhanced = true; settings.aspect = FZERO_ASPECT_32_9;
+  FzeroViewport v = FzeroCalculateViewport(&settings, 1920, 540);
+  setup();
+  view_publish(a, 10);
+  CHECK(FzeroRenderViewDraw(a, first, v, 0.5));
+  p.cgram[1] = 0x03e0;
+  word(0xb70, 4096); word(0xb90, 2048); ram[0xac] = 90;
+  view_publish(b, 600);
+  CHECK(FzeroRenderViewDraw(b, again, v, 0.5));
+  CHECK(memcmp(first, again, (size_t)v.width * 224 * sizeof(*first)));
+  /* Alternating HD/native draws cannot overwrite the other camera's frame,
+   * scratch or interpolation history. Worker work is joined on return. */
+  CHECK(FzeroRenderViewDrawPresentation(b, NULL, hd, sizeof(hd)/sizeof(*hd), v, 0.5, 2));
+  CHECK(FzeroRenderViewDraw(a, again, v, 0.5));
+  CHECK(!memcmp(first, again, (size_t)v.width * 224 * sizeof(*first)));
+  CHECK(!FzeroRendererHasFrame());
+  FzeroRenderViewReset(b);
+  CHECK(!FzeroRenderViewHasFrame(b) && FzeroRenderViewHasFrame(a));
+  CHECK(!FzeroRenderViewDraw(b, again, v, 1));
+  FzeroRenderViewDestroy(b);
+  CHECK(FzeroRenderViewDraw(a, again, v, 0.5));
+  CHECK(!memcmp(first, again, (size_t)v.width * 224 * sizeof(*first)));
+  FzeroRenderViewDestroy(a);
+  CHECK(!FzeroRenderViewDraw(NULL, again, v, 1));
+}
+
 static uint32_t palette_rgb(unsigned c) {
   unsigned r = c & 31, g = (c >> 5) & 31, b = (c >> 10) & 31;
   return (((r << 3) | (r >> 2)) << 16) |
@@ -736,6 +774,7 @@ int main(void) {
   test_hd_mode7();
   test_hd_results();
   test_hd_composition_cache();
+  test_view_isolation();
   FzeroRendererShutdown();
   CHECK(FzeroRendererWorkerCount() == 1);
   puts("F-Zero renderer: bounds, immutable frames, scene fallback, car identity, signed X, panorama wrap and HUD transitions passed");

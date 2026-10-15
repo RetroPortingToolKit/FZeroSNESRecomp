@@ -24,69 +24,87 @@ typedef struct FzeroSourceFrame {
   bool valid;
 } FzeroSourceFrame;
 
-static FzeroSourceFrame frames[2];
-static unsigned current;
-static Ppu scanout; /* Private renderer scratch; never points at guest state. */
-static SnesRenderWorkers *render_workers;
-static Ppu *worker_scratch;
-static bool workers_attempted;
+struct FzeroRenderView {
+  FzeroSourceFrame frames[2];
+  unsigned current;
+  Ppu scanout; /* Never points at guest state or another view's scratch. */
+  SnesRenderWorkers *render_workers;
+  Ppu *worker_scratch;
+  bool workers_attempted;
+};
+static FzeroRenderView single_player;
 
-static void prepare_workers(void) {
-  if (workers_attempted) return;
-  workers_attempted = true;
-  render_workers = SnesRenderWorkersCreate(0);
-  if (!render_workers) return;
-  worker_scratch = calloc(SnesRenderWorkersCount(render_workers), sizeof(*worker_scratch));
-  if (!worker_scratch) {
-    SnesRenderWorkersDestroy(render_workers);
-    render_workers = NULL;
+static void prepare_workers(FzeroRenderView *view) {
+  if (view->workers_attempted) return;
+  view->workers_attempted = true;
+  view->render_workers = SnesRenderWorkersCreate(0);
+  if (!view->render_workers) return;
+  view->worker_scratch = calloc(SnesRenderWorkersCount(view->render_workers), sizeof(*view->worker_scratch));
+  if (!view->worker_scratch) {
+    SnesRenderWorkersDestroy(view->render_workers);
+    view->render_workers = NULL;
   }
 }
 
-unsigned FzeroRendererWorkerCount(void) { return SnesRenderWorkersCount(render_workers); }
-void FzeroRendererShutdown(void) {
-  SnesRenderWorkersDestroy(render_workers);
-  render_workers = NULL;
-  free(worker_scratch); worker_scratch = NULL;
-  workers_attempted = false;
+unsigned FzeroRenderViewWorkerCount(const FzeroRenderView *view) {
+  return view ? SnesRenderWorkersCount(view->render_workers) : 0;
+}
+static void shutdown_view(FzeroRenderView *view) {
+  SnesRenderWorkersDestroy(view->render_workers);
+  view->render_workers = NULL;
+  free(view->worker_scratch); view->worker_scratch = NULL;
+  view->workers_attempted = false;
+}
+FzeroRenderView *FzeroRenderViewCreate(void) { return calloc(1, sizeof(FzeroRenderView)); }
+void FzeroRenderViewDestroy(FzeroRenderView *view) {
+  if (!view) return;
+  shutdown_view(view);
+  free(view);
 }
 
 
-bool FzeroRendererLoadCapture(const char *path) {
+bool FzeroRenderViewLoadCapture(FzeroRenderView *view, const char *path) {
+  if (!view || !path) return false;
   FILE *f = fopen(path, "rb");
   if (!f) return false;
   /* Alternate buffers the way FzeroRendererBeginFrame does, so replaying a
    * sequence offline presents the previous frame to the compositor exactly as
    * a session does and can exercise the interpolated presentation path. */
-  current ^= 1;
-  bool ok = fread(&frames[current], sizeof(frames[current]), 1, f) == 1 && fgetc(f) == EOF;
+  view->current ^= 1;
+  FzeroSourceFrame *frame = &view->frames[view->current];
+  bool ok = fread(frame, sizeof(*frame), 1, f) == 1 && fgetc(f) == EOF;
   fclose(f);
-  frames[current].valid = ok;
+  frame->valid = ok;
   return ok;
 }
-const uint32_t *FzeroRendererStockFrame(void) { return frames[current].stock; }
-bool FzeroRendererHasFrame(void) { return frames[current].valid; }
-
-void FzeroRendererReset(void) {
-  frames[0].valid = frames[1].valid = false;
+const uint32_t *FzeroRenderViewStockFrame(const FzeroRenderView *view) {
+  return view ? view->frames[view->current].stock : NULL;
 }
-void FzeroRendererBeginFrame(const uint8_t ram[0x20000], unsigned frame) {
-  current ^= 1;
-  FzeroSourceFrame *f = &frames[current];
+bool FzeroRenderViewHasFrame(const FzeroRenderView *view) {
+  return view && view->frames[view->current].valid;
+}
+
+void FzeroRenderViewReset(FzeroRenderView *view) {
+  if (view) view->frames[0].valid = view->frames[1].valid = false;
+}
+void FzeroRenderViewBeginFrame(FzeroRenderView *view, const uint8_t ram[0x20000], unsigned frame) {
+  if (!view || !ram) return;
+  view->current ^= 1;
+  FzeroSourceFrame *f = &view->frames[view->current];
   f->valid = false;
   f->frame = frame;
   memcpy(f->ram, ram, sizeof(f->ram));
 }
-void FzeroRendererCaptureLine(const Ppu *p, unsigned line) {
-  if (line < 1 || line > 224) return;
-  FzeroRasterLine *l = &frames[current].lines[line - 1];
+void FzeroRenderViewCaptureLine(FzeroRenderView *view, const Ppu *p, unsigned line) {
+  if (!view || !p || line < 1 || line > 224) return;
+  FzeroRasterLine *l = &view->frames[view->current].lines[line - 1];
   memcpy(l->registers, p, sizeof(l->registers));
   memcpy(l->palette, p->cgram, sizeof(l->palette));
   memcpy(l->oam, p->oam, sizeof(l->oam));
   memcpy(l->high_oam, p->highOam, sizeof(l->high_oam));
 }
 
-static void dump_frame(const FzeroSourceFrame *f) {
+static void dump_frame(const FzeroSourceFrame *f, Ppu *scratch) {
   const char *number = getenv("FZERO_CAPTURE_FRAME");
   const char *numbers = getenv("FZERO_CAPTURE_FRAMES");
   const char *prefix = getenv("FZERO_CAPTURE_PREFIX");
@@ -113,15 +131,15 @@ static void dump_frame(const FzeroSourceFrame *f) {
   fprintf(out, "{\"frame\":%u,\"state\":[%u,%u,%u],\"mode7\":%u,\"lines\":[",
           f->frame, f->ram[0x54], f->ram[0x55], f->ram[0x56], f->ram[0x81]);
   for (int y = 0; y < 224; ++y) {
-    memcpy(&scanout, f->lines[y].registers, PPU_SAVESTATE_REGS_SIZE);
+    memcpy(scratch, f->lines[y].registers, PPU_SAVESTATE_REGS_SIZE);
     fprintf(out, "%s{\"y\":%d,\"mode\":%u,\"brightness\":%u,\"main\":%u,\"sub\":%u,\"math\":%u,\"cgwsel\":%u,\"fixed\":%u,\"matrix\":[",
-            y ? "," : "", y, scanout.bgmode, scanout.inidisp, scanout.screenEnabled[0],
-            scanout.screenEnabled[1], scanout.cgadsub, scanout.cgwsel, scanout.fixedColor);
-    for (int j = 0; j < 8; ++j) fprintf(out, "%s%d", j ? "," : "", scanout.m7matrix[j]);
+            y ? "," : "", y, scratch->bgmode, scratch->inidisp, scratch->screenEnabled[0],
+            scratch->screenEnabled[1], scratch->cgadsub, scratch->cgwsel, scratch->fixedColor);
+    for (int j = 0; j < 8; ++j) fprintf(out, "%s%d", j ? "," : "", scratch->m7matrix[j]);
     fprintf(out, "],\"bgsc\":[%u,%u,%u,%u],\"tileadr\":%u,\"scroll\":[%u,%u,%u,%u,%u,%u,%u,%u]}",
-            scanout.bgXsc[0], scanout.bgXsc[1], scanout.bgXsc[2], scanout.bgXsc[3], scanout.bgTileAdr,
-            scanout.hScroll[0], scanout.vScroll[0], scanout.hScroll[1], scanout.vScroll[1],
-            scanout.hScroll[2], scanout.vScroll[2], scanout.hScroll[3], scanout.vScroll[3]);
+            scratch->bgXsc[0], scratch->bgXsc[1], scratch->bgXsc[2], scratch->bgXsc[3], scratch->bgTileAdr,
+            scratch->hScroll[0], scratch->vScroll[0], scratch->hScroll[1], scratch->vScroll[1],
+            scratch->hScroll[2], scratch->vScroll[2], scratch->hScroll[3], scratch->vScroll[3]);
   }
   fprintf(out, "],\"oam\":[");
   const FzeroRasterLine *l = &f->lines[100];
@@ -137,12 +155,15 @@ static void dump_frame(const FzeroSourceFrame *f) {
   if (out) { fwrite(f, sizeof(*f), 1, out); fclose(out); }
 }
 
-void FzeroRendererEndFrame(const Ppu *p, const uint32_t stock[256 * 224]) {
-  FzeroSourceFrame *f = &frames[current];
+void FzeroRenderViewEndFrame(FzeroRenderView *view, const Ppu *p, const uint32_t stock[256 * 224]) {
+  if (!view || !p || !stock) return;
+  FzeroSourceFrame *f = &view->frames[view->current];
   memcpy(f->vram, p->vram, sizeof(f->vram));
   memcpy(f->stock, stock, sizeof(f->stock));
   f->valid = true;
-  dump_frame(f);
+  /* Preserve the single-player capture format and filenames. Callers with
+   * multiple views choose their capture destination explicitly. */
+  if (view == &single_player) dump_frame(f, &view->scanout);
 }
 
 static unsigned tile_pixel(const uint16_t *vram, unsigned address, int x, int y, int bpp) {
@@ -802,10 +823,12 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
   }
 }
 
-static bool render_frame(uint32_t *out, FzeroViewport viewport, double alpha,
+static bool render_frame(FzeroRenderView *view, uint32_t *out, FzeroViewport viewport, double alpha,
                           unsigned scale, uint32_t *native) {
-  const FzeroSourceFrame *f = &frames[current];
-  const FzeroSourceFrame *previous = &frames[current ^ 1];
+  if (!view) return false;
+  const FzeroSourceFrame *f = &view->frames[view->current];
+  const FzeroSourceFrame *previous = &view->frames[view->current ^ 1];
+  Ppu *scanout = &view->scanout;
   if (!f->valid || !out || viewport.width < 256 || viewport.width > FZERO_MAX_WIDTH ||
       viewport.width != 256 + 2 * viewport.extra) return false;
   memset(out, 0, (size_t)viewport.width * 224 * scale * scale * sizeof(*out));
@@ -818,10 +841,10 @@ static bool render_frame(uint32_t *out, FzeroViewport viewport, double alpha,
    * results keep the frozen track visible ($97); losses use a black backdrop
    * ($94). Testing only the background mask misclassified a successful
    * result's phase-5 fade as a race HUD and split the lap/rank digits. */
-  memcpy(&scanout, f->lines[100].registers, PPU_SAVESTATE_REGS_SIZE);
+  memcpy(scanout, f->lines[100].registers, PPU_SAVESTATE_REGS_SIZE);
   bool results = scenery && f->ram[0x54] == 3 &&
-      ((f->ram[0x5f] & 0x80) || !(scanout.screenEnabled[0] & 3));
-  bool result_scenery = results && (scanout.screenEnabled[0] & 3);
+      ((f->ram[0x5f] & 0x80) || !(scanout->screenEnabled[0] & 3));
+  bool result_scenery = results && (scanout->screenEnabled[0] & 3);
   bool race_exit = f->ram[0x54] == 3 &&
       !results && (f->ram[0x55] == 4 || f->ram[0x55] == 5);
   bool world = scenery && (f->ram[0x54] == 2 || race_exit);
@@ -852,12 +875,12 @@ static bool render_frame(uint32_t *out, FzeroViewport viewport, double alpha,
    * rewind action or shutdown can replace the immutable snapshot. */
   SnesRenderWorkers *pool = NULL;
   if (scale > 1 && (world || result_scenery)) {
-    prepare_workers();
-    pool = render_workers;
+    prepare_workers(view);
+    pool = view->render_workers;
   }
   FzeroRenderBatch batch = {
     .frame = f, .previous = previous, .out = out, .native = native,
-    .scratch = pool ? worker_scratch : &scanout,
+    .scratch = pool ? view->worker_scratch : scanout,
     .viewport = viewport, .course = course, .alpha = alpha, .scale = scale,
     .scenery = scenery, .results = results, .result_scenery = result_scenery,
     .world = world, .race_hud = race_hud, .interpolate = interpolate
@@ -867,8 +890,8 @@ static bool render_frame(uint32_t *out, FzeroViewport viewport, double alpha,
   return SnesRenderWorkersRun(pool, 224, 8, render_lines, &batch);
 }
 
-bool FzeroRendererDraw(uint32_t *out, FzeroViewport viewport, double alpha) {
-  return render_frame(out, viewport, alpha, 1, NULL);
+bool FzeroRenderViewDraw(FzeroRenderView *view, uint32_t *out, FzeroViewport viewport, double alpha) {
+  return render_frame(view, out, viewport, alpha, 1, NULL);
 }
 
 bool FzeroRendererDrawHd(uint32_t *out, size_t capacity,
@@ -876,10 +899,33 @@ bool FzeroRendererDrawHd(uint32_t *out, size_t capacity,
   return FzeroRendererDrawPresentation(NULL, out, capacity, viewport, alpha, scale);
 }
 
-bool FzeroRendererDrawPresentation(uint32_t *native, uint32_t *out, size_t capacity,
+bool FzeroRenderViewDrawPresentation(FzeroRenderView *view, uint32_t *native, uint32_t *out, size_t capacity,
                                    FzeroViewport viewport, double alpha, unsigned scale) {
   if (!FzeroValidHdScale(scale) || viewport.width < 256 ||
       viewport.width > FZERO_MAX_WIDTH ||
       capacity < (size_t)viewport.width * 224 * scale * scale) return false;
-  return render_frame(out, viewport, alpha, scale, native);
+  return render_frame(view, out, viewport, alpha, scale, native);
 }
+
+void FzeroRendererReset(void) { FzeroRenderViewReset(&single_player); }
+void FzeroRendererShutdown(void) { shutdown_view(&single_player); }
+unsigned FzeroRendererWorkerCount(void) { return FzeroRenderViewWorkerCount(&single_player); }
+void FzeroRendererBeginFrame(const uint8_t ram[0x20000], unsigned frame) {
+  FzeroRenderViewBeginFrame(&single_player, ram, frame);
+}
+void FzeroRendererCaptureLine(const Ppu *p, unsigned line) {
+  FzeroRenderViewCaptureLine(&single_player, p, line);
+}
+void FzeroRendererEndFrame(const Ppu *p, const uint32_t stock[256 * 224]) {
+  FzeroRenderViewEndFrame(&single_player, p, stock);
+}
+bool FzeroRendererDraw(uint32_t *out, FzeroViewport viewport, double alpha) {
+  return FzeroRenderViewDraw(&single_player, out, viewport, alpha);
+}
+bool FzeroRendererDrawPresentation(uint32_t *native, uint32_t *out, size_t capacity,
+                                   FzeroViewport viewport, double alpha, unsigned scale) {
+  return FzeroRenderViewDrawPresentation(&single_player, native, out, capacity, viewport, alpha, scale);
+}
+bool FzeroRendererHasFrame(void) { return FzeroRenderViewHasFrame(&single_player); }
+bool FzeroRendererLoadCapture(const char *path) { return FzeroRenderViewLoadCapture(&single_player, path); }
+const uint32_t *FzeroRendererStockFrame(void) { return FzeroRenderViewStockFrame(&single_player); }
