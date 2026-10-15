@@ -29,6 +29,7 @@ typedef struct FzeroVideoSettings {
   unsigned hd_scale; /* Integer 2..10; retained while disabled. */
   bool diagnostics; /* Opt-in local performance reports; off by default. */
   bool crash_replay; /* Automatic local crash/replay capture; defaults on. */
+  bool local_two_player; /* Launcher game mode; stock rules apply per session. */
 } FzeroVideoSettings;
 
 typedef struct FzeroViewport {

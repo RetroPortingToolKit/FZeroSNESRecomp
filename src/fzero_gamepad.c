@@ -49,30 +49,34 @@ static uint32_t binding(char *text) {
   return mask;
 }
 
-static void load_profile(SDL_GameController *pad) {
+static void load_map(SDL_GameController *pad,uint32_t out[12],int *deadzone,int player) {
   char guid[40], section[64];
   pad_guid(pad, guid);
   snprintf(section, sizeof(section), "Controller.%s", guid);
   char controls[1024] = "DpadUp,DpadDown,DpadLeft,DpadRight,Back,Start,B,A,Y,X,Lb,Rb";
   FzeroIniReadString(s_config, "GamepadMap", "Controls", controls, sizeof(controls));
   FzeroIniReadString(s_config, section, "Controls", controls, sizeof(controls));
+  char local_section[32];snprintf(local_section,sizeof(local_section),"Local2P.P%d",player+1);
+  if(player>=0)FzeroIniReadString(s_config,local_section,"Controls",controls,sizeof(controls));
   char *comment = strpbrk(controls, "#;");
   if (comment) *comment = 0;
-  memset(s_bind, 0, sizeof(s_bind));
+  memset(out, 0, 12*sizeof(*out));
   char *part = controls;
   for (int i = 0; i < 12 && part; ++i) {
     char *next = strchr(part, ',');
     if (next) *next++ = 0;
-    s_bind[i] = binding(part);
+    out[i] = binding(part);
     part = next;
   }
   int percent = s_default_deadzone;
   FzeroIniReadInt(s_config, section, "Deadzone", &percent);
+  if(player>=0)FzeroIniReadInt(s_config,local_section,"Deadzone",&percent);
   if (percent < 0 || percent > 100) percent = s_default_deadzone;
-  s_deadzone = (percent * 32767 + 50) / 100;
+  *deadzone = (percent * 32767 + 50) / 100;
   fprintf(stderr, "[fzero-input] %s guid=%s deadzone=%d%%\n",
           SDL_GameControllerName(pad), guid, percent);
 }
+static void load_profile(SDL_GameController *pad) {load_map(pad,s_bind,&s_deadzone,-1);}
 
 void FzeroGamepadConfigure(const char *config, const char *guid, int deadzone) {
   snprintf(s_config, sizeof(s_config), "%s", config ? config : "config.ini");
@@ -134,8 +138,8 @@ uint32_t FzeroGamepadRead(SDL_GameController *pad) {
   return FzeroGamepadReadShortcuts(pad, NULL, 0, NULL);
 }
 
-uint32_t FzeroGamepadReadShortcuts(SDL_GameController *pad, const int *bindings,
-                                  unsigned count, uint32_t *active) {
+static uint32_t read_map(SDL_GameController *pad,const uint32_t map[12],int deadzone,
+                         const int *bindings,unsigned count,uint32_t *active) {
   if (active) *active = 0;
   if (!pad || !SDL_GameControllerGetAttached(pad)) return 0;
   uint32_t raw = 0, consumed = 0, axes_consumed = 0;
@@ -155,7 +159,7 @@ uint32_t FzeroGamepadReadShortcuts(SDL_GameController *pad, const int *bindings,
     } else if (RECOMP_LAUNCHER_PAD_IS_AXIS(value)) {
       int code = RECOMP_LAUNCHER_PAD_AXIS_CODE(value);
       if (code < SDL_CONTROLLER_AXIS_MAX &&
-          (RECOMP_LAUNCHER_PAD_AXIS_POSITIVE(value) ? axes[code] > s_deadzone : axes[code] < -s_deadzone))
+          (RECOMP_LAUNCHER_PAD_AXIS_POSITIVE(value) ? axes[code] > deadzone : axes[code] < -deadzone))
         axis = code;
     }
     if ((mask && (raw & mask) == mask) || axis >= 0) {
@@ -169,17 +173,29 @@ uint32_t FzeroGamepadReadShortcuts(SDL_GameController *pad, const int *bindings,
     if (axes_consumed & (1u << i)) axes[i] = 0;
   uint32_t buttons = 0, input = 0;
   buttons = raw & 0x7fffu;
-  if (axes[SDL_CONTROLLER_AXIS_TRIGGERLEFT] > s_deadzone)
+  if (axes[SDL_CONTROLLER_AXIS_TRIGGERLEFT] > deadzone)
     buttons |= 1u << 15;
-  if (axes[SDL_CONTROLLER_AXIS_TRIGGERRIGHT] > s_deadzone)
+  if (axes[SDL_CONTROLLER_AXIS_TRIGGERRIGHT] > deadzone)
     buttons |= 1u << 16;
   for (int i = 0; i < 12; ++i)
-    if (s_bind[i] && (buttons & s_bind[i]) == s_bind[i]) input |= 1u << s_input_bits[i];
+    if (map[i] && (buttons & map[i]) == map[i]) input |= 1u << s_input_bits[i];
   int x = axes[SDL_CONTROLLER_AXIS_LEFTX];
   int y = axes[SDL_CONTROLLER_AXIS_LEFTY];
-  if (x < -s_deadzone) input |= 0x0040u;
-  if (x > s_deadzone) input |= 0x0080u;
-  if (y < -s_deadzone) input |= 0x0010u;
-  if (y > s_deadzone) input |= 0x0020u;
+  if (x < -deadzone) input |= 0x0040u;
+  if (x > deadzone) input |= 0x0080u;
+  if (y < -deadzone) input |= 0x0010u;
+  if (y > deadzone) input |= 0x0020u;
   return input;
+}
+uint32_t FzeroGamepadReadShortcuts(SDL_GameController *pad,const int *bindings,unsigned count,uint32_t *active) {
+  return read_map(pad,s_bind,s_deadzone,bindings,count,active);
+}
+uint32_t FzeroGamepadReadPlayer(SDL_GameController *pad,unsigned player) {
+  if(player>=2 || !pad || !SDL_GameControllerGetAttached(pad))return 0;
+  static struct {SDL_JoystickID id;uint32_t map[12];int deadzone;bool valid;} profiles[2];
+  SDL_JoystickID id=SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad));
+  if(!profiles[player].valid || profiles[player].id!=id) {
+    load_map(pad,profiles[player].map,&profiles[player].deadzone,(int)player);profiles[player].id=id;profiles[player].valid=true;
+  }
+  return read_map(pad,profiles[player].map,profiles[player].deadzone,NULL,0,NULL);
 }

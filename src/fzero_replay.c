@@ -21,6 +21,10 @@ static bool number(const char **p, unsigned *value) {
   *p = end; *value = (unsigned)n; return true;
 }
 bool FzeroReplayConfigure(const char *inputs, const char *viewports) {
+  return FzeroReplayConfigurePlayers(inputs,viewports,1);
+}
+bool FzeroReplayConfigurePlayers(const char *inputs,const char *viewports,unsigned players) {
+  if(players!=1 && players!=2)return false;
   span_count = view_count = 0;
   has_input = inputs && *inputs;
   const char *p = inputs ? inputs : "";
@@ -31,7 +35,7 @@ bool FzeroReplayConfigure(const char *inputs, const char *viewports) {
     s->last = s->first;
     if (*p == '-') { ++p; if (!number(&p, &s->last)) return false; }
     unsigned mask;
-    if (*p++ != ':' || !number(&p, &mask) || s->last < s->first || mask > 4095) return false;
+    if (*p++ != ':' || !number(&p, &mask) || s->last < s->first || mask > (players==2?0xffffffu:0xfffu)) return false;
     s->mask = mask;
     if (!*p) break;
     if (*p++ != ',' || !*p) return false;

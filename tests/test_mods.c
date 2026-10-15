@@ -12,7 +12,7 @@ int main(void) {
   RecompLauncherCModFeature w, f;
   RecompLauncherCModOption option;
   const CpCatalog *catalog = FzeroTracksCatalog();
-  CHECK(p->package_count(NULL) == 5 + FZERO_RULE_COUNT && p->feature_count(NULL) == p->package_count(NULL));
+  CHECK(p->package_count(NULL) == 6 + FZERO_RULE_COUNT && p->feature_count(NULL) == p->package_count(NULL));
   CHECK(!p->feature_enable(NULL, "track-library", "cups", 1));
   const CpPack *max = cp_catalog_find(catalog,"max-league");
   if (max && FzeroTracksHidden(max)) {
@@ -24,6 +24,14 @@ int main(void) {
     RecompLauncherCModFeature pack;
     RecompLauncherCModPackage package;
     CHECK(p->feature_get(NULL, i, &pack) && p->package_get(NULL, i, &package));
+    if(!strcmp(pack.id,"local-2p")) {
+      CHECK(!strcmp(pack.package_id,"fzero-local-2p") && !strcmp(pack.group,"Game Modes"));
+      CHECK(p->feature_enable(NULL,pack.package_id,pack.id,1));
+      CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini") && loaded.local_two_player);
+      CHECK(!s.gameplay.enabled && !s.bs_deluxe && !s.bs_tracks);
+      CHECK(p->feature_enable(NULL,pack.package_id,pack.id,0));
+      continue;
+    }
     if (!strcmp(pack.id, "crash-replay")) {
       CHECK(!strcmp(pack.package_id, "fzero-crash-replay") && !pack.option_count);
       CHECK(p->feature_enable(NULL, pack.package_id, pack.id, 1) && s.crash_replay);

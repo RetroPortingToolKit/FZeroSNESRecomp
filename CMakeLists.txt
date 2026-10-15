@@ -12,7 +12,8 @@ include(CTest)
 set(SNESRECOMP_ROOT "${CMAKE_SOURCE_DIR}/snesrecomp" CACHE PATH "Framework checkout")
 add_library(fzero_actor STATIC src/fzero_actor.c src/fzero_actor_progress.c src/fzero_actor_contact.c src/fzero_actor_tick.c src/fzero_versus.c)
 target_include_directories(fzero_actor PUBLIC "${CMAKE_SOURCE_DIR}/src")
-add_library(fzero_camera STATIC src/fzero_camera.c)
+add_library(fzero_camera STATIC src/fzero_camera.c src/fzero_ship.c)
+target_link_libraries(fzero_camera PUBLIC fzero_actor)
 target_include_directories(fzero_camera PUBLIC "${CMAKE_SOURCE_DIR}/src")
 if(NOT MSVC)
     target_compile_options(fzero_actor PRIVATE -Wall -Wextra -Werror)
@@ -41,6 +42,7 @@ endif()
 option(FZERO_BUILD_GAME "Build game hosts (requires privately generated ROM sources)" ON)
 add_library(fzero_video STATIC src/fzero_gameplay_settings.c src/fzero_video.c src/fzero_mode7.c src/fzero_replay.c src/fzero_hdma.c)
 target_include_directories(fzero_video PUBLIC "${CMAKE_SOURCE_DIR}/src" "${SNESRECOMP_ROOT}/runner/src")
+target_link_libraries(fzero_video PUBLIC fzero_camera)
 if(NOT MSVC)
     target_compile_options(fzero_video PRIVATE -Wall -Wextra -Werror)
     target_link_libraries(fzero_video PUBLIC m)
@@ -246,6 +248,7 @@ add_executable(FZeroSNESRecomp
     src/fzero_tracks_mods.c
     src/fzero_hotkeys.c
     src/fzero_gamepad.c
+    src/fzero_local_controls.c
     src/fzero_runtime.c)
 
 # Defaults scoped to this game target: the shared stores and launcher retain
@@ -268,7 +271,7 @@ function(configure_fzero_target target)
         add_dependencies(${target} fzero_deluxe_payload_source)
         target_compile_definitions(${target} PRIVATE FZERO_HAS_DELUXE=1)
     endif()
-    target_sources(${target} PRIVATE src/fzero_renderer.c)
+    target_sources(${target} PRIVATE src/fzero_renderer.c src/fzero_versus_video.c src/fzero_local.c)
     snesrecomp_target_render_workers(${target})
     target_link_libraries(${target} PRIVATE fzero_video)
     target_include_directories(${target} PRIVATE
@@ -304,6 +307,11 @@ if(BUILD_TESTING AND SNESRECOMP_SDL_BACKEND STREQUAL "SDL3")
     target_include_directories(fzero_gamepad_tests PRIVATE "${CMAKE_SOURCE_DIR}/src" "${RECOMP_UI_ROOT}/src" ${SNESRECOMP_RUNNER_INCLUDE_DIRS})
     snesrecomp_target_sdl(fzero_gamepad_tests)
     add_test(NAME fzero_gamepad COMMAND fzero_gamepad_tests)
+    add_executable(fzero_local_controls_tests tests/test_local_controls.c src/fzero_local_controls.c src/fzero_gamepad.c src/fzero_hotkeys.c "${SNESRECOMP_ROOT}/runner/src/snes_overlay_draw.c")
+    target_include_directories(fzero_local_controls_tests PRIVATE "${CMAKE_SOURCE_DIR}/src" "${RECOMP_UI_ROOT}/src" ${SNESRECOMP_RUNNER_INCLUDE_DIRS})
+    target_link_libraries(fzero_local_controls_tests PRIVATE fzero_actor)
+    snesrecomp_target_sdl(fzero_local_controls_tests)
+    add_test(NAME fzero_local_controls COMMAND fzero_local_controls_tests)
 endif()
 target_link_libraries(FZeroSNESRecomp PRIVATE OpenGL::GL)
 recomp_target_launcher_ui(FZeroSNESRecomp CONSOLE snes)
@@ -374,7 +382,8 @@ endif()
 
 # Shipped descriptors, patches and credits live separately from user inputs/settings.
 set(FZERO_PACK_SOURCE "" CACHE PATH "Locally extracted, validated standalone release packs")
-if(FZERO_PACK_SOURCE)
+option(FZERO_STAGE_RELEASE_CONTENT "Stage optional release packs and music after desktop links" ON)
+if(FZERO_PACK_SOURCE AND FZERO_STAGE_RELEASE_CONTENT)
     find_package(Python3 COMPONENTS Interpreter REQUIRED)
     file(GLOB_RECURSE FZERO_PACK_PAYLOAD CONFIGURE_DEPENDS "${FZERO_PACK_SOURCE}/*")
     set_property(TARGET FZeroSNESRecomp APPEND PROPERTY LINK_DEPENDS ${FZERO_PACK_PAYLOAD}

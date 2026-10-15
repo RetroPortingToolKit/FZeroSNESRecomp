@@ -18,6 +18,7 @@
 #include "fzero_state_mode.h"
 #include "fzero_replay.h"
 #include "fzero_capture.h"
+#include "fzero_local.h"
 
 #include "audio_trace.h"
 #include "common_rtl.h"
@@ -140,6 +141,7 @@ static uint64_t fnv1a_update(uint64_t hash, const void *data, size_t size) {
 }
 
 static uint64_t logic_hash(void) {
+  if(FzeroLocalSession())return FzeroVersusHash(FzeroLocalSession());
   uint64_t hash = UINT64_C(14695981039346656037);
   hash = fnv1a_update(hash, g_ram, sizeof(g_ram));
   if (g_snes->cart->ram && g_snes->cart->ramSize)
@@ -232,8 +234,8 @@ static int write_ppm(const char *path, const uint8_t *pixels, int width) {
   if (!path || !path[0]) return 1;
   FILE *stream = fopen(path, "wb");
   if (!stream) return 0;
-  fprintf(stream, "P6\n%d 224\n255\n", width);
-  for (size_t i = 0; i < (size_t)width * 224u; i++) {
+  fprintf(stream, "P6\n%d %d\n255\n", width,FzeroFrameHeight());
+  for (size_t i = 0; i < (size_t)width * FzeroFrameHeight(); i++) {
     uint8_t rgb[3] = {pixels[i * 4u + 2u], pixels[i * 4u + 1u],
                       pixels[i * 4u]};
     if (fwrite(rgb, 1, sizeof(rgb), stream) != sizeof(rgb)) {
@@ -256,12 +258,12 @@ static int write_wram_dump(const char *path) {
 static void collect_video(AttractStats *stats, const uint8_t *pixels,
                           long frame, int width) {
   uint64_t hash = fnv1a_update(UINT64_C(14695981039346656037), pixels,
-                               (size_t)width * 224u * 4u);
+                               (size_t)width * FzeroFrameHeight() * 4u);
   if (frame && hash != stats->video_hash) stats->video_changes++;
   stats->video_hash = hash;
   const uint32_t *words = (const uint32_t *)pixels;
   uint32_t first = words[0] & 0xffffffu;
-  for (size_t i = 1; i < (size_t)width * 224u; i++) {
+  for (size_t i = 1; i < (size_t)width * FzeroFrameHeight(); i++) {
     if ((words[i] & 0xffffffu) != first) {
       stats->video_active_frames++;
       break;
@@ -282,7 +284,7 @@ static void collect_audio(AttractStats *stats, const int16_t *audio,
 }
 
 static int parse_input_script(InputSpan spans[kMaxInputSpans],
-                              size_t *count_out) {
+                              size_t *count_out,bool versus) {
   const char *cursor = getenv("SNESRECOMP_INPUT_SCRIPT");
   *count_out = 0;
   if (!cursor || !cursor[0]) return 1;
@@ -303,7 +305,7 @@ static int parse_input_script(InputSpan spans[kMaxInputSpans],
     }
     if (*cursor++ != ':') return 0;
     unsigned long mask = strtoul(cursor, &end, 0);
-    if (end == cursor || mask > 0x0fffu) return 0;
+    if (end == cursor || mask > (versus?0xffffffu:0xfffu)) return 0;
     cursor = end;
     while (*cursor == ' ' || *cursor == '\t') cursor++;
     if (*cursor && *cursor != ',') return 0;
@@ -329,11 +331,22 @@ int main(int argc, char **argv) {
    * while stderr is redirected to a qualification log. */
   setvbuf(stderr, NULL, _IONBF, 0);
   headless_install_exception_filter();
-  if (argc < 2 || argc > 3) {
-    fprintf(stderr, "usage: FZeroSNESRecompHeadless <fzero.sfc> [frames]\n");
+  bool versus=argc==7 && !strcmp(argv[3],"--versus");
+  if (argc < 2 || (argc > 3 && !versus)) {
+    fprintf(stderr, "usage: FZeroSNESRecompHeadless <fzero.sfc> [frames [--versus COURSE P1 P2]]\n");
     return 2;
   }
-  long frame_limit = argc == 3 ? strtol(argv[2], NULL, 10) : 3600;
+  FzeroVersusConfig versus_config={0};
+  if(versus) {
+    unsigned values[3];
+    for(unsigned i=0;i<3;++i) {
+      char *end;unsigned long value=strtoul(argv[4+i],&end,10);
+      if(!argv[4+i][0] || *end || value>=(i?4u:15u)) {fputs("Invalid versus configuration\n",stderr);return 2;}
+      values[i]=(unsigned)value;
+    }
+    versus_config=(FzeroVersusConfig){(uint8_t)values[0],{(uint8_t)values[1],(uint8_t)values[2]}};
+  }
+  long frame_limit = argc >= 3 ? strtol(argv[2], NULL, 10) : 3600;
   if (frame_limit < 1 || frame_limit > 1000000) {
     fprintf(stderr, "frames must be between 1 and 1000000\n");
     return 2;
@@ -365,12 +378,16 @@ int main(int argc, char **argv) {
                        )) { fprintf(stderr, "%s\n", FzeroTracksError()); free(rom); return 2; }
   const char *deluxe_data = getenv("FZERO_DELUXE_DATA");
   FzeroGameplayHeadless(deluxe_data && *deluxe_data);
+  if(versus) {
+    FzeroGameplaySettings stock={0};FzeroGameplayConfigure(&stock,false,false);
+    FzeroTrackLoaderEnable(false);deluxe_data=NULL;
+  }
   FzeroVideoSettings capture_video;
   FzeroVideoStock(&capture_video);
   const char *replay_config=getenv("FZERO_REPLAY_VIDEO");
   if (replay_config && *replay_config) {
     if (!FzeroVideoLoad(&capture_video,replay_config)) return 11;
-    FzeroGameplayConfigure(&capture_video.gameplay,capture_video.bs_deluxe,capture_video.bs_tracks);
+    if(!versus)FzeroGameplayConfigure(&capture_video.gameplay,capture_video.bs_deluxe,capture_video.bs_tracks);
   } else {
     capture_video.gameplay=*FzeroGameplaySettingsCurrent();
     capture_video.bs_deluxe=FzeroBsCars(); capture_video.bs_tracks=FzeroBsTracks();
@@ -402,6 +419,7 @@ int main(int argc, char **argv) {
     return 3;
   }
   RtlReadSram();
+  if(versus && !FzeroLocalConfigure(versus_config)) {fputs("Cannot start stock local versus\n",stderr);return 12;}
   if (!FzeroCaptureReplayLoad()) return 11;
   const char *capture_directory=getenv("FZERO_CAPTURE_DIR");
   if (capture_directory && !FzeroCaptureStart(true,capture_directory,&capture_video)) return 11;
@@ -417,7 +435,7 @@ int main(int argc, char **argv) {
 
   InputSpan input_spans[kMaxInputSpans];
   size_t input_span_count = 0;
-  if (!parse_input_script(input_spans, &input_span_count)) {
+  if (!parse_input_script(input_spans, &input_span_count,versus)) {
     fputs("invalid SNESRECOMP_INPUT_SCRIPT; expected FIRST[-LAST]:MASK "
           "entries\n",
           stderr);
@@ -435,9 +453,9 @@ int main(int argc, char **argv) {
 
   int frame_width = FzeroFrameWidth();
   int drawable_width = 768, drawable_height = 576;
-  FzeroSetViewport(FzeroCalculateViewport(&replay_video, drawable_width, drawable_height));
+  FzeroSetViewport(FzeroCalculateViewport(&replay_video, drawable_width, versus?drawable_height/2:drawable_height));
   frame_width = FzeroFrameWidth();
-  static uint8_t pixels[FZERO_MAX_WIDTH * 224u * 4u];
+  static uint8_t pixels[FZERO_MAX_WIDTH * 448u * 4u];
   int16_t audio[600 * 2];
   FzeroBeginDrawing(pixels, (size_t)frame_width * 4u);
 
@@ -618,7 +636,7 @@ int main(int argc, char **argv) {
     }
     if (FzeroReplayViewport((unsigned)frame, &replay_video)) {
       FzeroReplayWindow((unsigned)frame, &drawable_width, &drawable_height);
-      FzeroViewport viewport = FzeroCalculateViewport(&replay_video, drawable_width, drawable_height);
+      FzeroViewport viewport = FzeroCalculateViewport(&replay_video, drawable_width, versus?drawable_height/2:drawable_height);
       FzeroSetViewport(viewport);
       frame_width = viewport.width;
       FzeroBeginDrawing(pixels, (size_t)frame_width * 4u);
@@ -750,6 +768,14 @@ int main(int argc, char **argv) {
        stats.audio_active_frames >= (uint64_t)(frame_limit / 10) &&
        stats.audio_peak > 0 && audio_samples > 0);
   qualified = qualified && FzeroActorLiveFinish();
+  if(versus) {
+    const FzeroVersusSnapshot *v=FzeroVersusCompleted(FzeroLocalSession());
+    qualified=qualified && v!=NULL;
+    if(v)fprintf(stderr,"local-versus: tick=%llu phase=%u race=%llu hash=%016llx p1=%u,%u status=%u p2=%u,%u status=%u\n",
+        (unsigned long long)v->tick,v->phase,(unsigned long long)v->race_tick,
+        (unsigned long long)FzeroVersusHash(FzeroLocalSession()),v->racers[0].actor.x,v->racers[0].actor.y,
+        v->racers[0].status,v->racers[1].actor.x,v->racers[1].actor.y,v->racers[1].status);
+  }
 
   fprintf(stderr,
           "fzero_native: %s frames=%ld resume=%06x master=%llu "
@@ -777,5 +803,6 @@ int main(int argc, char **argv) {
     if (!FzeroRulesProbe()) { free(rom); return 9; }
   }
   free(rom);
+  FzeroLocalShutdown();
   return qualified && output_ok ? 0 : 8;
 }

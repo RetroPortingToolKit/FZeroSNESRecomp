@@ -31,6 +31,7 @@ int FzeroStateGuardTripped(void);
 void FzeroBeginDrawing(uint8_t *pixels, size_t pitch);
 void FzeroDrawPpuFrame(void);
 int FzeroFrameWidth(void);
+int FzeroFrameHeight(void);
 uint32_t FzeroResumePc(void);
 int FzeroLastLleResult(void);
 void FzeroSetViewport(FzeroViewport viewport);

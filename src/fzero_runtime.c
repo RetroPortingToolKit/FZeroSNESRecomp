@@ -29,6 +29,8 @@
 #include "fzero_msu.h"
 #include "fzero_gameplay.h"
 #include "fzero_vehicles.h"
+#include "fzero_local.h"
+#include "snes_overlay_draw.h"
 
 #include "common_rtl.h"
 #include "cpu_state.h"
@@ -211,11 +213,19 @@ static bool run_main_slice(uint64_t deadline) {
 }
 
 static void run_one_frame(void) {
+  if(FzeroLocalTick((uint32_t)g_snes->input1_currentState|((uint32_t)g_snes->input2_currentState<<12))) {
+    /* One host tick advances one shared race. Keep SPC/beam clocks running
+     * for the single soundtrack; neither camera invokes a guest frame. */
+    g_cpu.master_cycles+=kMasterClocksPerFrame;
+    synchronize_hardware();s_next_frame_master=g_cpu.master_cycles+kMasterClocksPerFrame;
+    ++s_host_frames;FzeroLocalPublish();return;
+  }
   FzeroVehiclesSync();
   /* This host replays HDMA during deferred scanout. The clock-driven engine
    * must not also consume its tables while the CPU runs ahead of that frame. */
   snes_set_hdma_beam_enabled(g_snes, false);
-  RtlSetPadState(0, FzeroTracksMenuInput(FzeroGameplayMenuInput(g_snes->input1_currentState,g_ram), g_ram));
+  RtlSetPadState(0,FzeroLocalEnabled()?FzeroLocalSetupInput():
+      FzeroTracksMenuInput(FzeroGameplayMenuInput(g_snes->input1_currentState,g_ram),g_ram));
   const uint32_t previous_scene = g_ram[0x54] | (uint32_t)g_ram[0x55] << 8 | (uint32_t)g_ram[0x56] << 16;
   if (!s_initialized) {
     uint64_t reset_master = g_cpu.master_cycles;
@@ -329,6 +339,7 @@ static void run_one_frame(void) {
   s_next_frame_master += kMasterClocksPerFrame;
   s_host_frames++;
   FzeroTracksMenuTick(g_ram, previous_scene);
+  FzeroLocalSetupTick(s_host_frames);
 
 #if SNESRECOMP_TRACE
   if (s_host_frames <= 16 || (s_host_frames % 600u) == 0) {
@@ -352,6 +363,7 @@ void FzeroBeginDrawing(uint8_t *pixels, size_t pitch) {
 }
 
 int FzeroFrameWidth(void) { return s_viewport.width; }
+int FzeroFrameHeight(void) { return FzeroLocalEnabled()?448:224; }
 
 void FzeroSetViewport(FzeroViewport viewport) {
   if (viewport.width != s_viewport.width) {
@@ -362,6 +374,22 @@ void FzeroSetViewport(FzeroViewport viewport) {
 }
 
 void FzeroPresent(double alpha) {
+  if(FzeroLocalEnabled() && !FzeroLocalSession()) {
+    s_hd_ready=false;
+    if(s_output_pixels) {
+      uint32_t *p=(uint32_t *)s_output_pixels;
+      for(int i=0;i<s_viewport.width*448;++i)p[i]=0xff111625;
+      snes_ovl_draw_text(p,s_viewport.width,448,(s_viewport.width-18*8)/2,216,
+          "LOADING LOCAL RACE",0xfff4f4ff,1);
+    }
+    return;
+  }
+  if(FzeroLocalSession()) {
+    s_hd_ready=s_hd_scale && s_hd_pixels &&
+        FzeroLocalDraw(s_hd_pixels,s_hd_capacity,s_viewport,alpha,s_hd_scale);
+    if(s_output_pixels)FzeroLocalDraw((uint32_t *)s_output_pixels,(size_t)s_viewport.width*448,s_viewport,alpha,1);
+    return;
+  }
   s_hd_ready = s_hd_scale && s_hd_pixels &&
       FzeroRendererDrawPresentation(s_viewport.enhanced ? (uint32_t *)s_output_pixels : NULL,
           s_hd_pixels, s_hd_capacity, s_viewport, alpha, s_hd_scale);
@@ -406,7 +434,8 @@ static void hdma_write_bus(void *context, uint8_t reg, uint8_t value) {
 }
 
 void FzeroDrawPpuFrame(void) {
-  const bool capture = s_viewport.enhanced || s_hd_scale || getenv("FZERO_CAPTURE_FRAME") != NULL ||
+  if(FzeroLocalSession()) {if(!s_deferred_presentation)FzeroPresent(1);return;}
+  const bool capture = FzeroLocalEnabled() || s_viewport.enhanced || s_hd_scale || getenv("FZERO_CAPTURE_FRAME") != NULL ||
                        getenv("FZERO_CAPTURE_FRAMES") != NULL;
   if (capture) {
     FzeroRendererBeginFrame(s_published_ram, s_host_frames);
@@ -559,9 +588,11 @@ void FzeroDrawPpuFrame(void) {
   g_ppu->cgramSecondWrite = cpu_cgram_second_write;
   memcpy(g_ppu->highOam, cpu_high_oam, sizeof(cpu_high_oam));
   memcpy(g_dma->channel, cpu_dma_channels, sizeof(cpu_dma_channels));
+  FzeroLocalCapture();
 }
 
 static void session_reset(void) {
+  FzeroLocalShutdown();
   FzeroRendererReset();
   FzeroTracksMenuReset();
   s_wide_projection_accepts = 0;

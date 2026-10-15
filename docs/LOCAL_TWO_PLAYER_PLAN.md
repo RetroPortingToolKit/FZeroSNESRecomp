@@ -321,7 +321,7 @@ authorized by this handoff. Local reviewable commits are authorized.
 
 ## Implementation record (2026-10-15)
 
-The feature remains **incomplete and unavailable in the game**. The following
+The feature remains **incomplete**. The following
 are implementation milestones, not completion of gates 1, 2, or 3. In
 particular, a second renderer context is not a second camera, and scalar
 routine parity is not full-frame or race parity.
@@ -544,3 +544,68 @@ crash capture. The core APIs alone do not fulfill those host/lifecycle gates.
 All fifteen stock-course versus races, human two-controller play, split-view
 visual/performance qualification and full host session determinism across
 platforms/presentation rates remain unperformed. Keep `beads-8uc1` in progress.
+
+## Windows host integration milestone (2026-10-15)
+
+The in-progress desktop and headless hosts now enter the shared versus core
+after native stock asset setup. This is a prototype milestone, not completion
+of the approved acceptance gates. The owner directed that further builds and
+validation focus on Windows for now; new Linux qualification is deferred.
+
+`fzero_local` supplies ordinary native menu inputs, selects the race config at
+the `$9F08` course-loader entry, then parks the gameplay CPU after assets and
+legal grid positions are ready. Native setup uses the interpreter so compiled
+calls cannot bypass its configuration hook. The authoritative core advances
+once per host tick, while the single SPC timeline remains active. A premature
+frame-boundary scene jump failed native setup and was replaced by this path.
+
+Each pane now derives its own perspective and skyline from the completed actor
+pose. The renderer always resolves versus terrain through the shared full-course
+tables, including inside the primary guest camera's streamed square and at
+stock width. Guest OBJ/HUD are excluded. `fzero_ship` selects and decodes native
+ship art by relative facing and distance; the two views carry stable P1/P2
+labels, separate lap/time/speed/power/boost HUDs, and initial host effects.
+No cartridge assets or private captures are checked in.
+
+The launcher has a Local 2 Player game-mode entry and the desktop has a setup
+screen with separate device joining, machine choices, course selection and
+ready confirmation. One keyboard or SDL instance can occupy only one seat.
+Each gamepad has an independent profile: `[Local2P.P1]` / `[Local2P.P2] in
+`config.ini` can override `Controls` and `Deadzone`, inheriting common device
+bindings otherwise. Either Start pauses; focus loss or a disconnect pauses
+and clears held inputs. A replacement device must join explicitly, followed
+by an explicit resume. Results expose rematch and changing the setup.
+
+Private Windows validation so far:
+
+- Headless Mute City I, machines0/1,1800 frames: session tick187/race tick7;
+  both actors active; zero audio underruns. A2300-frame ordinary packed-input
+  route produced independently steered positions4683,286 and3835,444;
+  simulation hash2065fa93fcecb231. These are observations, not injected outcomes.
+- Desktop2300-frame muted scripted run reached versus; the actual native/HD2
+  split-frame bitmap was visually inspected. This is not a physical-device
+  playtest or a performance qualification (1365 presentations,942 missed,
+  target60Hz across setup and racing on the software backend).
+- Scalar/whole-session oracle remains passing on Windows. Display additions
+  compare all65536 speed values and16000 ship asset-selection poses against
+  native routines. Renderer tests verify distant cameras, stock/wide widths,
+  native/HD composition and immutable shared course ownership.
+- Windows virtual-controller fixture passes distinct seats, independent
+  bindings, ready confirmation, duplicate machines and keyboard replacement.
+  Existing video, renderer and gamepad CTests pass. The Mods test with an empty
+  private catalog reached an existing title-choice-count assertion; the full
+  catalog fixture must be used for its final result. A new controller-test
+  target initially lacked the shared overlay font object; its CMake link was
+  corrected, and the regenerated CMake target builds and passes on Windows.
+
+Remaining: complete shared sound/effect presentation, whole-session host
+snapshots/guards/namespaces/quick saves/rewind/replay/crash captures, render-rate
+and window-size determinism, all-course race qualification, normal two-human
+race/rematch/disconnect playtests, and baseline/HD performance qualification.
+Versus host persistence is not implemented at this checkpoint; native guest
+snapshots alone cannot restore the shared race. Keep the issue open.
+
+For development iterations, `FZERO_STAGE_RELEASE_CONTENT=OFF` skips optional
+pack/music post-link staging; the default remains ON for ordinary/release
+builds. Windows CMake uses native Git explicitly, avoiding the cached MSYS
+Git shim. Neither change alters dependency pins or source identity checks.

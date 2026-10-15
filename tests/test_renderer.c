@@ -717,6 +717,56 @@ static void test_hd_composition_cache(void) {
   for (size_t i = 0; i < count * 4; ++i) CHECK(hd[1 + i] == 0);
 }
 
+static void test_race_cameras(void) {
+  setup();
+  FzeroRenderView *assets=FzeroRenderViewCreate(), *views[2]={FzeroRenderViewCreate(),FzeroRenderViewCreate()};
+  CHECK(assets && views[0] && views[1]);
+  /* Deliberately wrong streamed map. Both narrow and wide versus panes must
+   * use the shared world even inside the guest's nominal streamed square. */
+  memset(p.vram,0,sizeof(p.vram));
+  for (unsigned i=0;i<0x4000;++i) p.vram[i]=1;
+  for (unsigned i=0;i<64;++i) {
+    p.vram[64+i]|=3<<8;p.vram[7*64+i]|=1<<8;p.vram[8*64+i]|=2<<8;
+  }
+  p.cgram[1]=31;p.cgram[2]=0x3e0;p.cgram[3]=0x7c00;
+  ram[0xb0]=0;ram[0xb1]=0x40;
+  uint8_t *bank=ram+0x10000;
+  for (unsigned y=0;y<16;++y) for (unsigned x=0;x<32;++x) bank[0x4000+y*32+x]=x<16?3:4;
+  for(unsigned b=3;b<=4;++b) for(unsigned i=0;i<16;++i) {
+    bank[0x5000+b*32+i*2]=0;bank[0x5001+b*32+i*2]=0x60+b;
+    bank[(0x60+b)*256+i*2]=0;bank[(0x60+b)*256+i*2+1]=0x70+b;
+  }
+  for(unsigned i=0;i<4;++i) {bank[0x7300+i]=7;bank[0x7400+i]=8;}
+  FzeroRenderViewBeginFrame(assets,ram,1);
+  for(unsigned y=1;y<=224;++y) {
+    p.bgmode=y<48?1:7;
+    FzeroRenderViewCaptureLine(assets,&p,y);
+  }
+  FzeroRenderViewEndFrame(assets,&p,stock);
+  FzeroActor actors[2]={{.x=512,.y=512},{.x=6000,.y=512}};
+  FzeroCamera camera={.center_x=512,.center_y=512,.scroll_x=384,.scroll_y=336};
+  for(unsigned i=0;i<176;++i) camera.coefficients[i][0]=camera.coefficients[i][3]=256;
+  for(unsigned i=0;i<2;++i) CHECK(FzeroRenderViewCaptureRace(views[i],assets,ram,&actors[i],&camera,10));
+  memcpy(before,ram,sizeof(ram));
+  static uint32_t first[FZERO_MAX_WIDTH*224],again[FZERO_MAX_WIDTH*224],hd[FZERO_MAX_WIDTH*224*4];
+  for(unsigned wide=0;wide<2;++wide) {
+    FzeroViewport v=wide?(FzeroViewport){684,214,32.0/9.0,true}:(FzeroViewport){256,0,4.0/3.0,false};
+    for(unsigned i=0;i<2;++i) {
+      CHECK(FzeroRenderViewDraw(views[i],first,v,1));
+      for(unsigned y=48;y<224;++y) for(int x=0;x<v.width;++x) CHECK(first[y*v.width+x]==(i?0x00ff00:0xff0000));
+      CHECK(FzeroRenderViewDrawPresentation(views[i],again,hd,sizeof(hd)/sizeof(*hd),v,.5,2));
+      CHECK(!memcmp(first,again,(size_t)v.width*224*sizeof(*first)));
+      CHECK(FzeroRenderViewDraw(views[1-i],again,v,1));
+      CHECK(FzeroRenderViewDraw(views[i],again,v,1));
+      CHECK(!memcmp(first,again,(size_t)v.width*224*sizeof(*first)));
+    }
+  }
+  CHECK(!memcmp(before,ram,sizeof(ram)));
+  FzeroRenderViewDestroy(assets);
+  CHECK(FzeroRenderViewDraw(views[0],first,(FzeroViewport){256,0,4.0/3.0,false},1));
+  FzeroRenderViewDestroy(views[0]);FzeroRenderViewDestroy(views[1]);
+}
+
 int main(void) {
   FzeroVideoSettings s; FzeroVideoStock(&s); /* tests build an explicit viewport, not the shipped defaults */ s.enhanced = true; s.aspect = FZERO_ASPECT_32_9;
   FzeroViewport v = FzeroCalculateViewport(&s, 5120, 1440);
@@ -775,6 +825,7 @@ int main(void) {
   test_hd_results();
   test_hd_composition_cache();
   test_view_isolation();
+  test_race_cameras();
   FzeroRendererShutdown();
   CHECK(FzeroRendererWorkerCount() == 1);
   puts("F-Zero renderer: bounds, immutable frames, scene fallback, car identity, signed X, panorama wrap and HUD transitions passed");

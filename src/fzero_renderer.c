@@ -27,6 +27,7 @@ typedef struct FzeroSourceFrame {
 struct FzeroRenderView {
   FzeroSourceFrame frames[2];
   unsigned current;
+  bool race[2]; /* Host metadata stays outside the legacy capture file. */
   Ppu scanout; /* Never points at guest state or another view's scratch. */
   SnesRenderWorkers *render_workers;
   Ppu *worker_scratch;
@@ -75,6 +76,7 @@ bool FzeroRenderViewLoadCapture(FzeroRenderView *view, const char *path) {
   bool ok = fread(frame, sizeof(*frame), 1, f) == 1 && fgetc(f) == EOF;
   fclose(f);
   frame->valid = ok;
+  view->race[view->current] = false;
   return ok;
 }
 const uint32_t *FzeroRenderViewStockFrame(const FzeroRenderView *view) {
@@ -92,6 +94,7 @@ void FzeroRenderViewBeginFrame(FzeroRenderView *view, const uint8_t ram[0x20000]
   view->current ^= 1;
   FzeroSourceFrame *f = &view->frames[view->current];
   f->valid = false;
+  view->race[view->current] = false;
   f->frame = frame;
   memcpy(f->ram, ram, sizeof(f->ram));
 }
@@ -164,6 +167,47 @@ void FzeroRenderViewEndFrame(FzeroRenderView *view, const Ppu *p, const uint32_t
   /* Preserve the single-player capture format and filenames. Callers with
    * multiple views choose their capture destination explicitly. */
   if (view == &single_player) dump_frame(f, &view->scanout);
+}
+
+bool FzeroRenderViewCaptureRace(FzeroRenderView *view, const FzeroRenderView *assets,
+                                const uint8_t world[0x20000], const FzeroActor *actor,
+                                const FzeroCamera *camera, unsigned frame) {
+  if (!assets) assets = &single_player;
+  if (!view || view == assets || !world || !actor || !camera ||
+      actor->x >= 8192 || actor->y >= 4096 ||
+      !FzeroRenderViewHasFrame(assets)) return false;
+  const FzeroSourceFrame *source = &assets->frames[assets->current];
+  if (source->ram[0x54] != 2 || !source->ram[0x81]) return false;
+  view->current ^= 1;
+  FzeroSourceFrame *f = &view->frames[view->current];
+  *f = *source;
+  memcpy(f->ram, world, sizeof(f->ram));
+  f->frame = frame;
+  f->ram[0x54] = 2; f->ram[0x55] = 3; f->ram[0x56] = 0; f->ram[0x81] = 1;
+  f->ram[0xac] = camera->inverse_angle;
+  f->ram[0xb70] = actor->x; f->ram[0xb71] = actor->x >> 8;
+  f->ram[0xb90] = actor->y; f->ram[0xb91] = actor->y >> 8;
+  for (unsigned y = 0; y < 224; ++y) {
+    /* Work on owned PPU scratch, then retain only its register prefix. */
+    Ppu *p = &view->scanout;
+    memcpy(p, f->lines[y].registers, PPU_SAVESTATE_REGS_SIZE);
+    p->screenEnabled[0] &= 3; p->screenEnabled[1] &= 3;
+    if ((p->bgmode & 7) == 7) {
+      if (!FzeroCameraAtLine(camera, y + 1, p->m7matrix)) {
+        f->valid = false; return false;
+      }
+    } else if (y < 47) {
+      p->hScroll[0] = camera->background_h; p->vScroll[0] = camera->background_v;
+      p->hScroll[1] = camera->skyline_h; p->vScroll[1] = camera->skyline_v;
+    }
+    /* Stock HUD power-window clipping has no ownership in a versus pane. */
+    p->screenWindowed[0] = p->screenWindowed[1] = 0;
+    p->windowsel = 0; p->cgwsel &= 15;
+    memcpy(f->lines[y].registers, p, PPU_SAVESTATE_REGS_SIZE);
+  }
+  view->race[view->current] = true;
+  f->valid = true;
+  return true;
 }
 
 static unsigned tile_pixel(const uint16_t *vram, unsigned address, int x, int y, int bpp) {
@@ -267,6 +311,7 @@ typedef struct FzeroCourse {
   int anchor_x, anchor_y;
   double camera_x, camera_y;
   bool valid;
+  bool complete;
 } FzeroCourse;
 
 /* Shortest-path blend of a coordinate that repeats every `period` units, the
@@ -286,7 +331,7 @@ static double periodic_blend(double from, double to, double alpha, double period
  * periodic way so they stay in the origin's representative. */
 
 static FzeroCourse course_open(const FzeroSourceFrame *f, bool world) {
-  FzeroCourse course = {NULL, 0, 0, 0, 0, 0, false};
+  FzeroCourse course = {0};
   if (!world) return course;
   course.bank = f->ram + 0x10000;
   course.grid = (unsigned)f->ram[0xb0] | ((unsigned)f->ram[0xb1] << 8);
@@ -356,7 +401,7 @@ static int course_sample_at(const FzeroCourse *course, const FzeroCourseLine *li
   if (!course->valid) return -1;
   int world_x = (tx + line->offset_x) & 0x1fff;
   int world_y = (ty + line->offset_y) & 0x0fff;
-  if (((world_x - course->anchor_x) & 0x1fff) < 1024 &&
+  if (!course->complete && ((world_x - course->anchor_x) & 0x1fff) < 1024 &&
       ((world_y - course->anchor_y) & 0x0fff) < 1024) return -1;
   int cell_x = world_x >> 3, cell_y = world_y >> 3;
   if (cell_x != cache->cell_x || cell_y != cache->cell_y) {
@@ -869,7 +914,10 @@ static bool render_frame(FzeroRenderView *view, uint32_t *out, FzeroViewport vie
   }
   /* A widened viewport can reach outside retail's streamed square. Both a
    * live race and its frozen finish backdrop retain the course tables. */
-  FzeroCourse course = course_open(f, (world || result_scenery) && viewport.enhanced);
+  bool race = view->race[view->current];
+  if (race) race_hud = false;
+  FzeroCourse course = course_open(f, race || ((world || result_scenery) && viewport.enhanced));
+  course.complete = race;
   /* Only substantial HD scenery uses workers. Native composition and flat
    * menus stay serial. The call joins before another source frame, state load,
    * rewind action or shutdown can replace the immutable snapshot. */

@@ -5,6 +5,7 @@
 #include "fzero_actor.h"
 #include "fzero_versus.h"
 #include "fzero_camera.h"
+#include "fzero_ship.h"
 #include "snes/interp816.h"
 #include "sha256.h"
 #include <stddef.h>
@@ -155,6 +156,7 @@ static uint16_t reference_until(unsigned pc,unsigned stop) {
   if (pc==0xdbc4) { cpu.mf=false;cpu.x=2; }
   if (pc==0x87a3) cpu.x=2;
   if (pc==0xbc4a || pc==0xbe02) cpu.y=2;
+  if (pc==0xf188 || pc==0xf28b) cpu.x=2;
   ram[0x1fe] = ram[0x1ff] = 255;
   unsigned steps = 0;
   do { CHECK(++steps < 10000); interp816_runOpcode(&cpu); }
@@ -724,6 +726,36 @@ static void test_camera(void) {
   }
   puts("camera: 40000 independent pose/skyline/center/perspective fixtures passed against five stock display entries (normalized inverse-angle carry)");
 }
+static void test_display(void) {
+  for(unsigned speed=0;speed<65536;++speed) {
+    memset(ram,0,sizeof(ram));set_word(0xb20,speed);reference(0xa98a);
+    unsigned expected=ram[0xa58]*100+ram[0xa59]*10+ram[0xa5a];
+    CHECK(FzeroDisplaySpeed((uint16_t)speed)==expected);
+  }
+  FzeroActorTables tables={rom_read,NULL};
+  for(unsigned sample=0;sample<16000;++sample) {
+    FzeroActor camera={.x=4096,.y=2048},actor={0};
+    camera.facing=(uint16_t)(random_word()%0xc000);
+    actor.facing=(uint16_t)(random_word()%0xc000);actor.machine=sample%4;
+    actor.x=(uint16_t)((camera.x+(int)(random_word()%1200)-600)&8191);
+    actor.y=(uint16_t)((camera.y+(int)(random_word()%1200)-600)&4095);
+    FzeroActorProjection p=FzeroActorProject(&camera,&actor,tables);
+    FzeroShip ship;CHECK(FzeroShipBuild(&ship,&camera,&actor,tables));
+    if(!p.projectable) {CHECK(!ship.visible);continue;}
+    memset(ram,0,sizeof(ram));
+    set_word(0xbd0,camera.facing);set_word(0xbd2,actor.facing);
+    ram[0xc62]=(uint8_t)p.y;ram[0x1142]=255;ram[0x1133]=actor.machine;
+    reference(0xf188);reference(0xf28b);
+    CHECK(ship.visible && ship.graphic==ram[0x1142]);
+    CHECK(ship.size==ram[0xc33] && ship.layout==ram_word(0xcb2));
+    CHECK(ship.ground_x==p.x && ship.ground_y==p.y);
+    bool painted=false;
+    for(unsigned i=0;i<64*64;++i) if(ship.pixels[i])painted=true;
+    CHECK(painted);
+  }
+  puts("display: all65536 speed values and16000 ship pose/asset-selection fixtures passed against stock routines");
+}
+
 int main(int argc, char **argv) {
   CHECK(argc == 2);
   FILE *f = fopen(argv[1], "rb"); CHECK(f);
@@ -784,5 +816,6 @@ int main(int argc, char **argv) {
   test_session_events();
   test_session_contact_dnf();
   test_camera();
+  test_display();
   return 0;
 }

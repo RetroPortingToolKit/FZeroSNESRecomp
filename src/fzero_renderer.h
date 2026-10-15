@@ -1,6 +1,7 @@
 #pragma once
 
 #include "fzero_video.h"
+#include "fzero_camera.h"
 #include "snes/ppu.h"
 
 /* Each camera owns its capture history, interpolation and worker scratch.
@@ -23,6 +24,13 @@ bool FzeroRenderViewDrawPresentation(FzeroRenderView *view, uint32_t *native,
                                      uint32_t *hd, size_t hd_capacity,
                                      FzeroViewport viewport, double alpha, unsigned scale);
 bool FzeroRenderViewHasFrame(const FzeroRenderView *view);
+/* Build scenery for one versus camera from a completed stock race asset
+ * capture and immutable shared world. NULL assets selects the legacy view.
+ * Guest HUD/OBJ are excluded: the versus display owns both racers and HUDs.
+ * This never draws or advances a guest. The asset view must be distinct. */
+bool FzeroRenderViewCaptureRace(FzeroRenderView *view, const FzeroRenderView *assets,
+                                const uint8_t world[0x20000], const FzeroActor *actor,
+                                const FzeroCamera *camera, unsigned frame);
 bool FzeroRenderViewLoadCapture(FzeroRenderView *view, const char *path);
 const uint32_t *FzeroRenderViewStockFrame(const FzeroRenderView *view);
 

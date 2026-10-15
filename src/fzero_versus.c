@@ -69,7 +69,9 @@ static void results(FzeroVersus *s) {
 }
 void FzeroVersusEndRace(FzeroVersus *s) {
   if (!s || s->state.phase==FZERO_VS_READY || s->state.phase==FZERO_VS_RESULTS) return;
-  for (unsigned i=0;i<2;++i) if (s->state.racers[i].status==FZERO_VS_ACTIVE) s->state.racers[i].status=FZERO_VS_DNF;
+  for (unsigned i=0;i<2;++i) if (s->state.racers[i].status==FZERO_VS_ACTIVE) {
+    s->state.racers[i].status=FZERO_VS_DNF;s->state.racers[i].finish_tick=s->state.race_tick;
+  }
   s->state.contact=0;results(s);
 }
 bool FzeroVersusRematch(FzeroVersus *s) {
@@ -126,7 +128,7 @@ bool FzeroVersusTick(FzeroVersus *s,const uint16_t held[2]) {
     FzeroVersusRacer *r=&s->state.racers[i];
     if (r->status==FZERO_VS_ACTIVE) {
       gates[i]=FzeroActorTick(&r->actor,s->world,s->tables,(uint8_t)s->state.tick,&s->state.mines[i]);
-      if (r->actor.race_state&0x40) r->status=FZERO_VS_DNF;
+      if (r->actor.race_state&0x40) { r->status=FZERO_VS_DNF;r->finish_tick=s->state.race_tick; }
     }
     else r->actor.held=r->actor.pressed=r->actor.released=0;
   }
@@ -136,7 +138,9 @@ bool FzeroVersusTick(FzeroVersus *s,const uint16_t held[2]) {
   for (unsigned i=0;i<2;++i) FzeroActorCommitMine(s->world,&s->state.mines[i]);
   for (unsigned i=0;i<2;++i) {
     FzeroVersusRacer *r=&s->state.racers[i];
-    if (r->status==FZERO_VS_ACTIVE && (r->actor.race_state&0x40)) r->status=FZERO_VS_DNF;
+    if (r->status==FZERO_VS_ACTIVE && (r->actor.race_state&0x40)) {
+      r->status=FZERO_VS_DNF;r->finish_tick=s->state.race_tick;
+    }
     if (r->status==FZERO_VS_ACTIVE) progress(s,i,gates[i]);
     else r->actor.held=r->actor.pressed=r->actor.released=0;
   }
@@ -251,7 +255,8 @@ static bool valid(const FzeroVersus *s) {
         (r->crossing_tick && (r->crossing_tick<r->lap_start || !r->started ||
           !actor_valid(&r->crossing_pose,s,i))) ||
         (r->status==FZERO_VS_FINISHED && (!r->started || r->completed_laps!=FZERO_VERSUS_LAPS || !r->finish_tick)) ||
-        (r->status!=FZERO_VS_FINISHED && (r->finish_tick || r->completed_laps==FZERO_VERSUS_LAPS)) ||
+        (r->status==FZERO_VS_ACTIVE && r->finish_tick) ||
+        (r->status!=FZERO_VS_FINISHED && r->completed_laps==FZERO_VERSUS_LAPS) ||
         (v->mines[i].hit && (v->mines[i].x>=8192 || v->mines[i].y>=4096 ||
           v->mines[i].surface_id<0xc8 || v->mines[i].surface_id>=0xcc))) return false;
     uint64_t total=0;

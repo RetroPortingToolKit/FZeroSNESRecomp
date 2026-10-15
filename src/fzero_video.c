@@ -126,6 +126,9 @@ bool FzeroVideoLoad(FzeroVideoSettings *s, const char *path) {
       else valid = false;
     } else if (!strcmp(key, "HDMode7Scale")) {
       if (!FzeroParseHdScale(value, &s->hd_scale)) valid = false;
+    } else if (!strcmp(key,"LocalTwoPlayer")) {
+      if(!strcmp(value,"0") || !strcmp(value,"1"))s->local_two_player=value[0]=='1';
+      else valid=false;
     } else if (!strcmp(key, "CrashReplay")) {
       if (!strcmp(value, "0") || !strcmp(value, "1")) s->crash_replay = value[0] == '1';
       else valid = false;
@@ -204,6 +207,7 @@ bool FzeroVideoSave(const FzeroVideoSettings *s, const char *path) {
                     s->hd_mode7, FzeroValidHdScale(s->hd_scale) ? s->hd_scale : 2u, s->diagnostics) > 0;
   if (fprintf(f, "AlwaysShowRecords=%d\n", s->gameplay.always_records) < 0) ok = false;
   if (fprintf(f, "CrashReplay=%d\n", s->crash_replay) < 0) ok = false;
+  if (fprintf(f,"LocalTwoPlayer=%d\n",s->local_two_player)<0)ok=false;
   if (fclose(f)) ok = false;
   if (ok) {
 #ifdef _WIN32

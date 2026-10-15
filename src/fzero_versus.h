@@ -19,6 +19,7 @@ enum FzeroVersusWinner { FZERO_VS_NO_WINNER, FZERO_VS_PLAYER1, FZERO_VS_PLAYER2,
 typedef struct FzeroVersusRacer {
   FzeroActor actor;
   FzeroActor crossing_pose;
+  /* finish_tick freezes elapsed time for either terminal status (DNF too). */
   uint64_t finish_tick, lap_start, lap_ticks[FZERO_VERSUS_LAPS], crossing_tick;
   int32_t gates;
   uint8_t status, completed_laps, started;
