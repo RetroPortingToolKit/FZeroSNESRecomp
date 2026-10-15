@@ -10,6 +10,11 @@ find_path(RAPIDJSON_INCLUDE_DIR rapidjson/document.h REQUIRED)
 
 include(CTest)
 set(SNESRECOMP_ROOT "${CMAKE_SOURCE_DIR}/snesrecomp" CACHE PATH "Framework checkout")
+add_library(fzero_actor STATIC src/fzero_actor.c)
+target_include_directories(fzero_actor PUBLIC "${CMAKE_SOURCE_DIR}/src")
+if(NOT MSVC)
+    target_compile_options(fzero_actor PRIVATE -Wall -Wextra -Werror)
+endif()
 add_library(fzero_tracks STATIC src/fzero_tracks.c src/fzero_menu_music.c src/fzero_course.c src/fzero_course_file.c src/fzero_title.c src/fzero_music_sources.c src/fzero_packs.cpp src/fzero_fzedit.cpp src/fzero_content_import.cpp
     "${SNESRECOMP_ROOT}/runner/src/content_pack.c"
     "${SNESRECOMP_ROOT}/runner/src/content_patch.c"
@@ -38,6 +43,21 @@ if(NOT MSVC)
     target_link_libraries(fzero_video PUBLIC m)
 endif()
 if(BUILD_TESTING)
+    # A private stock ROM is an explicit argument, never a distributed fixture.
+    # Execute each scalar adapter's reference routine on the callback-bus CPU;
+    # this target has no SDL/audio output and never advances a game frame.
+    add_executable(fzero_actor_oracle tests/test_actor_oracle.c
+        "${SNESRECOMP_ROOT}/runner/src/snes/interp816.c"
+        "${SNESRECOMP_ROOT}/runner/src/sha256.c")
+    target_include_directories(fzero_actor_oracle PRIVATE "${SNESRECOMP_ROOT}/runner/src")
+    target_link_libraries(fzero_actor_oracle PRIVATE fzero_actor)
+    set(FZERO_TEST_ROM "" CACHE FILEPATH "Private verified stock ROM for actor parity tests")
+    if(FZERO_TEST_ROM)
+        add_test(NAME fzero_actor_stock_parity COMMAND fzero_actor_oracle "${FZERO_TEST_ROM}")
+    endif()
+    if(NOT MSVC)
+        target_compile_options(fzero_actor_oracle PRIVATE -Wall -Wextra -Werror)
+    endif()
     find_package(Python3 QUIET COMPONENTS Interpreter)
     if(Python3_Interpreter_FOUND)
         add_test(NAME fzero_content_import COMMAND "${Python3_EXECUTABLE}" -X utf8
@@ -196,11 +216,13 @@ endif()
 # host_report.c includes desktop/sdl_compat.h.
 add_executable(FZeroSNESRecompHeadless
     tests/probe_cgp_rules.c
+    tests/fzero_actor_live.c
     ${SNESRECOMP_RUNNER_SOURCES}
     ${FZERO_GEN_SOURCES}
     src/headless_host.c
     src/headless_main.c
     src/fzero_runtime.c)
+target_link_libraries(FZeroSNESRecompHeadless PRIVATE fzero_actor)
 
 # The desktop host takes the REAL host_report.c (always-on breadcrumb ring,
 # crash minidump writer, build-version stamp) and the REAL keybinds.c, so the

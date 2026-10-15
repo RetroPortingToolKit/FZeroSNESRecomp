@@ -70,6 +70,8 @@ typedef struct InputSpan {
 } InputSpan;
 
 void headless_install_exception_filter(void);
+void FzeroActorLiveInstall(void);
+int FzeroActorLiveFinish(void);
 
 /* Private-ROM replay fixtures. Entries are: first last WRAM-address hex-bytes.
  * Kept in the headless host: no memory editing interface in the shipped app. */
@@ -467,6 +469,7 @@ int main(int argc, char **argv) {
     interp_bridge_set_pre_opcode_hook(0x009c9a, stock_landing_probe);
   if (records_test && finish_rank_text)
     interp_bridge_set_pre_opcode_hook(0x1ebb3b, finish_rank_fixture);
+  FzeroActorLiveInstall();
 
   for (long frame = 0; frame < frame_limit; frame++) {
     replay_wram_before(frame);
@@ -746,6 +749,7 @@ int main(int argc, char **argv) {
        stats.video_changes >= (uint64_t)(frame_limit / 600) &&
        stats.audio_active_frames >= (uint64_t)(frame_limit / 10) &&
        stats.audio_peak > 0 && audio_samples > 0);
+  qualified = qualified && FzeroActorLiveFinish();
 
   fprintf(stderr,
           "fzero_native: %s frames=%ld resume=%06x master=%llu "
