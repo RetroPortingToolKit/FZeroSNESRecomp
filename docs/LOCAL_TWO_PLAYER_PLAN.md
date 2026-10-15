@@ -1,0 +1,320 @@
+# F-Zero local two player implementation plan
+
+Implement local two-player versus racing in F-Zero Forever with one shared
+simulation and two independent cameras, always displayed top/bottom. The owner
+selected versus races without CPU opponents for the first release and approved
+the implementation plan. The latest instruction is to prepare this handoff and
+leave gameplay implementation to a new session.
+
+Tracking: central Beads `beads-8uc1`, beneath F-Zero epic `beads-8wg.5`.
+Prepared 2026-10-15. No multiplayer prototype or new gameplay code exists yet.
+
+## Repository and checkpoint
+
+- Worktree: `F:/Projects/snesrecomp/_wt-fzero-track-packs`.
+- Implementation branch: `feat/fzero-local-2p`, created from `f-zero-forever` at
+  `c33e2e1d053a344377110f8a97d68bcaa31af02a` (version 0.10.0).
+- The game, actual engine build checkout, and actual UI build checkout had no
+  tracked pending edits when preparing the branch. Existing commits preserve
+  the baseline; an empty checkpoint commit is unnecessary.
+- The older `F:/Projects/snesrecomp/FZeroRecomp` checkout is on `main` at
+  `1686df4`. Do not use it as the implementation base or merge it blindly.
+- Engine build checkout: `F:/Projects/snesrecomp/_wt-fzero-diagnostics-engine`,
+  detached at `e54427bad93fb75729ce8214fdd7a46e197e6223`.
+- UI build checkout: `F:/Projects/snesrecomp/_wt-recomp-ui-fzero-quick`, at
+  `b520c9cdbced26d47f95b9117074c011bc90c550`.
+- The game index pins those exact dependency commits. Its local `snesrecomp`
+  directory is absent because the build uses the separate engine checkout.
+  Do not stage that absence as a submodule deletion. Stage exact files rather
+  than using `git add -A`.
+
+Keep implementation game-owned where possible. If a shared dependency must
+change, create its own branch from the pinned commit before editing, commit
+there, and update the game pin only after validation. Do not commit unrelated
+work or modify the old baseline branch.
+
+## Evidence and private references
+
+The available evidence supports feasibility, not a claim of working multiplayer.
+The difficult work is separating player-only state, resolving shared collisions,
+and generating the second complete view.
+
+| Resource | Location and significance |
+| --- | --- |
+| Original F-Zero VS source | `E:/Downloads/source release 12.06.09.rar`, 5,010,791 bytes; SHA-256 `05573e4fcbcf8aa2d18bce0e2dae3df408641f26dc7871213fad8aed67986dcd`. Contains modified Snes9x 1.42 and the C# FZVSServer. |
+| Emulator modifications | Archive member `source release/snes9x-1.42-src/snes9x-1.42-src/wsnes9x.cpp`; game setup, hook addresses, participant states, racer exchange, and collision modifications were inspected. |
+| Server racer model | Archive member `source release/win_server/FZVSServer/FZVSServer/Player.cs`; exchanges position/orientation and race status. |
+| Annotated disassembly | Worktree-relative `references/diz-export/export/`, especially `bank_00.asm`, `bank_03.asm`, and `labels.asm`; intake provenance is in `references/diz-export/README.md`, tracked by historical `beads-8wg.5.58`. |
+| Renderer groundwork | `docs/ADAPTIVE_RENDERER.md` and `src/fzero_renderer.c`; full-course lookup already resolves locations beyond the guest's streamed tilemap. |
+| Presentation precedent | `F:/Projects/segagenesisrecomp/SonicTheHedgehog2Recomp/README.md`; local versus stays split, whereas online peers receive individual views. Sonic 2 already had native two-player simulation; F-Zero does not. |
+
+The original author describes the design at <https://fzerovs.blogspot.com/>.
+F-Zero VS advances separate game instances and exchanges racer locations. It
+suppresses AI and modifies collisions to avoid competing updates. Use those
+findings as reference knowledge; do not import its server, socket code, separate
+game instances, or collision compromises into the new local mode.
+
+The DIZ export has 28 recorded diagnostics and uncertain labels. Verify routine
+boundaries, M/X widths, branch targets, arithmetic, and writes against the ROM
+and runtime. `tools/disassemble_range.py` only performs a linear decode with
+caller-supplied M/X flags. It cannot establish correct call boundaries alone.
+
+Seven USA-ROM locations were spot-checked successfully:
+
+| CPU address | Observed bytes | Historical use |
+| --- | --- | --- |
+| `$00:BDB2`, `$00:BDD5`, `$00:BDEF`, `$00:BDFE` | `99 20 0B` | Stores to the other racer's rebound speed. |
+| `$00:DDDA` | `20 57 DE` | Calls opponent AI. |
+| `$00:DDFC` | `20 D0 DE` | Calls opponent population/catch-up behavior. |
+| `$00:D2EF` | `A5 52 0A` | Reads player machine selection. |
+
+These are verified landmarks, not instructions to apply the historical NOPs.
+Relevant annotated landmarks include the physics hub `$00:9144`, actor loop
+`$00:915D`, finish-line routine `$00:9968`, and player input/drift near
+`$00:B8CE..B928`. Racer X/Y coordinates are at `$0B70/$0B90` with two-byte
+slot strides; fractional coordinates, momentum, facing, altitude, and action
+state must also be retained. Player-only health at `$C9`, selection at `$52`
+and `$D1`, input history, boosts, recovery, and checkpoint state must become
+per-player state rather than being shared accidentally.
+
+Keep the archive, any bundled ROM/binaries, ROM-derived generated output, and
+the entire private DIZ directory out of commits and release bundles. Use the
+existing ROM verification and local generated sources.
+
+## Finished behavior
+
+- Add a discoverable **Local 2 Player** entry. Preserve ordinary single-player
+  selection and existing content settings outside versus sessions.
+- First release supports two humans, all 15 stock courses, the four stock
+  machines, and five laps. No CPU field, multi-race cups, netplay, or qualification
+  of BS/CGP/imported courses and altered gameplay profiles is included.
+- Both players assign devices, independently choose machines, and confirm ready.
+  Player 1 chooses the course. Duplicate machine choices are allowed with
+  distinct player colors/labels. Use distinct legal starting-grid positions.
+- Support two gamepads and keyboard plus gamepad, with separate bindings and
+  stable SDL device identity. One device must not drive both racers accidentally.
+- Start from one shared countdown. Keep the original simulation cadence
+  `FZERO_SIMULATION_HZ`, currently approximately 60.0988 Hz.
+- Player 1 is always the top pane and player 2 the bottom. Each pane has its own
+  camera, machine effects, lap/time/speed/power/boost HUD, and player identification.
+- Derive each pane's projection from its drawable rectangle using the existing
+  supported aspect range. Fit may clamp at 32:9 and center the image in an
+  exceptionally wide pane. Preserve field of view and pixel aspect; do not crop
+  or vertically squeeze a completed single-player image to create the split.
+- Either player pauses the entire session. Focus loss or an assigned-controller
+  disconnect also freezes the session, clears held inputs, and presents recovery
+  controls. Explicit resume is required after reassignment.
+- Track checkpoint order, laps, health, finish, and DNF independently. Remove
+  rank-out/lives behavior from versus. Backward finish crossings do not award laps.
+  Race timing uses the common tick; finishes on the same tick tie.
+- A finish or DNF does not stop the other racer. Hold the finished player's view
+  at the finish and show status; retain the crashed player's terminal view.
+  Display combined results when both are terminal. The pause menu can end a
+  stalled race. Rematch retains course/machines; changing either returns to setup.
+- Play one soundtrack and mix effects from both racers without duplicate music.
+  Audio emulation remains active in validation when needed, with output muted.
+- Save/load, quick saves, rewind, replay, and crash capture include the complete
+  session. Versus saves and records use their own namespace and never populate
+  single-player records.
+
+## Architecture and interfaces
+
+### Shared simulation
+
+Add a game-owned versus subsystem with an opaque session, two actor states, a
+shared clock, race phase, course identity, deterministic state, and results.
+Use portable fixed-width integer arithmetic matching verified guest semantics.
+Only elective presentation optimizations may vary by host.
+
+Expose initialization/reset from race configuration, one tick accepting two
+latched SNES-format input words, immutable completed snapshots, and versioned
+save/restore. The frame loop latches both inputs before advancing either racer.
+Keep session and presentation interfaces separate so neither camera determines
+simulation ownership. This is architecture preparation only; implement no online
+transport, lobbies, capability negotiation, or network protocol.
+
+Derive portable C adapters for input, vehicle physics, surface interaction,
+health, boosts, airborne/recovery behavior, checkpoint progression, and finishing
+from verified routines and ROM tables. Integrate at controlled runtime hooks;
+do not edit generated C. Keep ordinary guest execution for asset/race setup and
+existing single-player behavior. Own versus gameplay state explicitly and make
+any required guest mirrors one-way projections at documented boundaries.
+
+First map every player-only read/write and its dependencies, including scratch
+RAM, RNG, hardware multiply/divide, sound effects, counters, and transitions.
+Do not run the entire guest frame twice or repeatedly copy an unverified
+player-zero RAM range as a substitute for actor separation. Reuse scalar guest
+math and tables through verified adapters, without inheriting player-zero-only
+or camera-dependent conditions.
+
+For each tick, compute the two actors' uncoupled movement from the same initial
+world snapshot, then resolve their contact once in stable actor-ID order and
+apply both responses. Use stock collision geometry and responses as the reference,
+explicitly checking altitude and world-coordinate wrapping. Verify the update
+order against stock observations before recording parity. Neither sprite
+allocation nor camera visibility may disable collisions or other physics.
+Advance shared events, race clock, and transition state once per tick.
+
+Stock versus uses stock physics tables, without silently applying saved CGP,
+Legend, or other gameplay modifications. Unsupported content is unavailable in
+the versus setup with a clear qualification message. Leaving versus restores
+the user's normal settings. Identify the versus rules/version in state identity.
+
+### Rendering
+
+Replace renderer-owned singleton frame/interpolation/scratch state with explicit
+view contexts while retaining the existing single-player interface as a wrapper.
+Share immutable course/assets; keep camera transforms, previous/current frames,
+projection output, effect identity, HUD state, and worker scratch per view.
+
+Generate both cameras' transforms, skyline, machine sprites, effects, and HUDs
+from one completed race snapshot. The current renderer consumes guest-latched
+matrices and OAM: allocating another output buffer alone cannot produce camera
+2. Implement camera/display adapters from verified render routines and ROM tables.
+Rendering must not call simulation updates or mutate the live guest state.
+
+Reuse the full-course WRAM lookup for both cameras, including widely separated
+racers. Extend vehicle identity handling to stable versus actor IDs. Suppress
+interpolation across reset, load, teleport/recovery discontinuity, and course
+changes. Apply existing HD/FPS options consistently to both panes without
+changing simulation frequency. Keep shared worker resources safe for two views.
+
+### Host and persistence
+
+Integrate the session in desktop and headless hosts. Extend input scripts/replay
+to carry both players and add headless versus selection and race configuration.
+Retain existing single-player command behavior. Keep the session entry point
+discoverable through the existing launcher/game menu instead of requiring an
+environment variable for normal users.
+
+Extend the existing snapshot extras, pre-load compatibility checks, rewind,
+replay logs, and crash captures with both actor states, shared events/RNG/tick,
+configuration, and results. Use a dedicated versus state identity and namespace.
+Reject incompatible or corrupt states before applying any live state. Loading
+restores the whole session and resets view histories. Preserve existing stock,
+Deluxe, MSU, and track-pack snapshot compatibility behavior.
+
+Primary integration areas are `src/fzero_runtime.c`, `src/fzero_renderer.c`,
+`src/sdl_main.c`, and the existing input, video/settings, headless, state, and
+capture modules. Add bounded new versus modules rather than embedding all
+gameplay in the host loop. Start with game-owned changes; shared engine/UI
+changes require their own reviewable commits.
+
+## Implementation order and acceptance gates
+
+1. **Baseline and state inventory.** Read the issue and this plan; recheck Git
+   state/dependencies. Run the existing relevant tests once and record failures
+   already present. Inventory verified actor state and routine read/write sets,
+   identify exact hook boundaries, and capture stock physics fixtures. Record
+   implementation findings in the issue without committing private traces.
+2. **Actor adapters and parity.** Implement input/physics/progress adapters with
+   two explicit actor states. Compare one active actor with stock execution for
+   every machine, acceleration/braking, turning, L/R drift, launch/false start,
+   boosts, walls, jumps, pits, mines, death and recovery. Check velocity,
+   fractional position, angles, health/boosts, and checkpoints each tick. Include
+   varied initial states and long input sequences, not just steady straight runs.
+3. **First playable Mute City.** Integrate both controllers, shared clock,
+   independently simulated racers, one collision result, two complete cameras,
+   and both HUDs. Gate success on independent steering/braking, mutual visibility,
+   collisions with consistent response in both views, and one racer driving far
+   away without corrupting the other's world or simulation.
+4. **Complete versus flow.** Finish ready/countdown, stock course/machine setup,
+   laps, finish/DNF/tie handling, pause/disconnect, combined results/rematch, and
+   soundtrack/effects. Validate all stock courses and duplicate machine choices.
+5. **Session lifecycle.** Integrate save/load/quick saves, rewind, two-player
+   input replay, state identity, isolated records, and crash capture. Test
+   restoring into countdown, racing, contact, one-finished, and results phases;
+   corrupt or incompatible loads must leave the live session intact.
+6. **Qualification and delivery.** Run affected existing tests plus meaningful
+   versus integration scenarios; build Windows and Linux portable paths; measure
+   two-view baseline performance; finish a real two-controller playtest. Record
+   actual results and commits in Beads. Close only when every required gate passes.
+
+Collision scenarios cover rear/side/head-on hits, overlapping starts, opposing
+motion, airborne separation, simultaneous wall contact, and coordinate wraps.
+Race scenarios cover reverse crossings, skipped checkpoints, lap differences,
+simultaneous finishes, double DNF, one racer finishing/crashing while the other
+continues, and many consecutive rematches.
+
+Verify input replay produces identical simulation hashes across render rates,
+window/pane sizes, HD on/off, and worker configurations. Save/load and rewind
+must reproduce both players' continuation. Compare fresh-process restoration
+as well as same-process loads. For rendering, inspect both HUDs, shadows,
+sparks, explosions, pits, skyline, fades, and distant-track sampling at supported
+aspects. Rendering-only changes must not affect gameplay hashes.
+
+Baseline graphics must sustain the original simulation cadence on the validation
+host with two views. Measure HD modes separately; do not skip simulation ticks
+to meet presentation FPS. Compare supported platform builds and representative
+runtime replay results; compilation alone does not establish numerical parity.
+
+## Build and tool starting points
+
+Use PowerShell and absolute executables to avoid MSYS path reinterpretation.
+The existing `build/CMakeCache.txt` records these private local prerequisites:
+
+| Setting | Existing value |
+| --- | --- |
+| `SNESRECOMP_ROOT` | `F:/Projects/snesrecomp/_wt-fzero-diagnostics-engine` |
+| `RECOMP_UI_ROOT` | `F:/Projects/snesrecomp/_wt-recomp-ui-fzero-quick` |
+| `FZERO_GEN_DIR` | `F:/Projects/snesrecomp/_wt-fzero-track-packs/captures/upstream-073/stock/gen` |
+| `FZERO_DELUXE_GEN_DIR` | `F:/Projects/snesrecomp/_wt-fzero-track-packs/captures/upstream-073/deluxe/gen` |
+| `FZERO_DELUXE_DATA_FILE` | `F:/Projects/snesrecomp/FZeroRecomp/captures/bs-deluxe/mods/bs-deluxe.dat` |
+| `FZERO_PACK_SOURCE` | `F:/Projects/snesrecomp/_wt-fzero-track-packs/captures/reconstructed-projects-03/packs` |
+
+Verify those files still exist. Reuse the configured build for the baseline;
+do not point it at another branch's generated sources. The cache's CMake is
+`C:/Program Files/CMake/bin/cmake.exe`; MinGW C compiler and Ninja are under
+`C:/msys64/mingw64/bin`. Both desktop and headless game targets are configured.
+
+From the game worktree:
+
+```powershell
+& 'C:\Program Files\CMake\bin\cmake.exe' --build build --parallel 4
+& 'C:\Program Files\CMake\bin\ctest.exe' --test-dir build --output-on-failure
+```
+
+Use the existing `tests/validate_course_driving.py`, headless input scripts,
+renderer capture tests, and state/replay validation as patterns. Read each
+script's arguments before running. `tools/run_capture.py` clears several
+environment prefixes and only explicitly selects dummy audio in desktop mode;
+ensure new or reused launch paths honor muting. Never manufacture physics,
+collision, or lap results by writing the expected outcome into guest RAM.
+
+`tools/build-linux.sh` is a starting point for Linux, but currently expects
+local submodule directories and default generated-source paths. Supply the
+correct pinned checkouts/resources in the Linux workspace; do not assume this
+Windows worktree can run the script unchanged. Use WSL or the established Linux
+build environment and retain the portable implementation.
+
+7-Zip is `C:/Program Files/7-Zip/7z.exe`. Archive members can be inspected with
+`x -so` without extraction. Git is `C:/Program Files/Git/cmd/git.exe`. Do not
+launch Ghidra's GUI; if further analysis needs Ghidra, use the headless MCP
+registry. Initial discovery found no registered SNES F-Zero program.
+
+## Operating constraints and next session
+
+Work solo. The owner has not authorized subagents for this task. Mute every
+agent-initiated game/test launch; keep audio emulation when required and select
+dummy audio or zero output volume. Do not unmute without an explicit request.
+Keep Windows filesystem operations in PowerShell/.NET and do not use `cmd /c`
+fallbacks. Preserve portable fallbacks for optional CPU/OS-specific optimization;
+no assembly is required by this plan.
+
+Use only the central Beads workspace `F:/Software/beads/issues`. The issue is
+`beads-8uc1`; do not create a duplicate. Record milestones, changed assumptions,
+failing gates, and landed commits there. Sync durable updates with
+`C:/Users/Matthew/.local/bin/Sync-CentralBeads.ps1 -Action push`, yielding and
+resuming the same healthy process until it finishes. Do not impose short kill
+timeouts or restart the shared database server.
+
+The next session should implement the whole approved feature and acceptance
+gates, rather than stopping at scaffolding or the first playable milestone.
+Known routine mapping and physics parity work are part of implementation, not
+a reason to restart this feasibility investigation. Report any evidence that
+invalidates the chosen architecture candidly and resolve it before claiming
+completion. A true external prerequisite must remain explicit; never mark an
+unperformed human playtest or platform validation as passed.
+
+No publication, merge, release, or outbound message to another person is
+authorized by this handoff. Local reviewable commits are authorized.
