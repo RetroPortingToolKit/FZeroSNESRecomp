@@ -318,3 +318,126 @@ unperformed human playtest or platform validation as passed.
 
 No publication, merge, release, or outbound message to another person is
 authorized by this handoff. Local reviewable commits are authorized.
+
+## Implementation record (2026-10-15)
+
+The feature remains **incomplete and unavailable in the game**. The following
+are implementation milestones, not completion of gates 1, 2, or 3. In
+particular, a second renderer context is not a second camera, and scalar
+routine parity is not full-frame or race parity.
+
+Commit `b784ad8` replaces the renderer's singleton capture/interpolation/worker
+scratch with opaque `FzeroRenderView` objects. The existing interface wraps a
+single-player view. Alternating native/HD rendering of two different immutable
+views, resetting/destroying one view, and preserving the other view are tested.
+Capture file layout and the single-player capture interface remain unchanged.
+
+`src/fzero_actor.{c,h}` implements portable human-actor scalar adapters. The
+state is named fixed-width fields, not a RAM-window swap. Scratch belongs to
+one uncoupled evaluation. ROM tables are read through a caller-supplied byte
+reader; no ROM or generated source is embedded in these files. Normal gameplay
+still executes the stock guest. Only the opt-in headless observation test calls
+the adapters, computes an expected actor without guest writes, and compares it
+with the real guest at `$00:919B` before finish-line handling.
+
+| Adapter group | Verified stock reference entries |
+| --- | --- |
+| Countdown acceleration, launch, failed-start control | `$00:FA1C`, `$00:8D12`, `$00:B5EC` |
+| Input/boost action, fractional steering stage, turn/drift performance | `$00:B7CB`, `$00:B94E`, `$00:B881` |
+| Slide, top speed/gravity, grip, spin state, acceleration/braking | `$00:9377`, `$00:91BC`, `$00:9264`, `$00:930D`, `$00:938D` |
+| Spin, facing, grip application, velocity, wind, limits, position | `$00:953A`, `$00:9503`, `$00:9589`, `$00:95E7`, `$00:9672`, `$00:96F2`, `$00:9753` |
+| Dash, altitude/jump/landing, surface damage, mine response | `$00:981C`, `$00:9B4F`, `$00:98A4`, `$00:9D9E` |
+| Surface classification and whole-course sampling | `$00:8E36` / `$03:9187`, `$00:A1E5` |
+| Spin trigger and animation state affecting subsequent steering | `$00:BA13`, `$00:BA70` |
+| Recovery movement and pit/repair progression | `$00:B6CC`, `$00:B61B` |
+
+Actor ownership for these routines includes position/fractions/velocity,
+facing/momentum/turn/spin, altitude/vertical velocity, action/state/surface
+flags, boundary momentum/timer, no-control timer, health/cooldowns, boost
+count/timer/award, held/pressed/released input, fractional steering stage and
+acceleration, machine table indices, exhaust/hover and animation history,
+death/lap mirrors, recovery target/phase, and sound/visual event flags. `$DD`
+is essential simulation state: the next steering update reads it, although the
+stock animation routine writes it. Recovery movement also retains arithmetic
+carry that makes its positive approach step seven units rather than six.
+
+The differential test audits exercised RAM reads/writes against those fields,
+`$00..$2F` scratch, `$0100..$01FF` stack, and documented shared/presentation
+accesses. Shared fixture inputs are tick `$51`, doubled machine index `$D1`,
+rank eligibility `$DC8`, and disabled attract flags `$F50/$F51`. Presentation
+accesses include OAM/HUD buffers, health edge `$F0/$E23`, and the mine routine's
+screen-Y guard. M16 reads of `$B11/$D52` are masked high bytes. The CPU speed
+writes in the stock launch routine are discarded. Mine coordinates become an
+explicit event; committing events to the shared course is still outstanding.
+No currently adapted routine uses RNG. This inventory does not yet cover the
+remaining collision, checkpoint, finish, camera, or host integration routines.
+
+The adapters assume four stock machines, an unmodified verified USA cartridge,
+human rank eligibility, and no attract-demo actor. The mine adapter intentionally
+has no opponent sprite-visibility/Y guard. Its response is compared against the
+stock human branch with an eligible sprite; world-event deduplication and
+collision qualification remain to be implemented.
+
+`fzero_actor_oracle` executes original routines on the pinned engine's separate
+callback-bus 65816 core and compares actor outputs. It validates ROM SHA-256
+before execution. Multiply/divide results are modeled by the fixture bus;
+beam/APU timing is outside this scalar oracle. It cannot play audio or mutate
+the running game. The test performs 40,000 varied fixtures per scalar entry,
+40,000 independent whole-course lookups, and 48,000 chained routine ticks across
+the four machines. Chained ticks supply terrain as input and omit still-unported
+guest work; they are not a whole-frame parity claim. Private input/output
+artifacts remain ignored under `captures/` or `build*/`.
+
+Enable the private-ROM CTest explicitly:
+
+```powershell
+& 'C:/Program Files/CMake/bin/cmake.exe' -S . -B build '-DFZERO_TEST_ROM=<private verified USA ROM>'
+& 'C:/Program Files/CMake/bin/cmake.exe' --build build --target fzero_actor_oracle
+& 'C:/Program Files/CMake/bin/ctest.exe' --test-dir build -R fzero_actor_stock_parity --output-on-failure
+```
+
+The ROM path is a local cache value only. `tools/disassemble_range.py` now
+accepts `--engine-root` so inspection works with the separately pinned checkout
+without creating the absent submodule directory. Its linear-decoding caveats
+still apply, especially after calls, PLP, and divergent REP/SEP paths.
+
+Validation of the current implementation:
+
+- Full desktop and headless builds passed on Windows/MinGW and Linux/WSL with
+  the pinned engine/UI checkouts. Linux needed `libgif-dev`, `rapidjson-dev`,
+  and `libarchive-dev` installed; source dependency pins did not change.
+- CTest passed 16/16 on each platform, including the private-ROM oracle.
+- The oracle passed 1,080,000 scalar fixtures, 40,000 world lookups, and 48,000
+  chained routine ticks on both platforms. Continuation hash:
+  `636769d59ff80807`. The final Linux oracle also passed with undefined-behavior
+  sanitization enabled. This hash belongs to these fixtures, not session
+  compatibility identity.
+- `tests/validate_actor_live.py` drove stock selection and 3,000 frames per
+  machine using ordinary input. All machine IDs were checked in actual WRAM;
+  the stock menu advances Down through `0,2,1,3`, after its initial input lock.
+  Comparisons were Blue Falcon 969, Wild Goose 1,102, Golden Fox 1,019, and
+  Fire Stingray 1,008: 4,098 per platform, zero mismatches. Each machine's final
+  128 KiB WRAM dump matched byte-for-byte between Windows and Linux. These
+  are stock movement observations, not versus-session determinism tests.
+- A separate muted 1,800-frame single-player route passed with active audio
+  emulation and zero underruns. Every automated launch used dummy audio;
+  headless/oracle programs have no speaker output.
+
+The live oracle is headless-only and enabled by `FZERO_TEST_ACTOR_PARITY`.
+Use its dedicated driver; reset/load/rewind observation is not qualified by
+this test. The driver isolates settings/saves/output under `--out`, disables
+content/physics modifications, and does not write approach states or expected
+outcomes into guest RAM. `tests/fzero_actor_fields.inc` is the explicit field
+manifest shared by the scalar and live observation tests. For example:
+
+```powershell
+& 'C:/msys64/mingw64/bin/python3.13.exe' tests/validate_actor_live.py --build build --stock '<private verified USA ROM>' --out captures/local-2p-validation/live-windows
+```
+
+Outstanding implementation includes complete world/boundary responses and
+checkpoint progression, one shared two-human contact resolution, session
+clock/flow/results, real second-camera/display generation, both host control
+paths/setup/disconnect handling, and whole-session persistence/replay/rewind/
+crash capture. All-course driving, pair contacts, real controllers, two-view
+visual QA/performance and complete-session platform/render-rate determinism
+are unperformed. Keep `beads-8uc1` in progress.

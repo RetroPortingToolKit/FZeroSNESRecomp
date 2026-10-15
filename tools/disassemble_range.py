@@ -8,8 +8,6 @@ from pathlib import Path
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "snesrecomp/recompiler"))
-from snes65816 import load_rom, lorom_offset, decode_insn
 
 p = argparse.ArgumentParser(description=__doc__)
 p.add_argument("start", type=lambda x: int(x, 16))
@@ -17,7 +15,11 @@ p.add_argument("end", type=lambda x: int(x, 16))
 p.add_argument("--m", type=int, choices=[0, 1], default=1)
 p.add_argument("--x", type=int, choices=[0, 1], default=1)
 p.add_argument("--rom", default=str(ROOT / "fzero.sfc"))
+p.add_argument("--engine-root", type=Path, default=ROOT / "snesrecomp",
+               help="Pinned engine checkout (may be outside the game worktree)")
 a = p.parse_args()
+sys.path.insert(0, str(a.engine_root / "recompiler"))
+from snes65816 import load_rom, lorom_offset, decode_insn
 rom = load_rom(a.rom)
 pc, m, x = a.start, a.m, a.x
 while pc < a.end:
