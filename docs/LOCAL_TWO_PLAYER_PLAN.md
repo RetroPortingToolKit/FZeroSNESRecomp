@@ -500,15 +500,40 @@ Expanded private-ROM oracle results on Windows and Linux/UBSan:
   races, checking same-tick ties, unequal finish times, frozen terminal pose,
   one-finished saves and capped lap boosts. These are not stock-course races.
   The session fixture hash is `09e2a5a898890af4`.
-- The Windows live driver now checks progress as well as movement. Over its
+- The live driver now checks progress as well as movement on both platforms. Over its
   3,000-frame ordinary-input routes, checkpoint comparisons are Blue Falcon
   970, Wild Goose 1,103, Golden Fox 1,020 and Fire Stingray 1,009: 4,102, zero
-  mismatches. Movement remains 4,098 comparisons, zero mismatches. The driver
+  mismatches per platform. Movement remains 4,098 comparisons, zero mismatches
+  per platform. Each machine's final 128 KiB WRAM remains byte-identical
+  between Windows and Linux. The driver
   uses the existing target exclusion `SNESRECOMP_LLE_INTERP_TARGET=00dd20`
   to observe the real opcodes inside the otherwise compiled checkpoint call.
-  It never writes guest state. Linux live checks and final full regression
-  builds are being refreshed for this checkpoint; do not infer their results
-  from the standalone Linux oracle.
+  It never writes guest state. The refreshed Windows desktop/headless build
+  and CTest 16/16 passed (366.93 seconds, including 323.37 seconds of catalog
+  IO). The Linux full host build is still progressing through asset staging;
+  do not infer a full-build/CTest result from the standalone Linux oracle.
+
+Shared-simulation commit: `5ffedab`. A follow-up fixes terminal status immediately
+after shared contact, before finish awards: a repeated-collision route using
+ordinary throttle/brake/steering reaches DNF naturally. The new check fails at
+the old commit's still-active status on that damage tick and passes with the
+fix on Windows and Linux/UBSan.
+
+### Independent camera display adapters (2026-10-15)
+
+`fzero_camera.c/h` now derives the race perspective coefficients, periodic
+center/scroll representatives, background scroll and skyline scroll separately
+from each completed actor pose. It reads immutable ROM tables and has no guest
+pointers or simulation writes. The adapter preserves the stock integer divide,
+table quantization and 47/112/64-line HDMA boundaries. It explicitly normalizes
+inverse facing rather than inheriting a caller's CPU carry; the reference for
+`$980E` is invoked with that explicit carry contract. This qualifies the display
+adapters, not a complete native call chain or composed second view.
+
+Windows and Linux/UBSan pass 40,000 camera poses against `$97BC`, `$980E`,
+`$A60C`, `$97E3` and `$03:94CF`, including all 176 perspective rows and their
+signed bank selections for every fixture. These results do not establish
+sprite/HUD generation, complete split-view pixels or presentation performance.
 
 Outstanding implementation: connect the session to stock guest asset/race
 setup and both hosts; generate true independent cameras, complete sprites,

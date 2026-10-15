@@ -4,6 +4,7 @@
  * modify a live guest, play sound or write cartridge-derived artifacts. */
 #include "fzero_actor.h"
 #include "fzero_versus.h"
+#include "fzero_camera.h"
 #include "snes/interp816.h"
 #include "sha256.h"
 #include <stddef.h>
@@ -147,6 +148,8 @@ static uint16_t reference_until(unsigned pc,unsigned stop) {
   cpu.mem = NULL; cpu.read = read_bus; cpu.write = write_bus;
   cpu.sp = 0x1fd; cpu.pc = (uint16_t)pc; cpu.k = (uint8_t)(pc >> 16);
   cpu.mf = cpu.xf = true; cpu.c = false;
+  if (pc>>16) { cpu.sp=0x1fc;ram[0x1fd]=255; } /* RTL display entries */
+  if (pc==0x980e) cpu.c=true; /* explicit inverse-angle interface */
   if (pc==0xfa1c) cpu.a=ram[0x66];
   if (pc==0xde07) cpu.y=ram[0xd00];
   if (pc==0xdbc4) { cpu.mf=false;cpu.x=2; }
@@ -619,6 +622,37 @@ static void test_session_finishes(void) {
   }
   puts("synthetic whole-session races: five ordered laps, pending final-gate restore, same-tick tie, one-finished continuation, frozen terminal pose, capped lap boosts passed");
 }
+static uint16_t chase(const FzeroActor *a,const FzeroActor *b) {
+  int dx=((b->x-a->x+4096)&8191)-4096,dy=((b->y-a->y+2048)&4095)-2048;
+  int best=INT32_MIN;unsigned target=0;
+  for (unsigned angle=0;angle<192;++angle) {
+    int sx=rom_read(NULL,0x08ec00+angle),sy=rom_read(NULL,0x08ec30+angle);
+    if (rom_read(NULL,0x08ecf0+angle)) sx=-sx;
+    if (!rom_read(NULL,0x08ed20+angle)) sy=-sy;
+    int dot=dx*sx+dy*sy;if(dot>best) { best=dot;target=angle; }
+  }
+  unsigned error=(target+192-(a->facing>>8))%192;
+  unsigned throttle=error>12 && error<180 && a->speed>0x300?0x4000:0x8000;
+  return (uint16_t)(throttle|(error>1 && error<96?0x100:error>96 && error<191?0x200:0));
+}
+static void test_session_contact_dnf(void) {
+  flat_course();FzeroActor spawns[2]={{0},{0}};
+  spawns[0].x=1000;spawns[1].x=1300;spawns[0].y=spawns[1].y=1000;
+  spawns[0].facing=spawns[1].facing=0x3000;
+  FzeroVersus *s=FzeroVersusCreate((FzeroVersusConfig){0,{0,0}},ram,spawns,(FzeroActorTables){rom_read,NULL});CHECK(s);
+  FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
+  const FzeroVersusSnapshot *v=FzeroVersusCompleted(s);bool terminal=false;unsigned contacts=0;
+  for (unsigned tick=0;tick<100000 && !terminal;++tick) {
+    uint16_t held[2]={chase(&v->racers[0].actor,&v->racers[1].actor),0};
+    CHECK(FzeroVersusTick(s,held));if(v->contact)++contacts;
+    for (unsigned i=0;i<2;++i) if (v->racers[i].actor.race_state&0x40) {
+      CHECK(v->racers[i].status==FZERO_VS_DNF);terminal=true;
+    }
+  }
+  if(!terminal)fprintf(stderr,"contact DNF not reached: contacts=%u health=%04x/%04x positions=%u,%u/%u,%u\n",contacts,v->racers[0].actor.health,v->racers[1].actor.health,v->racers[0].actor.x,v->racers[0].actor.y,v->racers[1].actor.x,v->racers[1].actor.y);
+  CHECK(terminal && contacts>10);FzeroVersusDestroy(s);
+  puts("session: repeated input-driven contacts produce DNF on the damage tick, before finish awards");
+}
 static void test_session_events(void) {
   FzeroActorTables t={rom_read,NULL};uint16_t held[2]={0,0};FzeroActor spawns[2]={{0},{0}};
   spawns[0].x=1000;spawns[1].x=1008;spawns[0].y=spawns[1].y=1000;
@@ -656,6 +690,39 @@ static void test_session_events(void) {
   CHECK(v->race_tick==tick+300 && !memcmp(&terminal,&v->racers[1].actor,sizeof(terminal)) && FzeroVersusHash(s)==FzeroVersusHash(copy));
   FzeroVersusEndRace(s);session_roundtrip(s,copy);FzeroVersusDestroy(copy);FzeroVersusDestroy(s);
   puts("session events: shared contact/mine restore and continuation, simultaneous mine reads, rematch terrain reset, real surface-damage DNF with other racer continuing passed");
+}
+static void test_camera(void) {
+  uint8_t negative[0x5da0];
+  for (unsigned i=0;i<sizeof(negative);i+=2) {
+    unsigned address=0x0e8000+i;
+    uint16_t v=(uint16_t)(0u-(rom_read(NULL,address)|(unsigned)rom_read(NULL,address+1)<<8));
+    negative[i]=(uint8_t)v;negative[i+1]=(uint8_t)(v>>8);
+  }
+  FzeroActorTables t={rom_read,NULL};
+  for (unsigned sample=0;sample<40000;++sample) {
+    FzeroActor a={0};a.x=random_word()&8191;a.y=random_word()&4095;a.facing=random_word()%0xc000;
+    FzeroCamera camera;CHECK(FzeroCameraBuild(&camera,&a,t));
+    memset(ram,0,sizeof(ram));memcpy(ram+0x8000,negative,sizeof(negative));
+    write_fields(&a,actor_fields,COUNT(actor_fields));ram[0x81]=1;ram[0x82]=(sample&1)*16;
+    reference(0x97bc);reference(0x980e);reference(0xa60c);reference(0x97e3);reference(0x0394cf);
+    CHECK(camera.inverse_angle==ram[0xac]);
+    CHECK(camera.center_x==ram_word(0x7d) && camera.center_y==ram_word(0x7f));
+    unsigned alternate=ram[0x74];
+    CHECK(camera.scroll_x==ram_word(0xea6+alternate) && camera.scroll_y==ram_word(0xea8+alternate));
+    CHECK(camera.background_h==ram_word(0xea1+alternate) && camera.background_v==ram_word(0xea3+alternate));
+    CHECK(camera.skyline_h==ram_word(0x79) && camera.skyline_v==ram_word(0x7b));
+    alternate=ram[0x82];
+    unsigned pointers[]={ram_word(0xa84+alternate),ram_word(0xaa4+alternate),ram_word(0xaa4+alternate),ram_word(0xa84+alternate)};
+    for (unsigned row=0;row<176;++row) for(unsigned component=0;component<4;++component) {
+      unsigned address=((unsigned)ram[0x84+component]<<16)+pointers[component]+row*2;
+      unsigned expected=read_bus(NULL,address)|(unsigned)read_bus(NULL,address+1)<<8;
+      CHECK((uint16_t)camera.coefficients[row][component]==expected);
+    }
+    int16_t matrix[8];CHECK(!FzeroCameraAtLine(&camera,47,matrix));CHECK(!FzeroCameraAtLine(&camera,225,matrix));
+    CHECK(FzeroCameraAtLine(&camera,48,matrix) && matrix[0]==camera.coefficients[0][0]);
+    CHECK(FzeroCameraAtLine(&camera,224,matrix) && matrix[0]==camera.coefficients[175][0]);
+  }
+  puts("camera: 40000 independent pose/skyline/center/perspective fixtures passed against five stock display entries (normalized inverse-angle carry)");
 }
 int main(int argc, char **argv) {
   CHECK(argc == 2);
@@ -715,5 +782,7 @@ int main(int argc, char **argv) {
   test_session();
   test_session_finishes();
   test_session_events();
+  test_session_contact_dnf();
+  test_camera();
   return 0;
 }

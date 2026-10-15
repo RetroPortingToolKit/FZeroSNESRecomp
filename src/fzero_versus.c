@@ -136,6 +136,7 @@ bool FzeroVersusTick(FzeroVersus *s,const uint16_t held[2]) {
   for (unsigned i=0;i<2;++i) FzeroActorCommitMine(s->world,&s->state.mines[i]);
   for (unsigned i=0;i<2;++i) {
     FzeroVersusRacer *r=&s->state.racers[i];
+    if (r->status==FZERO_VS_ACTIVE && (r->actor.race_state&0x40)) r->status=FZERO_VS_DNF;
     if (r->status==FZERO_VS_ACTIVE) progress(s,i,gates[i]);
     else r->actor.held=r->actor.pressed=r->actor.released=0;
   }
