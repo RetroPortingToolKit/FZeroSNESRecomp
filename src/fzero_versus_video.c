@@ -190,14 +190,14 @@ static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsign
   if(!s->pause && !FzeroVersusVideoResultsReady(s,v->result_ticks))return;
   FzeroUiCanvas c={out,viewport.width*(int)scale,(single?224:448)*(int)scale,scale};
   const FzeroNativeUi *ui=&v->ui;int center=viewport.width/2;
-  bool paused=s->pause!=0;unsigned count=paused?4:3;
+  bool paused=s->pause!=0;unsigned count=(paused?4u:3u)-(single?1u:0u);
   const char *heading=paused?"PAUSE":s->winner==FZERO_VS_TIE?"TIE":
       s->winner==FZERO_VS_PLAYER1?"PLAYER 1 WINS":s->winner==FZERO_VS_PLAYER2?"PLAYER 2 WINS":"NO FINISHERS";
   static const char *pause[]={"CONTINUE","RESTART RACE","CHANGE RACE","MAIN MENU"};
   static const char *results[]={"RACE AGAIN","CHANGE RACE","MAIN MENU"};
   bool disconnected=paused && (s->pause&12);
   FzeroUiFrame(ui,c,center-112,single?(paused?32:8):(paused?120:88),224,
-      single?(paused?160:208):paused?(disconnected?184:160):264);
+      single?(paused?136:184):paused?(disconnected?184:160):264);
   FzeroUiCenter(ui,c,single?(paused?48:20):(paused?136:104),heading,FZERO_UI_MENU,FZERO_UI_YELLOW);
   if(!paused)for(unsigned i=0;i<2;++i) {
     const FzeroVersusRacer *r=&s->racers[i];char line[64],timer[32];int y=(single?52:140)+(int)i*(single?40:48);
@@ -215,7 +215,7 @@ static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsign
   for(unsigned i=0;i<count;++i) {
     int y=(single?(paused?84:144):(paused?172:264))+(int)i*24;bool selected=i==v->menu_selection;
     if(selected)FzeroUiTile(ui,c,center-96,y+4,0x2f,FZERO_UI_YELLOW,true,false);
-    const char *label=single && i==count-1?"LOBBY":paused?pause[i]:results[i];
+    const char *label=paused?pause[i]:results[i];
     FzeroUiText(ui,c,center-80,y,label,FZERO_UI_MENU,selected?FZERO_UI_YELLOW:FZERO_UI_CYAN);
   }
   if(disconnected)FzeroUiCenter(ui,c,284,"PRESS START TO REJOIN",FZERO_UI_SMALL,FZERO_UI_CYAN);

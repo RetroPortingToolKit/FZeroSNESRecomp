@@ -86,13 +86,14 @@ int main(void) {
     press(0,8);CHECK(FzeroVersusCompleted(race)->pause);
     press(8,0);CHECK(!FzeroVersusCompleted(race)->pause);
     CHECK(FzeroVersusCompleted(race)->phase==FZERO_VS_COUNTDOWN);
-    FzeroVersusPause(race,FZERO_VS_PAUSE_MANUAL);selection=3;press(8,0);
-    CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_EXIT);
-    CHECK(FzeroOnlineCompleted()->exit_tick>0);image(initial);
-    tick(0x20,8);CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_EXIT);
+    FzeroVersusPause(race,FZERO_VS_PAUSE_MANUAL);selection=2;press(0x20,0);
+    CHECK(selection==0);press(0x10,0);CHECK(selection==2);press(8,0);
+    CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_MACHINES);
+    CHECK(!FzeroOnlineCompleted()->exit_tick);image(initial);
+    tick(0x20,0);CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_MACHINES);
     CHECK(FzeroOnlineRestore(initial));image(same);CHECK(!memcmp(initial,same,sizeof(same)));
     FzeroOnlineEnd();CHECK(!FzeroOnlineEnabled());CHECK(FzeroOnlineView()==-1);
     CHECK(!FzeroOnlineRestore(initial));FzeroVersusDestroy(race);race=NULL;
   }
-  puts("online: authoritative menu inputs, late courses, rollback images, rematch and exit PASS");return 0;
+  puts("online: authoritative menu inputs, late courses, rollback images, rematch and menu wrap PASS");return 0;
 }

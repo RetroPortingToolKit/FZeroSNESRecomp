@@ -30,7 +30,8 @@ match before its first simulation tick. Personal single-player modifications
 are retained; VS uses the existing stock four-machine handling profile.
 
 Either participant can pause. The host navigates the shared pause/results menu:
-continue, restart/rematch, change race, or return to the lobby. Finishing cars
+continue, restart/rematch, or change race. The in-game menus have no lobby
+exit option; closing the game returns through the existing launcher flow. Finishing cars
 coast and fade using the local VS presentation. A crash uses the native
 explosion; when only one non-crashed participant remains, that participant wins.
 Results distinguish FINISHED, CRASHED OUT and SURVIVED. Non-finish times are
@@ -85,7 +86,7 @@ firewall permission again. The runner never changes firewall policy.
 
 Scenarios cover ordinary driving, host aspect mismatch rejection before tick
 zero, synchronized save/load and real keyboard/pad browser controls, finish and
-rematch, crash/survivor results, change race and lobby return. `--loss` adds 10%
+rematch, crash/survivor results, change race and pause-menu wrapping. `--loss` adds 10%
 loss, 30ms latency and 15ms jitter. `--hd-peer` gives the second peer HD rendering.
 Both peers resize through different window shapes; local aspect preferences
 cannot change the host's negotiated viewport. `--cup` selects an enabled league

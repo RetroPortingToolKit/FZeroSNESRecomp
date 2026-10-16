@@ -46,7 +46,8 @@ bool FzeroOnlineTick(uint32_t *packed) {
     /* Either human may pause. Host alone navigates shared pause/results and
      * changes course; its controls are ordinary synchronized input rows. */
     if((s->pause || s->phase==FZERO_VS_RESULTS) && FzeroLocalMenuReady()) {
-      bool pause=s->pause!=0;unsigned count=pause?4:3,choice=FzeroLocalMenuSelection();
+      bool pause=s->pause!=0;unsigned count=pause?3:2,choice=FzeroLocalMenuSelection()%count;
+      if(choice!=FzeroLocalMenuSelection())FzeroLocalSetMenuSelection(choice);
       if(pressed[0]&0x30)FzeroLocalSetMenuSelection((choice+((pressed[0]&0x10)?count-1:1))%count);
       if(pressed[0]&0x109) {
         choice=FzeroLocalMenuSelection();
@@ -56,7 +57,7 @@ bool FzeroOnlineTick(uint32_t *packed) {
           FzeroVersusRematch(race);FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
         } else if(choice==(pause?2u:1u)) {
           state.phase=FZERO_ONLINE_MACHINES;state.ready=0;
-        } else leave();
+        }
         FzeroLocalSetMenuSelection(0);state.previous[0]=state.previous[1]=4095;state.release=3;*packed=3u<<30;
       }
     }

@@ -21,7 +21,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     for name in ('build', 'runtime', 'rom', 'packs', 'settings', 'video', 'out'):
         p.add_argument('--' + name, type=Path, required=True)
-    p.add_argument('--scenario', choices=('selection', 'titleback', 'titlestate', 'driving', 'finish', 'crash', 'state', 'reject', 'exit', 'change'), default='driving')
+    p.add_argument('--scenario', choices=('selection', 'titleback', 'titlestate', 'driving', 'finish', 'crash', 'state', 'reject', 'menuwrap', 'change'), default='driving')
     p.add_argument('--cup', type=int, default=0, help='Select this enabled league through synchronized menu inputs')
     p.add_argument('--aspect', choices=(0, 1, 2), type=int, default=1)
     p.add_argument('--loss', action='store_true')
@@ -49,7 +49,7 @@ def main():
     lock_fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     os.write(lock_fd, ('%d %s\n' % (os.getpid(), a.out)).encode())
     os.close(lock_fd)
-    frames = dict(selection=550, titleback=600, titlestate=1000, driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, exit=1000, change=1300)[a.scenario]
+    frames = dict(selection=550, titleback=600, titlestate=1000, driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, menuwrap=1000, change=1300)[a.scenario]
     if a.scenario != 'selection':
         frames += 400  # Real native boot/title and the synchronized VS action.
     processes, logs = [], []
@@ -105,7 +105,7 @@ def main():
                 env.update(FZERO_STATE_SAVE_AT='335:4', FZERO_STATE_LOAD_AT='350:4')
             if a.scenario == 'state' and slot == 0:
                 env.update(FZERO_STATE_SAVE_AT='900:4', FZERO_STATE_LOAD_AT='1300:4', FZERO_TEST_ONLINE_MENU='1')
-            if a.scenario == 'exit' and slot == 0:
+            if a.scenario == 'menuwrap' and slot == 0:
                 inputs += ',600-602:8,620-622:32,640-642:32,660-662:32,680-682:8'
             if a.scenario == 'change':
                 if slot == 0:
@@ -208,8 +208,9 @@ def main():
                 assert any(int(row['tick']) > 2803 and row['stage'] == '1' for row in shared), 'rematch countdown missing'
         if a.scenario == 'crash':
             assert any(row['status1'] == '2' and row['status2'] == '3' and row['stage'] == '3' for row in shared), 'DNF/survivor result missing'
-        if a.scenario == 'exit':
-            assert any(row['phase'] == '6' for row in shared), 'confirmed return to lobby missing'
+        if a.scenario == 'menuwrap':
+            assert shared[-1]['phase'] == '5' and shared[-1]['pause'] == '0', 'menu wrap did not continue race'
+            assert not any(row['phase'] == '6' for row in shared), 'in-game menu unexpectedly exited to lobby'
         if a.scenario == 'change':
             assert any(int(row['tick']) > 1100 and row['phase'] == '1' for row in shared), 'change race did not return to machine selection'
             assert any(int(row['tick']) > 1400 and row['stage'] == '2' for row in shared), 'changed race did not start'
