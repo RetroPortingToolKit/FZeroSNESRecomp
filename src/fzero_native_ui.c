@@ -73,6 +73,17 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
   for(unsigned i=0;i<16;++i) {
     for(unsigned p=0;p<2;++p)ui->title_palette[p][i]=rgb(word(t,0x0fc300+p*32+i*2));
     ui->effect_palette[i]=rgb(word(t,0x0fcd60+i*2));
+    ui->crash_palette[i]=rgb(word(t,0x0fcd40+i*2));
+  }
+  /* $CD2B's native result banner is CRASHED OUT, rendered by $D107 as
+   * paired 8x8 OBJ tiles. Keep its wording, glyphs and $35 palette. */
+  for(unsigned i=0;i<32 && byte(t,0xcd2e +i);++i) {
+    ui->crash_text[i]=(uint8_t)byte(t,0xcd2e +i);++ui->crash_length;
+  }
+  for(unsigned i=0;i<8;++i) {
+    unsigned at=0x0fc200+i*4;
+    ui->sparks[i].x=(int)(int8_t)byte(t,at);ui->sparks[i].y=(int)(int8_t)byte(t,at+1);
+    ui->sparks[i].tile=byte(t,at+2);ui->sparks[i].attr=byte(t,at+3);
   }
   /* The title menu has its own 8x16 OBJ alphabet and green scanline shading,
    * distinct from course introductions. These are the exact native word tiles
@@ -152,7 +163,7 @@ void FzeroUiRect(FzeroUiCanvas c,int x,int y,int w,int h,uint32_t color) {
 static void tile(const uint8_t *pixels,const uint32_t *palette,FzeroUiCanvas c,int x,int y,bool fx,bool fy) {
   for(unsigned row=0;row<8;++row)for(unsigned col=0;col<8;++col) {
     unsigned color=pixels[(fy?7-row:row)*8+(fx?7-col:col)];
-    if(color)FzeroUiRect(c,x+(int)col,y+(int)row,1,1,palette[color]);
+    if(color && palette[color])FzeroUiRect(c,x+(int)col,y+(int)row,1,1,palette[color]);
   }
 }
 void FzeroUiTile(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned id,FzeroUiInk ink,bool fx,bool fy) {
@@ -160,11 +171,16 @@ void FzeroUiTile(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned id
 }
 void FzeroUiHudTile(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned id,FzeroUiInk ink,bool fy) {
   if(!ui || !ui->valid || id>=56 || (unsigned)ink>=4)return;
-  uint32_t colors[4]={0,ui->palette[ink][2],ui->palette[ink][3],ui->palette[ink][1]};
+  uint32_t colors[4]={0,ui->palette[ink][2],ui->palette[ink][3],0};
   tile(ui->hud[id],colors,c,x,y,false,fy);
 }
 void FzeroUiText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *s,FzeroUiFont font,FzeroUiInk ink) {
   if(!ui || !ui->valid || (unsigned)ink>=4 || !s)return;
+  /* Text overlays retain the scenery through the cartridge font's black
+   * backing pixels. Frames, icons and title lettering keep their own art. */
+  uint32_t colors[8];
+  for(unsigned i=0;i<8;++i)colors[i]=(ui->palette[ink][i]&0x00ffffff)?ui->palette[ink][i]:0;
+  colors[0]=0;
   for(;*s;++s,x+=8) {
     unsigned ch=(unsigned)toupper((unsigned char)*s),id=0xff;
     if(ch==' ')continue;
@@ -173,32 +189,30 @@ void FzeroUiText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char 
         if(font==FZERO_UI_HUD)FzeroUiHudTile(ui,c,x,y,ch-'0',ink,false);
         else {
           const uint8_t *pixels=ui->numbers[ch-'0'];
-          uint32_t colors[4]={0,ui->palette[ink][1],ui->palette[ink][2],ui->palette[ink][3]};
           for(unsigned row=0;row<8;++row)for(unsigned col=0;col<8;++col)
-            if(pixels[row*16+col])FzeroUiRect(c,x+(int)col,y+(int)row,1,1,colors[pixels[row*16+col]]);
+            if(colors[pixels[row*16+col]])FzeroUiRect(c,x+(int)col,y+(int)row,1,1,colors[pixels[row*16+col]]);
         }
       }
       else if(ch>='A' && ch<='Z') {
         id=ch=='A'?0xaf:ch=='B'?0xbf:ch=='M'?0xcf:ch=='N'?0xce:0xc4+ch-'C';
-        FzeroUiTile(ui,c,x,y,id,ink,false,false);
+        tile(ui->tiles[id],colors,c,x,y,false,false);
       } else if(ch==':') {
         FzeroUiRect(c,x+3,y+2,1,1,ui->palette[ink][2]);FzeroUiRect(c,x+3,y+5,1,1,ui->palette[ink][2]);
       } else if(ch=='.' || ch=='\'' || ch=='"') {
         int yy=ch=='.'?6:0;FzeroUiRect(c,x+2,y+yy,1,2,ui->palette[ink][2]);
         if(ch=='"')FzeroUiRect(c,x+5,y+yy,1,2,ui->palette[ink][2]);
-      } else if(ch=='-')FzeroUiHudTile(ui,c,x,y,0x0d,ink,false);
+      } else if(ch=='-')FzeroUiRect(c,x+1,y+3,5,1,ui->palette[ink][2]);
       continue;
     }
     if(ch>='A' && ch<='Z') {unsigned n=ch-'A';id=n/16*32+n%16;}
     else if(ch>='0' && ch<='9') {
-      uint32_t colors[4]={0,ui->palette[ink][1],ui->palette[ink][2],ui->palette[ink][3]};
       const uint8_t *pixels=ui->numbers[ch-'0'];
       for(unsigned row=0;row<16;++row)for(unsigned col=0;col<8;++col)
-        if(pixels[row*8+col])FzeroUiRect(c,x+(int)col,y+(int)row,1,1,colors[pixels[row*8+col]]);
+        if(colors[pixels[row*8+col]])FzeroUiRect(c,x+(int)col,y+(int)row,1,1,colors[pixels[row*8+col]]);
       continue;
     }
     if(id==0xff)continue;
-    FzeroUiTile(ui,c,x,y,id,ink,false,false);FzeroUiTile(ui,c,x,y+8,id+16,ink,false,false);
+    tile(ui->tiles[id],colors,c,x,y,false,false);tile(ui->tiles[id+16],colors,c,x,y+8,false,false);
   }
 }
 void FzeroUiCenter(const FzeroNativeUi *ui,FzeroUiCanvas c,int y,const char *s,FzeroUiFont font,FzeroUiInk ink) {
@@ -242,6 +256,32 @@ void FzeroUiExplosion(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsign
       int dx=ui->explosion[f][i].x+(int)col,dy=ui->explosion[f][i].y+(int)row;
       FzeroUiRect(c,x+dx*(int)zoom/16,y+dy*(int)zoom/16,1,1,ui->effect_palette[color]);
     }
+  }
+}
+void FzeroUiCrashOut(const FzeroNativeUi *ui,FzeroUiCanvas c,int y) {
+  if(!ui || !ui->valid || !c.scale)return;
+  int x=(c.width/(int)c.scale-(int)ui->crash_length*8)/2;
+  for(unsigned n=0;n<ui->crash_length;++n,x+=8) {
+    unsigned id=ui->crash_text[n];if(id==255)continue;
+    tile(ui->objects[id],ui->crash_palette,c,x,y,false,false);
+    tile(ui->objects[(id+16)&255],ui->crash_palette,c,x,y+8,false,false);
+  }
+}
+void FzeroUiSpark(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned distance,uint8_t phase) {
+  if(!ui || !ui->valid || distance>8 || !phase)return;
+  /* Completed DF has already advanced in BED7. Reconstruct that tick's
+   * emitted OAM selection (1..10, mirrored by bit7), never advance here. */
+  unsigned previous=(phase&0x7f)==1?10:(phase&0x7f)-1;
+  unsigned step=previous-1,size=(step&8)?16:8;
+  unsigned index=((step&8)?(step&1)*4:8|(step&2)*2)|(phase&0x80?16:0);
+  index/=4;if(index>=8)return;
+  unsigned attr=ui->sparks[index].attr,zoom=16-distance;
+  for(unsigned row=0;row<size;++row)for(unsigned col=0;col<size;++col) {
+    unsigned cx=attr&64?size-1-col:col,cy=attr&128?size-1-row:row;
+    unsigned id=ui->sparks[index].tile+(cy/8)*16+cx/8;
+    unsigned color=ui->objects[id&255][(cy&7)*8+(cx&7)];if(!color)continue;
+    int dx=ui->sparks[index].x+(int)col,dy=ui->sparks[index].y+(int)row;
+    FzeroUiRect(c,x+dx*(int)zoom/16,y+dy*(int)zoom/16,1,1,ui->effect_palette[color]);
   }
 }
 void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text,bool dim) {

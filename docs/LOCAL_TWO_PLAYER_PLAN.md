@@ -1037,3 +1037,73 @@ Astra's follow-up accepts the final V shape, shading and outline. Native and
 HD2 desktop flows were repeated on the final binary above (21.30/20.41 s,
 both pass), plus renderer/local-controls CTests (2/2, 3.20 s). This supplements
 the earlier eight-test run and twelve private stock artwork references.
+
+
+### Handling phases, transparent instruments and elimination results (2026-10-15)
+
+Owner QA found a real missing state update: native $C507 advances exhaust
+startup/decay in E1..E5, and $9B4F reads E1 for hover and airborne descent.
+These phases now advance in the authoritative tick, alongside $BED7's DF spark
+phase and $BF5F/$BF83/$C0AC transient effect timers. They persist atomically;
+rendering never advances them. Native extreme-turn sparks use the cartridge
+OBJ layouts/art/palette in both views. This does not qualify every airborne,
+recovery, exhaust palette or track-effect presentation path.
+
+A read-only full-tick oracle observes naturally executed stock Practice from
+$A1C0 to $8DD1, with no guest writes. It compares handling, position/fractions,
+velocity, hover, steering/animation/exhaust, surface, checkpoint/boundary and
+transient effect fields. Both per-tick initialization and independent persistent
+continuation pass on all four machines: 859/1199/827/1199 ticks per mode,
+8,168 comparisons total, zero mismatches. Inputs include throttle, L/R,
+steering, braking and course edges. An initial persistent-observer omission of
+session-owned finish-side tracking caused a late mismatch; correcting that
+observer resolved it without changing checkpoint physics. The reproducible
+runner is tests/validate_actor_frames.py. Evidence: captures/l2p-native-frames-02.
+These are bounded routes, not all-interaction/full-race parity certification.
+
+The scalar oracle now covers 1,200,000 fixtures, plus 40,000 native transient
+effect fixtures. CPU/OAM image checks cover the original CRASHED OUT banner
+and all 20 spark sprite selections. These layout tests share the decoded OBJ
+atlas; they are not an independent native PPU qualification of every effect.
+
+HUD text/digits/player tags skip cartridge black backing pixels, including
+TIME and POWER. Generic bottom menu instruction lines are removed. Contextual
+join/ready/disconnect messages remain. The stock result text is CRASHED OUT
+($CD2B); its exact paired OBJ glyphs and palette replace the generic framed
+CRASH OUT message. DNF times use --'--"-- in the native clock style.
+
+Owner selected last-survivor completion: the match freezes when only one
+non-crashed participant remains, plays the explosion, then exposes results and
+rematch choices. SURVIVED is distinct from FINISHED; no five-lap finish/time is
+fabricated. Results show each machine/outcome and a time only for an actual
+finish. A count-based completion policy is independently checked with four
+racers: one or two crashes leave the remaining field racing. The host/config
+still support two players. Both simultaneous DNFs produce no winner. Tests
+cover either survivor, simultaneous real surface-damage DNFs, terminal pose
+freezing, save/restore and a clean rematch, without injecting race outcomes.
+
+Rules identity is now 2, session magic FZVS002: earlier incompatible versus
+snapshots/replays are rejected. Single-player snapshot format is unchanged.
+Actual Mute City neutral/throttle input produced a P2 crash and P1 survival;
+explosion-age-10 save, fresh-process explosion/results restore, actual rewind
+ring and ten-frame continuation pass. The host lifecycle validator also passes
+both-player save/load, capture replay/divergence, tamper rejection, viewport
+invariance and single-player namespace protection (captures/l2p-state-rules2).
+
+Muted native and HD2/D3D11 desktop runs enter VS from the stock title, join two
+SDL devices, accelerate/shoulder/steer, display actual DD=0/10 with nonzero DF,
+resize to all five sizes and navigate Restart/Change/Main Menu. Presenter images
+show native sparks and transparent HUDs (captures/l2p-effects-final-02). A QA
+fixture initially waited for extreme-turn sparks while holding normal steering
+alone; adding the matching shoulder fixed that fixture timeout. It was not a
+confirmed game startup stall. Temporary startup instrumentation was removed.
+Readback stalls in these runs do not certify sustained cadence.
+
+The four previously unqualified stock full-race bot courses were rerun with
+rules 2: Port Town I, White Land II, Port Town II and Fire Field still fail to
+complete five laps because a bot crashes. These failures remain open; no stock
+physics has been altered to make a bot pass. The other eleven full races have
+not yet been requalified on rules 2. Physical two-human play, remaining native
+air/recovery/effect paths, sustained performance and original acceptance gaps
+remain open in beads-8uc1. Windows only per owner; no Linux build was run.
+Dependency pins/private references are unchanged; the absent gitlink is unstaged.

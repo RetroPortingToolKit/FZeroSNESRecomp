@@ -7,6 +7,7 @@
 #include "fzero_camera.h"
 #include "fzero_ship.h"
 #include "fzero_sound.h"
+#include "fzero_native_ui.h"
 #include "snes/interp816.h"
 #include "sha256.h"
 #include <stddef.h>
@@ -29,6 +30,7 @@ static unsigned random_word(void) {
 }
 static uint8_t rom_read(void *context, uint32_t address) {
   (void)context;
+  if((address&0xffff)<0x8000 || (address>>16)>=16)fprintf(stderr,"unexpected oracle read %06x\n",address);
   CHECK((address & 0xffff) >= 0x8000 && (address >> 16) < 16);
   return rom[(address >> 16) * 0x8000 + (address & 0x7fff)];
 }
@@ -93,6 +95,9 @@ static void audit_ownership(unsigned pc) {
         address==0xb00 || address==0xc60 || address==0xb11 || address==0xd52 || address==0xf0 || address==0xe23 ||
         address==0xb23 || address==0xb25 || address==0xb27 ||
         (address>=0xcfa && address<=0xcfd)) known=true;
+    if(pc==0xc507 && (address==0xe6 || address==0xe7 || address==0xed ||
+        address==0xc70 || address==0xc80)) known=true;
+    if(pc==0xbed7 && (address==0xc70 || address==0xc80)) known=true;
     if (pc==0xe5cf || pc==0xe67b || pc==0xde07 || pc==0xdd25 || pc==0xd9c8) {
       if (address>=0x30 && address<=0x3c) known=true;
       if (!ram_writes[address] && ((address>=0x1200 && address<0x1b00) || address==0xad ||
@@ -158,6 +163,7 @@ static uint16_t reference_until(unsigned pc,unsigned stop) {
   if (pc==0x87a3) cpu.x=2;
   if (pc==0xbc4a || pc==0xbe02) cpu.y=2;
   if (pc==0xf188 || pc==0xf28b) cpu.x=2;
+  if(pc==0xd107) {cpu.mf=false;cpu.a=0xcd2b;}
   ram[0x1fe] = ram[0x1ff] = 255;
   unsigned steps = 0;
   do { CHECK(++steps < 10000); interp816_runOpcode(&cpu); }
@@ -196,6 +202,8 @@ static void call_adapter(unsigned pc, FzeroActor *a, FzeroActorScratch *s, uint8
     case 0xb5ec: FzeroActorFailedStart(a); break;
     case 0xba13: FzeroActorSpinTrigger(a); break;
     case 0xba70: FzeroActorAnimation(a,t); break;
+    case 0xc507: FzeroActorExhaust(a,t); break;
+    case 0xbed7: FzeroActorSpark(a); break;
     case 0xb6cc: FzeroActorRecovery(a); break;
     case 0xb61b: FzeroActorPit(a,t); break;
     case 0xd9c8: FzeroActorRecoveryTrigger(a,ram,t); break;
@@ -695,13 +703,38 @@ static void test_session_events(void) {
   FzeroVersus *s=FzeroVersusCreate(c,ram,spawns,t),*copy=FzeroVersusCreate(c,ram,spawns,t);CHECK(s && copy);
   const FzeroVersusSnapshot *v=FzeroVersusCompleted(s);FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
   for(unsigned i=0;i<12000 && v->racers[1].status==FZERO_VS_ACTIVE;++i) CHECK(FzeroVersusTick(s,held));
-  CHECK(v->racers[1].status==FZERO_VS_DNF && v->racers[0].status==FZERO_VS_ACTIVE && v->phase==FZERO_VS_RACING);
-  FzeroActor terminal=v->racers[1].actor;uint64_t tick=v->race_tick;
+  CHECK(v->racers[1].status==FZERO_VS_DNF && v->racers[0].status==FZERO_VS_SURVIVED &&
+        v->phase==FZERO_VS_RESULTS && v->winner==FZERO_VS_PLAYER1);
+  CHECK(!v->racers[0].completed_laps && !v->racers[1].completed_laps);
+  FzeroActor terminal[2]={v->racers[0].actor,v->racers[1].actor};uint64_t tick=v->race_tick;
   session_roundtrip(s,copy);
-  for(unsigned i=0;i<300;++i) { CHECK(FzeroVersusTick(s,held) && FzeroVersusTick(copy,held)); }
-  CHECK(v->race_tick==tick+300 && !memcmp(&terminal,&v->racers[1].actor,sizeof(terminal)) && FzeroVersusHash(s)==FzeroVersusHash(copy));
+  for(unsigned i=0;i<300;++i) { CHECK(!FzeroVersusTick(s,held) && !FzeroVersusTick(copy,held)); }
+  CHECK(v->race_tick==tick && !memcmp(&terminal[0],&v->racers[0].actor,sizeof(*terminal)) &&
+        !memcmp(&terminal[1],&v->racers[1].actor,sizeof(*terminal)) && FzeroVersusHash(s)==FzeroVersusHash(copy));
   FzeroVersusEndRace(s);session_roundtrip(s,copy);FzeroVersusDestroy(copy);FzeroVersusDestroy(s);
-  puts("session events: shared contact/mine restore and continuation, simultaneous mine reads, rematch terrain reset, real surface-damage DNF with other racer continuing passed");
+  for(unsigned both=0;both<2;++both) {
+    spawns[0].y=3000;spawns[1].x=1400;spawns[1].y=both?3000:1000;
+    s=FzeroVersusCreate(c,ram,spawns,t);copy=FzeroVersusCreate(c,ram,spawns,t);CHECK(s && copy);
+    v=FzeroVersusCompleted(s);FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
+    for(unsigned i=0;i<12000 && v->phase!=FZERO_VS_RESULTS;++i)CHECK(FzeroVersusTick(s,held));
+    CHECK(v->phase==FZERO_VS_RESULTS && v->racers[0].status==FZERO_VS_DNF);
+    CHECK(both?(v->racers[1].status==FZERO_VS_DNF && v->winner==FZERO_VS_NO_WINNER):
+          (v->racers[1].status==FZERO_VS_SURVIVED && v->winner==FZERO_VS_PLAYER2));
+    CHECK(!v->racers[0].completed_laps && !v->racers[1].completed_laps);
+    session_roundtrip(s,copy);CHECK(FzeroVersusRematch(s));
+    CHECK(v->phase==FZERO_VS_READY && v->racers[0].status==FZERO_VS_ACTIVE &&
+          v->racers[1].status==FZERO_VS_ACTIVE && v->winner==FZERO_VS_NO_WINNER && !v->tick);
+    FzeroVersusDestroy(copy);FzeroVersusDestroy(s);
+  }
+  FzeroVersusRacer field[4]={0};
+  CHECK(!FzeroVersusRaceComplete(field,4));
+  field[0].status=FZERO_VS_DNF;CHECK(!FzeroVersusRaceComplete(field,4));
+  field[1].status=FZERO_VS_DNF;CHECK(!FzeroVersusRaceComplete(field,4));
+  field[2].status=FZERO_VS_DNF;CHECK(FzeroVersusRaceComplete(field,4));
+  field[1].status=FZERO_VS_FINISHED;CHECK(!FzeroVersusRaceComplete(field,4));
+  field[3].status=FZERO_VS_FINISHED;CHECK(FzeroVersusRaceComplete(field,4));
+  CHECK(!FzeroVersusRaceComplete(NULL,4) && !FzeroVersusRaceComplete(field,0));
+  puts("session events: shared contact/mines, rematch terrain reset, input-driven elimination with survivor win, frozen terminal poses, atomic restore and four-player completion policy passed");
 }
 static void test_camera(void) {
   uint8_t negative[0x5da0];
@@ -931,6 +964,52 @@ static void test_sound(void) {
   puts("sound: 40000 native engine/effect encoders, immutable actors, symmetric two-human mixing and paused effects passed");
 }
 
+static void test_transient_effects(void) {
+  for(unsigned sample=0;sample<40000;++sample) {
+    FzeroActor a;FzeroActorScratch s;randomize(&a,&s,sample%4);
+    a.death_animation=0;a.black_flash=(uint8_t)sample;
+    unsigned phase=sample%18;
+    a.effect_timer=phase==0?0:phase<=5?0x40+phase:0x80+(phase-5);
+    memset(ram,0,sizeof(ram));write_fields(&a,actor_fields,COUNT(actor_fields));ram[0xb00]=0x88;
+    FzeroActorTransientEffects(&a);reference(0xbf5f);reference(0xbf83);reference(0xc0ac);
+    compare_fields(&a,actor_fields,COUNT(actor_fields),0xbf5f,sample);
+  }
+  puts("native transient effects: 40000 electric/wall/impact timers and palette-event fixtures passed");
+}
+static void paint_native_obj(uint32_t out[256*224],const FzeroNativeUi *ui,unsigned slot,unsigned size,int offset_x) {
+  unsigned at=0x200+slot*4,attr=ram_word(at+2);
+  int x=(int)ram[at]+offset_x,y=ram[at+1];
+  for(unsigned row=0;row<size;++row)for(unsigned col=0;col<size;++col) {
+    unsigned cx=attr&0x4000?size-1-col:col,cy=attr&0x8000?size-1-row:row;
+    unsigned id=((attr&255)+(cy/8)*16+cx/8)&255;
+    unsigned color=ui->objects[id][(cy&7)*8+(cx&7)];
+    int dx=x+(int)col,dy=y+(int)row;if(!color || dx<0 || dx>=256 || dy<0 || dy>=224)continue;
+    unsigned address=0x0fcd00+((attr>>9)&7)*32+color*2;
+    unsigned rgb=rom_read(NULL,address)|(unsigned)rom_read(NULL,address+1)<<8;
+    unsigned r=rgb&31,g=(rgb>>5)&31,b=(rgb>>10)&31;
+    out[dy*256+dx]=0xff000000u|(((r<<3)|(r>>2))<<16)|(((g<<3)|(g>>2))<<8)|(b<<3)|(b>>2);
+  }
+}
+static void test_native_effect_art(void) {
+  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
+  static uint32_t actual[256*224],expected[256*224];
+  FzeroUiCanvas canvas={actual,256,224,1};
+  memset(ram,0,sizeof(ram));ram[0x4e]=3;reference(0xd107);
+  CHECK(ui.crash_length==11 && ram_word(0x4b)==80);
+  for(unsigned slot=0;slot<20;++slot)paint_native_obj(expected,&ui,slot,8,-4);
+  FzeroUiCrashOut(&ui,canvas,192);CHECK(!memcmp(expected,actual,sizeof(actual)));
+  for(unsigned side=0;side<2;++side)for(unsigned phase=1;phase<=10;++phase) {
+    FzeroActor a={.speed=0x800,.animation_transition=(uint8_t)(phase|(side?0x80:0))};
+    memset(ram,0,sizeof(ram));write_fields(&a,actor_fields,COUNT(actor_fields));ram[0xc70]=128;ram[0xc80]=180;
+    reference(0xbed7);FzeroActorSpark(&a);
+    memset(actual,0,sizeof(actual));memset(expected,0,sizeof(expected));
+    paint_native_obj(expected,&ui,47,ram[0x40b]&0x80?16:8,0);
+    FzeroUiSpark(&ui,canvas,128,180,0,a.animation_transition);
+    CHECK(!memcmp(expected,actual,sizeof(actual)));
+  }
+  puts("native effect art: original CRASHED OUT glyphs/palette/layout and all20 emitted spark sprites match CPU OAM");
+}
+
 int main(int argc, char **argv) {
   CHECK(argc == 2);
   FILE *f = fopen(argv[1], "rb"); CHECK(f);
@@ -941,7 +1020,7 @@ int main(int argc, char **argv) {
   };
   uint8_t hash[32]; sha256_compute(rom,sizeof(rom),hash);
   CHECK(!memcmp(hash,expected_hash,sizeof(hash)));
-  const unsigned routines[] = {0x9377,0x91bc,0x9264,0x930d,0x938d,0x953a,0x9503,0x9589,0x95e7,0x9672,0x96f2,0x9753,0x981c,0xb7cb,0xb94e,0xb881,0x9b4f,0x98a4,0x8e36,0x9d9e,0xfa1c,0x8d12,0xb5ec,0xba13,0xba70,0xb6cc,0xb61b,0xd9c8};
+  const unsigned routines[] = {0x9377,0x91bc,0x9264,0x930d,0x938d,0x953a,0x9503,0x9589,0x95e7,0x9672,0x96f2,0x9753,0x981c,0xb7cb,0xb94e,0xb881,0x9b4f,0x98a4,0x8e36,0x9d9e,0xfa1c,0x8d12,0xb5ec,0xba13,0xba70,0xb6cc,0xb61b,0xd9c8,0xc507,0xbed7};
   unsigned total = 0;
   for (unsigned r=0;r<COUNT(routines);++r) {
     memset(ram_reads,0,sizeof(ram_reads));memset(ram_writes,0,sizeof(ram_writes));audit_enabled=true;
@@ -958,12 +1037,23 @@ int main(int argc, char **argv) {
           a.height=(uint16_t)((sample%4+3)*256);
         }
       }
+      if (routines[r]==0xc507) {
+        static const uint8_t phases[]={0,1,2,3,4,0x80,0x81,0x82,0x83};
+        a.exhaust=phases[sample%COUNT(phases)];a.exhaust_frame=sample%4;
+        a.exhaust_timer=(sample/4)%6;a.exhaust_color=sample%95;a.exhaust_offset=sample%5;
+        a.steering_history=sample%13;
+        if(a.steering_history>10)a.steering_history+=0x75;
+        a.animation_scale=sample%7;
+      }
       initial_actor=a; initial_scratch=s;
       memset(ram,0,sizeof(ram));
       write_fields(&a,actor_fields,COUNT(actor_fields)); write_fields(&s,scratch_fields,COUNT(scratch_fields));
       ram[0xd1] = machine * 2;
       ram[0x51] = (uint8_t)random_word(); ram[0xdc8] = 1;
       ram[0xb00]=0x88;ram[0xc60]=0x80;
+      /* C2ED normally selects this presentation-only exhaust layout jump.
+       * Exercise a valid native target; no handler may feed actor state. */
+      if(routines[r]==0xc507) {ram[0xe6]=0x8c;ram[0xe7]=0xc6;}
       if (routines[r]==0xd9c8) {
         ram[0xad]=255;ram[0x1075]=(uint8_t)(sample%7*2);
         for (unsigned i=0;i<256;++i) {
@@ -995,5 +1085,7 @@ int main(int argc, char **argv) {
   test_player_display();
   test_player_captures();
   test_sound();
+  test_transient_effects();
+  test_native_effect_art();
   return 0;
 }

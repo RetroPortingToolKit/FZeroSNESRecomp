@@ -207,6 +207,4 @@ void FzeroLocalControlsDraw(const FzeroLocalControls *c,uint32_t *pixels,int wid
     FzeroUiCenter(ui,canvas,y+124,device==NO_DEVICE?"PRESS START TO JOIN":c->ready[p]?"READY":"START OR ENTER WHEN READY",
         FZERO_UI_SMALL,c->ready[p]?FZERO_UI_YELLOW:FZERO_UI_CYAN);
   }
-  FzeroUiCenter(ui,canvas,416,"UP DOWN SELECT MACHINE",FZERO_UI_SMALL,FZERO_UI_CYAN);
-  FzeroUiCenter(ui,canvas,432,"P1 LEFT RIGHT SELECT COURSE",FZERO_UI_SMALL,FZERO_UI_GREY);
 }

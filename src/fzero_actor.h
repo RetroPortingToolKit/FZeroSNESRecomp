@@ -26,6 +26,7 @@ typedef struct FzeroActor {
   uint8_t checkpoint_angle, slide, instant_grip, jump_timer;
   uint8_t acceleration_index, turning_index;
   uint8_t exhaust, extra_height_index, extra_height, animation;
+  uint8_t exhaust_color, exhaust_frame, exhaust_timer, exhaust_offset;
   uint8_t sound_flags;
   uint8_t steering_history, boosts, boost_timer, boost_award;
   uint8_t surface_id, ground_timer, surface_extra;
@@ -95,6 +96,11 @@ void FzeroActorLaunch(FzeroActor *actor);
 void FzeroActorFailedStart(FzeroActor *actor);
 void FzeroActorSpinTrigger(FzeroActor *actor);
 void FzeroActorAnimation(FzeroActor *actor, FzeroActorTables tables);
+/* Post-movement native effects retain state that feeds the next input/hover
+ * tick. Rendering reads the completed state and never advances these phases. */
+void FzeroActorExhaust(FzeroActor *actor, FzeroActorTables tables);
+void FzeroActorSpark(FzeroActor *actor);
+void FzeroActorTransientEffects(FzeroActor *actor);
 void FzeroActorRecovery(FzeroActor *actor);
 void FzeroActorRecoveryTrigger(FzeroActor *actor, const uint8_t world[0x20000], FzeroActorTables tables);
 void FzeroActorPit(FzeroActor *actor, FzeroActorTables tables);

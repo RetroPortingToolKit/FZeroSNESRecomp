@@ -684,6 +684,74 @@ void FzeroActorAnimation(FzeroActor *a, FzeroActorTables t) {
   }
 }
 
+/* $C507..$C61B: exhaust startup/decay. E1 also controls hover and airborne
+ * descent in $9B4F; omitting this apparently visual update changes handling.
+ * Native OAM, palette and DMA writes are presentation outputs, not inputs. */
+void FzeroActorExhaust(FzeroActor *a, FzeroActorTables t) {
+  if (!a->exhaust) return;
+  unsigned index;
+  if (a->exhaust&0x80) {
+    unsigned phase=a->exhaust&0x7f;
+    if (!phase) { ++a->exhaust;index=2; }
+    else if (phase==1) { ++a->exhaust;a->exhaust_timer=2;index=1; }
+    else if (phase==2) {
+      if (--a->exhaust_timer) return;
+      ++a->exhaust;a->boost_beep_guard=1;a->exhaust_timer=2;index=0;
+    } else {
+      if (!--a->exhaust_timer) {
+        a->exhaust=4;a->exhaust_timer=1;a->exhaust_frame=a->exhaust_color=0;
+      }
+      return;
+    }
+  } else {
+    if (--a->exhaust_timer) return;
+    --a->exhaust_frame;
+    if (a->exhaust_frame&0x80) {
+      a->exhaust_frame=3;
+      if (a->exhaust!=1) --a->exhaust;
+      a->exhaust_timer=a->exhaust;return;
+    }
+    a->exhaust_timer=a->exhaust;index=a->exhaust_frame;
+    unsigned target=((a->speed>=0x7ff?255:a->speed>>3)*0x5e)>>8;
+    a->exhaust_color=a->exhaust_color<target?a->exhaust_color+1u:target;
+  }
+  a->exhaust_offset=table8(t,0xc77c+index);
+}
+/* $BED7..$BF5E advances DD's extreme-turn spark phase in DF. The low-speed
+ * and airborne resets also affect the following animation transition. */
+void FzeroActorSpark(FzeroActor *a) {
+  if (a->race_state) {
+    if (!(a->race_state&0x10)) a->animation_transition=0;
+    return;
+  }
+  if ((a->state&0x80) || a->speed<0x400) {a->animation_transition=0;return;}
+  if (a->animation_transition) {
+    unsigned phase=(a->animation_transition-1)&0x7f;
+    unsigned next=(a->animation_transition+1)&255;
+    unsigned doubled=(next<<1)&255;
+    if (doubled==0x16) doubled=2;
+    a->animation_transition=(uint8_t)((doubled>>1)|(next&0x80));
+    if (phase&8) a->sound_flags2|=0x10;
+  }
+}
+
+/* $BF5F/$BF83/$C0AC state writes for the active human. Palette and OAM
+ * output is discarded; retaining countdowns prevents permanent hit flashes. */
+void FzeroActorTransientEffects(FzeroActor *a) {
+  if(a->electric_flash)--a->electric_flash;
+  if(a->track_flash)--a->track_flash;
+  if(!a->death_animation && a->effect_timer) {
+    --a->effect_timer;
+    if(!(a->effect_timer&15))a->effect_timer=0;
+    else if(a->effect_timer==0x8a)a->sound_flags2|=0x20;
+  }
+  if(a->black_flash) {
+    bool negative=(a->black_flash&0x80)!=0;
+    --a->black_flash;
+    if(negative && !(a->black_flash&0x7f))a->black_flash=0;
+  }
+}
+
 /* $B711..$B7AA retains CMP's carry on the positive approach. The native
  * positive step is seven units, while the negative step is six. */
 static uint16_t recovery_coordinate(uint16_t position, uint16_t target, unsigned half) {

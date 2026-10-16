@@ -4,26 +4,32 @@
 
 /* A single game-owned authoritative race. Presentation and host device state
  * are deliberately absent. All time is measured in FZERO_SIMULATION_HZ ticks.
- * Rule 1: two stock humans, five laps, movement then one stable-ID contact.
+ * Rule 2: native exhaust/spark phases; last survivor wins after elimination.
+ * Two stock humans, five laps, movement then one stable-ID contact.
  * This is a new simulation profile, not a claim of stock whole-frame parity. */
-#define FZERO_VERSUS_RULES 1u
+#define FZERO_VERSUS_RULES 2u
 #define FZERO_VERSUS_LAPS 5u
 #define FZERO_VERSUS_COUNTDOWN 180u
 typedef struct FzeroVersus FzeroVersus;
 typedef struct FzeroVersusConfig { uint8_t course, machine[2]; } FzeroVersusConfig;
 enum FzeroVersusPhase { FZERO_VS_READY, FZERO_VS_COUNTDOWN, FZERO_VS_RACING, FZERO_VS_RESULTS };
-enum FzeroVersusStatus { FZERO_VS_ACTIVE, FZERO_VS_FINISHED, FZERO_VS_DNF };
+enum FzeroVersusStatus { FZERO_VS_ACTIVE, FZERO_VS_FINISHED, FZERO_VS_DNF, FZERO_VS_SURVIVED };
 enum FzeroVersusPause { FZERO_VS_PAUSE_MANUAL=1, FZERO_VS_PAUSE_FOCUS=2,
                         FZERO_VS_PAUSE_DEVICE1=4, FZERO_VS_PAUSE_DEVICE2=8 };
 enum FzeroVersusWinner { FZERO_VS_NO_WINNER, FZERO_VS_PLAYER1, FZERO_VS_PLAYER2, FZERO_VS_TIE };
 typedef struct FzeroVersusRacer {
   FzeroActor actor;
   FzeroActor crossing_pose;
-  /* finish_tick freezes elapsed time for either terminal status (DNF too). */
+  /* finish_tick records the terminal tick. Only FINISHED has a finish time;
+   * DNF and SURVIVED must never be displayed/recorded as a completed race. */
   uint64_t finish_tick, lap_start, lap_ticks[FZERO_VERSUS_LAPS], crossing_tick;
   int32_t gates;
   uint8_t status, completed_laps, started;
 } FzeroVersusRacer;
+
+/* Race completion counts the remaining field, rather than reacting to the
+ * first DNF. Kept independent of the current two-seat host for future fields. */
+bool FzeroVersusRaceComplete(const FzeroVersusRacer *racers,unsigned count);
 typedef struct FzeroVersusSnapshot {
   FzeroVersusConfig config;
   FzeroVersusRacer racers[2];

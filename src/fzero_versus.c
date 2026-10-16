@@ -57,14 +57,31 @@ void FzeroVersusPause(FzeroVersus *s,unsigned reason) {
   s->state.pause|=(uint8_t)(reason&15);clear_inputs(s);
 }
 void FzeroVersusResume(FzeroVersus *s) { if (s) { clear_inputs(s);s->state.pause=0; } }
+bool FzeroVersusRaceComplete(const FzeroVersusRacer *racers,unsigned count) {
+  if(!racers || !count)return false;
+  unsigned active=0,remaining=0;
+  for(unsigned i=0;i<count;++i) {
+    active+=racers[i].status==FZERO_VS_ACTIVE;
+    remaining+=racers[i].status!=FZERO_VS_DNF;
+  }
+  return !active || remaining<=1;
+}
+static unsigned result_winner(const FzeroVersusSnapshot *v) {
+  const FzeroVersusRacer *a=&v->racers[0],*b=&v->racers[1];
+  if(a->status==FZERO_VS_FINISHED && b->status==FZERO_VS_FINISHED)
+    return a->finish_tick==b->finish_tick?FZERO_VS_TIE:a->finish_tick<b->finish_tick?FZERO_VS_PLAYER1:FZERO_VS_PLAYER2;
+  if(a->status==FZERO_VS_FINISHED || a->status==FZERO_VS_SURVIVED)return FZERO_VS_PLAYER1;
+  if(b->status==FZERO_VS_FINISHED || b->status==FZERO_VS_SURVIVED)return FZERO_VS_PLAYER2;
+  return FZERO_VS_NO_WINNER;
+}
 static void results(FzeroVersus *s) {
-  FzeroVersusRacer *a=&s->state.racers[0],*b=&s->state.racers[1];
-  if (a->status==FZERO_VS_ACTIVE || b->status==FZERO_VS_ACTIVE) return;
+  if(!FzeroVersusRaceComplete(s->state.racers,sizeof(s->state.racers)/sizeof(*s->state.racers)))return;
+  for(unsigned i=0;i<sizeof(s->state.racers)/sizeof(*s->state.racers);++i) {
+    FzeroVersusRacer *r=&s->state.racers[i];
+    if(r->status==FZERO_VS_ACTIVE) {r->status=FZERO_VS_SURVIVED;r->finish_tick=s->state.race_tick;}
+  }
   s->state.phase=FZERO_VS_RESULTS;
-  if (a->status==FZERO_VS_FINISHED && b->status==FZERO_VS_FINISHED)
-    s->state.winner=a->finish_tick==b->finish_tick?FZERO_VS_TIE:a->finish_tick<b->finish_tick?FZERO_VS_PLAYER1:FZERO_VS_PLAYER2;
-  else if (a->status==FZERO_VS_FINISHED) s->state.winner=FZERO_VS_PLAYER1;
-  else if (b->status==FZERO_VS_FINISHED) s->state.winner=FZERO_VS_PLAYER2;
+  s->state.winner=result_winner(&s->state);
   clear_inputs(s);
 }
 void FzeroVersusEndRace(FzeroVersus *s) {
@@ -219,7 +236,7 @@ static size_t codec(Stream *x,const FzeroVersus *source,FzeroVersus *target) {
 size_t FzeroVersusSaveSize(void) { Stream x={0};return 32+codec(&x,NULL,NULL); }
 static void put32(uint8_t *p,uint32_t v) { for (unsigned i=0;i<4;++i) p[i]=(uint8_t)(v>>(i*8)); }
 static uint32_t get32(const uint8_t *p) { return p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
-static const uint8_t magic[8]={'F','Z','V','S','0','0','1',0};
+static const uint8_t magic[8]={'F','Z','V','S','0','0','2',0};
 static uint64_t integrity(const uint8_t *data,size_t size) {
   uint64_t hash=hash_bytes(UINT64_C(14695981039346656037),data,24);
   return hash_bytes(hash,data+32,size-32);
@@ -248,7 +265,7 @@ static bool valid(const FzeroVersus *s) {
   for (unsigned i=0;i<2;++i) {
     const FzeroVersusRacer *r=&v->racers[i];
     int32_t limit=((int32_t)s->world[0xad]+1)*6;
-    if (!actor_valid(&s->spawns[i],s,i) || !actor_valid(&r->actor,s,i) || r->status>FZERO_VS_DNF ||
+    if (!actor_valid(&s->spawns[i],s,i) || !actor_valid(&r->actor,s,i) || r->status>FZERO_VS_SURVIVED ||
         r->completed_laps>FZERO_VERSUS_LAPS || r->started>1 || r->gates< -limit || r->gates>limit ||
         r->lap_start>v->race_tick || r->finish_tick>v->race_tick ||
         r->crossing_tick>v->race_tick ||
@@ -256,6 +273,8 @@ static bool valid(const FzeroVersus *s) {
           !actor_valid(&r->crossing_pose,s,i))) ||
         (r->status==FZERO_VS_FINISHED && (!r->started || r->completed_laps!=FZERO_VERSUS_LAPS || !r->finish_tick)) ||
         (r->status==FZERO_VS_ACTIVE && r->finish_tick) ||
+        (r->status==FZERO_VS_SURVIVED && (v->phase!=FZERO_VS_RESULTS ||
+          v->racers[1-i].status!=FZERO_VS_DNF || (r->actor.race_state&0x40))) ||
         (r->status!=FZERO_VS_FINISHED && r->completed_laps==FZERO_VERSUS_LAPS) ||
         (v->mines[i].hit && (v->mines[i].x>=8192 || v->mines[i].y>=4096 ||
           v->mines[i].surface_id<0xc8 || v->mines[i].surface_id>=0xcc))) return false;
@@ -268,13 +287,7 @@ static bool valid(const FzeroVersus *s) {
   }
   if (v->phase==FZERO_VS_RESULTS) {
     if (v->racers[0].status==FZERO_VS_ACTIVE || v->racers[1].status==FZERO_VS_ACTIVE) return false;
-    unsigned winner=FZERO_VS_NO_WINNER;
-    const FzeroVersusRacer *a=&v->racers[0],*b=&v->racers[1];
-    if (a->status==FZERO_VS_FINISHED && b->status==FZERO_VS_FINISHED)
-      winner=a->finish_tick==b->finish_tick?FZERO_VS_TIE:a->finish_tick<b->finish_tick?FZERO_VS_PLAYER1:FZERO_VS_PLAYER2;
-    else if (a->status==FZERO_VS_FINISHED) winner=FZERO_VS_PLAYER1;
-    else if (b->status==FZERO_VS_FINISHED) winner=FZERO_VS_PLAYER2;
-    if (v->winner!=winner) return false;
+    if (v->winner!=result_winner(v)) return false;
   }
   return true;
 }

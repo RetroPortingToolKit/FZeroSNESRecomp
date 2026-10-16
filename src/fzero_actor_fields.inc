@@ -9,6 +9,7 @@ FIELD(0x52,machine), FIELD(0xb10,action), FIELD(0xd51,state), FIELD(0xd50,surfac
 FIELD(0xcc0,ground_flags), FIELD(0xc7,surface_flags), FIELD(0xc5,checkpoint_angle),
 FIELD(0x1d,slide), FIELD(0xd9,instant_grip), FIELD(0xda,jump_timer),
 FIELD(0xd71,acceleration_index), FIELD(0xef,turning_index), FIELD(0xe1,exhaust),
+FIELD(0xe2,exhaust_color), FIELD(0xe3,exhaust_frame), FIELD(0xe4,exhaust_timer), FIELD(0xe5,exhaust_offset),
 FIELD(0xdb,extra_height_index), FIELD(0xdc,extra_height), FIELD(0xe0,animation), FIELD(0xad3,sound_flags),
 FIELD(0x65,held), FIELD(0x67,pressed), FIELD(0x69,released), FIELD(0xd5,turn_stage),
 FIELD(0xd7,turn_acceleration), FIELD(0xdd,steering_history), FIELD(0xcf3,boosts),

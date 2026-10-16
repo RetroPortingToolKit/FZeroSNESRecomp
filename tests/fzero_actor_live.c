@@ -101,7 +101,80 @@ static void after_movement(CpuState *cpu,uint32_t pc) {
   if (cpu->X || !pending) return;
   pending=false;compare_actor("movement",++comparisons);
 }
+/* Read-only native call-order evidence for full-frame handling qualification. */
+static FILE *schedule_trace;
+static void schedule(CpuState *cpu,uint32_t pc) {
+  if(!eligible() || ((pc==0x00916b || pc==0x00919b) && cpu->X))return;
+  fprintf(schedule_trace,"%llu,%u,%06x,%u,%u,%04x,%02x,%04x,%04x,%04x,%04x,%04x,%04x,%04x,%u,%u,%u\n",
+      (unsigned long long)cpu->master_cycles,g_ram[0x51],pc,cpu->X,g_ram[0xc3],word(0x65),g_ram[0xb10],
+      word(0xb20),word(0xbd0),word(0xbe0),word(0xc10),word(0xb70),word(0xb90),word(0xbc0),g_ram[0xdd],g_ram[0xde],g_ram[0xd51]);
+}
+static FzeroActor full_expected;
+static bool full_enabled,full_pending,full_chain,full_initialized;
+static unsigned full_comparisons,full_mismatches;
+static uint8_t full_world[0x20000];
+static void before_full_tick(CpuState *cpu,uint32_t pc) {
+  (void)cpu;(void)pc;
+  full_pending=false;
+  if(!eligible() || g_ram[0xc3] || !(g_ram[0xb00]&0x80)) {full_initialized=false;return;}
+  if(!full_chain || !full_initialized) for(unsigned i=0;i<sizeof(fields)/sizeof(*fields);++i) {
+    const LiveField *f=&fields[i];uint8_t *p=(uint8_t *)&full_expected+f->offset;
+    if(f->size==1)*p=g_ram[f->address];else {uint16_t v=word(f->address);memcpy(p,&v,2);}
+  }
+  if(!full_chain || !full_initialized) {
+    if(!FzeroActorCaptureWorld(full_world,g_ram)){fputs("full-frame course capture failed\n",stderr);exit(12);}
+  } else FzeroActorLatch(&full_expected,word(0x65));
+  full_initialized=true;
+  FzeroActorMineEvent mine={0};FzeroActorTick(&full_expected,full_world,
+      (FzeroActorTables){stock_table,g_snes->cart->rom},g_ram[0x51],&mine);
+  /* Finish-side tracking is owned by the session after the uncoupled tick.
+   * It also selects the native boundary/checkpoint direction next tick. */
+  FzeroActorCrossFinish(&full_expected,full_world);
+  if(full_chain)FzeroActorCommitMine(full_world,&mine);
+  full_pending=true;
+}
+static void after_full_tick(CpuState *cpu,uint32_t pc) {
+  (void)cpu;(void)pc;if(!full_pending)return;full_pending=false;++full_comparisons;
+  /* Handling, motion, surfaces and animation are observed across a complete
+   * naturally executed native tick. Audio/HUD/race-award ownership differs. */
+  static const char *names[]={"speed","speed_fraction","x","x_fraction","y","y_fraction","vx","vx_fraction","vy","vy_fraction",
+    "height","height_velocity","facing","momentum","turning","spin","no_control","health","action","state","surface","ground_flags",
+    "surface_flags","slide","instant_grip","jump_timer","turn_stage","turn_acceleration","exhaust","exhaust_color","exhaust_frame","exhaust_timer","exhaust_offset","extra_height_index","extra_height",
+    "animation","steering_history","animation_scale","animation_transition","ground_timer","boundary_momentum",
+    "electric_flash","track_flash","effect_timer","black_flash",
+    "checkpoint","checkpoint_angle","status2","wall_angle","finish_side","branch",
+    "next_checkpoint_x","next_checkpoint_y","previous_checkpoint_x","previous_checkpoint_y",
+    "next_checkpoint_angle","previous_checkpoint_angle","next_checkpoint_flags","previous_checkpoint_flags"};
+  for(unsigned i=0;i<sizeof(fields)/sizeof(*fields);++i) {
+    const LiveField *f=&fields[i];bool check=false;
+    for(unsigned n=0;n<sizeof(names)/sizeof(*names);++n)if(!strcmp(f->name,names[n])){check=true;break;}
+    if(!check)continue;
+    unsigned native=f->size==1?g_ram[f->address]:word(f->address),expected_value;
+    const uint8_t *p=(const uint8_t *)&full_expected+f->offset;
+    if(f->size==1)expected_value=*p;else{uint16_t v;memcpy(&v,p,2);expected_value=v;}
+    if(native!=expected_value) {
+      if(full_mismatches<40)fprintf(stderr,"actor-frame: tick=%u nmi=%u field=%s native=%04x versus=%04x held=%04x\n",
+          full_comparisons,g_ram[0x51],f->name,native,expected_value,word(0x65));
+      ++full_mismatches;
+    }
+  }
+}
 void FzeroActorLiveInstall(void) {
+  full_enabled=getenv("FZERO_TEST_ACTOR_FRAME_PARITY")!=NULL;
+  full_chain=getenv("FZERO_TEST_ACTOR_FRAME_CHAIN")!=NULL;
+  if(full_enabled && (!interp_bridge_add_pre_opcode_hook(0x00a1c0,before_full_tick) ||
+      !interp_bridge_add_pre_opcode_hook(0x008dd1,after_full_tick))) {fputs("Cannot install full-frame hooks\n",stderr);exit(12);}
+
+  const char *path=getenv("FZERO_TEST_ACTOR_SCHEDULE");
+  if(path) {
+    schedule_trace=fopen(path,"wb");if(!schedule_trace){perror(path);exit(12);}
+    setvbuf(schedule_trace,NULL,_IOLBF,0);
+    fputs("master,nmi,pc,X,race_state,held,action,speed,facing,momentum,turning,x,y,height,DD,DE,state\n",schedule_trace);
+    const uint32_t entries[]={0x008e36,0x00dd25,0x00b61b,0x00b94e,0x00b7cb,0x00b881,0x00ba13,0x00b5ec,0x009144,0x00916b,0x00919b,0x00ba70,0x00fa1c};
+    for(unsigned i=0;i<sizeof(entries)/sizeof(*entries);++i)
+      if(!interp_bridge_add_pre_opcode_hook(entries[i],schedule)){fputs("Cannot install schedule hook\n",stderr);exit(12);}
+  }
+
   enabled=getenv("FZERO_TEST_ACTOR_PARITY")!=NULL;
   if (!enabled) return;
   if (!interp_bridge_add_pre_opcode_hook(0x00dd25,before_progress) ||
@@ -112,8 +185,10 @@ void FzeroActorLiveInstall(void) {
   }
 }
 int FzeroActorLiveFinish(void) {
-  if (!enabled) return 1;
+  if(full_enabled)fprintf(stderr,"actor-frame: mode=%s comparisons=%u mismatches=%u\n",full_chain?"persistent":"per-tick",full_comparisons,full_mismatches);
+  bool full_ok=!full_enabled || (full_comparisons>=100 && !full_mismatches);
+  if (!enabled) return full_ok;
   fprintf(stderr,"actor-live: comparisons=%u mismatches=%u\n",comparisons,mismatches);
   fprintf(stderr,"actor-live: checkpoint comparisons=%u\n",progress_comparisons);
-  return comparisons>=100 && progress_comparisons>=100 && !mismatches;
+  return full_ok && comparisons>=100 && progress_comparisons>=100 && !mismatches;
 }

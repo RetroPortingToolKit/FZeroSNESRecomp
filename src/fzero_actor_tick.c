@@ -22,6 +22,9 @@ int FzeroActorTick(FzeroActor *a,const uint8_t world[0x20000],FzeroActorTables t
   FzeroActorApplySpin(a,&s);FzeroActorTurn(a,&s);FzeroActorApplyGrip(a,&s);
   FzeroActorVelocity(&s,t);FzeroActorWind(a,&s,t,a->race_state);
   FzeroActorStoreVelocity(a,&s);FzeroActorMove(a,&s);FzeroActorAnimation(a,t);
+  if (!a->death_animation && !a->race_state) FzeroActorExhaust(a,t);
+  if (!a->death_animation) FzeroActorSpark(a);
+  FzeroActorTransientEffects(a);
   if (a->no_control&255) --a->no_control;
   if (a->damage_cooldown) --a->damage_cooldown;
   return gates;

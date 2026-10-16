@@ -62,6 +62,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
           local_ui_button(p,((!(local_ui_drive_captured&2))^p)?SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,true);
         if(tick>=155 && (local_ui_drive_captured&8) && !(local_ui_drive_captured&16)) {
           local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_LEFT,true);local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_RIGHT,true);
+          local_ui_button(0,SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,true);local_ui_button(1,SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,true);
         }
       }
       if(local_ui_stage==3 && s && getenv("FZERO_TEST_LOCAL_UI_RESIZE") && local_ui_resizes<5 &&
@@ -132,6 +133,9 @@ static void local_ui_presented(const FzeroPresenter *p) {
   if(s && local_ui_stage==3 && s->phase==FZERO_VS_RACING && getenv("FZERO_TEST_LOCAL_UI_DRIVE")) {
     static const unsigned ticks[]={15,45,80,115,175,215};
     for(unsigned shot=0;shot<6;++shot)if(!(local_ui_drive_captured&(1u<<shot)) && s->race_tick>=ticks[shot]) {
+      if(shot==4 && ((s->racers[0].actor.steering_history!=0 && s->racers[0].actor.steering_history!=10) ||
+          (s->racers[1].actor.steering_history!=0 && s->racers[1].actor.steering_history!=10) ||
+          !s->racers[0].actor.animation_transition || !s->racers[1].actor.animation_transition))return;
       if(shot==1 || shot==3)for(unsigned seat=0;seat<2;++seat) {
         unsigned expected=((shot==1)^seat)?0x80:0x81;
         if(s->racers[seat].actor.steering_history!=expected)Die("UI shoulder input did not reach native animation");
@@ -139,8 +143,8 @@ static void local_ui_presented(const FzeroPresenter *p) {
       for(unsigned seat=0;seat<2;++seat) {
         const FzeroActor *a=&s->racers[seat].actor;
         if(!a->speed || (a->x==local_ui_drive_start[seat][0] && a->y==local_ui_drive_start[seat][1]))Die("UI drive did not move");
-        fprintf(stderr,"local-ui-drive: shot=%u seat=%u race=%llu machine=%u pos=%u,%u speed=%u DD=%02x DE=%02x status=%u\n",
-          shot,seat,(unsigned long long)s->race_tick,a->machine,a->x,a->y,a->speed,a->steering_history,a->animation_scale,s->racers[seat].status);
+        fprintf(stderr,"local-ui-drive: shot=%u seat=%u race=%llu machine=%u pos=%u,%u speed=%u DD=%02x DE=%02x DF=%02x status=%u\n",
+          shot,seat,(unsigned long long)s->race_tick,a->machine,a->x,a->y,a->speed,a->steering_history,a->animation_scale,a->animation_transition,s->racers[seat].status);
       }
       local_ui_drive_captured|=1u<<shot;
       snprintf(label,sizeof(label),"drive-%u",shot);local_ui_images(p,directory,label);return;

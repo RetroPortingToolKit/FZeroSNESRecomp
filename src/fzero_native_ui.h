@@ -10,6 +10,10 @@ typedef struct FzeroNativeUi {
   unsigned explosion_count[10], explosion_frame[20], explosion_duration[20];
   uint8_t title_letters[26][128];
   uint32_t title_palette[2][16], effect_palette[16];
+  uint32_t crash_palette[16];
+  uint8_t crash_text[32];
+  unsigned crash_length;
+  struct {int x,y;unsigned tile,attr;} sparks[8];
   uint32_t palette[4][8], machine_palette[2][4][16];
   bool valid;
 } FzeroNativeUi;
@@ -36,4 +40,6 @@ void FzeroUiFrame(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,int width,
 void FzeroUiMachine(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned machine,bool selected);
 
 void FzeroUiExplosion(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned distance,unsigned age);
+void FzeroUiCrashOut(const FzeroNativeUi *ui,FzeroUiCanvas c,int y);
+void FzeroUiSpark(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned distance,uint8_t phase);
 void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text,bool dim);
