@@ -792,3 +792,58 @@ hotkey/state-mode/gamepad/local-controller tests pass. Expanded virtual input
 checks cover different maps/deadzones on the same GUID, explicit override
 priority, and keyboard joining/controlling P2. Full 17/17 precedes this bounded
 input follow-up; physical controller acceptance remains outstanding.
+
+## Owner playtest corrections and revised UI goal (2026-10-15)
+
+The owner tested the separate `cb81022` preview and rejected automatic entry
+into two-player setup when the mod is enabled. The mod must make **VS MODE**
+available on the native main menu; the normal one-player choices must still
+work by default. Selecting VS opens two-player setup. Returning to Main Menu
+must restore the single-player context, content settings and save namespace.
+The owner explicitly permits host-side work and targeted guest injection to
+avoid old hardware limits and artificial setup delays.
+
+Additional required corrections: replace ambiguous action shortcuts with a
+cursor-based pause/results flow (Continue, Restart Race, Change Race, Main
+Menu as applicable), with obvious navigation/confirmation; make player numbers
+filled and readable; remove both black instrument bands and overlay native HUDs
+on two complete half-screen views separated by a thin line; show an actual
+machine explosion on crash-out. Do not count the earlier art-only visual review
+as acceptance of these interaction/presentation requirements. Netplay remains
+out of scope after explicit owner clarification.
+
+First feedback follow-up: `fzero_native_ui` now decodes clear, filled 8x16
+numerals from the native `$0F:8000` OBJ stream (`$80..$89` / `$90..$99`) for
+menu/player identities. Small identities use the same shapes at eight lines;
+the original clock/speed instruments retain their native race numerals. The
+versus scenery capture enables its existing panorama in the formerly hidden
+top band and clears native power-window color math there. HUDs now overlay the
+scene and a single native-pixel line separates the two full views. Ship/label
+clipping covers the whole pane. Single-player capture paths are unchanged.
+Private final render at `captures/l2p-ui-feedback-01/overlay.png` was inspected;
+the first intermediate exposed obsolete power-window tint, corrected before
+validation. Two-frame restored continuation remains exactly tick382/race202/
+hash `ef5c78c3d4124f17`, including both poses/statuses. Windows hosts build and
+the focused video/mode7/renderer/gamepad/local-controls checks pass.
+
+The long wait is still uncorrected: the old desktop path paces roughly1,600
+native bootstrap frames at normal speed. Even the unpaced 1,800-frame headless
+route took5.845 seconds on this host, so merely removing wall-clock pacing
+will not meet the intended transition quality. Replace the fixed320/800/920/
+1090/1150 input schedule with verified scene-driven setup and avoid redundant
+initialization/rendering, using the running native menu context where valid.
+Do not fake a saved initialized race or inject expected physics outcomes.
+
+Verified entry points for the next change: stock main-menu state handler
+`$03:8127`, native selection `$5A`, max-index calculation `$03:814B..8154`,
+confirmation `$03:8198..81C1`; the two native cursor Y bytes are `$02CD/$02D1`,
+with Y=`$68+24*selection` and that plus8. Records availability comes from `$F2`
+and the existing always-records hooks at`$03:80FE/$03:8151`; preserve it. Menu
+input is adapted in `fzero_runtime.c::run_one_frame` before `RtlSetPadState`.
+`FzeroLocalConfigure` currently forces the byte interpreter and its course hook
+is`$00:9F08`. The pinned engine already supports in-process session teardown/
+reboot (`RtlWriteSram` -> `snes_free` -> `RtlRegisterGame`/`SnesInit` ->
+`RtlReadSram`), documented in `runner/src/content_variant.h`; no dependency pin
+change is implied. Reuse/restore the actual single-player context and guard
+audio, buffers, replay, rewind and root changes when implementing the native
+menu transition. Menu, fast setup and explosion work remain incomplete.

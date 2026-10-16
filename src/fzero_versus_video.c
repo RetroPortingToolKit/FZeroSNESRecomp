@@ -83,12 +83,12 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     /* Contact flashes and boost exhaust belong to the actor in BOTH views.
      * These host effects use only the completed actor state and race tick. */
     int shadow_w=24-(int)ship->size*2;if(shadow_w<2)shadow_w=2;
-    if(ship->ground_y>=48 && ship->ground_y<224)
+    if(ship->ground_y>=0 && ship->ground_y<224)
       rect(p,viewport,scale,ship->ground_x+viewport.extra-shadow_w/2,ship->ground_y-2,shadow_w,2,0xff202028);
     for(int sy=0;sy<64;++sy)for(int sx=0;sx<64;++sx) {
       uint32_t pixel=ship->pixels[sy*64+sx];if(!pixel)continue;
       int dx=x+sx+viewport.extra,dy=y+sy;
-      if(dy<48 || dy>=224 || dx<0 || dx>=viewport.width)continue;
+      if(dy<0 || dy>=224 || dx<0 || dx>=viewport.width)continue;
       if(s->racers[i].actor.black_flash && (s->tick&2))pixel=0xffd8d8e0;
       rect(p,viewport,scale,dx,dy,1,1,pixel);
     }
@@ -97,9 +97,8 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     char label[4];snprintf(label,sizeof(label),"P%u",i+1);
     FzeroUiText(ui,canvas,ship->ground_x+viewport.extra-8,y+10,label,FZERO_UI_SMALL,ink[i]);
   }
-  /* Match the native 48-line black instrument strip. Use cartridge race
-   * digits/gauge/boost symbols and the original shaded menu lettering. */
-  FzeroUiRect(canvas,0,0,viewport.width,48,0xff000000);
+  /* Native instruments overlay each complete scenery view. Their cartridge
+   * outline pixels preserve contrast without reserving a black HUD band. */
   char line[64],timer[32];
   unsigned lap=r->completed_laps+1;if(lap>5)lap=5;
   snprintf(line,sizeof(line),"P%u  LAP %u",pane+1,lap);
@@ -164,5 +163,7 @@ bool FzeroVersusVideoDraw(FzeroVersusVideo *v,uint32_t *out,size_t capacity,Fzer
     if(!ok)return false;
     overlay(v,p,viewport,i,alpha,scale);
   }
+  FzeroUiRect((FzeroUiCanvas){out,viewport.width*(int)scale,448*(int)scale,scale},
+      0,223,viewport.width,1,0xff000000);
   return true;
 }

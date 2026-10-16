@@ -39,6 +39,18 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
     ui->palette[p][i]=rgb(word(t,0x0ee100+p*32+i*2));
   /* $00:A6A3 uploads the original two-plane race digits, gauge and symbols. */
   for(unsigned i=0;i<56;++i)decode(ui->hud[i],t,0x0cc000+i*16,2);
+  /* The course-introduction OBJ stream has clear 8x16 numerals. Use these
+   * for player/menu identities instead of the thin race-clock glyphs. */
+  static const unsigned sizes[4]={32,8,16,24};
+  for(unsigned pos=0x0f8000;pos+2<0x100000;) {
+    unsigned header=byte(t,pos++),first=byte(t,pos++),count=header&63,mode=header>>6;
+    if(!count || first+count>256 || pos+count*sizes[mode]>0x100000)break;
+    if(mode==2)for(unsigned n=0;n<10;++n)for(unsigned half=0;half<2;++half) {
+      unsigned id=0x80+n+half*16;
+      if(id>=first && id<first+count)decode(ui->numbers[n]+half*64,t,pos+(id-first)*16,2);
+    }
+    pos+=count*sizes[mode];
+  }
   /* $03:8BB5's four DMA descriptors upload three tiles per half, at
    * $4600/$4700 etc. Reassemble the exact 24x16 menu side-profile icons. */
   for(unsigned m=0;m<4;++m) {
@@ -83,7 +95,15 @@ void FzeroUiText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char 
     unsigned ch=(unsigned)toupper((unsigned char)*s),id=0xff;
     if(ch==' ')continue;
     if(font!=FZERO_UI_MENU) {
-      if(ch>='0' && ch<='9')FzeroUiHudTile(ui,c,x,y,ch-'0',ink,false);
+      if(ch>='0' && ch<='9') {
+        if(font==FZERO_UI_HUD)FzeroUiHudTile(ui,c,x,y,ch-'0',ink,false);
+        else {
+          const uint8_t *pixels=ui->numbers[ch-'0'];
+          uint32_t colors[4]={0,ui->palette[ink][1],ui->palette[ink][2],ui->palette[ink][3]};
+          for(unsigned row=0;row<8;++row)for(unsigned col=0;col<8;++col)
+            if(pixels[row*16+col])FzeroUiRect(c,x+(int)col,y+(int)row,1,1,colors[pixels[row*16+col]]);
+        }
+      }
       else if(ch>='A' && ch<='Z') {
         id=ch=='A'?0xaf:ch=='B'?0xbf:ch=='M'?0xcf:ch=='N'?0xce:0xc4+ch-'C';
         FzeroUiTile(ui,c,x,y,id,ink,false,false);
@@ -97,12 +117,10 @@ void FzeroUiText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char 
     }
     if(ch>='A' && ch<='Z') {unsigned n=ch-'A';id=n/16*32+n%16;}
     else if(ch>='0' && ch<='9') {
-      /* $40..$5F are instrument-label fragments, not a second alphabet.
-       * Use the original race numeral at the menu's sixteen-line height. */
-      uint32_t colors[4]={0,ui->palette[ink][2],ui->palette[ink][3],ui->palette[ink][1]};
-      const uint8_t *pixels=ui->hud[ch-'0'];
-      for(unsigned row=0;row<8;++row)for(unsigned col=0;col<8;++col)
-        if(pixels[row*8+col])FzeroUiRect(c,x+(int)col,y+(int)row*2,1,2,colors[pixels[row*8+col]]);
+      uint32_t colors[4]={0,ui->palette[ink][1],ui->palette[ink][2],ui->palette[ink][3]};
+      const uint8_t *pixels=ui->numbers[ch-'0'];
+      for(unsigned row=0;row<16;++row)for(unsigned col=0;col<8;++col)
+        if(pixels[row*8+col])FzeroUiRect(c,x+(int)col,y+(int)row,1,1,colors[pixels[row*8+col]]);
       continue;
     }
     if(id==0xff)continue;

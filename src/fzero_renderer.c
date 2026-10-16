@@ -197,6 +197,10 @@ bool FzeroRenderViewCaptureRace(FzeroRenderView *view, const FzeroRenderView *as
         f->valid = false; return false;
       }
     } else if (y < 47) {
+      /* A versus pane uses the whole native height. The original HUD hid
+       * this panorama band; its BG1/BG2 scenery is still present in VRAM. */
+      p->screenEnabled[0] = 3;
+      p->cgadsub = 0; /* Native power-window math must not tint the panorama. */
       p->hScroll[0] = camera->background_h; p->vScroll[0] = camera->background_v;
       p->hScroll[1] = camera->skyline_h; p->vScroll[1] = camera->skyline_v;
     }

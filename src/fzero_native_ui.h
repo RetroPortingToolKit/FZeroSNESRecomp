@@ -5,6 +5,7 @@
  * simulation pointers or generated/redistributed ROM artwork. */
 typedef struct FzeroNativeUi {
   uint8_t tiles[256][64], hud[56][64], machines[4][24*16];
+  uint8_t numbers[10][128];
   uint32_t palette[4][8], machine_palette[2][4][16];
   bool valid;
 } FzeroNativeUi;
