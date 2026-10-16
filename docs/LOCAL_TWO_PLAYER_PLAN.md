@@ -1208,3 +1208,29 @@ requalified (owner waiver); earlier all-fifteen teleport lifecycle results
 remain recorded above. Air/recovery/exhaust-palette coverage, sustained
 cadence, non-Windows targets and online play are not newly qualified here.
 Dependencies, private references and the unstaged absent gitlink are preserved.
+
+
+### Course-flash initialization correction
+
+The final composed screenshot rejected f6ffc46 despite its passing unit and
+race-flow checks: the original course-flash implementation read WRAM
+$900..$95F, which is still uninitialized at the early VS handoff, and blackened
+road colors. That binary was not launched for the owner. Automated presenter
+self-comparison did not detect the palette regression; direct image inspection
+did. captures/l2p-hud-effects-final is rejected visual evidence.
+
+Build flash ramps directly from the frozen course CGRAM using the native
+BE89/BE9E construction. Neutral phase preserves the captured color exactly;
+electric phases use the original masked RGB half/quarter steps, while the
+separate surface flash halves the native RGB channels. No guest-table setup,
+simulation advance or shared color mutation is required. Another 40000 native
+CPU electric-ramp colors and27000 surface colors pass. Camera regression
+fixtures now deliberately leave those WRAM tables zero and check recorded
+native ramp values, neutral restoration and independent native/HD panes.
+Focused actor/renderer CTests pass (6.56 s). Final corrected-build desktop and
+state evidence will be recorded in central beads-8uc1 after the commit.
+
+All fifteen teleport lifecycle checks also pass with the new rules3 wire
+format in captures/l2p-hud-teleport-final; that remains course-flow evidence,
+not natural driving or visual qualification. No gameplay rule changed in the
+course-palette correction.

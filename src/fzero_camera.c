@@ -41,3 +41,11 @@ bool FzeroCameraAtLine(const FzeroCamera *c,unsigned scanline,int16_t m[8]) {
   m[6]=(int16_t)c->scroll_x;m[7]=(int16_t)c->scroll_y;
   return true;
 }
+uint16_t FzeroCameraFlashColor(uint16_t base,unsigned phase,bool surface) {
+  if(surface)return phase?(base>>1)&0x3def:base;
+  phase&=7;
+  if(!phase)return base;
+  if(phase>=4 && phase<=6)return 0x7fff;
+  unsigned half=((0x7fff-base)>>1)&0x3def,quarter=(half>>1)&0x1ce7;
+  return (uint16_t)(base+(phase==1?quarter:phase==3?half+quarter:half));
+}

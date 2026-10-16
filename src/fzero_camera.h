@@ -15,3 +15,6 @@ bool FzeroCameraBuild(FzeroCamera *camera,const FzeroActor *actor,FzeroActorTabl
 /* SNES scanlines are one-based. The race band starts at 48; line 224 retains
  * the final coefficient after HDMA's 47 + 112 + 64-line runs have completed. */
 bool FzeroCameraAtLine(const FzeroCamera *camera,unsigned scanline,int16_t matrix[8]);
+/* Native BE89/BE9E color construction, from the captured course CGRAM.
+ * VS hands off before guest flash lookup tables are initialized. */
+uint16_t FzeroCameraFlashColor(uint16_t base,unsigned phase,bool surface);

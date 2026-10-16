@@ -1075,6 +1075,20 @@ static void test_native_hud(void) {
   }
   puts("native HUD: all2049 power levels match AA97 boundary/outline tiles, clock OAM and all available/burning/spent boost states match native output (text black backing omitted)");
 }
+static void test_native_flash_colors(void) {
+  static const unsigned surface[]={25,26,39};
+  for(unsigned sample=0;sample<1000;++sample) {
+    memset(ram,0,sizeof(ram));
+    for(unsigned color=0;color<5;++color)set_word(0x524+color*2,random_word()&0x7fff);
+    for(unsigned color=0;color<3;++color)set_word(0x500+surface[color]*2,random_word()&0x7fff);
+    reference(0xbe45);
+    for(unsigned color=0;color<5;++color)for(unsigned phase=0;phase<8;++phase)
+      CHECK(FzeroCameraFlashColor(ram_word(0x524+color*2),phase,false)==ram_word(0x910+color*16+phase*2));
+    for(unsigned color=0;color<3;++color)for(unsigned phase=0;phase<9;++phase)
+      CHECK(FzeroCameraFlashColor(ram_word(0x500+surface[color]*2),phase,true)==ram_word(0x900+(phase?8:0)+color*2));
+  }
+  puts("native course flashes: 40000 electric-ramp colors and27000 surface colors match BE45 construction from original course CGRAM; no initialized guest lookup tables required");
+}
 static void test_native_effect_art(void) {
   static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
   static uint32_t actual[256*224],expected[256*224];
@@ -1194,6 +1208,7 @@ int main(int argc, char **argv) {
   test_sound();
   test_transient_effects();
   test_native_hud();
+  test_native_flash_colors();
   test_native_effect_art();
   return 0;
 }
