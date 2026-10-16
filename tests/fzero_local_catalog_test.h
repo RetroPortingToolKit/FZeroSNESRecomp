@@ -3,6 +3,7 @@
  * progress, laps, results and snapshots are real; this is NOT a driving bot. */
 static const char *catalog_output;
 static unsigned catalog_course,catalog_end,catalog_checked,catalog_passed;
+static unsigned catalog_finish_shots;
 static FILE *catalog_report;
 static bool catalog_snapshot(bool rematch) {
   FzeroVersus *session=FzeroLocalSession();uint64_t hash=FzeroVersusHash(session);
@@ -17,13 +18,14 @@ static bool catalog_snapshot(bool rematch) {
   bool ok=RtlLoadSnapshotFromMemory(data,size) && FzeroVersusHash(FzeroLocalSession())==hash;
   free(data);return ok;
 }
-static bool catalog_image(unsigned id) {
+static bool catalog_image(unsigned id,const char *tag) {
   static uint32_t frame[256*448],again[256*448],hd[512*896];
   FzeroViewport viewport={256,0,4.0/3.0,false};
+  FzeroLocalPublish();
   if(!FzeroLocalDraw(frame,256*448,viewport,1,1) ||
       !FzeroLocalDraw(hd,512*896,viewport,1,2) ||
       !FzeroLocalDraw(again,256*448,viewport,1,1) || memcmp(frame,again,sizeof(frame)))return false;
-  char path[2048];snprintf(path,sizeof(path),"%s/course-%03u.ppm",catalog_output,id);
+  char path[2048];snprintf(path,sizeof(path),"%s/course-%03u%s.ppm",catalog_output,id,tag?tag:"");
   FILE *file=fopen(path,"wb");if(!file)return false;fprintf(file,"P6\n256 448\n255\n");
   for(unsigned i=0;i<256*448;++i) {
     const uint8_t rgb[3]={(uint8_t)(frame[i]>>16),(uint8_t)(frame[i]>>8),(uint8_t)frame[i]};
@@ -66,11 +68,25 @@ static int catalog_step(void) {
   }
   race=FzeroVersusCompleted(FzeroLocalSession());
   if(!(catalog_checked&4) && race->phase==FZERO_VS_RACING && race->race_tick>=30) {
-    if(!catalog_snapshot(false) || !catalog_image(catalog_course))return -1;catalog_checked|=4;
+    if(!catalog_snapshot(false) || !catalog_image(catalog_course,NULL))return -1;catalog_checked|=4;
   }
   /* A snapshot restore replaces the session: never retain its old pointer. */
   race=FzeroVersusCompleted(FzeroLocalSession());
+  if(getenv("FZERO_TEST_LOCAL_FINISH_IMAGES") && race->racers[0].status==FZERO_VS_FINISHED && race->phase==FZERO_VS_RACING) {
+    static const unsigned ages[]={0,20,60,75,100};
+    uint64_t age=race->race_tick-race->racers[0].finish_tick;
+    for(unsigned shot=0;shot<5;++shot)if(!(catalog_finish_shots&(1u<<shot)) && age>=ages[shot]) {
+      if((shot==2 || shot==3) && !catalog_snapshot(false))return -1;
+      char tag[64];snprintf(tag,sizeof(tag),"-finish-%03u",ages[shot]);
+      uint64_t hash=FzeroVersusHash(FzeroLocalSession());
+      if(!catalog_image(catalog_course,tag) || FzeroVersusHash(FzeroLocalSession())!=hash)return -1;
+      catalog_finish_shots|=1u<<shot;
+    }
+  }
+  race=FzeroVersusCompleted(FzeroLocalSession());
   if(race->phase!=FZERO_VS_RESULTS)return 0;
+  if(!FzeroLocalMenuReady())return 0;
+  if(getenv("FZERO_TEST_LOCAL_FINISH_IMAGES") && (catalog_finish_shots!=31 || !catalog_image(catalog_course,"-results")))return -1;
   if(catalog_checked!=7 || race->racers[0].status!=FZERO_VS_FINISHED || race->racers[1].status!=FZERO_VS_FINISHED ||
       race->racers[0].completed_laps!=5 || race->racers[1].completed_laps!=5 || !catalog_snapshot(true))return -1;
   fprintf(stderr,"catalog-test: PASS course=%u %s, two five-lap finishes, arrival/racing/results snapshot, rematch, native/HD image\n",
@@ -80,5 +96,5 @@ static int catalog_step(void) {
   }
   FzeroLocalShutdown();RtlReset(1);FzeroGameInfo()->session_reset();
   if(!FzeroLocalConfigure((FzeroVersusConfig){(uint16_t)catalog_course,{(uint8_t)(catalog_course%4),(uint8_t)((catalog_course+1)%4)}}))return -1;
-  catalog_checked=0;return 0;
+  catalog_checked=catalog_finish_shots=0;return 0;
 }

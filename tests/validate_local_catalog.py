@@ -24,6 +24,7 @@ def main():
     parser.add_argument('--count', type=int, help='Limit the number of consecutive courses')
     parser.add_argument('--frames', type=int, default=800000)
     parser.add_argument('--timeout', type=int, default=1800)
+    parser.add_argument('--finish-images', action='store_true', help='Capture coasting/fading and the complete results screen')
     args = parser.parse_args()
     if args.first < 0 or (args.count is not None and args.count < 1):
         parser.error('first must be nonnegative and count must be positive')
@@ -42,6 +43,8 @@ def main():
                FZERO_TEST_PRESENT_EVERY='8')
     if args.count is not None:
         env['FZERO_TEST_LOCAL_CATALOG_COUNT'] = str(args.count)
+    if args.finish_images:
+        env['FZERO_TEST_LOCAL_FINISH_IMAGES'] = '1'
     started = time.monotonic()
     with (args.out / 'run.log').open('w') as log:
         run = subprocess.run([str(args.headless), str(args.rom), str(args.frames),

@@ -25,3 +25,8 @@ void FzeroCameraCoursePalette(uint16_t output[256],const uint16_t base[256],
     unsigned venue,unsigned counter,uint64_t ticks,int cycles,const uint8_t *offsets);
 /* Native 8C16 car-entry trajectory, before the three-second rev countdown. */
 unsigned FzeroCameraArrivalOffset(unsigned elapsed);
+enum {FZERO_FINISH_COAST=60,FZERO_FINISH_FADE=30,FZERO_FINISH_PRESENTATION=90};
+/* Native-style fixed finish camera with a temporary coasting display actor.
+ * Returns opacity0..255; never moves the authoritative terminal actor. */
+unsigned FzeroCameraFinishPose(FzeroActor *display,const FzeroActor *finished,
+                               FzeroActorTables tables,uint64_t elapsed);

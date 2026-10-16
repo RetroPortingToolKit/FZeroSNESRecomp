@@ -802,6 +802,33 @@ static void test_race_cameras(void) {
     CHECK(first[100*256+128]==colors[t] && hd[200*512+256]==colors[t]);
     CHECK(FzeroRenderViewDraw(views[0],again,v,1) && !memcmp(first,again,256*224*sizeof(*first)));
   }
+  /* Native HDMA changes from full-width horizon haze to a localized
+   * subtractive car shadow. Removing its window must not darken the entire
+   * foreground or leave the frozen guest's shadow in a VS camera. */
+  for(unsigned i=0;i<64;++i)p.vram[64+i]=p.vram[7*64+i]=p.vram[8*64+i]=42<<8;
+  p.cgram[42]=p.cgram[43]=10*0x421;ram[0x55]=3;
+  p.windowsel=0x280000;p.wbgobjlog=0;p.cgwsel=0x10;
+  FzeroRenderViewBeginFrame(assets,ram,150);
+  for(unsigned y=0;y<224;++y) {
+    p.bgmode=y<47?1:7;
+    unsigned haze=y<85?(84-y)/4:0;if(haze>8)haze=8;
+    p.cgadsub=y<86?0x23:0xa1;p.fixedColor=(uint16_t)((y<86?haze:5)*0x421);
+    p.window1left=y<85?0:y>=178 && y<184?106:1;
+    p.window1right=y<85?255:y>=178 && y<184?149:0;
+    FzeroRenderViewCaptureLine(assets,&p,y+1);
+  }
+  FzeroRenderViewEndFrame(assets,&p,stock);
+  CHECK(FzeroRenderViewCaptureRace(views[0],assets,ram,&actors[0],&camera,0));
+  for(unsigned wide=0;wide<2;++wide) {
+    FzeroViewport v=wide?(FzeroViewport){684,214,32.0/9.0,true}:(FzeroViewport){256,0,4.0/3.0,false};
+    CHECK(FzeroRenderViewDrawPresentation(views[0],first,hd,sizeof(hd)/sizeof(*hd),v,1,2));
+    for(unsigned y=47;y<224;++y) {
+      unsigned haze=y<85?(84-y)/4:0;if(haze>8)haze=8;
+      unsigned expected=palette_rgb((10+haze)*0x421);
+      CHECK(first[y*v.width+v.width/2]==expected);
+      CHECK(hd[y*2*v.width*2+v.width]==expected);
+    }
+  }
   FzeroRenderViewDestroy(assets);
   CHECK(FzeroRenderViewDraw(views[0],first,(FzeroViewport){256,0,4.0/3.0,false},1));
   FzeroRenderViewDestroy(views[0]);FzeroRenderViewDestroy(views[1]);

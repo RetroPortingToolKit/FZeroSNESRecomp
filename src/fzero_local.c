@@ -69,8 +69,7 @@ const FzeroNativeUi *FzeroLocalUi(void) {return enabled && ui.valid?&ui:NULL;}
 bool FzeroLocalMenuReady(void) {
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(session);if(!s)return false;
   if(s->pause)return true;
-  for(unsigned i=0;i<2;++i)if(s->racers[i].status==FZERO_VS_DNF && s->race_tick-s->racers[i].finish_tick+result_ticks<48)return false;
-  return true;
+  return FzeroVersusVideoResultsReady(s,result_ticks);
 }
 unsigned FzeroLocalMenuSelection(void) {return menu_selection;}
 void FzeroLocalSetMenuSelection(unsigned choice) {
@@ -177,9 +176,11 @@ bool FzeroLocalDraw(uint32_t *out,size_t capacity,FzeroViewport viewport,double 
 void FzeroLocalResetViews(void) {
   if(!video)return;
   FzeroVersusVideoReset(video);
+  FzeroVersusVideoMenu(video,menu_selection,result_ticks);
   (void)FzeroVersusVideoCapture(video,NULL,session,tables());
 }
 void FzeroLocalPublish(void) {
+  FzeroVersusVideoMenu(video,menu_selection,result_ticks);
   if(video)(void)FzeroVersusVideoCapture(video,NULL,session,tables());
 }
 FzeroVersusConfig FzeroLocalConfig(void) {return config;}

@@ -34,6 +34,7 @@ struct FzeroRenderView {
   bool workers_attempted;
 };
 static FzeroRenderView single_player;
+static void race_color_math(Ppu *p);
 
 static void prepare_workers(FzeroRenderView *view) {
   if (view->workers_attempted) return;
@@ -212,7 +213,8 @@ bool FzeroRenderViewCaptureRace(FzeroRenderView *view, const FzeroRenderView *as
     }
     /* Stock HUD power-window clipping has no ownership in a versus pane. */
     p->screenWindowed[0] = p->screenWindowed[1] = 0;
-    p->windowsel = 0; p->cgwsel &= 15;
+    if((p->bgmode&7)==7)race_color_math(p);
+    else {p->windowsel=0;p->cgwsel&=15;}
     /* BF5F/C057 flashes five course colors through the electric-surface
      * ramp. Each camera owns its human's phase; the shared guest is frozen. */
     for(unsigned color=0;color<5;++color) {
@@ -578,6 +580,19 @@ static void sprites(const Ppu *p, const FzeroSourceFrame *frame,
 
 static bool window_condition(unsigned mode, bool inside) {
   return mode == 3 || (mode == 1 && !inside) || (mode == 2 && inside);
+}
+
+static void race_color_math(Ppu *p) {
+  /* Native B1F6 HDMA adds full-width horizon haze, then B1FF changes to a
+   * subtractive player-shadow window. VS draws actor-owned shadows. Clearing
+   * the native window without clearing its localized math subtracts that
+   * shadow color from the entire lower track, producing a hard dark seam.
+   * Test every constant interval of the two windows, not a scanline cutoff:
+   * preserve math only when the native color window admits the whole row. */
+  const int points[]={0,255,p->window1left,p->window1right+1,p->window2left,p->window2right+1};
+  for(unsigned i=0;i<sizeof(points)/sizeof(*points);++i)if(points[i]<256 &&
+      window_condition((p->cgwsel>>4)&3,in_window(p,5,points[i],0))) {p->cgadsub=0;break;}
+  p->windowsel=0;p->cgwsel&=15;
 }
 
 static uint32_t colour(const Ppu *p, const uint16_t *palette, uint16_t main,

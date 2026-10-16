@@ -1122,6 +1122,28 @@ static void test_native_course_animation(void) {
   CHECK(FzeroCameraArrivalOffset(34)==36 && !FzeroCameraArrivalOffset(68));
   puts("course animation: all native venues/counter phases match C185/C1CF; imported overlapping cycles and native entry trajectory passed");
 }
+static void test_finish_presentation(void) {
+  FzeroActorTables tables={rom_read,NULL};
+  for(unsigned machine=0;machine<4;++machine)for(unsigned angle=0;angle<192;angle+=24)for(unsigned speed=0;speed<3;++speed) {
+    FzeroActor frozen={.machine=(uint8_t)machine,.x=8190,.y=4094,.x_fraction=0xff00,.y_fraction=0x0100,
+      .speed=(uint16_t)(speed==0?0:speed==1?0x200:0x800),.facing=(uint16_t)(angle<<8),.momentum=(uint16_t)(angle<<8)};
+    FzeroActor original=frozen,display;
+    CHECK(FzeroCameraFinishPose(&display,&frozen,tables,0)==255 && !memcmp(&display,&frozen,sizeof(frozen)));
+    memset(ram,0,sizeof(ram));write_fields(&frozen,actor_fields,COUNT(actor_fields));
+    FzeroActorScratch scratch={.speed=frozen.speed<0x200?0x200:frozen.speed,.momentum=frozen.momentum};
+    for(unsigned tick=1;tick<=FZERO_FINISH_PRESENTATION;++tick) {
+      write_fields(&scratch,scratch_fields,COUNT(scratch_fields));reference(0x95e7);reference(0x9753);
+      unsigned opacity=FzeroCameraFinishPose(&display,&frozen,tables,tick);
+      CHECK(display.x==ram_word(0xb70) && display.y==ram_word(0xb90));
+      CHECK(display.x_fraction==ram_word(0xb80) && display.y_fraction==ram_word(0xba0));
+      CHECK(opacity==(tick<=60?255:tick>=90?0:(90-tick)*255/30));
+      CHECK(!memcmp(&frozen,&original,sizeof(frozen)));
+    }
+    FzeroActor later;CHECK(!FzeroCameraFinishPose(&later,&frozen,tables,UINT64_MAX));
+    CHECK(!memcmp(&display,&later,sizeof(display)));
+  }
+  puts("finish presentation: four-machine coasting matches native95E7/9753, bounded fade, immutable terminal actor and long-age redraw passed");
+}
 static void test_deluxe_course_animation(void) {
   const char *path=getenv("FZERO_TEST_DELUXE_ROM");if(!path)return;
   FILE *file=fopen(path,"rb");CHECK(file);
@@ -1390,6 +1412,7 @@ int main(int argc, char **argv) {
   test_stock_pits();
   test_native_pit_art();
   test_native_course_animation();
+  test_finish_presentation();
   test_deluxe_course_animation();
   test_native_effect_art();
   return 0;

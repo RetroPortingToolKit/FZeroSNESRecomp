@@ -1361,3 +1361,23 @@ Final exact-commit checks, launch and SHA are recorded in central beads-8uc1.
 Owner physical two-human QA remains open. Natural course-bot completion remains
 waived; full imported interaction coverage, sustained cadence, complete course
 overview, Linux and netplay are not claimed as validated.
+
+Owner QA follow-up (2026-10-16): the abrupt foreground brightness boundary was
+native shadow color math applied without its native window. VS now preserves
+full-width horizon haze and suppresses localized source-camera shadow math;
+single-player is unchanged. A native/HD regression fails before this fix.
+Finished cars use the original velocity and movement routines to coast out of
+the finish camera, then fade over 30 ticks. This is presentation derived from
+the frozen finish pose and recorded tick; outcomes and times remain immutable.
+The last finisher receives the same presentation before the results menu opens.
+All four machines pass original-CPU coast comparisons. All17 Windows CTests,
+two real desktop native/HD runs with five resizes each, and the five-lap
+teleport fixture with snapshots during coast/fade pass. Private evidence:
+`captures/l2p-horizon-finish-02`, `captures/l2p-horizon-finish-desktop`.
+
+The owner subsequently authorized netplay using the existing recomp-net and
+recomp-ui lobby/session stack, with Mega Man X as reference. Track integration
+in central beads-8wg.5.101, linked to beads-8uc1. Online presentation defaults
+to the participant's full viewport; host selects 4:3/16:9/21:9, default16:9,
+fixed across clients for the match. This supersedes the original exclusion;
+online implementation and qualification remain outstanding at this milestone.

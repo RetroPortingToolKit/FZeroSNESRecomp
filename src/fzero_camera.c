@@ -91,3 +91,23 @@ unsigned FzeroCameraArrivalOffset(unsigned elapsed) {
   }
   return offset;
 }
+unsigned FzeroCameraFinishPose(FzeroActor *out,const FzeroActor *finished,FzeroActorTables tables,uint64_t elapsed) {
+  *out=*finished;
+  if(elapsed) {
+    /* F043 hands the finished car to a forward-moving display actor. Keep
+     * the first-place GP finish camera at the line; use original95E7/9753
+     * integer velocity/movement adapters. The VS fade clears it for racers
+     * still competing; it has no collisions, damage, laps or extra time. */
+    if(out->speed<0x200)out->speed=0x200;
+    out->held=out->pressed=out->released=0;
+    out->steering_history=5;out->animation_scale=3;out->animation_transition=0;
+    out->effect_timer=out->electric_flash=out->track_flash=out->body_flash=0;
+    FzeroActorScratch scratch={.speed=out->speed,.momentum=out->momentum};
+    FzeroActorVelocity(&scratch,tables);FzeroActorStoreVelocity(out,&scratch);
+    unsigned ticks=(unsigned)(elapsed>FZERO_FINISH_PRESENTATION?FZERO_FINISH_PRESENTATION:elapsed);
+    for(unsigned tick=0;tick<ticks;++tick)FzeroActorMove(out,&scratch);
+  }
+  if(elapsed<=FZERO_FINISH_COAST)return 255;
+  if(elapsed>=FZERO_FINISH_PRESENTATION)return 0;
+  return (unsigned)((FZERO_FINISH_PRESENTATION-elapsed)*255/FZERO_FINISH_FADE);
+}

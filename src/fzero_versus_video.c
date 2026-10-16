@@ -10,6 +10,8 @@ struct FzeroVersusVideo {
   FzeroRenderView *views[2];
   FzeroVersusSnapshot state, previous;
   FzeroShip ships[2][2], old_ships[2][2];
+  FzeroActor display[2];
+  unsigned opacity[2];
   FzeroNativeUi ui;
   bool valid, interpolate;
   unsigned menu_selection,result_ticks;
@@ -38,6 +40,11 @@ bool FzeroVersusVideoCapture(FzeroVersusVideo *v,const FzeroRenderView *assets,
   v->interpolate=v->valid && s->tick==v->state.tick+1 &&
       !memcmp(&s->config,&v->state.config,sizeof(s->config)) && s->phase==v->state.phase;
   v->previous=v->state;memcpy(v->old_ships,v->ships,sizeof(v->ships));v->state=*s;
+  for(unsigned i=0;i<2;++i) {
+    const FzeroVersusRacer *r=&s->racers[i];v->opacity[i]=255;v->display[i]=r->actor;
+    if(r->status==FZERO_VS_FINISHED)v->opacity[i]=FzeroCameraFinishPose(&v->display[i],&r->actor,tables,
+        s->race_tick-r->finish_tick+(s->phase==FZERO_VS_RESULTS?v->result_ticks:0));
+  }
   for(unsigned pane=0;pane<2;++pane) {
     const FzeroActor *a=&s->racers[pane].actor;
     FzeroCamera c;
@@ -52,6 +59,7 @@ bool FzeroVersusVideoCapture(FzeroVersusVideo *v,const FzeroRenderView *assets,
       }
       const FzeroActor *camera=i==pane && s->phase<=FZERO_VS_COUNTDOWN?&grid_pose:a;
       const FzeroActor *actor=i==pane?camera:&s->racers[i].actor;
+      if(s->racers[i].status==FZERO_VS_FINISHED)actor=&v->display[i];
       if(!FzeroShipBuild(&v->ships[pane][i],camera,actor,tables)) {
         FzeroVersusVideoReset(v);return false;
       }
@@ -73,8 +81,28 @@ bool FzeroVersusVideoCapture(FzeroVersusVideo *v,const FzeroRenderView *assets,
 void FzeroVersusVideoMenu(FzeroVersusVideo *v,unsigned selection,unsigned result_ticks) {
   if(v) {v->menu_selection=selection;v->result_ticks=result_ticks;}
 }
+bool FzeroVersusVideoResultsReady(const FzeroVersusSnapshot *s,unsigned result_ticks) {
+  if(!s)return false;
+  for(unsigned i=0;i<2;++i) {
+    const FzeroVersusRacer *r=&s->racers[i];uint64_t age=s->race_tick-r->finish_tick+result_ticks;
+    if((r->status==FZERO_VS_DNF && age<48) ||
+        (r->status==FZERO_VS_FINISHED && age<FZERO_FINISH_PRESENTATION))return false;
+  }
+  return true;
+}
 static void rect(uint32_t *p,FzeroViewport v,unsigned scale,int x,int y,int w,int h,uint32_t color) {
   FzeroUiRect((FzeroUiCanvas){p,v.width*(int)scale,224*(int)scale,scale},x,y,w,h,color);
+}
+static void fade_rect(uint32_t *p,FzeroViewport v,unsigned scale,int x,int y,int w,int h,uint32_t color,unsigned opacity) {
+  if(!opacity)return;
+  if(opacity==255) {rect(p,v,scale,x,y,w,h,color);return;}
+  int x0=x<0?0:x,y0=y<0?0:y,x1=x+w>v.width?v.width:x+w,y1=y+h>224?224:y+h;
+  for(int dy=y0*(int)scale;dy<y1*(int)scale;++dy)for(int dx=x0*(int)scale;dx<x1*(int)scale;++dx) {
+    uint32_t *pixel=&p[(size_t)dy*v.width*scale+dx],mixed=0xff000000;
+    for(unsigned shift=0;shift<24;shift+=8)
+      mixed|=((((color>>shift)&255)*opacity+((*pixel>>shift)&255)*(255-opacity)+127)/255)<<shift;
+    *pixel=mixed;
+  }
 }
 static void time_text(char out[32],uint64_t tick) {
   uint64_t centiseconds=(uint64_t)((double)tick*100/FZERO_SIMULATION_HZ);
@@ -92,7 +120,8 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
   for(unsigned n=0;n<2;++n) {
     unsigned i=n?1-first:first;
     const FzeroShip *ship=&v->ships[pane][i],*old=&v->old_ships[pane][i];
-    if(!ship->visible)continue;
+    unsigned opacity=v->opacity[i];
+    if(!ship->visible || !opacity)continue;
     if(s->racers[i].status==FZERO_VS_DNF) {
       uint64_t age=s->race_tick-s->racers[i].finish_tick;
       if(s->phase==FZERO_VS_RESULTS)age+=v->result_ticks;
@@ -108,19 +137,24 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
      * These host effects use only the completed actor state and race tick. */
     int shadow_w=24-(int)ship->size*2;if(shadow_w<2)shadow_w=2;
     if(ship->ground_y>=0 && ship->ground_y<224)
-      rect(p,viewport,scale,ship->ground_x+viewport.extra-shadow_w/2,ship->ground_y-2,shadow_w,2,0xff202028);
+      fade_rect(p,viewport,scale,ship->ground_x+viewport.extra-shadow_w/2,ship->ground_y-2,shadow_w,2,0xff202028,opacity);
     for(int sy=0;sy<64;++sy)for(int sx=0;sx<64;++sx) {
       uint32_t pixel=ship->pixels[sy*64+sx];if(!pixel)continue;
       int dx=x+sx+viewport.extra,dy=y+sy;
       if(dy<0 || dy>=224 || dx<0 || dx>=viewport.width)continue;
-      rect(p,viewport,scale,dx,dy,1,1,pixel);
+      fade_rect(p,viewport,scale,dx,dy,1,1,pixel,opacity);
     }
-    if(s->racers[i].actor.speed>=0x400 && !(s->racers[i].actor.state&0x80))
+    if(s->racers[i].status!=FZERO_VS_FINISHED && s->racers[i].actor.speed>=0x400 && !(s->racers[i].actor.state&0x80))
       FzeroUiSpark(ui,canvas,ship->ground_x+viewport.extra,y+48,ship->size,s->racers[i].actor.animation_transition);
-    FzeroUiContact(ui,canvas,ship->ground_x+viewport.extra,y+48,ship->size,s->racers[i].actor.effect_timer);
-    FzeroUiPlayerTag(ui,canvas,ship->ground_x+viewport.extra-8,y+2,i,ink[i]);
+    if(s->racers[i].status!=FZERO_VS_FINISHED)FzeroUiContact(ui,canvas,ship->ground_x+viewport.extra,y+48,ship->size,s->racers[i].actor.effect_timer);
+    if(opacity==255)FzeroUiPlayerTag(ui,canvas,ship->ground_x+viewport.extra-8,y+2,i,ink[i]);
+    else {
+      uint32_t label[16*16]={0};FzeroUiPlayerTag(ui,(FzeroUiCanvas){label,16,16,1},0,0,i,ink[i]);
+      for(unsigned ly=0;ly<16;++ly)for(unsigned lx=0;lx<16;++lx)if(label[ly*16+lx])
+        fade_rect(p,viewport,scale,ship->ground_x+viewport.extra-8+(int)lx,y+2+(int)ly,1,1,label[ly*16+lx],opacity);
+    }
   }
-  if(r->status!=FZERO_VS_DNF)FzeroUiPit(ui,canvas,viewport.extra,&r->actor);
+  if(r->status==FZERO_VS_ACTIVE)FzeroUiPit(ui,canvas,viewport.extra,&r->actor);
   /* Native instruments overlay each complete scenery view, with transparent
    * font backing rather than a reserved HUD band. */
   char line[64],timer[32];
@@ -153,8 +187,7 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
 static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsigned scale) {
   const FzeroVersusSnapshot *s=&v->state;
   if(!s->pause && s->phase!=FZERO_VS_RESULTS)return;
-  if(!s->pause)for(unsigned i=0;i<2;++i)
-    if(s->racers[i].status==FZERO_VS_DNF && s->race_tick-s->racers[i].finish_tick+v->result_ticks<48)return;
+  if(!s->pause && !FzeroVersusVideoResultsReady(s,v->result_ticks))return;
   FzeroUiCanvas c={out,viewport.width*(int)scale,448*(int)scale,scale};
   const FzeroNativeUi *ui=&v->ui;int center=viewport.width/2;
   bool paused=s->pause!=0;unsigned count=paused?4:3;
