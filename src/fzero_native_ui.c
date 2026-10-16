@@ -39,8 +39,29 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
     ui->palette[p][i]=rgb(word(t,0x0ee100+p*32+i*2));
   /* $00:A6A3 uploads the original two-plane race digits, gauge and symbols. */
   for(unsigned i=0;i<56;++i)decode(ui->hud[i],t,0x0cc000+i*16,2);
-  /* The course-introduction OBJ stream has clear 8x16 numerals. Use these
-   * for player/menu identities instead of the thin race-clock glyphs. */
+  for(unsigned i=0;i<128;++i)ui->hud_map[i]=(uint16_t)word(t,0x0aec00+i*2);
+  for(unsigned p=0;p<4;++p)for(unsigned i=0;i<4;++i)
+    ui->hud_palette[p][i]=rgb(word(t,0x0edde0+p*8+i*2));
+  for(unsigned p=0;p<3;++p)for(unsigned i=0;i<16;++i)
+    ui->boost_palette[p][i]=rgb(word(t,0x0fcd00+p*32+i*2));
+  /* AA06's ordinary/low-power fixed-color HDMA records. Palette zero's
+   * red is subsequently set to $18 by the native HUD setup. */
+  ui->hud_palette[0][3]=rgb(0x18);
+  for(unsigned p=0;p<4;++p)for(unsigned i=0;i<4;++i)
+    ui->power_colors[p][i]=(uint8_t)byte(t,0x0fc220+p*4+i);
+  static const unsigned warning[]={0xaa19,0xaa1e,0xaa23,0xaa28};
+  for(unsigned i=0;i<4;++i)ui->power_colors[4][i]=(uint8_t)byte(t,warning[i]);
+  ui->power_warning=rgb(word(t,0xaa2d));
+  /* BF83 emits three small OBJ pieces from these original contact frames.
+   * The indirect pointer's bank is explicitly $0B (DP $19). */
+  for(unsigned f=0;f<14;++f)for(unsigned i=0;i<3;++i) {
+    unsigned at=0x0b0000+word(t,0xc03b+f*2)+i*4;
+    ui->contact[f][i].x=(int)(int8_t)byte(t,at);
+    ui->contact[f][i].y=(int)(int8_t)byte(t,at+1);
+    ui->contact[f][i].tile=byte(t,at+2);ui->contact[f][i].attr=byte(t,at+3);
+  }
+  /* The race/introduction OBJ stream includes a complete 8x16 number set
+   * and the matching P glyph used for player identities. */
   static const unsigned sizes[4]={32,8,16,24};
   for(unsigned pos=0x0f8000;pos+2<0x100000;) {
     unsigned header=byte(t,pos++),first=byte(t,pos++),count=header&63,mode=header>>6;
@@ -72,7 +93,9 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
   }
   for(unsigned i=0;i<16;++i) {
     for(unsigned p=0;p<2;++p)ui->title_palette[p][i]=rgb(word(t,0x0fc300+p*32+i*2));
-    ui->effect_palette[i]=rgb(word(t,0x0fcd60+i*2));
+    /* Race initialization replaces this palette's first eight entries;
+     * retaining the introduction colors makes contact arcs pink/purple. */
+    ui->effect_palette[i]=rgb(word(t,(i<8?0x0aeee0:0x0fcd60)+i*2));
     ui->crash_palette[i]=rgb(word(t,0x0fcd40+i*2));
   }
   /* $CD2B's native result banner is CRASHED OUT, rendered by $D107 as
@@ -171,7 +194,7 @@ void FzeroUiTile(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned id
 }
 void FzeroUiHudTile(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned id,FzeroUiInk ink,bool fy) {
   if(!ui || !ui->valid || id>=56 || (unsigned)ink>=4)return;
-  uint32_t colors[4]={0,ui->palette[ink][2],ui->palette[ink][3],0};
+  uint32_t colors[4]={0,0,ui->palette[ink][2],ui->palette[ink][3]};
   tile(ui->hud[id],colors,c,x,y,false,fy);
 }
 void FzeroUiText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *s,FzeroUiFont font,FzeroUiInk ink) {
@@ -186,12 +209,9 @@ void FzeroUiText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char 
     if(ch==' ')continue;
     if(font!=FZERO_UI_MENU) {
       if(ch>='0' && ch<='9') {
-        if(font==FZERO_UI_HUD)FzeroUiHudTile(ui,c,x,y,ch-'0',ink,false);
-        else {
-          const uint8_t *pixels=ui->numbers[ch-'0'];
-          for(unsigned row=0;row<8;++row)for(unsigned col=0;col<8;++col)
-            if(colors[pixels[row*16+col]])FzeroUiRect(c,x+(int)col,y+(int)row,1,1,colors[pixels[row*16+col]]);
-        }
+        /* The small race numerals are authored at 8x8. Keep their aspect
+         * rather than squashing the tall introduction numerals. */
+        FzeroUiHudTile(ui,c,x,y,ch-'0',ink,false);
       }
       else if(ch>='A' && ch<='Z') {
         id=ch=='A'?0xaf:ch=='B'?0xbf:ch=='M'?0xcf:ch=='N'?0xce:0xc4+ch-'C';
@@ -282,6 +302,118 @@ void FzeroUiSpark(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned d
     unsigned color=ui->objects[id&255][(cy&7)*8+(cx&7)];if(!color)continue;
     int dx=ui->sparks[index].x+(int)col,dy=ui->sparks[index].y+(int)row;
     FzeroUiRect(c,x+dx*(int)zoom/16,y+dy*(int)zoom/16,1,1,ui->effect_palette[color]);
+  }
+}
+void FzeroUiContact(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned distance,uint8_t phase) {
+  if(!ui || !ui->valid || distance>8 || !(phase&15))return;
+  unsigned f=phase&0x80?(phase&15)-1:phase&0x40?(phase&15)+9:14;
+  if(f>=14)return;
+  unsigned zoom=16-distance;
+  for(int i=2;i>=0;--i) {
+    unsigned attr=ui->contact[f][i].attr;
+    if(!attr)continue; /* Native hidden reservation. */
+    for(unsigned row=0;row<8;++row)for(unsigned col=0;col<8;++col) {
+      unsigned color=ui->objects[ui->contact[f][i].tile][(attr&128?7-row:row)*8+(attr&64?7-col:col)];
+      if(!color)continue;
+      int dx=ui->contact[f][i].x+(int)col,dy=ui->contact[f][i].y+(int)row;
+      FzeroUiRect(c,x+dx*(int)zoom/16,y+dy*(int)zoom/16,1,1,ui->effect_palette[color]);
+    }
+  }
+}
+void FzeroUiPlayerTag(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned player,FzeroUiInk ink) {
+  if(!ui || !ui->valid || player>=9 || (unsigned)ink>=4)return;
+  uint32_t colors[16]={0};
+  for(unsigned i=1;i<4;++i)if(ui->palette[ink][i]&0xffffff)colors[i]=ui->palette[ink][i];
+  /* P and numeral share the unscaled native race OBJ font and palette.
+   * Never mix an 8x8 menu letter with a compressed 8x16 number. */
+  for(unsigned n=0;n<2;++n)for(unsigned half=0;half<2;++half)
+    tile(ui->objects[(n?0x81+player:0x8d)+half*16],colors,c,x+(int)n*8,y+(int)half*8,false,false);
+}
+void FzeroUiRaceClock(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *s) {
+  if(!ui || !ui->valid || !s)return;
+  uint32_t colors[16];memcpy(colors,ui->crash_palette,sizeof(colors));colors[1]=0;
+  for(;*s;++s,x+=8) {
+    if(*s>='0' && *s<='9') {
+      unsigned id=0x80+*s-'0';
+      tile(ui->objects[id],colors,c,x,y,false,false);tile(ui->objects[id+16],colors,c,x,y+8,false,false);
+    } else if(*s=='\'' || *s=='"')tile(ui->objects[*s=='\''?0xa8:0xb8],colors,c,x,y,false,false);
+    else if(*s=='-')FzeroUiRect(c,x+1,y+7,5,2,colors[3]);
+  }
+}
+static void hud_tile(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned attr,bool backing,uint32_t color3) {
+  unsigned id=attr&255;if(id>=56)return;
+  uint32_t colors[4];memcpy(colors,ui->hud_palette[(attr>>10)&3],sizeof(colors));
+  colors[0]=0;
+  if(color3)colors[3]=color3;
+  uint8_t pixels[64];memcpy(pixels,ui->hud[id],sizeof(pixels));
+  /* Preserve the native dark edging next to the colored lettering, while
+   * removing the rest of its solid black tile backing. Bright scenery can
+   * show through without losing the stock glyph's contrast and silhouette. */
+  if(!backing)for(int row=0;row<8;++row)for(int col=0;col<8;++col)if(pixels[row*8+col]==1) {
+    bool edge=false;
+    for(int dy=-1;dy<=1;++dy)for(int dx=-1;dx<=1;++dx) {
+      int xx=col+dx,yy=row+dy;
+      if(xx>=0 && xx<8 && yy>=0 && yy<8 && ui->hud[id][yy*8+xx]>1)edge=true;
+    }
+    if(!edge)pixels[row*8+col]=0;
+  }
+  tile(pixels,colors,c,x,y,(attr&0x4000)!=0,(attr&0x8000)!=0);
+}
+void FzeroUiRaceInstruments(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,uint16_t health,unsigned speed,uint64_t tick) {
+  if(!ui || !ui->valid)return;
+  if(health&0x8000)health=0;
+  if(health>0x800)health=0x800;
+  unsigned filled=health>>5;
+  /* Native AA06: ordinary fixed red; low power alternates its warning
+   * HDMA record for eight frames of each sixteen-frame period. Fill uses
+   * the original window's saturated 5-bit addition to scenery. */
+  unsigned record=health<0x200 && (tick&8)?4:0;
+  for(unsigned dy=3;dy<=10;++dy)for(unsigned dx=0;dx<filled;++dx) {
+    int xx=x+32+(int)dx,yy=y+(int)dy;
+    for(unsigned sy=0;sy<c.scale;++sy)for(unsigned sx=0;sx<c.scale;++sx) {
+      int px=xx*(int)c.scale+(int)sx,py=yy*(int)c.scale+(int)sy;
+      if(px<0 || px>=c.width || py<0 || py>=c.height)continue;
+      uint32_t old=c.pixels[(size_t)py*c.width+px],color=0xff000000;
+      for(unsigned component=0;component<3;++component) {
+        unsigned shift=(2-component)*8,v=(old>>(shift+3))&31;
+        v+=ui->power_colors[record][component+1]&31;if(v>31)v=31;
+        color|=((v<<3)|(v>>2))<<shift;
+      }
+      c.pixels[(size_t)py*c.width+px]=color;
+    }
+  }
+  /* AA97's boundary/outline tile layout. Keep the gauge's black edge;
+   * only the lettering's backing becomes transparent. */
+  for(unsigned row=0;row<2;++row)for(unsigned col=18;col<=30;++col) {
+    unsigned attr=ui->hud_map[row*32+col];
+    if(col>=22 && col<30) {
+      unsigned start=(col-22)*8,amount=filled>start?filled-start:0;
+      unsigned id=amount>=8?0x10:start>filled?0x19:0x18-amount;
+      attr=(attr&0xff00)|id;
+    }
+    hud_tile(ui,c,x+((int)col-18)*8,y+(int)row*8,attr,col>=22,col>=22 && record==4?ui->power_warning:0);
+  }
+  /* SPEED, native cyan digits and km/h retain their exact BG3 attributes. */
+  for(unsigned col=20;col<=29;++col) {
+    unsigned attr=ui->hud_map[64+col];
+    if(col>=24 && col<=26) {
+      unsigned divisor=col==24?100:col==25?10:1;
+      attr=(attr&0xff00)|((speed/divisor)%10);
+    }
+    hud_tile(ui,c,x+((int)col-18)*8,y+16,attr,false,0);
+  }
+  for(unsigned col=20;col<=29;++col)
+    hud_tile(ui,c,x+((int)col-18)*8,y+24,ui->hud_map[96+col],false,0);
+}
+void FzeroUiBoosts(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned count,bool active) {
+  if(!ui || !ui->valid)return;
+  /* B825/B85E change the palette of the SAME $5F tile: $31 available,
+   * $33 currently burning, $35 spent. No substitute S or empty glyph. */
+  for(unsigned i=0;i<3;++i) {
+    unsigned p=i<count?0:active && i==count?1:2;
+    uint32_t colors[16];memcpy(colors,ui->boost_palette[p],sizeof(colors));
+    for(unsigned color=0;color<16;++color)if(!(colors[color]&0xffffff))colors[color]=0;
+    tile(ui->objects[0x5f],colors,c,x+(int)i*8,y,false,false);
   }
 }
 void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text,bool dim) {

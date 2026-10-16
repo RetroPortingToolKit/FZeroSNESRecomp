@@ -742,13 +742,24 @@ void FzeroActorTransientEffects(FzeroActor *a) {
   if(a->track_flash)--a->track_flash;
   if(!a->death_animation && a->effect_timer) {
     --a->effect_timer;
-    if(!(a->effect_timer&15))a->effect_timer=0;
-    else if(a->effect_timer==0x8a)a->sound_flags2|=0x20;
+    unsigned phase=a->effect_timer&15;
+    if(!phase)a->effect_timer=0;
+    else if(a->effect_timer&0x80) {
+      static const uint8_t palette_event[10]={2,1,0,2,0,1,0,2,0,1};
+      if(a->effect_timer==0x8a)a->sound_flags2|=0x20;
+      if(phase<=10 && palette_event[phase-1])a->body_flash=palette_event[phase-1]==1;
+    } else if(a->effect_timer&0x40) {
+      if(phase==4)a->body_flash=1;
+      else if(phase==2)a->body_flash=0;
+    }
   }
   if(a->black_flash) {
     bool negative=(a->black_flash&0x80)!=0;
     --a->black_flash;
-    if(negative && !(a->black_flash&0x7f))a->black_flash=0;
+    unsigned phase=a->black_flash&0x7f;
+    if((negative && phase==4) || (!negative && phase==8))a->body_flash=1;
+    else if((negative && !phase) || (!negative && phase==6))a->body_flash=0;
+    if(negative && !phase)a->black_flash=0;
   }
 }
 

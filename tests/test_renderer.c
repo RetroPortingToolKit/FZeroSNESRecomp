@@ -762,6 +762,27 @@ static void test_race_cameras(void) {
     }
   }
   CHECK(!memcmp(before,ram,sizeof(ram)));
+  /* C057's electric ramp and C07E/C095's surface flash belong to each
+   * human's camera, including restoration to the native neutral colors. */
+  static const unsigned flash_colors[]={18,19,20,21,22,25,26,39};
+  for(unsigned color=0;color<8;++color) {
+    for(unsigned i=0;i<64;++i) {p.vram[7*64+i]=(uint16_t)(flash_colors[color]<<8);p.vram[8*64+i]=(uint16_t)(flash_colors[color]<<8);}
+    if(color<5)for(unsigned phase=0;phase<8;++phase)word(0x910+color*16+phase*2,1+color*32+phase*1024);
+    else {word(0x900+(color-5)*2,1+color*32);word(0x908+(color-5)*2,1+color*32+7*1024);}
+    FzeroRenderViewBeginFrame(assets,ram,20+color);
+    for(unsigned y=1;y<=224;++y) {p.bgmode=y<48?1:7;FzeroRenderViewCaptureLine(assets,&p,y);}
+    FzeroRenderViewEndFrame(assets,&p,stock);
+    unsigned phases=color<5?8:9;
+    for(unsigned phase=0;phase<phases;++phase)for(unsigned seat=0;seat<2;++seat) {
+      unsigned own=seat?phases-1-phase:phase;
+      actors[seat].electric_flash=color<5?(uint8_t)own:0;actors[seat].track_flash=color<5?0:(uint8_t)own;
+      CHECK(FzeroRenderViewCaptureRace(views[seat],assets,ram,&actors[seat],&camera,30+phase));
+      CHECK(FzeroRenderViewDrawPresentation(views[seat],first,hd,sizeof(hd)/sizeof(*hd),(FzeroViewport){256,0,4.0/3.0,false},1,2));
+      unsigned rgb=1+color*32+(color<5?own:own?7:0)*1024,r=rgb&31,g=(rgb>>5)&31,b=(rgb>>10)&31;
+      unsigned expected=(((r<<3)|(r>>2))<<16)|(((g<<3)|(g>>2))<<8)|(b<<3)|(b>>2);
+      CHECK(first[100*256+128]==expected && hd[200*512+256]==expected);
+    }
+  }
   FzeroRenderViewDestroy(assets);
   CHECK(FzeroRenderViewDraw(views[0],first,(FzeroViewport){256,0,4.0/3.0,false},1));
   FzeroRenderViewDestroy(views[0]);FzeroRenderViewDestroy(views[1]);

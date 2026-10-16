@@ -36,6 +36,9 @@ typedef struct FzeroActor {
   uint8_t recovery_active, boost_beep_guard, boost_beep;
   uint8_t black_flash;
   uint8_t animation_scale, animation_transition, countdown_acceleration;
+  /* Native CGRAM event latch ($C101/$C116), retained across overlapping
+   * contact/impact effects and serialized with the actor. */
+  uint8_t body_flash;
   uint16_t recovery_x, recovery_y;
   uint8_t recovery_angle, pit_phase, pit_departure, beam_top, beam_bottom;
   uint16_t next_checkpoint_x, next_checkpoint_y, previous_checkpoint_x, previous_checkpoint_y;

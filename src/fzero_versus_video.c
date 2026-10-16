@@ -106,43 +106,25 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
       uint32_t pixel=ship->pixels[sy*64+sx];if(!pixel)continue;
       int dx=x+sx+viewport.extra,dy=y+sy;
       if(dy<0 || dy>=224 || dx<0 || dx>=viewport.width)continue;
-      if(s->racers[i].actor.black_flash && (s->tick&2))pixel=0xffd8d8e0;
       rect(p,viewport,scale,dx,dy,1,1,pixel);
     }
-    if(s->racers[i].actor.boost_timer && (s->tick&1))
-      rect(p,viewport,scale,ship->ground_x+viewport.extra-2,y+47,4,4,0xff80e8ff);
     if(s->racers[i].actor.speed>=0x400 && !(s->racers[i].actor.state&0x80))
       FzeroUiSpark(ui,canvas,ship->ground_x+viewport.extra,y+48,ship->size,s->racers[i].actor.animation_transition);
-    char label[4];snprintf(label,sizeof(label),"P%u",i+1);
-    FzeroUiText(ui,canvas,ship->ground_x+viewport.extra-8,y+10,label,FZERO_UI_SMALL,ink[i]);
+    FzeroUiContact(ui,canvas,ship->ground_x+viewport.extra,y+48,ship->size,s->racers[i].actor.effect_timer);
+    FzeroUiPlayerTag(ui,canvas,ship->ground_x+viewport.extra-8,y+2,i,ink[i]);
   }
   /* Native instruments overlay each complete scenery view, with transparent
    * font backing rather than a reserved HUD band. */
   char line[64],timer[32];
   unsigned lap=r->completed_laps+1;if(lap>5)lap=5;
-  snprintf(line,sizeof(line),"P%u  LAP %u",pane+1,lap);
-  FzeroUiText(ui,canvas,8,3,line,FZERO_UI_SMALL,ink[pane]);
-  FzeroUiText(ui,canvas,8,18,"TIME",FZERO_UI_SMALL,FZERO_UI_YELLOW);
+  FzeroUiPlayerTag(ui,canvas,8,1,pane,ink[pane]);
+  snprintf(line,sizeof(line),"LAP %u",lap);
+  FzeroUiText(ui,canvas,32,5,line,FZERO_UI_SMALL,ink[pane]);
   uint64_t tick=r->status!=FZERO_VS_ACTIVE?r->finish_tick:s->race_tick;
   if(r->status==FZERO_VS_DNF)snprintf(timer,sizeof(timer),"--'--\"--");else time_text(timer,tick);
-  FzeroUiText(ui,canvas,8,31,timer,FZERO_UI_HUD,FZERO_UI_YELLOW);
-  snprintf(line,sizeof(line),"%3u",FzeroDisplaySpeed(r->actor.speed));
-  FzeroUiText(ui,canvas,viewport.width-64,31,line,FZERO_UI_HUD,FZERO_UI_YELLOW);
-  for(unsigned i=0;i<3;++i)FzeroUiHudTile(ui,canvas,viewport.width-40+(int)i*8,31,0x0a+i,FZERO_UI_YELLOW,false);
-  unsigned power=(r->actor.health&0x8000)?0:r->actor.health;
-  if(power>0x800)power=0x800;
-  int right=viewport.width-80,filled=(int)(power/32);
-  FzeroUiText(ui,canvas,right,1,"POWER",FZERO_UI_SMALL,FZERO_UI_YELLOW);
-  FzeroUiRect(canvas,right,12,64,8,0xff420000);
-  FzeroUiRect(canvas,right,12,filled,8,power<0x200 && (s->tick&8)?0xff840000:0xffff0000);
-  for(unsigned i=0;i<8;++i) {
-    unsigned amount=filled>(int)i*8?(unsigned)(filled-(int)i*8):0;
-    unsigned tile=amount>=8?0x10:amount?0x18-amount:0x19;
-    FzeroUiHudTile(ui,canvas,right+(int)i*8,8,tile,FZERO_UI_YELLOW,false);
-    FzeroUiHudTile(ui,canvas,right+(int)i*8,16,tile,FZERO_UI_YELLOW,true);
-  }
-  for(unsigned i=0;i<r->actor.boosts && i<3;++i)
-    FzeroUiHudTile(ui,canvas,viewport.width/2-8+(int)i*8,31,0x33,FZERO_UI_CYAN,false);
+  FzeroUiRaceClock(ui,canvas,8,23,timer);
+  FzeroUiRaceInstruments(ui,canvas,viewport.width-112,0,r->actor.health,FzeroDisplaySpeed(r->actor.speed),s->tick);
+  FzeroUiBoosts(ui,canvas,viewport.width-48,208,r->actor.boosts,(r->actor.state&8)!=0);
   const char *message=NULL;
   if(s->pause)message="PAUSED";
   else if(s->phase==FZERO_VS_READY)message="READY";
@@ -184,7 +166,7 @@ static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsign
     if(r->status==FZERO_VS_FINISHED)time_text(timer,r->finish_tick);
     else snprintf(timer,sizeof(timer),"--'--\"--");
     FzeroUiText(ui,c,center-96,y+16,outcome,FZERO_UI_SMALL,FZERO_UI_CYAN);
-    FzeroUiText(ui,c,center+24,y+16,timer,FZERO_UI_HUD,FZERO_UI_YELLOW);
+    FzeroUiRaceClock(ui,c,center+24,y+16,timer);
   }
   for(unsigned i=0;i<count;++i) {
     int y=(paused?172:264)+(int)i*24;bool selected=i==v->menu_selection;

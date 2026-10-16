@@ -207,6 +207,20 @@ bool FzeroRenderViewCaptureRace(FzeroRenderView *view, const FzeroRenderView *as
     /* Stock HUD power-window clipping has no ownership in a versus pane. */
     p->screenWindowed[0] = p->screenWindowed[1] = 0;
     p->windowsel = 0; p->cgwsel &= 15;
+    /* BF5F/C057 flashes five course colors through the electric-surface
+     * ramp. Each camera owns its human's phase; the shared guest is frozen. */
+    unsigned phase=actor->electric_flash&7;
+    for(unsigned color=0;color<5;++color) {
+      unsigned at=0x910+color*16+phase*2;
+      f->lines[y].palette[18+color]=world[at]|(unsigned)world[at+1]<<8;
+    }
+    /* BF5F/C07E/C095 retains a separate three-color surface flash until
+     * F5 expires. It must not leak from one human's view into the other. */
+    static const unsigned surface_colors[]={25,26,39};
+    for(unsigned color=0;color<3;++color) {
+      unsigned at=0x900+(actor->track_flash?8:0)+color*2;
+      f->lines[y].palette[surface_colors[color]]=world[at]|(unsigned)world[at+1]<<8;
+    }
     memcpy(f->lines[y].registers, p, PPU_SAVESTATE_REGS_SIZE);
   }
   view->race[view->current] = true;

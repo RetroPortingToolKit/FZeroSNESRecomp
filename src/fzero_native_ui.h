@@ -6,6 +6,12 @@
 typedef struct FzeroNativeUi {
   uint8_t tiles[256][64], hud[56][64], machines[4][24*16];
   uint8_t numbers[10][128], objects[256][64];
+  uint16_t hud_map[128];
+  uint32_t hud_palette[4][4];
+  uint32_t boost_palette[3][16];
+  uint8_t power_colors[5][4];
+  uint32_t power_warning;
+  struct {int x,y;unsigned tile,attr;} contact[14][3];
   struct {int x,y;unsigned tile,attr;} explosion[10][64];
   unsigned explosion_count[10], explosion_frame[20], explosion_duration[20];
   uint8_t title_letters[26][128];
@@ -42,4 +48,9 @@ void FzeroUiMachine(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned
 void FzeroUiExplosion(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned distance,unsigned age);
 void FzeroUiCrashOut(const FzeroNativeUi *ui,FzeroUiCanvas c,int y);
 void FzeroUiSpark(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned distance,uint8_t phase);
+void FzeroUiContact(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned distance,uint8_t phase);
+void FzeroUiPlayerTag(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned player,FzeroUiInk ink);
+void FzeroUiRaceClock(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *clock);
+void FzeroUiRaceInstruments(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,uint16_t health,unsigned speed,uint64_t tick);
+void FzeroUiBoosts(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned count,bool active);
 void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text,bool dim);

@@ -1156,3 +1156,55 @@ owner as requested. Air/recovery/exhaust-palette coverage and extended cadence
 remain unqualified; no all-interactions or release-acceptance claim is made.
 The issue stays in progress for owner QA. Windows only; pins/private references
 and the unstaged absent gitlink remain preserved.
+
+
+## Owner HUD/effect QA correction (2026-10-15)
+
+Use the native 8x16 race OBJ P and number glyphs together for player tags;
+never shrink the introduction numbers next to an unrelated small P. Small
+custom lap digits use the native 8x8 race numerals at their authored aspect.
+POWER, gauge outlines and boundary tiles, SPEED, cyan speed digits, km/h and
+underline now use the native BG3 tilemap/attributes ($0A:EC00), 2bpp artwork
+($0C:C000), palettes and AA97/AA06 gauge/window rules. The clock uses native
+paired OBJ digits and punctuation, with transparent backing. Stock boost
+reservations use the same $5F sprite with native available/burning/spent
+palettes ($31/$33/$35), at the original lower-right position. Text removes
+solid backing while retaining the native HUD lettering's adjacent dark edge.
+
+The native BF83 contact/landing sprites were missing. Both cameras now draw
+the original fourteen three-piece frames, including the electricity animation.
+Independent stock PPU readback caught introduction colors still being used
+for part of the effect palette: races replace its first eight colors from
+$0A:EEE0. The native C101/C116 vehicle-palette latch is now retained per actor,
+including overlapping contact and impact effects, instead of a generic white
+flash. Each view applies its own C057 electric five-color course ramp and
+C07E/C095 three-color surface flash. Presentation never advances the timers.
+Rules 3 / FZVS003 serialize the new latch; older VS states/replays are rejected
+by existing identity/version checks. Single-player state format is unchanged.
+
+Windows validation: eight focused CTests pass (17.90 s in the latest run),
+including all 2049 power levels against native AA97 tile/window output,
+AA06 ordinary/warning color records, complete native clock OAM and all boost
+availability/burning states. Native effect comparisons cover all four machines,
+all twenty spark selections, full contact/landing sequences and overlapping
+CGRAM palette events. Eight independent stock PPU captures verify the race
+HUD/font/boost/spark/contact atlases and effect palette. The renderer checks
+all eight electric phases and surface-flash restoration independently for
+both cameras in native and HD output. An input-driven electric crash fixture
+also saves/restores while the body-palette latch is active.
+
+Native and HD2 desktop runs in captures/l2p-hud-effects-02 pass normal VS entry,
+all four machines, driven steering/sparks, countdown, five real window resizes,
+and cursor-driven restart/change/main-menu return (20.44 / 19.94 seconds).
+Astra xhigh read-only review confirms coherent P1/P2, aligned lap numerals,
+transparent backing and clean silhouettes/resizing. Its contrast observations
+are addressed by retaining native HUD edging and moving boost icons back to
+their native lower-right placement. Static images do not establish timing.
+Fresh-process lifecycle, snapshot/rewind, replay/viewport identity, tamper
+rejection and save-namespace checks pass in captures/l2p-hud-state-02.
+
+Final owner play remains the acceptance gate. Natural course bots were not
+requalified (owner waiver); earlier all-fifteen teleport lifecycle results
+remain recorded above. Air/recovery/exhaust-palette coverage, sustained
+cadence, non-Windows targets and online play are not newly qualified here.
+Dependencies, private references and the unstaged absent gitlink are preserved.

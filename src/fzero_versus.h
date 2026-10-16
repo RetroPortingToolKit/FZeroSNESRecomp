@@ -4,10 +4,10 @@
 
 /* A single game-owned authoritative race. Presentation and host device state
  * are deliberately absent. All time is measured in FZERO_SIMULATION_HZ ticks.
- * Rule 2: native exhaust/spark phases; last survivor wins after elimination.
+ * Rule 3: retain native body-palette event latch across save/rewind/replay.
  * Two stock humans, five laps, movement then one stable-ID contact.
  * This is a new simulation profile, not a claim of stock whole-frame parity. */
-#define FZERO_VERSUS_RULES 2u
+#define FZERO_VERSUS_RULES 3u
 #define FZERO_VERSUS_LAPS 5u
 #define FZERO_VERSUS_COUNTDOWN 180u
 typedef struct FzeroVersus FzeroVersus;

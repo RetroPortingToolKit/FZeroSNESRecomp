@@ -149,7 +149,7 @@ static bool player_build(FzeroShip *s,const FzeroActor *a,FzeroActorProjection p
   unsigned screen_y=(uint8_t)((unsigned)p.y-(a->height>>8));
   s->ground_x=p.x;s->ground_y=p.y;s->x=p.x-32;s->y=(int)screen_y-48;
   s->layout=0x10000+identity;s->graphic=pose|(scale<<8);s->size=0;
-  uint32_t palette[16];for(unsigned i=0;i<16;++i)palette[i]=rgb(word(t,0x0fcd80+a->machine*32+i*2));
+  uint32_t palette[16];for(unsigned i=0;i<16;++i)palette[i]=rgb(word(t,(a->body_flash?0x0aef00:0x0fcd80)+a->machine*32+i*2));
   for(unsigned i=0;i<count;++i)if(parts[i].size)
     player_paint(s,parts[i].x+32,parts[i].y+48,parts[i].attr,parts[i].size,palette,a->machine,t);
   s->visible=true;return true;
@@ -185,7 +185,7 @@ bool FzeroShipBuild(FzeroShip *s,const FzeroActor *camera,const FzeroActor *a,Fz
   s->ground_x=p.x;s->ground_y=p.y;s->size=band;
   s->x=p.x-32;s->y=p.y-(int)height-48;
   uint32_t palette[16];
-  for(unsigned i=0;i<16;++i)palette[i]=rgb(word(t,0x0fcd80+a->machine*32+i*2));
+  for(unsigned i=0;i<16;++i)palette[i]=rgb(word(t,(a->body_flash?0x0aef00:0x0fcd80)+a->machine*32+i*2));
   for(unsigned slot=0;slot<8;++slot) {
     unsigned entry=layout+2+slot*5,dx=word(t,entry);
     if(dx==128)break;

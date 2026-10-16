@@ -702,7 +702,14 @@ static void test_session_events(void) {
   FzeroVersusConfig c={0,{0,0}};
   FzeroVersus *s=FzeroVersusCreate(c,ram,spawns,t),*copy=FzeroVersusCreate(c,ram,spawns,t);CHECK(s && copy);
   const FzeroVersusSnapshot *v=FzeroVersusCompleted(s);FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
-  for(unsigned i=0;i<12000 && v->racers[1].status==FZERO_VS_ACTIVE;++i) CHECK(FzeroVersusTick(s,held));
+  bool palette_saved=false;
+  for(unsigned i=0;i<12000 && v->racers[1].status==FZERO_VS_ACTIVE;++i) {
+    CHECK(FzeroVersusTick(s,held));
+    if(!palette_saved && v->racers[1].actor.body_flash) {
+      session_roundtrip(s,copy);CHECK(FzeroVersusCompleted(copy)->racers[1].actor.body_flash==1);palette_saved=true;
+    }
+  }
+  CHECK(palette_saved);
   CHECK(v->racers[1].status==FZERO_VS_DNF && v->racers[0].status==FZERO_VS_SURVIVED &&
         v->phase==FZERO_VS_RESULTS && v->winner==FZERO_VS_PLAYER1);
   CHECK(!v->racers[0].completed_laps && !v->racers[1].completed_laps);
@@ -773,7 +780,7 @@ static void test_camera(void) {
  * catches swapped/yawed poses and wrong layout/flip/size, not just different
  * left/right pictures. Atlas loading is separately checked against native PPU
  * captures; these are the original human DMA destinations. */
-static void player_reference_pixels(uint32_t out[4096],unsigned machine,int origin_x,int origin_y) {
+static void player_reference_pixels(uint32_t out[4096],unsigned machine,int origin_x,int origin_y,bool flash) {
   uint8_t atlas[0x4000]={0};
   for(unsigned i=0;i<0xc00;++i)atlas[0xa0*32+i]=rom_read(NULL,((8+machine)<<16)| (0xf000+i));
   static const unsigned destinations[]={0x0e,0x2e,0x4e,0x6e,0x8e,0x100,0x102,0x104};
@@ -805,8 +812,8 @@ static void player_reference_pixels(uint32_t out[4096],unsigned machine,int orig
       for(unsigned plane=0;plane<4;++plane)
         color|=((atlas[tile*32+(cy&7)*2+plane/2*16+plane%2]>>(7-(cx&7)))&1)<<plane;
       if(!color || out[oy*64+ox])continue;
-      unsigned rgb=rom_read(NULL,0x0fcd80+machine*32+color*2)|
-          (unsigned)rom_read(NULL,0x0fcd81+machine*32+color*2)<<8;
+      unsigned address=(flash?0x0aef00:0x0fcd80)+machine*32+color*2;
+      unsigned rgb=rom_read(NULL,address)|(unsigned)rom_read(NULL,address+1)<<8;
       unsigned r=rgb&31,g=(rgb>>5)&31,bb=(rgb>>10)&31;
       out[oy*64+ox]=0xff000000u|(((r<<3)|(r>>2))<<16)|(((g<<3)|(g>>2))<<8)|(bb<<3)|(bb>>2);
     }
@@ -817,7 +824,7 @@ static void test_player_display(void) {
   for(unsigned machine=0;machine<4;++machine)for(unsigned pose=0;pose<13;++pose)for(unsigned scale=0;scale<7;++scale)for(unsigned height=0;height<4;++height) {
     FzeroActor a={.x=2048,.y=1024,.facing=0x3000,.machine=(uint8_t)machine,
         .steering_history=(uint8_t)(pose<11?pose:0x80+pose-11),.animation_scale=(uint8_t)scale};
-    const unsigned heights[]={0,0x100,0xff00,0x700};a.height=(uint16_t)heights[height];
+    const unsigned heights[]={0,0x100,0xff00,0x700};a.height=(uint16_t)heights[height];a.body_flash=height&1;
     FzeroActor before=a;FzeroShip ship;CHECK(FzeroShipBuild(&ship,&a,&a,tables));CHECK(!memcmp(&a,&before,sizeof(a)));
     memset(ram,0,sizeof(ram));ram[0x52]=(uint8_t)machine;reference(0xd71d);
     for(unsigned i=0;i<8;++i) {ram[0x300+i*4]=128;set_word(0x302+i*4,0x105);}
@@ -825,7 +832,7 @@ static void test_player_display(void) {
     ram[0xdd]=a.steering_history;ram[0xde]=a.animation_scale;ram[0x10f0]=0x10; /* invalidate native OAM cache */
     set_word(0x1a,(unsigned)ship.ground_x);set_word(0x1c,(uint8_t)((unsigned)ship.ground_y-(a.height>>8)));
     reference(0xf4e9);
-    uint32_t expected[4096];player_reference_pixels(expected,machine,ship.x,ship.y);
+    uint32_t expected[4096];player_reference_pixels(expected,machine,ship.x,ship.y,a.body_flash!=0);
     for(unsigned i=0;i<4096;++i)if(expected[i]!=ship.pixels[i]) {
       fprintf(stderr,"human art mismatch machine=%u DD=%02x DE=%u pixel=%u,%u native=%08x host=%08x\n",
           machine,a.steering_history,scale,i%64,i/64,expected[i],ship.pixels[i]);
@@ -840,6 +847,7 @@ static void test_player_display(void) {
  * texture lookup, beyond the CPU/OAM/layout differential fixtures above. */
 static void test_player_captures(void) {
   const char *paths=getenv("FZERO_TEST_PLAYER_CAPTURES");if(!paths)return;
+  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
   char *list=malloc(strlen(paths)+1);CHECK(list);strcpy(list,paths);unsigned cases=0;
   for(char *path=strtok(list,";");path;path=strtok(NULL,";")) {
     struct Line {uint8_t regs[64];uint16_t palette[256],oam[256];uint8_t high[32];};
@@ -847,6 +855,28 @@ static void test_player_captures(void) {
     _Static_assert(sizeof(struct Capture)==676872,"legacy private capture format");
     struct Capture *c=malloc(sizeof(*c));CHECK(c);FILE *f=fopen(path,"rb");CHECK(f);
     CHECK(fread(c,sizeof(*c),1,f)==1 && fgetc(f)==EOF);CHECK(!fclose(f));
+    /* Independent native DMA/PPU readback: CPU-OAM comparisons must not
+     * share an incorrectly decoded font or effect atlas. */
+    for(unsigned id=0;id<44;++id)for(unsigned row=0;row<8;++row)for(unsigned col=0;col<8;++col) {
+      unsigned bits=c->vram[0x7000+id*8+row],color=((bits>>(7-col))&1)|(((bits>>(15-col))&1)<<1);
+      CHECK(ui.hud[id][row*8+col]==color);
+    }
+    static const unsigned objects[]={0x4a,0x4b,0x4c,0x4d,0x5a,0x5b,0x5c,0x5d,
+        0x5f,0x6f,0x60,0x61,0x62,0x63,0x70,0x71,0x72,0x73,
+        0x80,0x81,0x82,0x83,0x84,0x85,0x86,0x87,0x88,0x89,0x8d,
+        0x90,0x91,0x92,0x93,0x94,0x95,0x96,0x97,0x98,0x99,0x9d,0xa8,0xb8};
+    for(unsigned n=0;n<COUNT(objects);++n)for(unsigned row=0;row<8;++row)for(unsigned col=0;col<8;++col) {
+      unsigned id=objects[n],color=0;
+      for(unsigned plane=0;plane<4;++plane)
+        color|=((c->vram[0x5000+id*16+row+plane/2*8]>>(plane%2*8+7-col))&1)<<plane;
+      if(ui.objects[id][row*8+col]!=color) {
+        fprintf(stderr,"native effect/font atlas %s id=%02x at=%u,%u expected=%u actual=%u\n",path,id,col,row,color,ui.objects[id][row*8+col]);CHECK(false);
+      }
+    }
+    for(unsigned i=1;i<16;++i) {
+      unsigned color=c->lines[160].palette[176+i],r=color&31,g=(color>>5)&31,b=(color>>10)&31;
+      CHECK(ui.effect_palette[i]==(0xff000000u|(((r<<3)|(r>>2))<<16)|(((g<<3)|(g>>2))<<8)|(b<<3)|(b>>2)));
+    }
     FzeroActor actor={0};for(unsigned field=0;field<COUNT(actor_fields);++field) {
       const Field *a=&actor_fields[field];memcpy((uint8_t *)&actor+a->offset,c->ram+a->address,a->size);
     }
@@ -893,7 +923,7 @@ static void test_player_captures(void) {
     }
     ++cases;free(c);
   }
-  free(list);printf("human display: %u stock-PPU artwork captures match (bob/glow/unused upload word normalized)\n",cases);
+  free(list);printf("human display/effects/HUD: %u stock-PPU body captures and race-font/boost/spark/contact atlases match (body bob/glow/unused upload word normalized)\n",cases);
 }
 
 static void test_display(void) {
@@ -985,10 +1015,65 @@ static void paint_native_obj(uint32_t out[256*224],const FzeroNativeUi *ui,unsig
     unsigned color=ui->objects[id][(cy&7)*8+(cx&7)];
     int dx=x+(int)col,dy=y+(int)row;if(!color || dx<0 || dx>=256 || dy<0 || dy>=224)continue;
     unsigned address=0x0fcd00+((attr>>9)&7)*32+color*2;
+    if(((attr>>9)&7)==3 && color<8)address=0x0aeee0+color*2;
     unsigned rgb=rom_read(NULL,address)|(unsigned)rom_read(NULL,address+1)<<8;
     unsigned r=rgb&31,g=(rgb>>5)&31,b=(rgb>>10)&31;
     out[dy*256+dx]=0xff000000u|(((r<<3)|(r>>2))<<16)|(((g<<3)|(g>>2))<<8)|(b<<3)|(b>>2);
   }
+}
+static void test_native_hud(void) {
+  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
+  static uint32_t actual[256*224],expected[256*224];FzeroUiCanvas canvas={actual,256,224,1};
+  memset(ram,0,sizeof(ram));
+  for(unsigned i=0;i<128;++i)ram[0xa00+i]=rom_read(NULL,0x0aec00+i*2);
+  for(int health=0x800;health>=0;--health) {
+    set_word(0xc9,(unsigned)health);reference(0xaa97);
+    CHECK(ram[0xe23]==175+(unsigned)health/32);
+    memset(actual,0,sizeof(actual));FzeroUiRaceInstruments(&ui,canvas,144,15,(uint16_t)health,0,0);
+    for(unsigned half=0;half<2;++half)for(unsigned col=18;col<=30;++col) {
+      unsigned at=half*32+col,attr=ui.hud_map[at],id=ram[0xa00+at];
+      for(unsigned row=0;row<8;++row)for(unsigned x=0;x<8;++x) {
+        unsigned bits=rom_read(NULL,0x0cc000+id*16+(attr&0x8000?7-row:row)*2);
+        unsigned hi=rom_read(NULL,0x0cc001+id*16+(attr&0x8000?7-row:row)*2);
+        unsigned color=((bits>>(7-x))&1)|(((hi>>(7-x))&1)<<1);
+        if(!color || (color==1 && col<22))continue;
+        unsigned pixel=actual[(15+half*8+row)*256+col*8+x];
+        if(pixel!=ui.hud_palette[(attr>>10)&3][color]) {
+          fprintf(stderr,"native gauge health=%d tile=%02x col=%u half=%u pixel=%u,%u\n",health,id,col,half,x,row);CHECK(false);
+        }
+      }
+    }
+  }
+  for(unsigned warning=0;warning<2;++warning) {
+    set_word(0xc9,0x100);ram[0x51]=warning?8:0;reference(0xaa06);
+    for(unsigned color=0;color<3;++color)CHECK(ui.power_colors[warning?4:0][1+color]==ram[0xe2a+color]);
+    unsigned rgb=ram_word(0x506),r=rgb&31,g=(rgb>>5)&31,b=(rgb>>10)&31;
+    uint32_t expected=0xff000000u|(((r<<3)|(r>>2))<<16)|(((g<<3)|(g>>2))<<8)|(b<<3)|(b>>2);
+    CHECK((warning?ui.power_warning:ui.hud_palette[0][3])==expected);
+  }
+  memset(ram,0,sizeof(ram));
+  for(unsigned i=0;i<128;++i)ram[0x250+i]=rom_read(NULL,0x0bec34+i);
+  ram[0xc0]=0;ram[0xc1]=0x12;ram[0xc2]=0x34;reference(0xa880);
+  memset(actual,0,sizeof(actual));memset(expected,0,sizeof(expected));
+  for(unsigned i=32;i<44;++i)paint_native_obj(expected,&ui,i,8,0);
+  for(unsigned i=0;i<COUNT(expected);++i)if(expected[i]==0xff000000)expected[i]=0;
+  FzeroUiRaceClock(&ui,canvas,184,48,"0'12\"34");CHECK(!memcmp(actual,expected,sizeof(actual)));
+  for(unsigned active=0;active<2;++active)for(unsigned count=0;count<4-active;++count) {
+    memset(ram,0,sizeof(ram));
+    for(unsigned i=0;i<128;++i)ram[0x250+i]=rom_read(NULL,0x0bec34+i);
+    for(unsigned i=0;i<count+active;++i) {ram[0xcf8]=1;reference(0xb85e);}
+    if(active)reference(0xb825);
+    memset(actual,0,sizeof(actual));memset(expected,0,sizeof(expected));
+    for(unsigned i=44;i<47;++i)paint_native_obj(expected,&ui,i,8,0);
+    for(unsigned i=0;i<COUNT(expected);++i)if(expected[i]==0xff000000)expected[i]=0;
+    FzeroUiBoosts(&ui,canvas,208,208,count,active!=0);
+    if(memcmp(actual,expected,sizeof(actual))) {
+      for(unsigned i=44;i<47;++i)fprintf(stderr,"native boost active=%u count=%u slot=%u xy=%04x attr=%04x\n",active,count,i,ram_word(0x200+i*4),ram_word(0x202+i*4));
+      for(unsigned i=0;i<COUNT(actual);++i)if(actual[i]!=expected[i]) {fprintf(stderr,"boost pixel=%u,%u expected=%08x actual=%08x\n",i%256,i/256,expected[i],actual[i]);break;}
+      CHECK(false);
+    }
+  }
+  puts("native HUD: all2049 power levels match AA97 boundary/outline tiles, clock OAM and all available/burning/spent boost states match native output (text black backing omitted)");
 }
 static void test_native_effect_art(void) {
   static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
@@ -998,8 +1083,8 @@ static void test_native_effect_art(void) {
   CHECK(ui.crash_length==11 && ram_word(0x4b)==80);
   for(unsigned slot=0;slot<20;++slot)paint_native_obj(expected,&ui,slot,8,-4);
   FzeroUiCrashOut(&ui,canvas,192);CHECK(!memcmp(expected,actual,sizeof(actual)));
-  for(unsigned side=0;side<2;++side)for(unsigned phase=1;phase<=10;++phase) {
-    FzeroActor a={.speed=0x800,.animation_transition=(uint8_t)(phase|(side?0x80:0))};
+  for(unsigned machine=0;machine<4;++machine)for(unsigned side=0;side<2;++side)for(unsigned phase=1;phase<=10;++phase) {
+    FzeroActor a={.machine=(uint8_t)machine,.speed=0x800,.animation_transition=(uint8_t)(phase|(side?0x80:0))};
     memset(ram,0,sizeof(ram));write_fields(&a,actor_fields,COUNT(actor_fields));ram[0xc70]=128;ram[0xc80]=180;
     reference(0xbed7);FzeroActorSpark(&a);
     memset(actual,0,sizeof(actual));memset(expected,0,sizeof(expected));
@@ -1007,7 +1092,29 @@ static void test_native_effect_art(void) {
     FzeroUiSpark(&ui,canvas,128,180,0,a.animation_transition);
     CHECK(!memcmp(expected,actual,sizeof(actual)));
   }
-  puts("native effect art: original CRASHED OUT glyphs/palette/layout and all20 emitted spark sprites match CPU OAM");
+  for(unsigned machine=0;machine<4;++machine)for(unsigned effect=0;effect<3;++effect)for(unsigned overlap=0;overlap<3;++overlap) {
+    FzeroActor a={.machine=(uint8_t)machine,.effect_timer=effect==0?0:effect==1?0x45:0x8b,
+        .black_flash=overlap==0?0:overlap==1?0x85:9};
+    memset(ram,0,sizeof(ram));ram[0xb00]=0x88;ram[0xc41]=(8+machine*2);
+    for(unsigned i=0;i<256;++i) {
+      ram[0x600+i]=ram[0x700+i]=rom_read(NULL,0x0fcd00+i);
+      ram[0x800+i]=rom_read(NULL,0x0aee80+i);
+    }
+    for(unsigned tick=0;tick<16;++tick) {
+      write_fields(&a,actor_fields,COUNT(actor_fields));ram[0xc70]=128;ram[0xc80]=180;
+      reference(0xbf83);reference(0xc0ac);FzeroActorTransientEffects(&a);
+      compare_fields(&a,actor_fields,COUNT(actor_fields),0xbf83,tick);
+      unsigned base=0x80+machine*32;
+      CHECK(!memcmp(ram+0x600+base,ram+(a.body_flash?0x800:0x700)+base,32));
+      memset(actual,0,sizeof(actual));memset(expected,0,sizeof(expected));
+      for(int slot=114;slot>=112;--slot)paint_native_obj(expected,&ui,(unsigned)slot,8,0);
+      FzeroUiContact(&ui,canvas,128,180,0,a.effect_timer);
+      if(memcmp(expected,actual,sizeof(actual))) {
+        fprintf(stderr,"native electricity art machine=%u effect=%u overlap=%u tick=%u phase=%02x\n",machine,effect,overlap,tick,a.effect_timer);CHECK(false);
+      }
+    }
+  }
+  puts("native effects: all four machines, all20 spark selections, complete contact/landing sequences and overlapping palette latches match native CPU OAM/CGRAM");
 }
 
 int main(int argc, char **argv) {
@@ -1086,6 +1193,7 @@ int main(int argc, char **argv) {
   test_player_captures();
   test_sound();
   test_transient_effects();
+  test_native_hud();
   test_native_effect_art();
   return 0;
 }
