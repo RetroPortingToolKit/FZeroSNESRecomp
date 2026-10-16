@@ -514,6 +514,9 @@ int main(int argc, char **argv) {
     return 4;
   }
   double audio_accumulator = 0.0;
+  const char *dsp_trace_path=getenv("FZERO_TEST_DSP_TRACE");
+  FILE *dsp_trace=dsp_trace_path?fopen(dsp_trace_path,"wb"):NULL;
+  if(dsp_trace_path && !dsp_trace)return 10;
   /* Private validation: replay ten frames across an actual disk snapshot. */
   const char *lifecycle = getenv("FZERO_LIFECYCLE_TEST");
   static uint8_t replay_expected[0x20000];
@@ -784,6 +787,11 @@ int main(int argc, char **argv) {
     if(end_frame && frame==strtol(end_frame,NULL,10) && FzeroLocalSession()) {
       FzeroVersusEndRace(FzeroLocalSession());FzeroLocalControlChanged();
     }
+    const char *resume_frame=getenv("FZERO_TEST_LOCAL_RESUME_FRAME");
+    if(resume_frame && frame==strtol(resume_frame,NULL,10) && FzeroLocalSession()) {
+      FzeroVersusResume(FzeroLocalSession());FzeroLocalControlChanged();
+      fprintf(stderr,"audio-fixture: resumed VS at frame=%ld\n",frame);
+    }
     FzeroCaptureBefore(frame_input,FzeroCalculateViewport(&replay_video,drawable_width,versus?drawable_height/2:drawable_height));
     (void)RtlRunFrame(frame_input);
     if (wram_trace && fwrite(g_ram, 1, 0x2000, wram_trace) != 0x2000) return 10;
@@ -834,6 +842,11 @@ int main(int argc, char **argv) {
     audio_accumulator -= audio_frames;
     memset(audio, 0, sizeof(audio));
     RtlRenderAudio(audio, audio_frames, 2);
+    if(dsp_trace) {
+      uint8_t registers[128];
+      for(unsigned i=0;i<128;++i)registers[i]=dsp_read(g_snes->apu->dsp,(uint8_t)i);
+      if(fwrite(registers,1,sizeof(registers),dsp_trace)!=sizeof(registers))return 10;
+    }
     collect_audio(&stats, audio, audio_frames);
     if (!wav_append(&wav, audio, audio_frames)) {
       fputs("unable to write WAV capture\n", stderr);
@@ -856,6 +869,7 @@ int main(int argc, char **argv) {
   }
 
   if (wram_trace && fclose(wram_trace)) return 10;
+  if (dsp_trace && fclose(dsp_trace)) return 10;
   if (getenv("FZERO_TEST_QUICK_SLOT")) {
     /* Quick load must still find the saved race after the host returns to
      * a title or selects a different course's battery-record namespace. */

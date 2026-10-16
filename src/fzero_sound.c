@@ -43,7 +43,10 @@ FzeroSoundCommands FzeroSoundTick(FzeroSoundState *s,const FzeroVersusSnapshot *
     s->phase=(uint8_t)phase;
   }
   out.ports[0]=s->music;
-  if(v->pause){out.ports[2]=0x80;return out;}
+  /* Native pause leaves the song running and clears vehicle/effect ports.
+   * $2142 bit7 belongs to the crash sequence ($B334), not a pause command;
+   * holding it retriggers the crash and can strand the music after resume. */
+  if(v->pause)return out;
   if(!advanced || v->phase==FZERO_VS_READY)return out;
   for(unsigned i=0;i<2;++i) {
     const FzeroVersusRacer *r=&v->racers[i];const FzeroActor *a=&r->actor;

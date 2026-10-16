@@ -41,7 +41,9 @@
 #include "recomp_launcher.h"
 #include "fzero_content_ui.h"
 #include "sha256.h"
+#include "snes/apu.h"
 #include "snes/cart.h"
+#include "snes/dsp.h"
 #include "snes/ppu.h"
 #include "snes/snes.h"
 #include "spc_player.h"
@@ -2527,6 +2529,16 @@ static int run_game(int argc, char **argv) {
     if (!dump || fwrite(g_ram, sizeof(g_ram), 1, dump) != 1)
       fprintf(stderr, "Unable to write WRAM capture\n");
     if (dump) fclose(dump);
+  }
+  const char *dsp_dump = getenv("FZERO_TEST_DSP_DUMP");
+  if(dsp_dump && *dsp_dump) {
+    uint8_t registers[128];SDL_LockMutex(g_audio_mutex);
+    for(unsigned i=0;i<128;++i)registers[i]=dsp_read(g_snes->apu->dsp,(uint8_t)i);
+    SDL_UnlockMutex(g_audio_mutex);
+    FILE *dump=fopen(dsp_dump,"wb");
+    bool ok=dump && fwrite(registers,1,sizeof(registers),dump)==sizeof(registers);
+    if(dump && fclose(dump))ok=false;
+    if(!ok) {fprintf(stderr,"Unable to write DSP capture\n");g_selftest_failed=true;}
   }
   FzeroFaultFinish();
   FzeroTracksSavesFinish();

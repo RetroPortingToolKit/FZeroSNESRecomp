@@ -1561,5 +1561,32 @@ The new muted real-SPC/PCM/DSP check verifies multiple music voices and nonzero
 master volume on Death Storm, Mute City, Death Wind, BS Death Wind, and a real
 single-player Death Storm reference. Offline full state/rewind/replay and actual
 online Death Storm driving/loss/HD/resizes/shared-browser/quickload also pass.
-The currently open owner match is retained; the verified update is staged for
-both QA launchers, to install when those instances are reopened.
+Both owner QA launchers were restarted with normal audio and the verified
+update. The owner explicitly authorizes development restarts without repeated
+permission; interactive QA retains normal audio, while automation stays muted.
+
+## Native pause audio correction (2026-10-16)
+
+Owner QA on Astra found a crash-like sound on pause and missing music after
+resume. VS was holding bit7 of SPC effect port2142 throughout pause. That is
+the native B334 crash sequence, not a pause command. Actual single-player
+pause/resume captures retain music program6, clear the vehicle/effect ports,
+and leave both master volumes at54. VS now does the same without advancing
+actor effects or their landing timer during pause.
+
+The real-SPC regression reproduces a silent post-resume Death Storm song on
+the previous implementation. It now covers baseline, paused and resumed stock,
+imported Astra, native BS and actual single-player reference cases. It samples
+a full second of DSP envelopes so a natural gap between notes is not mistaken
+for silence, and rejects the crash program's master volume127 even when its
+tail still occupies music voices. A test-only headless resume hook uses the
+public session transition; actual network peers use ordinary synchronized
+Start/menu inputs from both seats. The desktop DSP readback is private,
+explicitly environment-gated and protected by the audio mutex.
+
+Final commit, Windows tests, audio and actual-peer validation, and owner restart
+are recorded in central beads-8uc1 and beads-8wg.5.101. This fixes pause audio;
+physical handling/controller acceptance, sustained performance and real remote
+Internet/ICE remain manual checks. Current validation is Windows same-build;
+Linux and cross-platform netplay are not qualified. Natural full-course driving
+is not claimed from the owner-authorized teleport lifecycle fixtures.

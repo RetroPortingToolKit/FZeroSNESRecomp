@@ -1047,7 +1047,8 @@ static void test_sound(void) {
     FzeroSoundCommands reversed=FzeroSoundTick(&two,&v,true);
     CHECK(!memcmp(&mixed,&reversed,sizeof(mixed)) && !memcmp(&one,&two,sizeof(one)));
     unsigned landing=one.landing;v.pause=FZERO_VS_PAUSE_MANUAL;
-    out=FzeroSoundTick(&one,&v,false);CHECK(out.ports[2]==0x80 && !out.ports[1] && one.landing==landing);
+    out=FzeroSoundTick(&one,&v,false);
+    CHECK(out.ports[0]==race_music && !out.ports[1] && !out.ports[2] && !out.ports[3] && one.landing==landing);
     v.pause=0;out=FzeroSoundTick(&one,&v,false);CHECK(!out.ports[1] && !out.ports[2]);
   }
   puts("sound: 40000 native engine/effect encoders, immutable actors, symmetric two-human mixing and paused effects passed");

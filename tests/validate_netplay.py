@@ -21,7 +21,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     for name in ('build', 'runtime', 'rom', 'packs', 'settings', 'video', 'out'):
         p.add_argument('--' + name, type=Path, required=True)
-    p.add_argument('--scenario', choices=('selection', 'titleback', 'titlestate', 'driving', 'finish', 'crash', 'state', 'reject', 'menuwrap', 'change'), default='driving')
+    p.add_argument('--scenario', choices=('selection', 'titleback', 'titlestate', 'driving', 'finish', 'crash', 'state', 'reject', 'menuwrap', 'pause', 'change'), default='driving')
     p.add_argument('--machines', default='2,3', help='Two stable vehicle IDs (0..11), selected through real menu controls')
     p.add_argument('--cup', type=int, default=0, help='Select this enabled league through synchronized menu inputs')
     p.add_argument('--course-order', type=int, default=1, help='Zero-based course within the selected league')
@@ -58,7 +58,7 @@ def main():
     lock_fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     os.write(lock_fd, ('%d %s\n' % (os.getpid(), a.out)).encode())
     os.close(lock_fd)
-    frames = dict(selection=550, titleback=600, titlestate=1000, driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, menuwrap=1000, change=1300)[a.scenario]
+    frames = dict(selection=550, titleback=600, titlestate=1000, driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, menuwrap=1000, pause=1000, change=1300)[a.scenario]
     if a.scenario != 'selection':
         frames += 460  # Real native boot/title and the synchronized VS action.
     processes, logs = [], []
@@ -93,6 +93,7 @@ def main():
                        SNES_NET_PEER='127.0.0.1:%d' % (a.port + 1 - slot),
                        SNES_NET_SESSION_ID='18644', FZERO_NET_ASPECT=str(a.aspect),
                        FZERO_TEST_NET_TRACE=str(folder / 'sim'), SNESRECOMP_AUTOCLOSE_FRAMES=str(frames),
+                       FZERO_TEST_DSP_DUMP=str(folder / 'dsp.bin'),
                        SNESRECOMP_FRAME_BMP=str(folder / 'final.bmp'),
                        FZERO_VIEWPORT_SCRIPT=('450:4:3@600x800,550:16:9@1342x1378,650:Fit@1280x720,750:32:9@1600x600,850:21:9@768x576' if slot == 0 else
                                               '450:Fit@1600x600,550:32:9@600x800,650:4:3@1342x1378,750:16:9@1280x720,850:Fit@768x576'))
@@ -112,7 +113,7 @@ def main():
                     inputs += ',2400-2402:8'
             elif a.scenario == 'crash':
                 env['FZERO_TEST_ONLINE_FIXTURE'] = 'crash'
-            elif frames > 400 and a.scenario not in ('selection', 'titleback'):
+            elif frames > 400 and a.scenario not in ('selection', 'titleback', 'pause'):
                 inputs += ',400-%d:1' % (frames - 461)
             if a.scenario == 'titlestate' and slot == 0:
                 env.update(FZERO_STATE_SAVE_AT='335:4', FZERO_STATE_LOAD_AT='350:4')
@@ -120,6 +121,8 @@ def main():
                 env.update(FZERO_STATE_SAVE_AT='960:4', FZERO_STATE_LOAD_AT='1360:4', FZERO_TEST_ONLINE_MENU='1')
             if a.scenario == 'menuwrap' and slot == 0:
                 inputs += ',600-602:8,620-622:32,640-642:32,660-662:32,680-682:8'
+            if a.scenario == 'pause':
+                inputs += ',600-602:8,680-682:8,780-782:8' if slot == 0 else ',700-702:8'
             if a.scenario == 'change':
                 if slot == 0:
                     inputs += ',600-602:8,620-622:32,640-642:32,660-662:8,720-722:8,740-742:8,760-762:8'
@@ -235,6 +238,14 @@ def main():
         if a.scenario == 'menuwrap':
             assert shared[-1]['phase'] == '5' and shared[-1]['pause'] == '0', 'menu wrap did not continue race'
             assert not any(row['phase'] == '6' for row in shared), 'in-game menu unexpectedly exited to lobby'
+        if a.scenario == 'pause':
+            pauses = [row for row in shared if row['pause'] != '0']
+            assert len(pauses) >= 100 and shared[-1]['pause'] == '0', 'pause/resume not exercised'
+            assert shared[-1]['stage'] == '2', 'race did not continue after pause'
+            for slot in range(2):
+                dsp = (a.out / ('peer%d/dsp.bin' % slot)).read_bytes()
+                assert [dsp[0x0c], dsp[0x1c]] == [0x54, 0x54], 'music master did not survive pause'
+                assert sum(dsp[i*16+8] > 0 for i in range(6)) >= 2, 'music voices silent after resume'
         if a.scenario == 'change':
             assert any(int(row['tick']) > 1100 and row['phase'] == '1' for row in shared), 'change race did not return to machine selection'
             assert any(int(row['tick']) > 1400 and row['stage'] == '2' for row in shared), 'changed race did not start'
