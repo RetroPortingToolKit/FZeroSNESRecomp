@@ -1,4 +1,13 @@
-# Replaying a tester's crash capture
+# Recording and replaying a playtest
+
+Recording is enabled by default in **Mods > Crash diagnostics and replay**, for
+single-player, local VS and online VS. A crash is not required: reproduce the
+problem, quit, then run **Collect diagnostics.cmd** beside the game. Send the
+ZIP selected in Explorer, the approximate time and a description of the issue.
+It includes the three newest sessions, the latest performance log if enabled,
+the last exit report, and the shared transport log for online matches. Nothing
+is uploaded automatically. Captures contain
+game memory, saves and local paths; share them privately when appropriate.
 
 F-Zero's custom SDL host installs snesrecomp's existing post-mortem and host
 report writers, including Windows SEH/minidumps, fatal exits and SIGABRT.
@@ -7,10 +16,18 @@ the actual guest input route. No shared engine or UI pin change is required.
 
 The game records every guest frame before executing it. Every 1,800 frames,
 or after a load/reset/rewind changes the timeline, it creates a checkpoint.
-The newest three checkpoints and their inputs remain in the session. This is
-approximately 60–90 seconds during uninterrupted play; frequent timeline
-changes shorten the history. Separate launch folders are retained until
+Up to 120 checkpoints and their inputs remain in the session, approximately
+one hour during uninterrupted play; frequent timeline changes and online
+rollback shorten the history. Separate launch folders are retained until
 someone deletes them.
+
+The same shared SNES background replay writer used by Mega Man X records
+per-frame checks of full WRAM, canonical race/online state and VRAM. It hashes
+immutable copies on its worker; a failed or overloaded writer stops optional
+capture without stopping play. Checkpoints and the small input log are still
+written at frame boundaries. Online records the actual execution order,
+including rollback and a new checkpoint after restoration, rather than guessing
+an input route from the final confirmed tick. Playback runs offline.
 
 The fault handler only writes existing engine state and a cached F-Zero
 summary. It never tries to take a new snapshot of a faulting machine. Inputs
@@ -48,8 +65,10 @@ PCM cursor. Guest replay was checked with MSU enabled, but audio playback is
 not a sample-exact recording.
 
 Each frame is checked against the captured master clock, resume PC and first
-8 KiB of guest WRAM before its input is applied. Divergence or malformed input
-stops replay with an error. This detects guest-state mismatch; it is not a
+8 KiB of guest WRAM before its input is applied. New format2 captures also
+verify full WRAM, the complete shared race, online menu state and VRAM after
+each recorded frame. Divergence, incomplete checks or malformed input
+stop replay with an error. This detects guest-state mismatch; it is not a
 whole-machine hash. Matching guest replay does not prove a host/hardware
 crash will happen again. Checkpoints pair the ordinary game snapshot with the
 framework's pointer-free execution extension to preserve clock residue that
@@ -61,8 +80,8 @@ never used as disk files.
 - `session.json`: build identity, active-content signature, pack IDs and save namespace.
 - `video.ini`, `loader.cfg`, `host.json`: effective game and host choices.
 - `segments.jsonl`: completed checkpoint inventory.
-- `segment-N.sav`, `.execution`, `.inputs`, `.records/`: checkpoint, exact
-  execution clocks, input route and the external records browser's files.
+- `segment-N.sav`, `.execution`, `.inputs`, `.frames`, `.records/`: checkpoint, exact
+  execution clocks, input route, shared-writer checks and external records.
 - `crash_report_*.json`, `*.dmp`: shared engine reports when fault handling runs.
 
 The shared `last_run_report.json` beside the game describes the latest exit.

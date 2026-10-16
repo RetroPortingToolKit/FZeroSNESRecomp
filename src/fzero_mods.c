@@ -35,8 +35,8 @@ enum { VEHICLE_COUNT=2, VEHICLE_START=6+sizeof(menu_rules)/sizeof(*menu_rules), 
 static const char local_description[]="Add VS MODE to the main menu. Two humans race on one shared course with top/bottom split-screen. Choose from all twelve machines and the installed single-player course catalog. The original four retain stock handling; the eight added ships use their authored CGP handling and energy boosts. Your single-player content settings are retained.";
 static const char crash_description[] =
   "Automatically keep recent inputs and checkpoints in diagnostics beside the game. "
-  "Enabled by default for testing, including existing installations. After a crash, "
-  "send the newest replay folder so we can investigate and replay it. "
+  "Enabled by default for testing, including online play and existing installations. "
+  "After reproducing a problem, quit and run Collect diagnostics.cmd to make a report ZIP. "
   "Stays local; includes game memory and save data, never a ROM file. "
   "Restart after changing this setting.";
 static const char records_description[] =

@@ -254,13 +254,17 @@ The release includes two BS Deluxe files:
 
 No patched ROM is included.
 
-## If The Game Crashes
+## Reporting playtest problems
 
-Send these files from the game folder:
+Recent inputs and checkpoints are recorded by default, including local and
+online VS. Reproduce the problem, quit, then double-click **Collect diagnostics.cmd**
+beside the game and send the ZIP it selects with an approximate time and a
+description. A crash is not required. Nothing is uploaded automatically.
 
-- `crash_report_*.json`
-- `crash_minidump_*.dmp`
-- `last_run_report.json`
+The ZIP includes recent replay sessions, crash reports when present and the
+latest exit, performance and transport logs. It contains game memory, saves
+and local paths; share it privately when appropriate. See
+[recording and replay instructions](docs/DIAGNOSTIC_REPLAY.md).
 
 ## Build From Source
 

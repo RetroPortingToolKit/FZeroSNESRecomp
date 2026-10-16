@@ -20,3 +20,5 @@ void FzeroCaptureHost(const FzeroDiagnosticSession *session,
 bool FzeroCaptureReplayLoad(void);
 int FzeroCaptureReplayNext(uint32_t *input, FzeroViewport *viewport);
 bool FzeroCaptureReplayActive(void);
+bool FzeroCaptureReplayFailed(void);
+FzeroViewport FzeroCaptureViewport(void);

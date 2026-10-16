@@ -205,13 +205,24 @@ if developer:
     shutil.copy2(ROOT/"docs/PACK_FORMAT.md",stage/"docs/PACK_FORMAT.md")
 # MODS.md links to these instructions in player downloads too.
 (stage / "docs").mkdir(exist_ok=True)
-player_guides = ("PACK_FORMAT.md", "CGP_COURSE_CAPABILITIES.md", "CGP_SNES_MUSIC.md", "ASTRA_FRONT_IMPORT.md", "FUZEE_FORMAT.md")
+player_guides = ("PACK_FORMAT.md", "CGP_COURSE_CAPABILITIES.md", "CGP_SNES_MUSIC.md", "ASTRA_FRONT_IMPORT.md", "FUZEE_FORMAT.md", "DIAGNOSTIC_REPLAY.md", "NETPLAY.md")
 for filename in player_guides:
     shutil.copy2(ROOT / "docs" / filename, stage / "docs" / filename)
 shutil.copy2(ROOT / "mods/PARSE_MANIFEST.md", stage / "mods/PARSE_MANIFEST.md")
 shutil.copy2(ROOT / "assets/music/README.md", stage / "assets/music/README.md")
+shutil.copy2(ROOT / "tools/collect_diagnostics.ps1", stage / "Collect diagnostics.ps1")
+shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostics.cmd")
 (stage/"README.txt").write_text(
     f"F-Zero Forever {release_version} - Windows x64\n\n"
+    "For local two-player, enable Mods > Local 2 Player, then choose VS MODE on the title screen.\n"
+    "Recomp-ui Netplay starts online play and includes VS MODE automatically.\n"
+    "Online players get independent full screens; host chooses 4:3, 16:9 or 21:9.\n"
+    "Both peers need this build and matching enabled course packs. Online rewind is disabled.\n"
+    "VS uses native SNES music; custom MSU/PCM replacement soundtracks are currently single-player only.\n\n"
+    "For a bug report: quit the game, run Collect diagnostics.cmd, and send the ZIP it selects.\n"
+    "Recent inputs and checkpoints are recorded automatically, including online rollback.\n"
+    "Nothing is uploaded automatically. The ZIP contains game memory, saves and diagnostic paths.\n"
+    "See docs/DIAGNOSTIC_REPLAY.md and docs/NETPLAY.md.\n\n"
     "Extract the entire ZIP and run FZeroSNESRecomp.exe. Select your own F-Zero (USA) ROM.\n"
     "Custom Content > Import adds course ZIPs, FZEdit projects, IPS/BPS patches or supported ROM hacks.\n"
     "Some imports ask you to confirm pack/cup names and course assignments. No Python installation is needed.\n"
@@ -311,7 +322,8 @@ manifest = {"version": version, "label": a.label, "music": a.music,
                              "extracted_sources": len(extracted_sources)}, "files": {}}
 for path in sorted(stage.rglob("*")):
     if path.is_file():
-        if not developer and (path.suffix.lower() in (".asm", ".cpp", ".cc", ".h", ".py", ".ps1")
+        if not developer and (path.suffix.lower() in (".asm", ".cpp", ".cc", ".h", ".py")
+                              or (path.suffix.lower() == ".ps1" and path.name != "Collect diagnostics.ps1")
                               or path.relative_to(stage).parts[0] == "patches"
                               or (path.relative_to(stage).parts[0] == "docs" and path.name not in player_guides)
                               or path.name in ("extraction.json", "SOURCE_INDEX.json")):

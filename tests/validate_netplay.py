@@ -61,7 +61,7 @@ def main():
     frames = dict(selection=550, devices=700, titleback=600, titlestate=1000, driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, menuwrap=1000, pause=1000, change=1300)[a.scenario]
     if a.scenario != 'selection':
         frames += 460  # Real native boot/title and the synchronized VS action.
-    processes, logs = [], []
+    processes, logs, launches = [], [], []
     started = time.monotonic()
     try:
         for slot in range(2):
@@ -160,8 +160,12 @@ def main():
             env['SNESRECOMP_INPUT_SCRIPT'] = (boot + ','.join(navigation + shifted)).rstrip(',')
             log = (folder / 'game.log').open('w')
             logs.append(log)
-            processes.append(subprocess.Popen([str(install / 'FZeroSNESRecomp.exe'), str(a.rom)],
-                                               cwd=install, env=env, stdout=log, stderr=log))
+            launches.append(([str(install / 'FZeroSNESRecomp.exe'), str(a.rom)],
+                             dict(cwd=install, env=env, stdout=log, stderr=log)))
+        # Prepare both installations before starting either boot handshake.
+        # Copying assets for peer1 after peer0 starts can consume its deadline.
+        for command, options in launches:
+            processes.append(subprocess.Popen(command, **options))
             time.sleep(.2)
         deadline = time.monotonic() + 100
         while any(proc.poll() is None for proc in processes) and time.monotonic() < deadline:
@@ -193,6 +197,7 @@ def main():
     else:
         assert report['exits'] == [0, 0], report
         assert all('desync=0' in s for s in text), 'desync or missing final report'
+        assert all('starting UNVERIFIED' not in s for s in text), 'startup state verification timed out'
         rows, last_ticks = [], []
         for i in range(2):
             found = sorted((a.out / ('peer%d' % i)).glob('sim*.csv'))

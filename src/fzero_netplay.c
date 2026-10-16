@@ -1,4 +1,5 @@
 #include "fzero_netplay.h"
+#include "fzero_capture.h"
 #include "fzero_build.h"
 #include "fzero_runtime.h"
 #include "fzero_tracks.h"
@@ -137,7 +138,8 @@ static void trace_frame(void) {
   if(n>0 && n<(int)sizeof(row))SnesTraceWriterWrite(trace,row,(size_t)n);
 }
 static void replay(uint32_t input,uint32_t tick) {
-  (void)tick;(void)RtlRunFrame(input);FzeroDrawPpuFrame();trace_frame();
+  (void)tick;FzeroCaptureBefore(input,FzeroCaptureViewport());
+  (void)RtlRunFrame(input);FzeroDrawPpuFrame();FzeroCaptureAfter();trace_frame();
 }
 bool FzeroNetplayStart(const RecompLauncherCSettings *settings) {
   SnesNetplayConfig cfg;

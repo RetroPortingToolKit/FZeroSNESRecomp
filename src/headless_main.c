@@ -1,7 +1,7 @@
 /*
  * Headless F-Zero bring-up / soak host.
  *
- * No SDL, no window, no launcher: it boots the recompiled game, runs a fixed
+ * No window or launcher: it boots the recompiled game, runs a fixed
  * number of frames and reports whether the run showed the activity a real boot
  * produces (WRAM churn, a non-uniform framebuffer that keeps changing, and
  * audible DSP output). Used for standup validation and for harvesting the
@@ -22,6 +22,7 @@
 #include "fzero_local_mode.h"
 #include "fzero_vs_menu.h"
 #include "snapshot_guard.h"
+#include "desktop/sdl_compat.h"
 #include "../tests/fzero_local_driver.h"
 
 #include "audio_trace.h"
@@ -551,7 +552,11 @@ int main(int argc, char **argv) {
   if(!catalog_init())return 12;
   unsigned mode_stage=0;static uint8_t menu_ram[0x20000];char menu_root[96];
   FzeroGameplaySettings menu_rules={0};
+  /* Recorder stress tests can yield to the bounded background writer instead
+   * of submitting thousands of emulated frames per second without a limit. */
+  const char *pace = getenv("FZERO_TEST_CAPTURE_PACE");
   for (long frame = 0; frame < frame_limit; frame++) {
+    if(pace && frame%8==0)SDL_Delay(2);
     int catalog_result=catalog_step();
     if(catalog_result<0) {fprintf(stderr,"catalog-test: FAIL course=%u\n",catalog_course);return 12;}
     if(catalog_result>0) {frame_limit=frame;break;}
@@ -822,6 +827,7 @@ int main(int argc, char **argv) {
     if(mode_test || getenv("FZERO_TEST_VS_MENU"))FzeroPresent(1);
     if(versus && present_every>1 && frame%present_every==0)FzeroPresent(1);
     FzeroCaptureAfter();
+    if(FzeroCaptureReplayFailed())return 11;
     /* Private UI regressions need the final composed frame, including host
      * course/records labels which are absent from the raw PPU captures. */
     const char *frame_dir = getenv("FZERO_TEST_FRAME_DIR");
@@ -931,7 +937,7 @@ int main(int argc, char **argv) {
   stats.audio_underruns = audio_stats.output_underflows;
 
   int qualified =
-      frame_limit < 600 ||
+      FzeroCaptureReplayActive() || frame_limit < 600 ||
       (stats.logic_changes >= (uint64_t)(frame_limit / 20) &&
        stats.video_active_frames >= (uint64_t)(frame_limit / 4) &&
        stats.video_changes >= (uint64_t)(frame_limit / 600) &&
@@ -940,7 +946,7 @@ int main(int argc, char **argv) {
   qualified = qualified && FzeroActorLiveFinish();
   if(versus) {
     const FzeroVersusSnapshot *v=FzeroVersusCompleted(FzeroLocalSession());
-    qualified=qualified && v!=NULL;
+    qualified=qualified && (v!=NULL || (FzeroOnlineEnabled() && FzeroCaptureReplayActive()));
     if(local_driver)qualified=qualified && v && v->phase==FZERO_VS_RESULTS &&
         v->racers[0].status==FZERO_VS_FINISHED && v->racers[1].status==FZERO_VS_FINISHED;
     if(v)fprintf(stderr,"local-versus: tick=%llu phase=%u race=%llu hash=%016llx p1=%u,%u status=%u p2=%u,%u status=%u\n",

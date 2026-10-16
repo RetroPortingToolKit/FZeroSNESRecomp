@@ -23,7 +23,8 @@ def main():
     out.mkdir(parents=True,exist_ok=a.resume_desktop)
     if os.name=='nt': ctypes.windll.kernel32.SetErrorMode(3)
     clean={k:v for k,v in os.environ.items() if not k.startswith(('FZERO_','SNESRECOMP_','SDL_','LNG_'))}
-    clean.update(FZERO_DELUXE_DATA='embedded',FZERO_BS_CARS='0',FZERO_BS_TRACKS='0',FZERO_RULES='')
+    clean.update(FZERO_DELUXE_DATA='embedded',FZERO_BS_CARS='0',FZERO_BS_TRACKS='0',FZERO_RULES='',
+                 FZERO_CAPTURE_SEGMENTS='3',FZERO_TEST_CAPTURE_PACE='1')
     headless=build/'FZeroSNESRecompHeadless.exe'
 
     def run(label,exe,cwd,env,frames=0):

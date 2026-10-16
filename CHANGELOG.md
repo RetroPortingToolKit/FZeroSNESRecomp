@@ -1,5 +1,25 @@
 ﻿# Changelog
 
+## 1.9.0 - Windows multiplayer playtest
+
+- Add native-style VS MODE with local top/bottom split-screen and online
+  two-player racing through recomp-ui/recomp-net. Online players use independent
+  full viewports; the host chooses 4:3, 16:9 or 21:9.
+- Support all twelve existing vehicles and the enabled single-player course
+  catalog, including custom imports. Keep the original single-player modes.
+- Include independent selection, shared collisions, native handling/effects,
+  arrival/countdown, crash/survivor results, finish coasting, rematch and shared
+  online saves. Local VS also supports rewind and diagnostic replay.
+- Fix racing music at GO and after pause, and honor separate online keyboard
+  and gamepad input sources when two clients run on one computer.
+- Record single-player/local/online diagnostics by default, with exact
+  checkpoints, actual input/rollback order and shared SNES background frame
+  checks. Add Collect diagnostics.cmd to make a report ZIP after any problem.
+- Windows playtest: physical handling, sustained performance and remote
+  Internet/ICE still need human validation. Online rewind and automatic custom
+  pack transfer are unavailable. VS uses native SNES music; MSU/PCM replacements
+  remain single-player features. Linux/cross-platform netplay is unqualified.
+
 ## 0.10.0 - Crash capture and replay
 
 - Keep recent inputs and game checkpoints automatically, including existing

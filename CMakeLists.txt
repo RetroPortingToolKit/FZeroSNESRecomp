@@ -177,8 +177,9 @@ if(NOT FZERO_GEN_SOURCES)
         "`bash tools/regen.sh` before building.")
 endif()
 
-# The headless host links no SDL at all, so anything in the runner that
-# includes desktop/sdl_compat.h has to be held back from the shared source
+# Hosts select their SDL-dependent helpers explicitly. The headless host uses
+# SDL only for the shared diagnostic writer's thread/atomics, without devices.
+# Everything that includes desktop/sdl_compat.h is held back from the shared source
 # list and handed to the desktop host explicitly. keybinds.c and
 # host_report.c were always in that set; snes_savestate_menu.c and
 # snes_osd.c joined the runner later and pull SDL in for their keycodes and
@@ -305,6 +306,8 @@ function(configure_fzero_target target)
 endfunction()
 
 configure_fzero_target(FZeroSNESRecompHeadless)
+target_sources(FZeroSNESRecompHeadless PRIVATE "${SNESRECOMP_ROOT}/runner/src/diagnostics/replay_writer.c")
+snesrecomp_target_sdl(FZeroSNESRecompHeadless)
 configure_fzero_target(FZeroSNESRecomp)
 snesrecomp_target_post_mortem(FZeroSNESRecomp)
 set(FZERO_DESKTOP_NAME "FZeroSNESRecomp" CACHE STRING "Desktop executable name for isolated experiments")

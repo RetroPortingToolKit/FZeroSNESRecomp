@@ -1843,6 +1843,15 @@ static int run_game(int argc, char **argv) {
   if (!FzeroTracksSelectSaveRoot()) Die(FzeroDeluxeError());
   if (!FzeroMsuSelectSaveRoot()) Die(FzeroMsuError());
   RtlReadSram();
+  /* Same opt-in transport log as Mega Man X's diagnostic recording. Respect
+   * an explicit environment override; the shared stack reads this at setup. */
+  if(online && g_video.crash_replay && !getenv("SNES_NET_DIAG")) {
+#ifdef _WIN32
+    _putenv_s("SNES_NET_DIAG","1");
+#else
+    setenv("SNES_NET_DIAG","1",0);
+#endif
+  }
   if(online && !FzeroNetplayStart(&launcher_settings))Die("Cannot start the negotiated F-Zero netplay session");
   /* After the machine exists: the ring's slots are whole-machine snapshots
    * and it sizes them from a real one. */
@@ -2000,7 +2009,7 @@ static int run_game(int argc, char **argv) {
     else if (!snesrecomp_exe_dir_path("diagnostics",directory,sizeof(directory)))
       snprintf(directory,sizeof(directory),"diagnostics");
     if (!FzeroCaptureReplayLoad()) Die("Unable to restore diagnostic replay");
-  if (!FzeroCaptureStart(!online && g_video.crash_replay && !FzeroCaptureReplayActive(),directory,&g_video))
+  if (!FzeroCaptureStart(g_video.crash_replay && !FzeroCaptureReplayActive(),directory,&g_video))
       fprintf(stderr,"[fzero-replay] Cannot start capture in %s; gameplay continues.\n",directory);
     if (*FzeroCaptureDirectory()) host_report_set_output_directory(FzeroCaptureDirectory());
   }
@@ -2450,6 +2459,7 @@ static int run_game(int argc, char **argv) {
       if(online)FzeroNetplayFinish();
       FzeroDiagnosticsEnd(FZERO_DIAG_PPU, diagnostic_start);
       FzeroCaptureAfter();
+      if(FzeroCaptureReplayFailed()) {g_selftest_failed=1;running=0;break;}
       /* One emulated frame elapsed: the ring captures on its own cadence. */
       if(!online)snes_rewind_note_frame();
       frames++;

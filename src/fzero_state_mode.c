@@ -15,7 +15,7 @@ const char *FzeroStateModeName(FzeroStateMode mode) {
     case kFzeroStateModeStockMsu: return "stock + MSU-1";
     case kFzeroStateModeDeluxeMsu: return "BS F-Zero Deluxe + MSU-1";
     case kFzeroStateModeTrackPack: return "track pack";
-    case kFzeroStateModeLocalVersus: return "local two-player (stock rules 1)";
+    case kFzeroStateModeLocalVersus: return "versus";
     default: return "untagged";
   }
 }

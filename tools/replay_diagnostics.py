@@ -24,7 +24,7 @@ def main():
     a=p.parse_args()
     capture,build,rom,out=(getattr(a,k).resolve() for k in ('capture','build','rom','out'))
     meta=json.loads((capture/'session.json').read_text(encoding='utf-8'))
-    if meta.get('format')!=1 or meta.get('game')!='fzero-usa': p.error('Unsupported capture format')
+    if meta.get('format') not in (1,2) or meta.get('game')!='fzero-usa': p.error('Unsupported capture format')
     executable=build/('FZeroSNESRecomp.exe' if a.desktop else 'FZeroSNESRecompHeadless.exe')
     image=executable.read_bytes()
     for key in ('revision','framework','ui','build','version'):
@@ -57,8 +57,9 @@ def main():
     if (capture/'loader.cfg').is_file(): shutil.copy2(capture/'loader.cfg',out/'replay-settings/loader.cfg')
     (out/'video.ini').write_text(video+'\nCrashReplay=0\n',encoding='utf-8')
     namespace=meta.get('save_namespace','')
-    local=meta.get('mode')=='local-2p'
-    if local and (meta.get('players')!=2 or meta.get('versus_rules')!=1):
+    online=meta.get('mode')=='online'
+    local=meta.get('mode') in ('local-2p','online')
+    if local and (meta.get('players')!=2 or meta.get('versus_rules') not in (1,2,3,4,5,6)):
         p.error('Unsupported local two-player rules')
     if not re.fullmatch(r'(?:local-2p|bs-deluxe(?:/rules-[0-9a-f]{16})?|rules-[0-9a-f]{16})?',namespace):
         p.error('Invalid capture save namespace')
@@ -86,7 +87,7 @@ def main():
             f'DisplayAspect={aspect}\nShader={shader}\n'
             f'[Sound]\nEnableAudio={int(bool(host.get("audio_enabled")))}\nMsu1Enabled={int(msu)}\n'
             '[Rewind]\nEnabled=0\n',encoding='utf-8')
-    env={k:v for k,v in os.environ.items() if not k.startswith(('FZERO_','SNESRECOMP_','SDL_','LNG_'))}
+    env={k:v for k,v in os.environ.items() if not k.startswith(('FZERO_','SNESRECOMP_','SDL_','LNG_','SNES_NET_','SNES_RB','RNET_'))}
     env.update(FZERO_REPLAY_INPUT_FILE=str(route),FZERO_REPLAY_STATE=str(stem.with_suffix('.sav')),
                FZERO_REPLAY_EXECUTION=str(stem.with_suffix('.execution')),
                FZERO_REPLAY_CONTENT_HASH=meta['content_signature'],FZERO_REPLAY_VIDEO=str(out/'video.ini'),
@@ -97,6 +98,14 @@ def main():
                SNESRECOMP_FRAME_BMP=str(out/'final.bmp'),
                SNESRECOMP_AUTOCLOSE_FRAMES=str(len(lines)))
     env['SDL_AUDIODRIVER']='dummy'
+    if meta['format']==2:
+        checks=stem.with_suffix('.frames')
+        if not checks.is_file(): p.error('Missing full-state frame checks')
+        env['FZERO_REPLAY_CHECKS']=str(checks)
+    if online:
+        aspect,view=meta.get('online_aspect'),meta.get('online_view')
+        if aspect not in (0,1,2) or view not in (0,1): p.error('Invalid online capture viewpoint')
+        env['FZERO_REPLAY_ONLINE']=f'{aspect}:{view}'
     if local: env['FZERO_TEST_LOCAL_READY']='1'
     cmd=[str(out/executable.name),str(rom)] if a.desktop else [str(out/executable.name),str(rom),str(len(lines))]
     if local: cmd+=['--local-2p'] if a.desktop else ['--versus','0','0','1']
