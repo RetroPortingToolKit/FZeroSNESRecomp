@@ -902,6 +902,15 @@ int main(int argc, char **argv) {
     bool ok = fwrite(g_sram, 1, g_sram_size, f) == (size_t)g_sram_size;
     if (fclose(f) || !ok) return 10;
   }
+  const char *dsp_dump = getenv("FZERO_TEST_DSP_DUMP");
+  if (dsp_dump && *dsp_dump) {
+    FILE *f = fopen(dsp_dump, "wb");
+    if (!f) return 10;
+    uint8_t registers[128];
+    for(unsigned i=0;i<128;++i)registers[i]=dsp_read(g_snes->apu->dsp,(uint8_t)i);
+    bool ok=fwrite(registers,1,sizeof(registers),f)==sizeof(registers);
+    if(fclose(f) || !ok)return 10;
+  }
   uint32_t audio_samples = g_snes->apu->dsp->sampleWrite;
   AudioTraceStats audio_stats;
   audio_trace_get_stats(&audio_stats);

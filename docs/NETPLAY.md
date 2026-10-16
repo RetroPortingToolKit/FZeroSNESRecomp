@@ -50,6 +50,12 @@ Rewind and diagnostic local replay remain offline features. Rewind is disabled
 during netplay. Native course loading is a bounded deterministic transition,
 followed by the same arrival glide and countdown used in local VS.
 
+The shared SPC timeline switches from the original pre-race program to the
+uploaded course song at GO, as single-player does. The host audio latch retains
+this across pauses, rematches and restored races. `tests/validate_versus_audio.py`
+checks real music-voice envelopes, master volume and captured PCM on stock,
+imported and BS courses; engine noise alone does not pass the check.
+
 ## State and compatibility
 
 `fzero_online.c` reduces admitted pad words into canonical setup/menu state.

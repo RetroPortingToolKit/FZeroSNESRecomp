@@ -24,6 +24,7 @@ def main():
     p.add_argument('--scenario', choices=('selection', 'titleback', 'titlestate', 'driving', 'finish', 'crash', 'state', 'reject', 'menuwrap', 'change'), default='driving')
     p.add_argument('--machines', default='2,3', help='Two stable vehicle IDs (0..11), selected through real menu controls')
     p.add_argument('--cup', type=int, default=0, help='Select this enabled league through synchronized menu inputs')
+    p.add_argument('--course-order', type=int, default=1, help='Zero-based course within the selected league')
     p.add_argument('--aspect', choices=(0, 1, 2), type=int, default=1)
     p.add_argument('--loss', action='store_true')
     p.add_argument('--hd-peer', action='store_true')
@@ -31,6 +32,8 @@ def main():
     p.add_argument('--port', type=int, default=18770)
     p.add_argument('--peers-dir', type=Path, help='Persistent QA installation (default: BUILD/qa-peers); reuse for every case')
     a = p.parse_args()
+    if a.course_order < 0:
+        p.error('course-order must be nonnegative')
     try:
         a.machines = [int(n) for n in a.machines.split(',')]
         assert len(a.machines) == 2 and all(0 <= n < 12 for n in a.machines)
@@ -98,7 +101,11 @@ def main():
                 for cup in range(a.cup):
                     inputs += ',%d-%d:32' % (40 + cup * 10, 42 + cup * 10)
                 delay = a.cup * 10
-                inputs += ',%d-%d:8,%d-%d:32,%d-%d:8' % (40+delay,42+delay,60+delay,62+delay,80+delay,82+delay)
+                inputs += ',%d-%d:8' % (40+delay,42+delay)
+                for course in range(a.course_order):
+                    inputs += ',%d-%d:32' % (60+delay+course*10,62+delay+course*10)
+                confirm = 80+delay+max(0,a.course_order-1)*10
+                inputs += ',%d-%d:8' % (confirm,confirm+2)
             if a.scenario == 'finish':
                 env['FZERO_TEST_ONLINE_FIXTURE'] = 'teleport'
                 if slot == 0 and a.rematch:
@@ -164,7 +171,8 @@ def main():
         finally:
             lock.unlink()
     text = [(a.out / ('peer%d/game.log' % i)).read_text(errors='replace') for i in range(2)]
-    report = dict(scenario=a.scenario, machines=a.machines, aspect=a.aspect, loss=a.loss, hd_peer=a.hd_peer,
+    report = dict(scenario=a.scenario, machines=a.machines, cup=a.cup, course_order=a.course_order,
+                  aspect=a.aspect, loss=a.loss, hd_peer=a.hd_peer,
                   peer_installation=str(a.peers_dir),
                   executable_sha256=hashlib.sha256((a.build / 'FZeroSNESRecomp.exe').read_bytes()).hexdigest(),
                   seconds=round(time.monotonic() - started, 3), exits=[proc.returncode for proc in processes])

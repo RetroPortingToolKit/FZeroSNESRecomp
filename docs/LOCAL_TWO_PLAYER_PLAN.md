@@ -1539,3 +1539,27 @@ All144 ordered-pair damage/speed fixtures, stock CPU parity and the full new-car
 oracle pass after the correction. Final rebuild/handoff evidence is recorded
 in central beads-8uc1 and beads-8wg.5.101. Linux, cross-build compatibility, WAN/
 ICE and physical-controller acceptance are not claimed; owner QA remains open.
+
+
+## Owner stage profile and race-music correction (2026-10-16)
+
+Read-only sampling of both owner QA peers identifies MAX League / Death Storm
+(course88), Black Bull and Fire Stingray. This course has no magnet feature.
+P2's native grid tile has the original crosswind flag; the stock wind routine
+pushes toward the adjacent electric edge. P1 starts on the neighboring repair
+strip, which has no wind. The owner confirms this behavior is acceptable when
+authentic. Wind, terrain and spawn physics are unchanged. Private live captures
+and the decoded profile remain under captures/owner-stage-profile.
+
+The missing race music was a VS handoff bug: the course's correct SPC song was
+already uploaded, but the parked guest never executed AD9F's racing program
+command6 at GO. The owned sound latch now selects native pre-race1/racing6,
+including paused/resumed and older restored race latches. No new audio engine
+or guest-memory swap is involved; single-player is unchanged. A native CPU
+transition check covers countdown, pause-at-GO, racing, restore and rematch.
+The new muted real-SPC/PCM/DSP check verifies multiple music voices and nonzero
+master volume on Death Storm, Mute City, Death Wind, BS Death Wind, and a real
+single-player Death Storm reference. Offline full state/rewind/replay and actual
+online Death Storm driving/loss/HD/resizes/shared-browser/quickload also pass.
+The currently open owner match is retained; the verified update is staged for
+both QA launchers, to install when those instances are reopened.

@@ -1017,6 +1017,20 @@ static void test_display(void) {
 }
 
 static void test_sound(void) {
+  /* The real CPU's GO transition starts the already uploaded course song.
+   * Audio peak/engine tests alone miss a permanently silent music program. */
+  memset(ram,0,sizeof(ram));reference_until(0xad9f,0xada3);unsigned race_music=ram[0x46];CHECK(race_music==6);
+  FzeroSoundState music;FzeroSoundInit(&music,1);
+  FzeroVersusSnapshot start={.phase=FZERO_VS_COUNTDOWN,.countdown=1};
+  CHECK(FzeroSoundTick(&music,&start,true).ports[0]==1);
+  start.pause=1;CHECK(FzeroSoundTick(&music,&start,false).ports[0]==1);
+  start.pause=0;start.phase=FZERO_VS_RACING;
+  CHECK(FzeroSoundTick(&music,&start,true).ports[0]==race_music);
+  start.pause=1;CHECK(FzeroSoundTick(&music,&start,false).ports[0]==race_music);
+  start.pause=0;CHECK(FzeroSoundTick(&music,&start,false).ports[0]==race_music);
+  music.music=1;CHECK(FzeroSoundTick(&music,&start,false).ports[0]==race_music); /* old restored latch */
+  start.phase=FZERO_VS_RESULTS;CHECK(FzeroSoundTick(&music,&start,true).ports[0]==(race_music|128));
+  start.phase=FZERO_VS_COUNTDOWN;CHECK(FzeroSoundTick(&music,&start,true).ports[0]==1);
   for(unsigned sample=0;sample<40000;++sample) {
     FzeroActor a;FzeroActorScratch scratch;randomize(&a,&scratch,sample%4);
     a.sound_flags=(uint8_t)sample;a.sound_flags2=(uint8_t)(sample>>8);a.landing_sound=0;

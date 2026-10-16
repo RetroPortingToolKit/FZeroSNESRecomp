@@ -31,6 +31,11 @@ FzeroSoundCommands FzeroSoundTick(FzeroSoundState *s,const FzeroVersusSnapshot *
   if(!s || !v)return out;
   unsigned phase=v->phase|(v->pause?4:0);
   bool launch=s->phase==FZERO_VS_COUNTDOWN && v->phase==FZERO_VS_RACING && advanced;
+  /* $8CA6 selects the pre-race program; $AD9F selects the uploaded course
+   * song at GO. The parked guest never reaches AD9F during a VS race.
+   * Also repair a resumed/loaded race with the older pre-race audio latch. */
+  if(v->phase==FZERO_VS_COUNTDOWN)s->music=1;
+  else if(v->phase==FZERO_VS_RACING)s->music=6;
   if(s->phase!=phase) {
     if(v->phase==FZERO_VS_COUNTDOWN)s->landing=0;
     if(v->phase==FZERO_VS_RESULTS)s->music|=0x80;
