@@ -94,6 +94,7 @@ static const char *const kQuickPads[] = {"QuickSavePad", "QuickLoadPad"};
 static int g_quick_keys[2], g_quick_pads[2];
 static uint32_t g_previous_quick_actions;
 static FzeroVideoSettings g_video;
+static bool g_gameplay_keyboard=true,g_gameplay_gamepad=true;
 Config g_config;
 static bool g_reset_presentation_clock;
 static const char *kVideoConfig = "fzero-video.ini";
@@ -729,7 +730,7 @@ static uint32_t keyboard_guest_input_for_player(unsigned player) {
   return keyboard_input_from_keys(keys,player);
 }
 
-static uint32_t keyboard_guest_input(void) {return keyboard_guest_input_for_player(0);}
+static uint32_t keyboard_guest_input(void) {return g_gameplay_keyboard?keyboard_guest_input_for_player(0):0;}
 
 static uint32_t quick_actions(SDL_GameController *pad) {
   uint32_t active = 0;
@@ -1314,7 +1315,7 @@ static void overlay_pump_events(int *running, SDL_GameController **pad,
       continue;
     }
     /* A pad plugged in while a panel is up must still be able to drive it. */
-    FzeroGamepadEvent(pad, &event);
+    if(g_gameplay_gamepad)FzeroGamepadEvent(pad, &event);
   }
 }
 
@@ -1381,7 +1382,7 @@ static void selftest_attach(void) {
   const char *v = getenv("FZERO_OVERLAY_SELFTEST");
   g_selftest_frame = v && v[0] ? strtol(v, NULL, 0) : -1;
   g_menu_pad_replay = getenv("FZERO_MENU_PAD_REPLAY") != NULL;
-  if (g_selftest_frame < 0 && !g_menu_pad_replay && !getenv("FZERO_TEST_ONLINE_MENU")) return;
+  if (g_selftest_frame < 0 && !g_menu_pad_replay && !getenv("FZERO_TEST_ONLINE_MENU") && !getenv("FZERO_TEST_ONLINE_SOURCE")) return;
 #if SNESRECOMP_SDL3
   SDL_VirtualJoystickDesc desc;
   SDL_INIT_INTERFACE(&desc);
@@ -1965,9 +1966,15 @@ static int run_game(int argc, char **argv) {
   local_ui_attach();
 
   SDL_GameController *pad = NULL;
+  /* Online clients each own one configured input source. Opening the first
+   * available pad on a keyboard-only client duplicates the other client's
+   * physical controller when testing two instances on one computer. */
+  g_gameplay_keyboard=!online || launcher_settings.player_src[0]==1;
+  g_gameplay_gamepad=!online || launcher_settings.player_src[0]==2;
   FzeroGamepadConfigure(g_config_path, g_selftest_pad ? g_selftest_guid : launcher_settings.player_gamepad_guid[0],
                          launcher_settings.deadzone[0]);
-  FzeroGamepadRefresh(&pad);
+  if(g_gameplay_gamepad)FzeroGamepadRefresh(&pad);
+  if(online)fprintf(stderr,"[fzero-input] online source=%s\n",g_gameplay_gamepad?"gamepad":g_gameplay_keyboard?"keyboard":"none");
   FzeroLocalControls *local_controls=local_two_player && !online?
       FzeroLocalControlsCreate(local_config,getenv("FZERO_TEST_LOCAL_READY")!=NULL):NULL;
   if(local_two_player && !online && !local_controls)Die("Cannot allocate local two-player controls");
@@ -2083,11 +2090,12 @@ static int run_game(int argc, char **argv) {
       FzeroDiagnosticsSample(&diagnostic_frame, false);
     }
     online_menu_test(frames);
+    online_source_test(frames);
     SDL_Event event;
     int panel = 0; /* 0 none, 1 save-state browser, 2 rewind filmstrip */
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) running = 0;
-      FzeroGamepadEvent(&pad, &event);
+      if(g_gameplay_gamepad)FzeroGamepadEvent(&pad, &event);
       if(!FzeroCaptureReplayActive())FzeroLocalControlsEvent(local_controls,&event);
       if(online && snes_savestate_menu_is_open() && event.type==SDL_KEYDOWN) {
         snes_savestate_menu_handle_key((int)SNESRECOMP_SDL_EVENT_KEY(event),

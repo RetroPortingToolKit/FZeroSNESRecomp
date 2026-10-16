@@ -21,7 +21,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     for name in ('build', 'runtime', 'rom', 'packs', 'settings', 'video', 'out'):
         p.add_argument('--' + name, type=Path, required=True)
-    p.add_argument('--scenario', choices=('selection', 'titleback', 'titlestate', 'driving', 'finish', 'crash', 'state', 'reject', 'menuwrap', 'pause', 'change'), default='driving')
+    p.add_argument('--scenario', choices=('selection', 'devices', 'titleback', 'titlestate', 'driving', 'finish', 'crash', 'state', 'reject', 'menuwrap', 'pause', 'change'), default='driving')
     p.add_argument('--machines', default='2,3', help='Two stable vehicle IDs (0..11), selected through real menu controls')
     p.add_argument('--cup', type=int, default=0, help='Select this enabled league through synchronized menu inputs')
     p.add_argument('--course-order', type=int, default=1, help='Zero-based course within the selected league')
@@ -58,7 +58,7 @@ def main():
     lock_fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     os.write(lock_fd, ('%d %s\n' % (os.getpid(), a.out)).encode())
     os.close(lock_fd)
-    frames = dict(selection=550, titleback=600, titlestate=1000, driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, menuwrap=1000, pause=1000, change=1300)[a.scenario]
+    frames = dict(selection=550, devices=700, titleback=600, titlestate=1000, driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, menuwrap=1000, pause=1000, change=1300)[a.scenario]
     if a.scenario != 'selection':
         frames += 460  # Real native boot/title and the synchronized VS action.
     processes, logs = [], []
@@ -81,6 +81,12 @@ def main():
             shutil.copytree(a.build / 'assets', install / 'assets', dirs_exist_ok=True)
             for name in ('config.ini', 'keybinds.ini'):
                 shutil.copy2(a.runtime / name, install / name)
+            if a.scenario == 'devices':
+                config = install / 'config.ini'
+                text = config.read_text()
+                text, count = re.subn(r'(?m)^SourceP1\s*=.*$', 'SourceP1 = ' + str(2 if slot == 0 else 1), text)
+                assert count == 1, 'source fixture needs an explicit SourceP1'
+                config.write_text(text, newline='\n')
             video = a.video.read_text().replace('HDMode7=0', 'HDMode7=' + str(int(slot == 1 and a.hd_peer)))
             (folder / 'video.ini').write_text(video, newline='\n')
             env = {k: v for k, v in os.environ.items() if not k.startswith(
@@ -98,6 +104,8 @@ def main():
                        FZERO_VIEWPORT_SCRIPT=('450:4:3@600x800,550:16:9@1342x1378,650:Fit@1280x720,750:32:9@1600x600,850:21:9@768x576' if slot == 0 else
                                               '450:Fit@1600x600,550:32:9@600x800,650:4:3@1342x1378,750:16:9@1280x720,850:Fit@768x576'))
             inputs = '60-62:1' if a.scenario == 'titleback' else '' if a.scenario == 'selection' else '20-22:8'
+            if a.scenario == 'devices':
+                env['FZERO_TEST_ONLINE_SOURCE'] = '1'
             if slot == 0 and a.scenario not in ('selection', 'titleback'):
                 for cup in range(a.cup):
                     inputs += ',%d-%d:32' % (40 + cup * 10, 42 + cup * 10)
@@ -225,6 +233,10 @@ def main():
         elif a.scenario == 'selection':
             assert shared[-1]['phase'] == '1', 'did not remain in independent selection'
             assert [int(shared[-1]['p1']), int(shared[-1]['p2'])] == a.machines, 'independent choices missing'
+        elif a.scenario == 'devices':
+            assert shared[-1]['phase'] == '1', 'one controller confirmed both participants'
+            assert [int(shared[-1]['p1']), int(shared[-1]['p2'])] == [2, 1], 'controller reached keyboard-only client'
+            assert all('online-source-test: one controller moves/confirms only its configured client PASS' in t for t in text), 'actual SDL device test incomplete'
         else:
             assert any(row['phase'] == '5' for row in shared), 'did not enter race'
             assert all([int(row['p1']), int(row['p2'])] == a.machines for row in shared if row['phase'] == '5'), 'race machine identities differ'

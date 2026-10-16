@@ -22,6 +22,10 @@ the viewport; the same pane renderer accepts a local seat or an online seat,
 so increasing the online field does not require smaller selection panes.
 
 Each person selects and confirms their own machine with ordinary game controls.
+Each online instance honors its configured Player 1 input source. A keyboard-only
+instance does not open or read gamepads, including newly connected devices;
+a gamepad instance does not merge keyboard gameplay input. This permits two
+instances on one computer to use one controller and one keyboard independently.
 After both are ready, the host chooses league and course. The same enabled
 course catalog as single-player is available, including custom imports. Both
 participants need the same build and enabled course packs. Automatic transfer
