@@ -909,3 +909,65 @@ are unqualified; all-course setup success does not establish all-course race
 completion. No Linux validation was performed, per owner direction. The known
 baseline single-player strict rewind clock discrepancy remains separately
 recorded. Do not close the issue or claim all original acceptance gates passed.
+
+
+## Owner QA: title style and resize regression (2026-10-15)
+
+The owner rejected the VS row's mismatched lettering, color and copyright
+spacing, and reported corruption after resizing with an apparently stuck
+countdown at 2. The prior state-only desktop flow was inadequate: it could
+return success while displaying a stale frame. Owner-requested independent
+Astra xhigh QA reproduced the old corruption while all 139 compared local
+simulation records remained identical to the clean run.
+
+Root cause: `FzeroSetViewport` reset the shared native renderer whenever the
+logical width changed. Versus reuses that immutable native asset capture while
+the guest CPU is parked. The next camera publish therefore failed, and the
+old pixel buffer was uploaded with the new width. Resizing now retains native
+assets for an active versus session; ordinary single-player invalidation is
+unchanged. The owner recording subsequently reaches racing with countdown 0,
+supporting the frozen-display explanation for the stuck number.
+
+The title adapter now decodes the actual main-menu letters at `$0C:F800`,
+replacing the unrelated course-introduction font. M/V, absent from the original
+menu words, reuse cartridge shapes with the title font's shading and black
+outline. Native words and VS share 20-pixel row spacing, with clearance above
+the copyright, and the native cursor and selected-row blink. Live native OBJ
+palettes and PPU brightness apply to VS through the title fade. The original
+GP/Practice/Records OBJ art remains.
+
+The desktop validation driver now resizes the actual SDL window during
+countdown and racing to 600x800, 1342x1378, 1280x720, 1600x600 and 768x576. It
+requires valid rendering and fresh HUD pixels, presentation of countdown 3/2/1,
+and progression into racing, alongside native entry/join/Restart/Change/Return.
+Actual logical, physical and renderer dimensions must settle before a capture
+counts. Opt-in captures include composed buffers and real presenter readback
+before swap, plus state/dimension metadata; the first menu image waits for
+native title pixels. A hidden-window option permits muted GPU checks. The
+fixtures do not inject actor or progress outcomes.
+
+Focused Windows CTest: 8/8 pass in 17.23 seconds, including the explicit-ROM
+stock actor oracle, renderer, video, Mode7, gamepad, local controls, hotkeys and
+state-mode checks. Normal one-player input with VS availability off/on reaches
+race scene 02/03 and yields byte-identical 128 KiB RAM: SHA-256
+`89426e6f0098c8db953e283ae7d305e9e9f728cf3fb966bc0e492610aa333247`.
+
+Independent Astra xhigh first-pass QA covers native and HD2 on software,
+Direct3D11 and OpenGL (`sharp.glslp`), with clean presenter images across all
+five sizes. Follow-up QA caught the missing native fade and an asynchronous
+resize capture that still showed the prior size; both are corrected. The final
+binary (SHA-256 `a188e3a701cc62f136bf6c3201069e6acfbdc1f0e92a4e62293d52e8eb5ebaae`)
+passes native/software with Records enabled and HD2/Direct3D11 at 60 Hz, with
+all five requested output sizes verified. Actual countdown 3/2/1 and advancing
+race time render correctly. Native GP and VS foreground RGB sets match exactly
+in both the fade and steady state. The four menu rows are at 104/124/144/164,
+leaving 12 clear rows above the copyright. Evidence remains private under
+`captures/l2p-astra-qa-01` and `captures/l2p-qa-resize`.
+
+These are bounded presentation checks with SDL virtual devices. The UI driver
+holds zero throttle during its racing samples; they establish phase/timer and
+rendering progress, not driven full races. Physical human play, the four
+previously unqualified full-race bot cases, sustained performance and other
+original acceptance gaps remain open in `beads-8uc1`. No Linux validation was
+performed, per owner direction. Dependency pins and private assets are
+unchanged; the absent `snesrecomp` gitlink is not staged.

@@ -3,7 +3,11 @@
  * public human control path. No racer, world or progress injection. */
 #if SNESRECOMP_SDL3
 static SDL_Joystick *local_ui_pads[2];
-static unsigned local_ui_stage,local_ui_step;
+static unsigned local_ui_stage,local_ui_step,local_ui_resizes,local_ui_captured;
+static unsigned local_ui_countdowns;
+static bool local_ui_racing;
+static const unsigned local_ui_resize_ticks[]={10,65,125,220,260};
+static const int local_ui_sizes[][2]={{600,800},{1342,1378},{1280,720},{1600,600},{768,576}};
 static void local_ui_attach(void) {
   if(!getenv("FZERO_TEST_LOCAL_UI"))return;
   for(unsigned p=0;p<2;++p) {
@@ -20,7 +24,7 @@ static void local_ui_attach(void) {
 static void local_ui_button(unsigned player,SDL_GamepadButton button,bool held) {
   SDL_SetJoystickVirtualButton(local_ui_pads[player],button,held);
 }
-static bool local_ui_tick(FzeroLocalControls *controls) {
+static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
   if(!local_ui_pads[0])return false;
   for(unsigned p=0;p<2;++p)for(unsigned b=0;b<15;++b)local_ui_button(p,(SDL_GamepadButton)b,false);
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(FzeroLocalSession());
@@ -41,7 +45,12 @@ static bool local_ui_tick(FzeroLocalControls *controls) {
       if(t>5) {if(setup)Die("UI Ready failed");++local_ui_stage;local_ui_step=0;}
       break;
     case 3: case 5: case 9:
-      if(s && s->tick>=(local_ui_stage==3?200u:12u))local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
+      if(local_ui_stage==3 && s && getenv("FZERO_TEST_LOCAL_UI_RESIZE") && local_ui_resizes<5 &&
+         s->tick>=local_ui_resize_ticks[local_ui_resizes]) {
+        SDL_SetWindowSize(window,local_ui_sizes[local_ui_resizes][0],local_ui_sizes[local_ui_resizes][1]);
+        ++local_ui_resizes;
+      }
+      if(s && s->tick>=(local_ui_stage==3?(getenv("FZERO_TEST_LOCAL_UI_RESIZE")?320u:200u):12u))local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
       if(s && s->pause) {++local_ui_stage;local_ui_step=0;}
       break;
     case 4:
@@ -72,13 +81,76 @@ static bool local_ui_tick(FzeroLocalControls *controls) {
       break;
     case 11:
       if(controls || FzeroLocalEnabled() || g_ram[0x54] || g_ram[0x55]!=1)Die("UI confirmation leaked into single-player");
-      if(t>4) {fprintf(stderr,"local-ui: PASS native VS entry, two SDL devices, preload/Ready, cursor Restart/Change/Main Menu and single-player return\n");return true;}
+      if(t>4) {
+        if(getenv("FZERO_TEST_LOCAL_UI_RESIZE") &&
+           (local_ui_captured!=31 || local_ui_countdowns!=14 || !local_ui_racing))Die("UI resize/countdown presentation coverage incomplete");
+        fprintf(stderr,"local-ui: PASS native VS entry, two SDL devices, preload/Ready, cursor Restart/Change/Main Menu and single-player return\n");return true;}
       break;
     default:break;
   }
   SDL_PumpEvents();return false;
 }
+
+/* Observe the actual composed frame and real presenter before swap. The old
+ * fixture proved menu transitions while accepting a completely corrupt image. */
+static void local_ui_presented(const FzeroPresenter *p) {
+  if(!local_ui_pads[0])return;
+  const char *directory=getenv("FZERO_TEST_LOCAL_UI_DUMP");
+  const FzeroVersusSnapshot *s=FzeroVersusCompleted(FzeroLocalSession());
+  static bool title_captured;
+  char label[64],path[2048];
+  if(!s) {
+    if(!directory || title_captured || g_ram[0x54] || g_ram[0x55]!=1 || g_ram[0xc3])return;
+    /* Scene flags precede the first complete native title image. Wait for
+     * the actual Grand Prix lettering rather than capturing a black frame
+     * containing only our added row. */
+    const uint32_t *frame=FzeroHdFrame();unsigned scale=FzeroHdScale();
+    if(!frame)frame=(const uint32_t *)p->pixels;
+    int width=p->logical_width*(int)scale;unsigned ink=0;
+    for(int y=104*(int)scale;y<120*(int)scale;++y)
+      for(int x=(84+p->viewport.extra)*(int)scale;x<(124+p->viewport.extra)*(int)scale;++x) {
+        uint32_t color=frame[(size_t)y*width+x];
+        if(((color>>8)&255)>((color>>16)&255)+16)++ink;
+      }
+    if(ink<64*scale*scale)return;
+    snprintf(label,sizeof(label),"main-menu");title_captured=true;
+  } else {
+    if(local_ui_stage!=3 || !getenv("FZERO_TEST_LOCAL_UI_RESIZE"))return;
+    if(s->phase==FZERO_VS_COUNTDOWN)local_ui_countdowns|=1u<<((s->countdown+59)/60);
+    if(s->phase==FZERO_VS_RACING)local_ui_racing=true;
+    if(!local_ui_resizes || s->tick<local_ui_resize_ticks[local_ui_resizes-1]+5 ||
+       (local_ui_captured&(1u<<(local_ui_resizes-1))))return;
+    int ww,wh,pw,ph;
+    SDL_GetWindowSize(p->window,&ww,&wh);SDL_GetWindowSizeInPixels(p->window,&pw,&ph);
+    if(ww!=local_ui_sizes[local_ui_resizes-1][0] || wh!=local_ui_sizes[local_ui_resizes-1][1] ||
+       p->drawable_width!=pw || p->drawable_height!=ph)return;
+    unsigned scale=FzeroHdScale();
+    size_t count=(size_t)p->logical_width*448*scale*scale;
+    uint32_t *reference=malloc(count*sizeof(*reference));
+    if(!reference || !FzeroLocalDraw(reference,count,p->viewport,1,scale))Die("UI frame lost its course assets after resize");
+    const uint32_t *actual=FzeroHdFrame();if(!actual)actual=(const uint32_t *)p->pixels;
+    int width=p->logical_width*(int)scale;
+    for(unsigned pane=0;pane<2;++pane)for(int y=3*(int)scale;y<39*(int)scale;++y)
+      for(int x=8*(int)scale;x<80*(int)scale;++x) {
+        size_t index=(size_t)(y+pane*224*scale)*width+x;
+        if(actual[index]!=reference[index])Die("UI displayed stale HUD after resize");
+      }
+    free(reference);local_ui_captured|=1u<<(local_ui_resizes-1);
+    fprintf(stderr,"local-ui-image: resize=%u output=%dx%d width=%d scale=%u tick=%llu phase=%u countdown=%u pause=%u\n",
+        local_ui_resizes,p->drawable_width,p->drawable_height,p->logical_width,scale,
+        (unsigned long long)s->tick,s->phase,s->countdown,s->pause);
+    snprintf(label,sizeof(label),"resize-%u-phase-%u-count-%u",local_ui_resizes,s->phase,(s->countdown+59)/60);
+  }
+  if(directory) {
+    snprintf(path,sizeof(path),"%s/%s-presenter.ppm",directory,label);dump_presenter(p,path);
+    const uint32_t *frame=FzeroHdFrame();unsigned scale=FzeroHdScale();
+    snprintf(path,sizeof(path),"%s/%s-frame.bmp",directory,label);
+    if(!write_frame_bmp(path,frame?(const uint8_t *)frame:p->pixels,p->logical_width*(int)scale,FzeroFrameHeight()*(int)scale))
+      Die("UI frame capture failed");
+  }
+}
 #else
 static void local_ui_attach(void) {}
-static bool local_ui_tick(FzeroLocalControls *controls) {(void)controls;return false;}
+static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {(void)controls;(void)window;return false;}
+static void local_ui_presented(const FzeroPresenter *p) {(void)p;}
 #endif

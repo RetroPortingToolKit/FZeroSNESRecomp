@@ -1097,6 +1097,7 @@ static void overlay_draw_sdl(const FzeroPresenter *p, const uint32_t *panel,
  * defined below, called from present_frame before the buffers are swapped —
  * after a present, what a read-back returns is undefined. */
 static void overlay_dump(const FzeroPresenter *p, int is_menu);
+static void local_ui_presented(const FzeroPresenter *p);
 
 static void present_osd(const FzeroPresenter *p) {
   const uint32_t *image = NULL;
@@ -1150,6 +1151,7 @@ static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
     if (!panel || !is_menu) present_osd(p);
     if (panel) overlay_dump(p, is_menu);
     uint64_t diagnostic_start = FzeroDiagnosticsBegin();
+    local_ui_presented(p);
     SDL_GL_SwapWindow(p->gl->window);
     FzeroDiagnosticsEnd(FZERO_DIAG_PRESENT, diagnostic_start);
     return;
@@ -1170,6 +1172,7 @@ static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
   if (panel) overlay_dump(p, is_menu);
   FzeroDiagnosticsEnd(FZERO_DIAG_DRAW, diagnostic_start);
   diagnostic_start = FzeroDiagnosticsBegin();
+  local_ui_presented(p);
   SDL_RenderPresent(p->renderer);
   FzeroDiagnosticsEnd(FZERO_DIAG_PRESENT, diagnostic_start);
 }
@@ -1201,12 +1204,7 @@ static void write_ppm(const char *path, const uint8_t *argb, int w, int h,
   fclose(f);
 }
 
-static void overlay_dump(const FzeroPresenter *p, int is_menu) {
-  static int dumped_menu = 0, dumped_rewind = 0;
-  int *dumped = is_menu ? &dumped_menu : &dumped_rewind;
-  const char *path =
-      getenv(is_menu ? "FZERO_OVERLAY_DUMP" : "FZERO_REWIND_DUMP");
-  if (!path || !path[0] || *dumped) return;
+static void dump_presenter(const FzeroPresenter *p,const char *path) {
   const int w = p->drawable_width, h = p->drawable_height;
   if (w <= 0 || h <= 0) return;
 
@@ -1239,8 +1237,17 @@ static void overlay_dump(const FzeroPresenter *p, int is_menu) {
     free(buf);
 #endif
   }
+}
+
+static void overlay_dump(const FzeroPresenter *p, int is_menu) {
+  static int dumped_menu = 0, dumped_rewind = 0;
+  int *dumped = is_menu ? &dumped_menu : &dumped_rewind;
+  const char *path =
+      getenv(is_menu ? "FZERO_OVERLAY_DUMP" : "FZERO_REWIND_DUMP");
+  if (!path || !path[0] || *dumped) return;
+  dump_presenter(p,path);
   *dumped = 1;
-  fprintf(stderr, "[fzero-overlay] wrote %s (%dx%d, %s)\n", path, w, h,
+  fprintf(stderr, "[fzero-overlay] wrote %s (%dx%d, %s)\n", path, p->drawable_width, p->drawable_height,
           is_menu ? "save-state browser" : "rewind filmstrip");
 }
 
@@ -1844,7 +1851,8 @@ int main(int argc, char **argv) {
   SDL_Window *window = snesrecomp_sdl_create_window(
       kWindowTitle, 256 * window_scale, 192 * window_scale,
       SDL_WINDOW_RESIZABLE | kHighDpiFlag |
-          (use_gl_renderer ? SDL_WINDOW_OPENGL : 0));
+          (use_gl_renderer ? SDL_WINDOW_OPENGL : 0) |
+          (getenv("FZERO_TEST_LOCAL_UI_HIDDEN")?SDL_WINDOW_HIDDEN:0));
   if (!window) Die("Unable to create the game window");
   if (launcher_settings.fullscreen)
     snesrecomp_sdl_set_fullscreen(window, true);
@@ -2152,7 +2160,7 @@ int main(int argc, char **argv) {
       }
     }
 
-    if(local_ui_tick(local_controls)) {running=0;break;}
+    if(local_ui_tick(local_controls,window)) {running=0;break;}
     if(!local_two_player && !FzeroCaptureReplayActive() && FzeroVsMenuRequested()) {
       snesrecomp_sdl_pause_audio_device(audio,true);SDL_LockMutex(g_audio_mutex);
       FzeroCaptureStop();snes_rewind_shutdown();FzeroStateGuardDisarm();

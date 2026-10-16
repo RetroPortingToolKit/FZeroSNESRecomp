@@ -379,7 +379,9 @@ int FzeroFrameHeight(void) { return FzeroLocalEnabled()?448:224; }
 
 void FzeroSetViewport(FzeroViewport viewport) {
   if (viewport.width != s_viewport.width) {
-    FzeroRendererReset();
+    /* Versus parks the native CPU and reuses this course asset capture.
+     * A viewport change invalidates presentation, not those immutable assets. */
+    if(!FzeroLocalSession())FzeroRendererReset();
     s_hd_ready = false;
   }
   s_viewport = viewport;

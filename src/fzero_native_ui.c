@@ -71,8 +71,35 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
     }
   }
   for(unsigned i=0;i<16;++i) {
-    ui->title_palette[i]=rgb(word(t,0x0fcd00+i*2));
+    for(unsigned p=0;p<2;++p)ui->title_palette[p][i]=rgb(word(t,0x0fc300+p*32+i*2));
     ui->effect_palette[i]=rgb(word(t,0x0fcd60+i*2));
+  }
+  /* The title menu has its own 8x16 OBJ alphabet and green scanline shading,
+   * distinct from course introductions. These are the exact native word tiles
+   * uploaded at $120..$156. M/V are absent from those words; retain their
+   * cartridge shapes with the title menu's row colors and black outline. */
+  static const struct {char letter;unsigned address;} title_glyphs[]={
+    {'G',0x0cf800},{'R',0x0cf820},{'A',0x0cf840},{'N',0x0cf860},
+    {'D',0x0cf880},{'P',0x0cf8c0},{'I',0x0cf900},{'X',0x0cf920},
+    {'E',0x0cf960},{'C',0x0cf980},{'O',0x0cf9a0},{'T',0x0cfc40},{'S',0x0cfcc0}};
+  for(unsigned n=0;n<sizeof(title_glyphs)/sizeof(*title_glyphs);++n)
+    for(unsigned half=0;half<2;++half)
+      decode(ui->title_letters[title_glyphs[n].letter-'A']+half*64,t,title_glyphs[n].address+half*0x200,4);
+  for(unsigned n=0;n<2;++n) {
+    unsigned letter=n?'V':'M',id=n?0xa3:0x8a;
+    uint8_t *glyph=ui->title_letters[letter-'A'];
+    for(unsigned y=1;y<15;++y)for(unsigned x=0;x<8;++x) {
+      unsigned sy=(n?2:3)+(y-1)*(n?11:10)/14;
+      if(ui->objects[id+(sy/8)*16][(sy&7)*8+x]==3)
+        glyph[y*8+x]=ui->title_letters['I'-'A'][y*8+3];
+    }
+    /* Main-menu letters use a black outline rather than the introduction's
+     * bright left edge and drop shadow. Keep that same outline on M and V. */
+    for(int y=0;y<16;++y)for(int x=0;x<8;++x)if(glyph[y*8+x] && glyph[y*8+x]!=5)
+      for(int dy=-1;dy<=1;++dy)for(int dx=-1;dx<=1;++dx) {
+        int xx=x+dx,yy=y+dy;
+        if(xx>=0 && xx<8 && yy>=0 && yy<16 && !glyph[yy*8+xx])glyph[yy*8+xx]=5;
+      }
   }
   /* Native $ED6A..$EED1 explosion frames: the first four use big OBJ
    * offsets; the remaining six expand paired 16x16 layouts from $FED9. */
@@ -215,11 +242,11 @@ void FzeroUiExplosion(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsign
     }
   }
 }
-void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text) {
-  static const unsigned letters[]={0x64,0x65,0x66,0x67,0x68,0x69,0x6a,0x6b,0x8e,0x6c,0x6e,0x6f,0x8a,0x8b,0x8c,0x8d,0x6d,0x8f,0xa0,0xa1,0xa2,0xa3,0xa4,0xa6,0xa5,0xa7};
+void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text,bool dim) {
   if(!ui || !ui->valid || !text)return;
   for(;*text;++text,x+=8)if(*text>='A' && *text<='Z') {
-    unsigned id=letters[*text-'A'];tile(ui->objects[id],ui->title_palette,c,x,y,false,false);
-    tile(ui->objects[id+16],ui->title_palette,c,x,y+8,false,false);
+    const uint8_t *glyph=ui->title_letters[*text-'A'];
+    tile(glyph,ui->title_palette[dim],c,x,y,false,false);
+    tile(glyph+64,ui->title_palette[dim],c,x,y+8,false,false);
   }
 }
