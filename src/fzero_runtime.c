@@ -30,6 +30,7 @@
 #include "fzero_gameplay.h"
 #include "fzero_vehicles.h"
 #include "fzero_local.h"
+#include "snapshot_guard.h"
 #include "snes_overlay_draw.h"
 
 #include "common_rtl.h"
@@ -72,6 +73,7 @@ static bool s_initialized;
 static uint32_t s_resume_pc;
 static uint64_t s_next_frame_master;
 static unsigned s_host_frames;
+static bool s_restoring_local_assets;
 static int s_last_lle_result = 1;
 static uint8_t s_frame_hdmaen;
 static bool s_loaded_runtime_state;
@@ -434,7 +436,7 @@ static void hdma_write_bus(void *context, uint8_t reg, uint8_t value) {
 }
 
 void FzeroDrawPpuFrame(void) {
-  if(FzeroLocalSession()) {if(!s_deferred_presentation)FzeroPresent(1);return;}
+  if(FzeroLocalSession() && !s_restoring_local_assets) {if(!s_deferred_presentation)FzeroPresent(1);return;}
   const bool capture = FzeroLocalEnabled() || s_viewport.enhanced || s_hd_scale || getenv("FZERO_CAPTURE_FRAME") != NULL ||
                        getenv("FZERO_CAPTURE_FRAMES") != NULL;
   if (capture) {
@@ -563,13 +565,14 @@ void FzeroDrawPpuFrame(void) {
   if (capture) {
     FzeroRendererEndFrame(g_ppu, s_stock_pixels);
     if (s_viewport.enhanced || s_hd_scale) {
-      if (!s_deferred_presentation) FzeroPresent(1);
+      if (!s_deferred_presentation && !s_restoring_local_assets) FzeroPresent(1);
     }
-    if (!s_viewport.enhanced) for (unsigned y = 0; y < 224; ++y)
+    if (!s_restoring_local_assets && s_output_pixels && !s_viewport.enhanced) for (unsigned y = 0; y < 224; ++y)
         memcpy(s_output_pixels + y * s_output_pitch, s_stock_pixels + y * 256, 256 * 4);
-    PpuBeginDrawing(g_ppu, s_output_pixels, s_output_pitch, kPpuRenderFlags_NewRenderer);
+    if(s_output_pixels)PpuBeginDrawing(g_ppu, s_output_pixels, s_output_pitch, kPpuRenderFlags_NewRenderer);
   }
-  if(!s_viewport.enhanced)FzeroTracksOverlay((uint32_t *)s_output_pixels,256,224,s_output_pitch);
+  if(!s_restoring_local_assets && s_output_pixels && !s_viewport.enhanced)
+    FzeroTracksOverlay((uint32_t *)s_output_pixels,256,224,s_output_pitch);
   FzeroVehiclesEndFrame(g_ppu);
 
   /* Window bounds are hardware latches, including when the next scene turns
@@ -647,6 +650,7 @@ static size_t s_state_guard_len;
 static size_t s_state_guard_cap;
 
 FzeroStateMode FzeroStateModeCurrent(void) {
+  if (FzeroLocalEnabled()) return kFzeroStateModeLocalVersus;
   if (FzeroTracksStateActive()) return kFzeroStateModeTrackPack;
   if (FzeroMsuActive()) return FzeroDeluxeActive() ? kFzeroStateModeDeluxeMsu : kFzeroStateModeStockMsu;
   return FzeroDeluxeActive() ? kFzeroStateModeDeluxe : kFzeroStateModeStock;
@@ -681,7 +685,15 @@ typedef struct FzeroRuntimeState {
 } FzeroRuntimeState;
 
 static void fzero_state_save_extra(SaveLoadInfo *sli) {
-  if (FzeroTracksStateActive()) RtlSaveExecutionState(sli);
+  if (FzeroLocalEnabled()) {
+    size_t size=FzeroLocalSaveSize();uint8_t *image=calloc(1,size);
+    if(image) {FzeroLocalSave(image,size);sli->func(sli,image,size);free(image);}
+    else { /* Invalid image is refused by preflight, never partially resumed. */
+      uint8_t zero[32]={0};
+      while(size){size_t n=size<sizeof(zero)?size:sizeof(zero);sli->func(sli,zero,n);size-=n;}
+    }
+  }
+  if (FzeroTracksStateActive() || FzeroLocalEnabled()) RtlSaveExecutionState(sli);
   FzeroRuntimeState state;
   memset(&state, 0, sizeof(state));
   state.magic = kFzeroStateMagic;
@@ -723,14 +735,21 @@ static void fzero_state_save_extra(SaveLoadInfo *sli) {
 static void fzero_state_load_extra(SaveLoadInfo *sli, uint32_t version) {
   FzeroRuntimeState state;
   (void)version;
-  if (FzeroTracksStateActive() && !RtlLoadExecutionState(sli)) {
+  uint8_t *local=NULL;
+  if(FzeroLocalEnabled()) {
+    local=malloc(FzeroLocalSaveSize());
+    if(!local) {s_loaded_runtime_state=false;s_state_mode_refused=true;return;}
+    sli->func(sli,local,FzeroLocalSaveSize());
+  }
+  if ((FzeroTracksStateActive() || FzeroLocalEnabled()) && !RtlLoadExecutionState(sli)) {
+    free(local);
     s_loaded_runtime_state = false; s_state_mode_refused = true; return;
   }
   memset(&state, 0, sizeof(state));
   sli->func(sli, &state, sizeof(state));
   s_loaded_runtime_state = state.magic == kFzeroStateMagic &&
                            state.version == kFzeroStateVersion;
-  if (!s_loaded_runtime_state) return;
+  if (!s_loaded_runtime_state) {free(local);return;}
 
   uint8_t content_hash[32] = {0};
   if (state.mode == kFzeroStateModeTrackPack) sli->func(sli, content_hash, sizeof(content_hash));
@@ -750,7 +769,13 @@ static void fzero_state_load_extra(SaveLoadInfo *sli, uint32_t version) {
             FzeroStateModeName(FzeroStateModeCurrent()));
     s_loaded_runtime_state = false;
     s_state_mode_refused = true;
+    free(local);
     return;
+  }
+
+  if(local) {
+    bool ok=FzeroLocalRestore(local,FzeroLocalSaveSize());free(local);
+    if(!ok){s_loaded_runtime_state=false;s_state_mode_refused=true;return;}
   }
 
   if(state.mode == kFzeroStateModeTrackPack)FzeroTracksSaveState(sli, true);
@@ -788,13 +813,56 @@ static const FzeroStateTrailer kFzeroStateTrailer = {
     sizeof(FzeroRuntimeState), offsetof(FzeroRuntimeState, mode),
     kFzeroStateMagic, kFzeroStateVersion};
 
+static const char *fzero_snapshot_identity(void) {
+  return FzeroLocalEnabled()?"fzero-local-2p-v1":NULL;
+}
+static bool fzero_snapshot_preflight(const void *data,size_t size) {
+  if(!FzeroLocalEnabled())return true;
+  FzeroStateMode mode;
+  uint32_t version=0;size_t guest=RtlSnapshotGuestSize(&version);
+  uint32_t header[2]={0};if(size>=sizeof(header))memcpy(header,data,sizeof(header));
+  size_t total=RtlSaveSnapshotToMemory(NULL,0);
+  return guest && total>SNES_SNAPSHOT_GUARD_OVERHEAD &&
+      size==total-SNES_SNAPSHOT_GUARD_OVERHEAD && header[1]==version &&
+      size>=guest+FzeroLocalSaveSize()+sizeof(FzeroRuntimeState) &&
+      FzeroStateProbeBytes(data,size,&kFzeroStateTrailer,&mode) && mode==kFzeroStateModeLocalVersus &&
+      FzeroLocalValidate((const uint8_t *)data+guest,FzeroLocalSaveSize());
+}
+/* File preflight also serves direct host loads. Every other engine entry
+ * (browser, rewind, memory) uses the same identity and preflight callbacks. */
+static uint8_t *local_state_file(const char *path,size_t *size) {
+  FILE *f=fopen(path,"rb");if(!f)return NULL;
+  uint8_t *data=NULL;
+  if(!fseek(f,0,SEEK_END)) {
+    long end=ftell(f);
+    if(end>0 && end<=8*1024*1024 && !fseek(f,0,SEEK_SET)) {
+      data=malloc((size_t)end);
+      if(data && fread(data,1,(size_t)end,f)!=(size_t)end){free(data);data=NULL;}
+      if(data)*size=(size_t)end;
+    }
+  }
+  fclose(f);return data;
+}
+
 int FzeroStateFileMode(const char *path, FzeroStateMode *out) {
+  if(FzeroLocalEnabled()) {
+    size_t size=0,length=0;const void *payload=NULL;uint8_t *data=local_state_file(path,&size);
+    int ok=data && snes_snapshot_guard_open(data,size,fzero_snapshot_identity(),&payload,&length) &&
+        FzeroStateProbeBytes(payload,length,&kFzeroStateTrailer,out);
+    free(data);return ok;
+  }
   FzeroStateTrailer layout = kFzeroStateTrailer;
   if (FzeroTracksStateActive()) layout.size += 32 + FzeroTracksSaveStateSize();
   return FzeroStateProbeFile(path, &layout, out);
 }
 
 int FzeroStateFileAcceptable(const char *path) {
+  if(FzeroLocalEnabled()) {
+    size_t size=0,length=0;const void *payload=NULL;uint8_t *data=local_state_file(path,&size);
+    int ok=data && snes_snapshot_guard_open(data,size,fzero_snapshot_identity(),&payload,&length) &&
+        fzero_snapshot_preflight(payload,length);
+    free(data);return ok;
+  }
   FzeroStateMode mode = kFzeroStateModeUnknown;
   /* A file with no readable trailer is refused rather than guessed at: every
    * snapshot this game has ever written carries one, so its absence means the
@@ -883,7 +951,16 @@ static void fzero_on_state_loaded(uint32_t version) {
   interp_bridge_set_master_deadline(0);
   s_loaded_runtime_state = false;
   FzeroMsuRestoreAudio(g_ram);
-  if (FzeroTracksStateActive()) RtlApplyExecutionState();
+  if (FzeroTracksStateActive() || FzeroLocalEnabled()) RtlApplyExecutionState();
+
+  if(FzeroLocalEnabled()) {
+    /* Rebuild immutable assets without executing a guest instruction. The
+     * session image owns terrain mutations; the native snapshot owns VRAM,
+     * palettes, raster registers and the parked bootstrap's RAM. */
+    memcpy(s_published_ram,g_ram,sizeof(s_published_ram));
+    s_restoring_local_assets=true;FzeroDrawPpuFrame();s_restoring_local_assets=false;
+    FzeroLocalResetViews();
+  }
 
   /* The legacy PPU snapshot chunk omits VMAIN. Deluxe records rely on the
    * $80 latch retained from native video setup (e.g. $008439).
@@ -917,7 +994,15 @@ static const RtlGameInfo kFzeroGameInfo = {
     .session_reset = session_reset,
 };
 
+const RtlGameInfo *FzeroLocalGameInfo(void) {
+  static RtlGameInfo local;
+  local=kFzeroGameInfo;local.title="f_zero_local_2p";local.save_name_prefix="fzero-local-2p";
+  local.snapshot_guard_identity=fzero_snapshot_identity;local.snapshot_preflight=fzero_snapshot_preflight;
+  return &local;
+}
+
 const RtlGameInfo *FzeroGameInfo(void) {
+  if(FzeroLocalEnabled())return FzeroLocalGameInfo();
   static RtlGameInfo deluxe;
   /* Records visibility alone must retain the existing save-slot prefix. */
   if (FzeroTracksActive() || FzeroTitleHash()) {

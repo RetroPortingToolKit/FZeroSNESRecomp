@@ -14,3 +14,16 @@ void FzeroLocalCapture(void);
 void FzeroLocalPublish(void);
 bool FzeroLocalDraw(uint32_t *output,size_t capacity,FzeroViewport viewport,double alpha,unsigned scale);
 void FzeroLocalResetViews(void);
+bool FzeroLocalSelectSaveRoot(void);
+FzeroVersusConfig FzeroLocalConfig(void);
+/* Fixed-size host bridge image, including native setup before handoff.
+ * Validation is read-only; restore replaces the session atomically. Asset
+ * captures are rebuilt from the accompanying native PPU snapshot afterwards. */
+size_t FzeroLocalSaveSize(void);
+bool FzeroLocalSave(void *output,size_t size);
+bool FzeroLocalValidate(const void *input,size_t size);
+bool FzeroLocalRestore(const void *input,size_t size);
+/* External control transitions create a new crash-replay checkpoint. Device
+ * handles remain host-owned; the resulting complete session is captured. */
+uint64_t FzeroLocalEpoch(void);
+void FzeroLocalControlChanged(void);

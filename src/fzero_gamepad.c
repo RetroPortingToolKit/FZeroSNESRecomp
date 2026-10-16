@@ -8,6 +8,7 @@
 static char s_config[1024], s_preferred[40];
 static uint32_t s_bind[12];
 static int s_default_deadzone, s_deadzone;
+static unsigned s_profile_generation;
 
 /* SDL's standard button indices are shared by SDL2 and SDL3. Triggers are
  * axes, represented here by bits 15/16 after the standard fifteen buttons. */
@@ -79,6 +80,7 @@ static void load_map(SDL_GameController *pad,uint32_t out[12],int *deadzone,int 
 static void load_profile(SDL_GameController *pad) {load_map(pad,s_bind,&s_deadzone,-1);}
 
 void FzeroGamepadConfigure(const char *config, const char *guid, int deadzone) {
+  ++s_profile_generation;
   snprintf(s_config, sizeof(s_config), "%s", config ? config : "config.ini");
   snprintf(s_preferred, sizeof(s_preferred), "%s", guid ? guid : "");
   s_default_deadzone = deadzone >= 0 && deadzone <= 100 ? deadzone : 25;
@@ -192,10 +194,11 @@ uint32_t FzeroGamepadReadShortcuts(SDL_GameController *pad,const int *bindings,u
 }
 uint32_t FzeroGamepadReadPlayer(SDL_GameController *pad,unsigned player) {
   if(player>=2 || !pad || !SDL_GameControllerGetAttached(pad))return 0;
-  static struct {SDL_JoystickID id;uint32_t map[12];int deadzone;bool valid;} profiles[2];
+  static struct {SDL_JoystickID id;uint32_t map[12];int deadzone;bool valid;unsigned generation;} profiles[2];
   SDL_JoystickID id=SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad));
-  if(!profiles[player].valid || profiles[player].id!=id) {
+  if(!profiles[player].valid || profiles[player].id!=id || profiles[player].generation!=s_profile_generation) {
     load_map(pad,profiles[player].map,&profiles[player].deadzone,(int)player);profiles[player].id=id;profiles[player].valid=true;
+    profiles[player].generation=s_profile_generation;
   }
   return read_map(pad,profiles[player].map,profiles[player].deadzone,NULL,0,NULL);
 }

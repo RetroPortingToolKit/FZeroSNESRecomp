@@ -54,6 +54,9 @@ const uint8_t *FzeroVersusWorld(const FzeroVersus *session);
  * expected may be NULL when the host permits loading a different stock race. */
 size_t FzeroVersusSaveSize(void);
 bool FzeroVersusSave(const FzeroVersus *session,void *output,size_t size);
+/* Allocate a fully validated session without needing a pre-existing race. */
+FzeroVersus *FzeroVersusDecode(const void *input,size_t size,FzeroActorTables tables,
+                              const FzeroVersusConfig *expected);
 bool FzeroVersusRestore(FzeroVersus *session,const void *input,size_t size,
                         const FzeroVersusConfig *expected);
 uint64_t FzeroVersusHash(const FzeroVersus *session);

@@ -12,7 +12,7 @@ struct FzeroLocalControls {
   FzeroVersusConfig config;
   int seat[2];
   uint32_t previous[2],input[2],keyboard;
-  bool setup,ready[2],release[2],scan;
+  bool setup,ready[2],release[2],scan,scripted;
 };
 static const char *machines[] = {"BLUE FALCON","WILD GOOSE","GOLDEN FOX","FIRE STINGRAY"};
 static const char *courses[] = {"MUTE CITY I","BIG BLUE","SAND OCEAN","DEATH WIND I","SILENCE",
@@ -20,7 +20,7 @@ static const char *courses[] = {"MUTE CITY I","BIG BLUE","SAND OCEAN","DEATH WIN
   "MUTE CITY III","DEATH WIND II","PORT TOWN II","RED CANYON II","FIRE FIELD"};
 FzeroLocalControls *FzeroLocalControlsCreate(FzeroVersusConfig config,bool scripted) {
   FzeroLocalControls *c=calloc(1,sizeof(*c));if(!c)return NULL;
-  c->config=config;c->seat[0]=c->seat[1]=NO_DEVICE;c->setup=!scripted;c->scan=true;return c;
+  c->config=config;c->seat[0]=c->seat[1]=NO_DEVICE;c->setup=!scripted;c->scripted=scripted;c->scan=true;return c;
 }
 void FzeroLocalControlsDestroy(FzeroLocalControls *c) {
   if(!c)return;
@@ -38,6 +38,7 @@ void FzeroLocalControlsEvent(FzeroLocalControls *c,const SDL_Event *event) {
 #endif
   if(focus_lost && FzeroLocalSession()) {
     FzeroVersusPause(FzeroLocalSession(),FZERO_VS_PAUSE_FOCUS);
+    FzeroLocalControlChanged();
     for(unsigned i=0;i<2;++i){c->input[i]=0;c->release[i]=true;}
   }
 }
@@ -47,6 +48,7 @@ static void scan_pads(FzeroLocalControls *c) {
     for(unsigned p=0;p<2;++p)if(c->seat[p]==(int)i) {
       c->seat[p]=NO_DEVICE;c->ready[p]=false;c->input[p]=0;c->release[p]=true;
       if(FzeroLocalSession())FzeroVersusPause(FzeroLocalSession(),FZERO_VS_PAUSE_DEVICE1<<p);
+      if(FzeroLocalSession())FzeroLocalControlChanged();
     }
   }
 #if SNESRECOMP_SDL3
@@ -87,7 +89,16 @@ static void join(FzeroLocalControls *c,int device) {
 }
 unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
   if(!c)return 0;
+  if(!c->setup && FzeroLocalSession())c->config=FzeroLocalConfig();
   if(c->scan)scan_pads(c);
+  if(!c->scripted && !c->setup && FzeroLocalSession()) {
+    unsigned missing=(c->seat[0]==NO_DEVICE?FZERO_VS_PAUSE_DEVICE1:0)|
+        (c->seat[1]==NO_DEVICE?FZERO_VS_PAUSE_DEVICE2:0);
+    if(missing&~FzeroVersusCompleted(FzeroLocalSession())->pause) {
+      FzeroVersusPause(FzeroLocalSession(),missing);FzeroLocalControlChanged();
+      c->release[0]=c->release[1]=true;c->input[0]=c->input[1]=0;
+    }
+  }
   if((keyboard&8) && !(c->keyboard&8))join(c,KEYBOARD);
   c->keyboard=keyboard;
   for(unsigned i=0;i<MAX_PADS;++i)if(c->pads[i].handle) {
@@ -113,14 +124,15 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
       if(v->phase==FZERO_VS_RESULTS) {
         if(pressed&1) {
           FzeroVersusRematch(FzeroLocalSession());FzeroVersusReady(FzeroLocalSession(),0,true);FzeroVersusReady(FzeroLocalSession(),1,true);
-          FzeroLocalResetViews();c->release[0]=c->release[1]=true;c->input[0]=c->input[1]=0;
+          FzeroLocalControlChanged();c->release[0]=c->release[1]=true;c->input[0]=c->input[1]=0;
         }
         if(pressed&2){c->setup=true;c->ready[0]=c->ready[1]=false;action|=FZERO_LOCAL_CHANGE;}
       } else if(v->pause) {
         if((pressed&8) && c->seat[0]!=NO_DEVICE && c->seat[1]!=NO_DEVICE) {
           FzeroVersusResume(FzeroLocalSession());c->release[0]=c->release[1]=true;c->input[0]=c->input[1]=0;
+          FzeroLocalControlChanged();
         }
-        if(pressed&0x200) {FzeroVersusEndRace(FzeroLocalSession());FzeroVersusResume(FzeroLocalSession());}
+        if(pressed&0x200) {FzeroVersusEndRace(FzeroLocalSession());FzeroVersusResume(FzeroLocalSession());FzeroLocalControlChanged();}
       }
     }
   }
@@ -132,6 +144,18 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
 FzeroVersusConfig FzeroLocalControlsConfig(const FzeroLocalControls *c) {return c->config;}
 uint32_t FzeroLocalControlsInput(const FzeroLocalControls *c) {return c?c->input[0]|(c->input[1]<<12):0;}
 bool FzeroLocalControlsSetup(const FzeroLocalControls *c) {return c && c->setup;}
+void FzeroLocalControlsLoaded(FzeroLocalControls *c) {
+  if(!c)return;
+  c->config=FzeroLocalConfig();c->setup=false;
+  c->previous[0]=c->previous[1]=c->input[0]=c->input[1]=0;
+  c->release[0]=c->release[1]=true;
+}
+void FzeroLocalControlsReopen(FzeroLocalControls *c) {
+  if(!c)return;
+  c->setup=true;c->ready[0]=c->ready[1]=false;
+  c->previous[0]=c->previous[1]=c->input[0]=c->input[1]=0;
+  c->release[0]=c->release[1]=true;
+}
 void FzeroLocalControlsDraw(const FzeroLocalControls *c,uint32_t *pixels,int width,int height) {
   if(!c || !pixels || !c->setup || width<256 || height<448)return;
   for(int i=0;i<width*height;++i)pixels[i]=0xff111625;

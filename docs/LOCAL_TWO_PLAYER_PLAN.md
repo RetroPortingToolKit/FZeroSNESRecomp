@@ -609,3 +609,86 @@ For development iterations, `FZERO_STAGE_RELEASE_CONTENT=OFF` skips optional
 pack/music post-link staging; the default remains ON for ordinary/release
 builds. Windows CMake uses native Git explicitly, avoiding the cached MSYS
 Git shim. Neither change alters dependency pins or source identity checks.
+
+## Windows session lifecycle milestone (2026-10-15)
+
+Host integration was committed as `d69a170`. Whole-session host persistence
+now wraps the native snapshot in the pinned engine's existing checksummed
+envelope, identity `fzero-local-2p-v1`, and validates the canonical session
+before any guest writes. Native bootstrap state, both humans, countdown,
+progress/results, current/initial terrain, and execution/audio clocks travel
+together through disk slots, quick saves, the rewind ring and crash captures.
+The fixed legacy single-player trailer and its snapshot callbacks are retained.
+
+Versus selects `<save root>/local-2p` before reading battery RAM, with slot
+prefix `fzero-local-2p`; quick saves use that root too. The host prefix retains
+setup frame/configuration before the authoritative handoff. A fresh load may
+adopt a different stock course/machine configuration from its complete image.
+Device handles remain external; live loads clear held host controls, preserve
+device ownership, and require explicit assignment/resume if a seat is missing.
+Reset reopens local setup. Rebuilding captured native assets after load does
+not run another guest instruction or require an existing output framebuffer.
+
+The native handoff now extracts authored course data rather than copying all
+guest camera/HUD/scratch memory into the authoritative hash. Extraction follows
+all 512 grid cells through block rows and tile groups, retains crater groups
+and checkpoint/branch/recovery metadata, and zeros unrelated memory. The oracle
+checks all 524,288 surface cells, extraction idempotence and scratch exclusion.
+The core still receives a complete immutable shared map at its existing API.
+
+Crash capture identifies mode, player count and versus rules; each versus row
+contains both packed inputs and the shared race hash. External focus/device/
+resume/rematch transitions start new complete checkpoints. Diagnostic replay
+ignores live device/focus transitions; normal play still freezes on focus loss.
+The replay support tool selects versus explicitly from recorded metadata and
+defaults to dummy audio. Legacy nine-column single-player input rows remain
+supported. `tests/validate_local_versus.py` is the private-ROM lifecycle driver.
+
+Windows validation:
+
+- Desktop/headless builds pass with unchanged pins. CTest 17/17 passes
+  (185.55 seconds), including the expanded oracle and real shared-core virtual
+  controller fixture. The latter covers separate bindings, ready/duplicate
+  machines/replacement, manual and focus pause/resume, end/rematch/change,
+  load/reset setup and a disconnected seat that cannot resume accidentally.
+- All 15 courses pass ordinary native setup and handoff with distinct legal
+  spawns; machine combinations include duplicate choices. These 1,800-frame
+  routes are setup checks, not completed five-lap stock races.
+- Actual disk loads and ring rewind preserve RAM, master clock and race hash
+  across bootstrap (frame 1,000), countdown (1,650) and racing (2,000).
+  Fresh processes continue all three checkpoints to the same tick 687 / race
+  tick 507 and hash `da14e581ab108d4d`, including when startup options selected
+  another course/machine pair. Fit/4:3/32:9/16:9 and large window changes reach
+  the same shared hash. No physics outcomes were injected.
+- Headless crash replay reaches that same hash. Deliberately changing its
+  recorded race hash triggers divergence. Actual in-process memory loads of
+  corrupt identity/guest/checksum, truncated data, and an invalid course in a
+  correctly resealed envelope are rejected with the entire live snapshot
+  byte-identical. Cross-mode file loads are refused; a single-player battery
+  sentinel remains unchanged by the versus runs.
+- Desktop replay of 300 racing frames passes every recorded check, presents
+  300 frames with zero missed at 60.099 Hz on the native software route, and
+  the actual restored split bitmap was inspected. This bounded baseline run
+  does not qualify HD performance or a long two-human race.
+- A fresh-process load initially dereferenced the absent output framebuffer
+  during asset reconstruction; presentation is now suppressed during that
+  reconstruction. Desktop replay initially consumed a live focus-loss event;
+  ignoring live local control transitions during replay fixes the divergence.
+  One intermediate Windows link failed because the validation process still
+  held the executable open; the completed sweep was allowed to exit before
+  rebuilding successfully.
+- A 2,300-frame single-player route matches the prior runtime/headless entry
+  point byte-for-byte in all 128 KiB WRAM, clock (821895944), video/activity
+  metrics and audio samples, with zero underruns. Strict stock save/load and
+  rewind resimulation at frame 1,500 still differ by 12 master clocks while RAM
+  matches. Isolated `d69a170` runtime/headless objects reproduce the same
+  539575220 vs 539575232 mismatch, so this is a pre-existing validation failure,
+  not a passing single-player clock-fidelity result.
+- The previously running Linux host build finished, but its Mods CTest timed
+  out after 1,500 seconds (15/16 passed). No further Linux qualification is
+  planned under the owner's Windows-only instruction.
+
+Remaining implementation/qualification includes shared soundtrack/effects,
+additional machine effects, complete stock races and race-state lifecycle
+scenarios, renderer-rate/HD/worker determinism and sustained performance,
+and a physical two-human/controller playtest. Keep `beads-8uc1` in progress.

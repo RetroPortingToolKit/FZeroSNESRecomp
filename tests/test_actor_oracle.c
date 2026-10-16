@@ -217,6 +217,15 @@ static void test_world_sample(void) {
     ram[address]=(uint8_t)pointer; ram[address+1]=(uint8_t)(pointer>>8);
   }
   for (unsigned i=0;i<512;++i) ram[0x18000+i]=(uint8_t)random_word();
+  static uint8_t captured[0x20000],recaptured[0x20000];
+  CHECK(FzeroActorCaptureWorld(captured,ram));
+  CHECK(!FzeroActorCaptureWorld(captured,captured));
+  for(unsigned y=0;y<4096;y+=8)for(unsigned x=0;x<8192;x+=8)
+    CHECK(FzeroActorSampleSurface(captured,(uint16_t)x,(uint16_t)y)==FzeroActorSampleSurface(ram,(uint16_t)x,(uint16_t)y));
+  CHECK(FzeroActorCaptureWorld(recaptured,captured) && !memcmp(captured,recaptured,sizeof(captured)));
+  ram[0x51]^=73;ram[0x81]^=127;ram[0xb70]^=45;ram[0x14c00]^=21;
+  CHECK(FzeroActorCaptureWorld(recaptured,ram) && !memcmp(captured,recaptured,sizeof(captured)));
+  puts("course capture: all524288 surface cells, idempotence and unrelated guest/camera state exclusion passed");
   for (unsigned i=0;i<40000;++i) {
     unsigned x=random_word()&8191,y=random_word()&4095;
     ram[0x12]=(uint8_t)x;ram[0x13]=(uint8_t)(x>>8);

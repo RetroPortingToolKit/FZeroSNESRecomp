@@ -10,4 +10,6 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *controls,uint32_t keyboard
 FzeroVersusConfig FzeroLocalControlsConfig(const FzeroLocalControls *controls);
 uint32_t FzeroLocalControlsInput(const FzeroLocalControls *controls);
 bool FzeroLocalControlsSetup(const FzeroLocalControls *controls);
+void FzeroLocalControlsLoaded(FzeroLocalControls *controls);
+void FzeroLocalControlsReopen(FzeroLocalControls *controls);
 void FzeroLocalControlsDraw(const FzeroLocalControls *controls,uint32_t *pixels,int width,int height);

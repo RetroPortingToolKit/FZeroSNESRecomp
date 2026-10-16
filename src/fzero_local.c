@@ -8,10 +8,13 @@
 #include "snes/cart.h"
 #include "snes/snes.h"
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 extern Snes *g_snes;
 static bool enabled,setup_started;
 static unsigned setup_frame;
+static uint64_t epoch;
 static FzeroVersusConfig config;
 static FzeroVersus *session;
 static FzeroVersusVideo *video;
@@ -35,7 +38,7 @@ void FzeroLocalShutdown(void) {
 bool FzeroLocalConfigure(FzeroVersusConfig c) {
   if(c.course>=15 || c.machine[0]>=4 || c.machine[1]>=4 ||
       FzeroDeluxeActive() || FzeroGameplayActive() || FzeroTracksActive())return false;
-  FzeroLocalShutdown();config=c;enabled=true;
+  FzeroLocalShutdown();config=c;enabled=true;++epoch;
   /* Resource loader hooks are interpreted-opcode hooks. Keep native setup
    * on the byte interpreter so a compiled call cannot bypass configuration.
    * Gameplay never executes this CPU after the authoritative handoff. */
@@ -85,7 +88,10 @@ void FzeroLocalCapture(void) {
     spawns[i].facing=(uint16_t)word(0xbd0+offset);
     spawns[i].checkpoint=g_ram[0xd00+offset];spawns[i].branch=(uint16_t)word(0x1130+offset);
   }
-  FzeroVersus *candidate=FzeroVersusCreate(config,g_ram,spawns,tables());
+  uint8_t *world=malloc(0x20000);
+  if(!world)return;
+  FzeroActorCaptureWorld(world,g_ram);
+  FzeroVersus *candidate=FzeroVersusCreate(config,world,spawns,tables());free(world);
   FzeroVersusVideo *display=FzeroVersusVideoCreate();
   if(!candidate || !display || !FzeroVersusVideoCapture(display,NULL,candidate,tables())) {
     FzeroVersusDestroy(candidate);FzeroVersusVideoDestroy(display);return;
@@ -105,4 +111,53 @@ void FzeroLocalResetViews(void) {
 }
 void FzeroLocalPublish(void) {
   if(video)(void)FzeroVersusVideoCapture(video,NULL,session,tables());
+}
+FzeroVersusConfig FzeroLocalConfig(void) {return config;}
+uint64_t FzeroLocalEpoch(void) {return epoch;}
+void FzeroLocalControlChanged(void) {++epoch;FzeroLocalResetViews();}
+bool FzeroLocalSelectSaveRoot(void) {
+  char root[96];
+  if(snprintf(root,sizeof(root),"%s/local-2p",RtlSaveRoot())>=(int)sizeof(root))return false;
+  RtlEnsureSaveDir();RtlSetSaveRoot(root);RtlEnsureSaveDir();
+  RtlSetQuickSaveRoot(root);return true;
+}
+static void put32(uint8_t *p,uint32_t v) {for(unsigned i=0;i<4;++i)p[i]=(uint8_t)(v>>(i*8));}
+static uint32_t get32(const uint8_t *p) {return p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;}
+size_t FzeroLocalSaveSize(void) {return 32+FzeroVersusSaveSize();}
+bool FzeroLocalSave(void *output,size_t size) {
+  if(!enabled || !output || size!=FzeroLocalSaveSize())return false;
+  uint8_t *p=output;memset(p,0,size);memcpy(p,"FZLOCAL1",8);
+  put32(p+8,1);put32(p+12,FZERO_VERSUS_RULES);put32(p+16,(uint32_t)size);put32(p+20,setup_frame);
+  p[24]=config.course;p[25]=config.machine[0];p[26]=config.machine[1];
+  p[27]=setup_started;p[28]=session!=NULL;
+  return !session || FzeroVersusSave(session,p+32,size-32);
+}
+static bool decode(const void *input,size_t size,FzeroVersus **candidate,FzeroVersusConfig *c) {
+  if(!input || size!=FzeroLocalSaveSize())return false;
+  const uint8_t *p=input;
+  if(memcmp(p,"FZLOCAL1",8) || get32(p+8)!=1 || get32(p+12)!=FZERO_VERSUS_RULES ||
+      get32(p+16)!=size || p[24]>=15 || p[25]>=4 || p[26]>=4 ||
+      p[27]>1 || p[28]>1 || p[29] || p[30] || p[31] || (p[28] && !p[27]))return false;
+  *c=(FzeroVersusConfig){p[24],{p[25],p[26]}};*candidate=NULL;
+  if(p[28])return (*candidate=FzeroVersusDecode(p+32,size-32,tables(),c))!=NULL;
+  for(size_t i=32;i<size;++i)if(p[i])return false;
+  return true;
+}
+bool FzeroLocalValidate(const void *input,size_t size) {
+  FzeroVersus *candidate;FzeroVersusConfig c;
+  bool ok=decode(input,size,&candidate,&c);
+  if(ok)FzeroVersusDestroy(candidate);return ok;
+}
+bool FzeroLocalRestore(const void *input,size_t size) {
+  if(!enabled)return false;
+  FzeroVersus *candidate;FzeroVersusConfig c;
+  if(!decode(input,size,&candidate,&c))return false;
+  FzeroVersusVideo *display=candidate?FzeroVersusVideoCreate():NULL;
+  if(candidate && !display){FzeroVersusDestroy(candidate);return false;}
+  FzeroVersusDestroy(session);FzeroVersusVideoDestroy(video);
+  session=candidate;video=display;config=c;
+  const uint8_t *p=input;setup_frame=get32(p+20);setup_started=p[27]!=0;
+  interp_bridge_set_scheduler_aot_policy(0);
+  interp_bridge_set_pre_opcode_hook(0x009f08,course_config);
+  return true;
 }

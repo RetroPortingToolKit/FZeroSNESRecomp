@@ -27,7 +27,8 @@ typedef enum FzeroStateMode {
   kFzeroStateModeDeluxe = 2,
   kFzeroStateModeStockMsu = 3,
   kFzeroStateModeDeluxeMsu = 4,
-  kFzeroStateModeTrackPack = 5
+  kFzeroStateModeTrackPack = 5,
+  kFzeroStateModeLocalVersus = 6
 } FzeroStateMode;
 
 /* May a snapshot tagged `file` be resumed by a process running `current`?

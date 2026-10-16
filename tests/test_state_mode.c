@@ -47,11 +47,12 @@ int main(void) {
    * already keep their slots in different directories. */
   CHECK(FzeroStateModeCompatible(kFzeroStateModeUnknown, kFzeroStateModeStock));
   CHECK(FzeroStateModeCompatible(kFzeroStateModeUnknown, kFzeroStateModeDeluxe));
-  for (int current = kFzeroStateModeStock; current <= kFzeroStateModeDeluxeMsu; ++current)
-    for (int saved = kFzeroStateModeStock; saved <= kFzeroStateModeDeluxeMsu; ++saved)
+  for (int current = kFzeroStateModeStock; current <= kFzeroStateModeLocalVersus; ++current)
+    for (int saved = kFzeroStateModeStock; saved <= kFzeroStateModeLocalVersus; ++saved)
       CHECK(FzeroStateModeCompatible((FzeroStateMode)saved, (FzeroStateMode)current) == (saved == current));
   CHECK(!FzeroStateModeCompatible(kFzeroStateModeUnknown, kFzeroStateModeStockMsu));
   CHECK(!FzeroStateModeCompatible(kFzeroStateModeUnknown, kFzeroStateModeDeluxeMsu));
+  CHECK(!FzeroStateModeCompatible(kFzeroStateModeUnknown, kFzeroStateModeLocalVersus));
 
   CHECK(!strcmp(FzeroStateModeName(kFzeroStateModeStock), "stock"));
   CHECK(!strcmp(FzeroStateModeName(kFzeroStateModeDeluxe), "BS F-Zero Deluxe"));
@@ -65,7 +66,7 @@ int main(void) {
   CHECK(FzeroStateProbeBytes(buf, 128 + kTrailer, &kLayout, &mode));
   CHECK(mode == kFzeroStateModeDeluxe);
 
-  for (int tag = kFzeroStateModeStockMsu; tag <= kFzeroStateModeDeluxeMsu; ++tag) {
+  for (int tag = kFzeroStateModeStockMsu; tag <= kFzeroStateModeLocalVersus; ++tag) {
     build(buf, 128, kMagic, kVersion, (uint8_t)tag);
     CHECK(FzeroStateProbeBytes(buf, 128 + kTrailer, &kLayout, &mode));
     CHECK(mode == (FzeroStateMode)tag);

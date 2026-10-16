@@ -278,17 +278,23 @@ static bool valid(const FzeroVersus *s) {
   }
   return true;
 }
-bool FzeroVersusRestore(FzeroVersus *s,const void *input,size_t size,const FzeroVersusConfig *expected) {
-  if (!s || !input || size!=FzeroVersusSaveSize()) return false;
+FzeroVersus *FzeroVersusDecode(const void *input,size_t size,FzeroActorTables tables,const FzeroVersusConfig *expected) {
+  if (!tables.read || !input || size!=FzeroVersusSaveSize()) return NULL;
   const uint8_t *p=input;uint64_t stored=0;
   for (unsigned i=0;i<8;++i) stored|=(uint64_t)p[24+i]<<(i*8);
   if (memcmp(p,magic,8) || get32(p+8)!=1 || get32(p+12)!=FZERO_VERSUS_RULES || get32(p+16)!=size ||
-      get32(p+20) || stored!=integrity(p,size)) return false;
-  FzeroVersus *candidate=calloc(1,sizeof(*candidate));if (!candidate) return false;
-  candidate->tables=s->tables;Stream x={.input=p+32};codec(&x,NULL,candidate);
+      get32(p+20) || stored!=integrity(p,size)) return NULL;
+  FzeroVersus *candidate=calloc(1,sizeof(*candidate));if (!candidate) return NULL;
+  candidate->tables=tables;Stream x={.input=p+32};codec(&x,NULL,candidate);
   bool ok=!x.invalid && valid(candidate) && (!expected || same_config(candidate->state.config,*expected));
-  if (ok) *s=*candidate;
-  free(candidate);return ok;
+  if (!ok) {free(candidate);return NULL;}
+  return candidate;
+}
+bool FzeroVersusRestore(FzeroVersus *s,const void *input,size_t size,const FzeroVersusConfig *expected) {
+  if (!s) return false;
+  FzeroVersus *candidate=FzeroVersusDecode(input,size,s->tables,expected);
+  if (!candidate) return false;
+  *s=*candidate;free(candidate);return true;
 }
 uint64_t FzeroVersusHash(const FzeroVersus *s) {
   if (!s) return 0;

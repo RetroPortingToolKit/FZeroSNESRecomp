@@ -19,6 +19,7 @@
 #include "fzero_replay.h"
 #include "fzero_capture.h"
 #include "fzero_local.h"
+#include "snapshot_guard.h"
 
 #include "audio_trace.h"
 #include "common_rtl.h"
@@ -326,6 +327,35 @@ static uint32_t scripted_input(const InputSpan *spans, size_t count,
   return input;
 }
 
+static bool local_state_atomic_test(void) {
+  size_t size=RtlSaveSnapshotToMemory(NULL,0);
+  uint8_t *before=malloc(size),*bad=malloc(size),*after=malloc(size);
+  bool ok=before && bad && after && RtlSaveSnapshotToMemory(before,size)==size;
+  uint64_t hash=FzeroVersusHash(FzeroLocalSession()),master=g_cpu.master_cycles;
+  for(unsigned test=0;ok && test<6;++test) {
+    memcpy(bad,before,size);size_t length=size;
+    if(test==0)bad[16]^=1; /* namespace identity */
+    if(test==1)bad[256]^=1; /* native guest */
+    if(test==2)bad[size-1]^=1; /* integrity */
+    if(test==3)--length;
+    if(test==4)length=8;
+    if(test==5) {
+      /* Even a correctly resealed envelope cannot carry an unsupported
+       * course in the host prefix. Validate before touching the guest. */
+      size_t prefix=SNES_SNAPSHOT_GUARD_PREFIX+RtlSnapshotGuestSize(NULL);
+      bad[prefix+24]=15;
+      ok=snes_snapshot_guard_finish(bad,size,size-SNES_SNAPSHOT_GUARD_OVERHEAD,
+          FzeroLocalGameInfo()->snapshot_guard_identity())==size;
+    }
+    ok=ok && !RtlLoadSnapshotFromMemory(bad,length) &&
+        RtlSaveSnapshotToMemory(after,size)==size && !memcmp(before,after,size) &&
+        hash==FzeroVersusHash(FzeroLocalSession()) && master==g_cpu.master_cycles;
+  }
+  free(before);free(bad);free(after);
+  if(ok)fputs("local-state: corrupt, truncated, wrong-identity and invalid-course loads rejected before live mutation\n",stderr);
+  return ok;
+}
+
 int main(int argc, char **argv) {
   /* Preserve the last guest-frame diagnostic if a soak terminates abnormally
    * while stderr is redirected to a qualification log. */
@@ -400,7 +430,7 @@ int main(int argc, char **argv) {
     free(rom);
     return 2;
   }
-  RtlRegisterGame(FzeroGameInfo());
+  RtlRegisterGame(versus?FzeroLocalGameInfo():FzeroGameInfo());
   if (!SnesInit(rom, (int)rom_size)) {
     fputs("failed to initialize the F-Zero cartridge\n", stderr);
     free(rom);
@@ -408,6 +438,9 @@ int main(int argc, char **argv) {
   }
   const char *save_root = getenv("SNESRECOMP_SAVE_ROOT");
   if (save_root && save_root[0]) RtlSetSaveRoot(save_root);
+  if(versus && (!FzeroLocalConfigure(versus_config) || !FzeroLocalSelectSaveRoot())) {
+    fputs("Cannot initialize stock local versus/save namespace\n",stderr);return 12;
+  }
   if (!FzeroTracksSelectSaveRoot()) {
     fprintf(stderr, "%s\n", FzeroDeluxeError());
     free(rom);
@@ -419,7 +452,6 @@ int main(int argc, char **argv) {
     return 3;
   }
   RtlReadSram();
-  if(versus && !FzeroLocalConfigure(versus_config)) {fputs("Cannot start stock local versus\n",stderr);return 12;}
   if (!FzeroCaptureReplayLoad()) return 11;
   const char *capture_directory=getenv("FZERO_CAPTURE_DIR");
   if (capture_directory && !FzeroCaptureStart(true,capture_directory,&capture_video)) return 11;
@@ -471,6 +503,7 @@ int main(int argc, char **argv) {
   const char *lifecycle = getenv("FZERO_LIFECYCLE_TEST");
   static uint8_t replay_expected[0x20000];
   uint64_t replay_master = 0;
+  uint64_t replay_versus = 0;
   const char *progress_test = getenv("FZERO_LIBRARY_PROGRESS_TEST");
   long next_completed_result = 1450;
   const char *save_frame_text = getenv("FZERO_TEST_SAVE_FRAME");
@@ -520,6 +553,7 @@ int main(int argc, char **argv) {
      * speculative execution. The normal mode/signature guard still applies
      * when this snapshot is loaded by either host. */
     const char *export_state = getenv("FZERO_STATE_SAVE");
+    if(versus && getenv("FZERO_LOCAL_STATE_ATOMIC_TEST") && frame==save_frame && !local_state_atomic_test())return 8;
     if (export_state && *export_state && frame == save_frame) {
       if (!RtlSaveSnapshot(export_state)) {
         fputs("fixture: snapshot export failed\n", stderr);
@@ -535,6 +569,7 @@ int main(int argc, char **argv) {
       static uint8_t initial_ram[0x20000];
       memcpy(initial_ram, g_ram, sizeof(initial_ram));
       uint64_t initial_master = g_cpu.master_cycles;
+      uint64_t initial_versus=FzeroVersusHash(FzeroLocalSession());
       snes_rewind_set_defaults(1, 16, 1);
       snes_rewind_configure();
       snes_rewind_note_frame();
@@ -546,14 +581,19 @@ int main(int argc, char **argv) {
       }
       memcpy(replay_expected, g_ram, sizeof(replay_expected));
       replay_master = g_cpu.master_cycles;
+      replay_versus=FzeroVersusHash(FzeroLocalSession());
       if (getenv("FZERO_VEHICLE_CROSS_STATE") && FzeroVehicleCount()>4) {
         g_ram[0x14dff]=FzeroVehicleSelected()>=4?0:4;
         FzeroVehiclesLoaded();
       }
-      if (!snes_rewind_open()) return 8;
+      if (!snes_rewind_open()) {fputs("rewind: ring open failed\n",stderr);return 8;}
       for (unsigned i=0;i<10;++i) snes_rewind_step(-1);
       snes_rewind_commit();
-      if (memcmp(initial_ram,g_ram,sizeof(initial_ram)) || initial_master!=g_cpu.master_cycles) {
+      if (memcmp(initial_ram,g_ram,sizeof(initial_ram)) || initial_master!=g_cpu.master_cycles ||
+          initial_versus!=FzeroVersusHash(FzeroLocalSession())) {
+        fprintf(stderr,"rewind: restored master=%llu/%llu versus=%016llx/%016llx\n",
+            (unsigned long long)g_cpu.master_cycles,(unsigned long long)initial_master,
+            (unsigned long long)FzeroVersusHash(FzeroLocalSession()),(unsigned long long)initial_versus);
         for (unsigned i=0;i<sizeof(initial_ram);++i) if(initial_ram[i]!=g_ram[i]) {
           fprintf(stderr,"rewind restore mismatch $%05x: %02x -> %02x\n",i,initial_ram[i],g_ram[i]); break;
         }
@@ -564,7 +604,11 @@ int main(int argc, char **argv) {
         if (g_fail || !FzeroLastLleResult()) return 8;
         FzeroDrawPpuFrame();
       }
-      if (memcmp(replay_expected,g_ram,sizeof(replay_expected)) || replay_master!=g_cpu.master_cycles) {
+      if (memcmp(replay_expected,g_ram,sizeof(replay_expected)) || replay_master!=g_cpu.master_cycles ||
+          replay_versus!=FzeroVersusHash(FzeroLocalSession())) {
+        fprintf(stderr,"rewind: resimulated master=%llu/%llu versus=%016llx/%016llx\n",
+            (unsigned long long)g_cpu.master_cycles,(unsigned long long)replay_master,
+            (unsigned long long)FzeroVersusHash(FzeroLocalSession()),(unsigned long long)replay_versus);
         for (unsigned i=0;i<sizeof(replay_expected);++i) if(replay_expected[i]!=g_ram[i]) {
           fprintf(stderr,"rewind replay mismatch $%05x: %02x -> %02x\n",i,replay_expected[i],g_ram[i]); break;
         }
@@ -573,7 +617,7 @@ int main(int argc, char **argv) {
       if (!RtlLoadSnapshotFromMemory(initial,length)) return 8;
       free(initial);
       snes_rewind_shutdown();
-      fputs("rewind: actual ring restore and ten-frame resimulation identical (RAM and master clock)\n",stderr);
+      fputs("rewind: actual ring restore and ten-frame resimulation identical (RAM, master clock, versus hash)\n",stderr);
     }
     /* Private integration check: inject a completed results state, then let
      * the unmodified GP transition routine advance/load/finish the cup.
@@ -596,6 +640,7 @@ int main(int argc, char **argv) {
       }
       memcpy(replay_expected, g_ram, sizeof(replay_expected));
       replay_master = g_cpu.master_cycles;
+      replay_versus=FzeroVersusHash(FzeroLocalSession());
       if (getenv("FZERO_VEHICLE_CROSS_STATE") && FzeroVehicleCount()>4) {
         g_ram[0x14dff]=FzeroVehicleSelected()>=4?0:4;
         FzeroVehiclesLoaded();
@@ -610,7 +655,8 @@ int main(int argc, char **argv) {
         if (g_fail || !FzeroLastLleResult()) return 8;
         FzeroDrawPpuFrame();
       }
-      if (memcmp(replay_expected, g_ram, sizeof(replay_expected)) || replay_master != g_cpu.master_cycles) {
+      if (memcmp(replay_expected, g_ram, sizeof(replay_expected)) || replay_master != g_cpu.master_cycles ||
+          replay_versus!=FzeroVersusHash(FzeroLocalSession())) {
         fputs("lifecycle: resimulation differs after load\n", stderr);
         int reported = 0;
         for (size_t i = 0; i < sizeof(replay_expected) && reported < 12; ++i)
@@ -622,10 +668,10 @@ int main(int argc, char **argv) {
                 (unsigned long long)replay_master, (unsigned long long)g_cpu.master_cycles);
         return 8;
       }
-      fputs("lifecycle: save/load ten-frame resimulation identical (RAM and master clock)\n", stderr);
+      fputs("lifecycle: save/load ten-frame resimulation identical (RAM, master clock, versus hash)\n", stderr);
       if (!RtlLoadSnapshot(path)) return 8;
     }
-    if (lifecycle && frame == 1800) {
+    if (lifecycle && !versus && frame == 1800) {
       uint64_t before_reset = g_cpu.master_cycles;
       FzeroTracksSavesFinish();
       RtlReset(1); FzeroGameInfo()->session_reset();
@@ -656,7 +702,7 @@ int main(int argc, char **argv) {
       frame_width=viewport.width;
       FzeroBeginDrawing(pixels,(size_t)frame_width*4u);
     }
-    FzeroCaptureBefore(frame_input,FzeroCalculateViewport(&replay_video,drawable_width,drawable_height));
+    FzeroCaptureBefore(frame_input,FzeroCalculateViewport(&replay_video,drawable_width,versus?drawable_height/2:drawable_height));
     (void)RtlRunFrame(frame_input);
     if (wram_trace && fwrite(g_ram, 1, 0x2000, wram_trace) != 0x2000) return 10;
     if (getenv("FZERO_SCENE_TRACE"))

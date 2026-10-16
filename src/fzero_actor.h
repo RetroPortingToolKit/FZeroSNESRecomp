@@ -86,6 +86,10 @@ uint8_t FzeroActorSampleSurface(const uint8_t world[0x20000], uint16_t x, uint16
 typedef struct FzeroActorMineEvent { bool hit; uint16_t x, y; uint8_t surface_id; } FzeroActorMineEvent;
 void FzeroActorMine(FzeroActor *actor, FzeroActorTables tables, FzeroActorMineEvent *event);
 void FzeroActorCommitMine(uint8_t world[0x20000], const FzeroActorMineEvent *event);
+/* Extract only authored course/checkpoint data from native WRAM. Follow the
+ * complete grid -> block rows -> cell groups graph, including crater groups.
+ * Unrelated guest/camera/HUD/RNG scratch is zeroed. Buffers must be distinct. */
+bool FzeroActorCaptureWorld(uint8_t output[0x20000],const uint8_t native[0x20000]);
 void FzeroActorPreRace(FzeroActor *actor, FzeroActorTables tables);
 void FzeroActorLaunch(FzeroActor *actor);
 void FzeroActorFailedStart(FzeroActor *actor);

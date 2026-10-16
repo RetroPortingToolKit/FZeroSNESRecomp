@@ -1767,7 +1767,7 @@ int main(int argc, char **argv) {
    * recomp in this family). Must precede the first keyboard_input() call. */
   keybinds_init(NULL);
 
-  RtlRegisterGame(FzeroGameInfo());
+  RtlRegisterGame(local_two_player?FzeroLocalGameInfo():FzeroGameInfo());
   if (!SnesInit(rom, (int)rom_size))
     Die("SNESRecomp rejected the F-Zero cartridge");
   cpu_trace_init();
@@ -1787,10 +1787,13 @@ int main(int argc, char **argv) {
   }
   const char *save_root = getenv("SNESRECOMP_SAVE_ROOT");
   if (save_root && *save_root) RtlSetSaveRoot(save_root);
+  if(local_two_player) {
+    if(!FzeroLocalConfigure(local_config))Die("Cannot initialize stock local versus");
+    if(!FzeroLocalSelectSaveRoot())Die("Local versus save path is too long");
+  }
   if (!FzeroTracksSelectSaveRoot()) Die(FzeroDeluxeError());
   if (!FzeroMsuSelectSaveRoot()) Die(FzeroMsuError());
   RtlReadSram();
-  if(local_two_player && !FzeroLocalConfigure(local_config))Die("Cannot initialize stock local versus");
   /* After the machine exists: the ring's slots are whole-machine snapshots
    * and it sizes them from a real one. */
   snes_rewind_configure();
@@ -1915,6 +1918,7 @@ int main(int argc, char **argv) {
   FzeroLocalControls *local_controls=local_two_player?
       FzeroLocalControlsCreate(local_config,getenv("FZERO_TEST_LOCAL_READY")!=NULL):NULL;
   if(local_two_player && !local_controls)Die("Cannot allocate local two-player controls");
+  uint64_t local_controls_generation=RtlStateGeneration();
 
   int running = 1;
   int paused = 0;
@@ -2028,7 +2032,7 @@ int main(int argc, char **argv) {
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) running = 0;
       FzeroGamepadEvent(&pad, &event);
-      FzeroLocalControlsEvent(local_controls,&event);
+      if(!FzeroCaptureReplayActive())FzeroLocalControlsEvent(local_controls,&event);
       if (event.type == SDL_KEYDOWN) {
 #if SNESRECOMP_SDL3
         int scancode = event.key.scancode;
@@ -2095,6 +2099,10 @@ int main(int argc, char **argv) {
               FzeroTracksSavesFinish();
               RtlReset(1);
               FzeroGameInfo()->session_reset();
+              if(local_two_player) {
+                if(!FzeroLocalConfigure(FzeroLocalControlsConfig(local_controls)))Die("Cannot reset local versus");
+                FzeroLocalControlsReopen(local_controls);
+              }
               FzeroSetViewport(viewport);
               g_reset_presentation_clock = true;
             }
@@ -2114,7 +2122,10 @@ int main(int argc, char **argv) {
     }
 
     if(local_controls) {
-      unsigned action=FzeroLocalControlsUpdate(local_controls,keyboard_guest_input());
+      if(local_controls_generation!=RtlStateGeneration()) {
+        local_controls_generation=RtlStateGeneration();FzeroLocalControlsLoaded(local_controls);
+      }
+      unsigned action=FzeroCaptureReplayActive()?0:FzeroLocalControlsUpdate(local_controls,keyboard_guest_input());
       if(action&FZERO_LOCAL_CHANGE) {
         RtlReset(1);FzeroGameInfo()->session_reset();
         if(!FzeroLocalConfigure(FzeroLocalControlsConfig(local_controls)))Die("Cannot reopen local setup");

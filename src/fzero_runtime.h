@@ -9,6 +9,7 @@
 #include "fzero_state_mode.h"
 
 const RtlGameInfo *FzeroGameInfo(void);
+const RtlGameInfo *FzeroLocalGameInfo(void);
 
 /* Which cartridge this session is running, and what a slot file holds. */
 FzeroStateMode FzeroStateModeCurrent(void);

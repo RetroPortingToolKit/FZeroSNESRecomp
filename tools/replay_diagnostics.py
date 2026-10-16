@@ -57,7 +57,10 @@ def main():
     if (capture/'loader.cfg').is_file(): shutil.copy2(capture/'loader.cfg',out/'replay-settings/loader.cfg')
     (out/'video.ini').write_text(video+'\nCrashReplay=0\n',encoding='utf-8')
     namespace=meta.get('save_namespace','')
-    if not re.fullmatch(r'(?:bs-deluxe(?:/rules-[0-9a-f]{16})?|rules-[0-9a-f]{16})?',namespace):
+    local=meta.get('mode')=='local-2p'
+    if local and (meta.get('players')!=2 or meta.get('versus_rules')!=1):
+        p.error('Unsupported local two-player rules')
+    if not re.fullmatch(r'(?:local-2p|bs-deluxe(?:/rules-[0-9a-f]{16})?|rules-[0-9a-f]{16})?',namespace):
         p.error('Invalid capture save namespace')
     records=stem.with_suffix('.records')
     if records.is_dir():
@@ -93,7 +96,10 @@ def main():
                SNESRECOMP_WRAM_DUMP=str(out/'final.ram'),SNESRECOMP_FRAME_DUMP=str(out/'final.ppm'),
                SNESRECOMP_FRAME_BMP=str(out/'final.bmp'),
                SNESRECOMP_AUTOCLOSE_FRAMES=str(len(lines)))
+    env['SDL_AUDIODRIVER']='dummy'
+    if local: env['FZERO_TEST_LOCAL_READY']='1'
     cmd=[str(out/executable.name),str(rom)] if a.desktop else [str(out/executable.name),str(rom),str(len(lines))]
+    if local: cmd+=['--local-2p'] if a.desktop else ['--versus','0','0','1']
     timed_out=False
     with (out/'replay.log').open('w',encoding='utf-8') as log:
         try:

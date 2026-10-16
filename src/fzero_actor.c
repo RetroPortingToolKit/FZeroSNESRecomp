@@ -519,6 +519,32 @@ void FzeroActorSurface(FzeroActor *a) {
 static unsigned world_word(const uint8_t *bank, unsigned address) {
   return bank[address & 65535] | (unsigned)bank[(address + 1) & 65535] << 8;
 }
+bool FzeroActorCaptureWorld(uint8_t output[0x20000],const uint8_t native[0x20000]) {
+  if(!output || !native || output==native)return false;
+  memset(output,0,0x20000);
+  memcpy(output+0xad,native+0xad,5); /* gate count, finish strip, grid pointer */
+  output[0x1075]=native[0x1075]; /* authored shortcut-recovery selector */
+  output[0x10d6]=native[0x10d6];output[0x10d8]=native[0x10d8];output[0x10da]=native[0x10da];
+  memcpy(output+0x1200,native+0x1200,0x600); /* both checkpoint/branch tables */
+  const uint8_t *source=native+0x10000;uint8_t *bank=output+0x10000;
+  bool visited[256]={false};unsigned grid=world_word(native,0xb0);
+  for(unsigned cell=0;cell<32*16;++cell) {
+    unsigned address=(grid+cell)&65535,block=source[address];bank[address]=source[address];
+    if(visited[block])continue;
+    visited[block]=true;
+    for(unsigned y=0;y<16;++y) {
+      unsigned at=(0x5000+block*32+y*2)&65535,row=world_word(source,at);
+      bank[at]=source[at];bank[(at+1)&65535]=source[(at+1)&65535];
+      for(unsigned x=0;x<16;++x) {
+        at=(row+x*2)&65535;unsigned group=world_word(source,at);
+        bank[at]=source[at];bank[(at+1)&65535]=source[(at+1)&65535];
+        for(unsigned tile=0;tile<4;++tile)bank[(group+tile)&65535]=source[(group+tile)&65535];
+      }
+    }
+  }
+  memcpy(bank+0x3ff0,source+0x3ff0,16);
+  return true;
+}
 uint8_t FzeroActorSampleSurface(const uint8_t world[0x20000], uint16_t x, uint16_t y) {
   const uint8_t *bank = world + 0x10000;
   unsigned grid = world[0xb0] | (unsigned)world[0xb1] << 8;
