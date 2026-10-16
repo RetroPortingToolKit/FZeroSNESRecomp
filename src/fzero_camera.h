@@ -18,3 +18,10 @@ bool FzeroCameraAtLine(const FzeroCamera *camera,unsigned scanline,int16_t matri
 /* Native BE89/BE9E color construction, from the captured course CGRAM.
  * VS hands off before guest flash lookup tables are initialized. */
 uint16_t FzeroCameraFlashColor(uint16_t base,unsigned phase,bool surface);
+/* C185/C1CF course animation, relative to the captured palette/counter.
+ * cycles=-1 selects the native venue program; otherwise use authored offsets.
+ * Pure presentation: repeated draws, resizing and pause never advance it. */
+void FzeroCameraCoursePalette(uint16_t output[256],const uint16_t base[256],
+    unsigned venue,unsigned counter,uint64_t ticks,int cycles,const uint8_t *offsets);
+/* Native 8C16 car-entry trajectory, before the three-second rev countdown. */
+unsigned FzeroCameraArrivalOffset(unsigned elapsed);

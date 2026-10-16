@@ -152,6 +152,7 @@ static uint64_t logic_hash(void) {
     hash = fnv1a_update(hash, g_snes->cart->ram, g_snes->cart->ramSize);
   return hash;
 }
+#include "../tests/fzero_local_catalog_test.h"
 
 static uint8_t *read_rom(const char *path, size_t *size_out,
                          uint8_t hash[32]) {
@@ -346,7 +347,7 @@ static bool local_state_atomic_test(void) {
       /* Even a correctly resealed envelope cannot carry an unsupported
        * course in the host prefix. Validate before touching the guest. */
       size_t prefix=SNES_SNAPSHOT_GUARD_PREFIX+RtlSnapshotGuestSize(NULL);
-      bad[prefix+24]=15;
+      bad[prefix+24]=255;bad[prefix+25]=255;
       ok=snes_snapshot_guard_finish(bad,size,size-SNES_SNAPSHOT_GUARD_OVERHEAD,
           FzeroLocalGameInfo()->snapshot_guard_identity())==size;
     }
@@ -374,10 +375,10 @@ int main(int argc, char **argv) {
     unsigned values[3];
     for(unsigned i=0;i<3;++i) {
       char *end;unsigned long value=strtoul(argv[4+i],&end,10);
-      if(!argv[4+i][0] || *end || value>=(i?4u:15u)) {fputs("Invalid versus configuration\n",stderr);return 2;}
+      if(!argv[4+i][0] || *end || value>=(i?4u:UINT16_MAX)) {fputs("Invalid versus configuration\n",stderr);return 2;}
       values[i]=(unsigned)value;
     }
-    versus_config=(FzeroVersusConfig){(uint8_t)values[0],{(uint8_t)values[1],(uint8_t)values[2]}};
+    versus_config=(FzeroVersusConfig){(uint16_t)values[0],{(uint8_t)values[1],(uint8_t)values[2]}};
   }
   long frame_limit = argc >= 3 ? strtol(argv[2], NULL, 10) : 3600;
   if (frame_limit < 1 || frame_limit > 1000000) {
@@ -412,8 +413,9 @@ int main(int argc, char **argv) {
   const char *deluxe_data = getenv("FZERO_DELUXE_DATA");
   FzeroGameplayHeadless(deluxe_data && *deluxe_data);
   if(versus) {
-    FzeroGameplaySettings stock={0};FzeroGameplayConfigure(&stock,false,false);
-    FzeroTrackLoaderEnable(false);deluxe_data=NULL;
+    bool bs_tracks=FzeroBsTracks();
+    FzeroGameplaySettings stock={0};FzeroGameplayConfigure(&stock,false,bs_tracks);
+    if(!FzeroLocalStockTables(rom,rom_size))return 12;
   }
   FzeroVideoSettings capture_video;
   FzeroVideoStock(&capture_video);
@@ -449,12 +451,12 @@ int main(int argc, char **argv) {
   if(versus && (!FzeroLocalConfigure(versus_config) || !FzeroLocalSelectSaveRoot())) {
     fputs("Cannot initialize stock local versus/save namespace\n",stderr);return 12;
   }
-  if (!FzeroTracksSelectSaveRoot()) {
+  if (!versus && !FzeroTracksSelectSaveRoot()) {
     fprintf(stderr, "%s\n", FzeroDeluxeError());
     free(rom);
     return 3;
   }
-  if (!FzeroMsuSelectSaveRoot()) {
+  if (!versus && !FzeroMsuSelectSaveRoot()) {
     fprintf(stderr, "%s\n", FzeroMsuError());
     free(rom);
     return 3;
@@ -543,9 +545,13 @@ int main(int argc, char **argv) {
   FzeroActorLiveInstall();
 
   bool ui_cache_written=false;
+  if(!catalog_init())return 12;
   unsigned mode_stage=0;static uint8_t menu_ram[0x20000];char menu_root[96];
   FzeroGameplaySettings menu_rules={0};
   for (long frame = 0; frame < frame_limit; frame++) {
+    int catalog_result=catalog_step();
+    if(catalog_result<0) {fprintf(stderr,"catalog-test: FAIL course=%u\n",catalog_course);return 12;}
+    if(catalog_result>0) {frame_limit=frame;break;}
     if(mode_test && !mode_stage && FzeroVsMenuRequested()) {
       memcpy(menu_ram,g_ram,sizeof(menu_ram));snprintf(menu_root,sizeof(menu_root),"%s",RtlSaveRoot());
       menu_rules=*FzeroGameplaySettingsCurrent();
@@ -843,7 +849,7 @@ int main(int argc, char **argv) {
         fprintf(stderr,"local-driver: frame=%ld player=%u laps=%u status=%u race=%llu\n",frame,i+1,
             driver_laps[i],driver_status[i],(unsigned long long)race->race_tick);
       }
-      if(race->phase==FZERO_VS_RESULTS && (!driver_lifecycle || (driver_checked&16))) {
+      if(!catalog_output && race->phase==FZERO_VS_RESULTS && (!driver_lifecycle || (driver_checked&16))) {
         frame_limit=frame+1;break;
       }
     }

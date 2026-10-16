@@ -26,6 +26,7 @@ bool FzeroLocalModeInit(const uint8_t *data,size_t size,const char *rom_path,
                         const char *deluxe_path,const char *music,bool cgp) {
   FzeroLocalModeShutdown();if(!data || size!=0x80000)return false;
   stock=malloc(size);if(!stock)return false;memcpy(stock,data,size);
+  if(!FzeroLocalStockTables(data,size))return false;
   snprintf(base_root,sizeof(base_root),"%s",RtlSaveRoot());
   snprintf(rom_name,sizeof(rom_name),"%s",rom_path?rom_path:"");
   snprintf(deluxe_name,sizeof(deluxe_name),"%s",deluxe_path?deluxe_path:"");
@@ -40,9 +41,9 @@ static bool snapshot(uint8_t **data,size_t *size) {
 static bool profile(bool local) {
   uint8_t *rom=malloc(0x80000);size_t size=0x80000;if(!rom)return false;
   memcpy(rom,stock,size);
-  FzeroTrackLoaderEnable(local?false:loader);FzeroTracksEnableTitle(local?false:title);
+  FzeroTrackLoaderEnable(loader);FzeroTracksEnableTitle(local?false:title);
   FzeroGameplaySettings active=local?(FzeroGameplaySettings){0}:rules;
-  FzeroGameplayConfigure(&active,local?false:cars,local?false:tracks);
+  FzeroGameplayConfigure(&active,local?false:cars,tracks);
   bool ok=FzeroMsuConfigure(local?"":music_name,local?false:cgp_music,rom_name) &&
       FzeroTracksPrepare(&rom,&size,local?false:cars,deluxe_name);
   if(ok) {

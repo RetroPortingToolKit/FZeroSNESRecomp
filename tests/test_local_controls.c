@@ -9,6 +9,15 @@ FzeroVersus *FzeroLocalSession(void) {return race;}
 const FzeroNativeUi *FzeroLocalUi(void) {return NULL;}
 FzeroVersusConfig FzeroLocalConfig(void) {return FzeroVersusCompleted(race)->config;}
 void FzeroLocalResetViews(void) {}
+static bool imported_fixture;
+unsigned FzeroLocalCupCount(void) {return imported_fixture?4:3;}
+unsigned FzeroLocalCourseCount(unsigned cup) {return cup<3?5:cup==3 && imported_fixture?2:0;}
+unsigned FzeroLocalCourseId(unsigned cup,unsigned order) {return cup*5+order;}
+bool FzeroLocalCourseLocation(unsigned id,unsigned *cup,unsigned *order) {
+  if(id>=(imported_fixture?17u:15u))return false;if(cup)*cup=id/5;if(order)*order=id%5;return true;
+}
+const char *FzeroLocalCupName(unsigned cup) {return cup==0?"KNIGHT LEAGUE":cup==1?"QUEEN LEAGUE":"KING LEAGUE";}
+const char *FzeroLocalCourseName(unsigned id) {return FzeroUiCourseName(id);}
 static unsigned selection;
 bool FzeroLocalMenuReady(void) {return true;}
 unsigned FzeroLocalMenuSelection(void) {return selection;}
@@ -76,6 +85,26 @@ int main(void) {
     CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,true));poll(c,0);
     CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
   }
+  /* A short imported cup uses its actual count rather than five stock slots. */
+  imported_fixture=true;
+  for(unsigned i=0;i<3;++i) {
+    CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,true));poll(c,0);
+    CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
+  }
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_START,true));poll(c,0);
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_START,false));poll(c,0);
+  CHECK(FzeroLocalControlsConfig(c).course==15);
+  for(unsigned i=0;i<2;++i) {
+    CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,true));poll(c,0);
+    CHECK(FzeroLocalControlsConfig(c).course==(i?15:16));
+    CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
+  }
+  FzeroLocalControlsBack(c);CHECK(!poll(c,0));poll(c,0);
+  for(unsigned i=0;i<3;++i) {
+    CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_UP,true));poll(c,0);
+    CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_UP,false));poll(c,0);
+  }
+  imported_fixture=false;
   CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,true));poll(c,0);
   CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
   CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_START,true));CHECK(!poll(c,0));

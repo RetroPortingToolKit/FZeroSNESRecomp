@@ -2,6 +2,7 @@
 #include "fzero_deluxe.h"
 #include "fzero_gameplay.h"
 #include "fzero_tracks.h"
+#include "fzero_course_runtime.h"
 #include "fzero_sound.h"
 #include "common_rtl.h"
 #include "cpu_state.h"
@@ -22,15 +23,45 @@ static FzeroVersusVideo *video;
 static FzeroSoundState sound;
 static FzeroNativeUi ui;
 static unsigned menu_selection,result_ticks;
+static uint8_t stock_tables[0x80000];
+static bool have_stock_tables;
+bool FzeroLocalStockTables(const uint8_t *rom,size_t size) {
+  if(!rom || size!=sizeof(stock_tables))return false;
+  memcpy(stock_tables,rom,size);have_stock_tables=true;return true;
+}
+unsigned FzeroLocalCupCount(void) {return FzeroTracksRuntimeCount();}
+unsigned FzeroLocalCourseCount(unsigned cup) {
+  unsigned n=0;while(FzeroTracksRuntimeTrack(cup,n))++n;return n;
+}
+unsigned FzeroLocalCourseId(unsigned cup,unsigned order) {
+  for(unsigned i=0;i<cup;++i)order+=FzeroLocalCourseCount(i);
+  return order;
+}
+bool FzeroLocalCourseLocation(unsigned id,unsigned *cup,unsigned *order) {
+  for(unsigned i=0;i<FzeroLocalCupCount();++i) {
+    unsigned count=FzeroLocalCourseCount(i);
+    if(id<count) {if(cup)*cup=i;if(order)*order=id;return true;}id-=count;
+  }
+  return false;
+}
+const char *FzeroLocalCupName(unsigned cup) {
+  const CpCup *c=FzeroTracksRuntimeCup(cup,NULL);return c?c->name:"";
+}
+const char *FzeroLocalCourseName(unsigned id) {
+  unsigned cup,order;if(!FzeroLocalCourseLocation(id,&cup,&order))return "";
+  const CpTrack *track=FzeroTracksRuntimeTrack(cup,order);return track?track->name:"";
+}
 static unsigned word(unsigned at) {return g_ram[at]|(unsigned)g_ram[at+1]<<8;}
 static uint8_t read_table(void *context,uint32_t address) {
   (void)context;
+  unsigned offset=(address>>16)*0x8000+(address&0x7fff);
+  if(have_stock_tables)return offset<sizeof(stock_tables)?stock_tables[offset]:0;
   const uint8_t *p=cart_getRomPtr(g_snes->cart,(uint8_t)(address>>16),(uint16_t)address);
   return p?*p:0;
 }
 static FzeroActorTables tables(void) {return (FzeroActorTables){read_table,NULL};}
 static void course_config(CpuState *cpu,uint32_t pc) {
-  (void)cpu;(void)pc;FzeroLocalPrepareCourse();
+  (void)cpu;(void)pc;FzeroLocalPrepareCourse();FzeroTracksRefreshCourse();
 }
 bool FzeroLocalEnabled(void) {return enabled;}
 FzeroVersus *FzeroLocalSession(void) {return session;}
@@ -53,8 +84,7 @@ void FzeroLocalShutdown(void) {
   menu_selection=result_ticks=0;
 }
 bool FzeroLocalConfigure(FzeroVersusConfig c) {
-  if(c.course>=15 || c.machine[0]>=4 || c.machine[1]>=4 ||
-      FzeroDeluxeActive() || FzeroGameplayActive() || FzeroTracksActive())return false;
+  if(!FzeroLocalCourseLocation(c.course,NULL,NULL) || c.machine[0]>=4 || c.machine[1]>=4)return false;
   FzeroLocalShutdown();config=c;enabled=fast_setup=true;++epoch;
   if(!FzeroNativeUiInit(&ui,tables())) {FzeroLocalShutdown();return false;}
   /* Resource loader hooks are interpreted-opcode hooks. Keep native setup
@@ -103,8 +133,12 @@ void FzeroLocalPrepareCourse(void) {
   /* At the native $9F08 loader entry, after the ordinary GP menu handoff.
    * Only the selected config changes; decompression and legal grid setup
    * remain native, and no physics outcomes are injected. */
+  unsigned cup,order;if(!FzeroLocalCourseLocation(config.course,&cup,&order))return;
+  const CpPack *pack=NULL;const CpCup *selected=FzeroTracksRuntimeCup(cup,&pack);
+  FzeroTracksRuntimeSelect(cup);
   g_ram[0x52]=config.machine[0];g_ram[0xd1]=config.machine[0]*2;
-  g_ram[0x53]=config.course%5;g_ram[0x90]=config.course/5;
+  g_ram[0x53]=(uint8_t)order;
+  g_ram[0x90]=(uint8_t)(!strcmp(pack->adapter,"fzero-course-v1")?0:selected->slot);
   setup_started=true;
 }
 void FzeroLocalCapture(void) {
@@ -120,6 +154,11 @@ void FzeroLocalCapture(void) {
   uint8_t *world=malloc(0x20000);
   if(!world)return;
   FzeroActorCaptureWorld(world,g_ram);
+  FzeroActorSetCourseResources(world,FzeroTracksCurrentCourse());
+  if(FzeroDeluxeActive() && !FzeroTracksCurrentCourse()) {
+    FzeroActorSetNativePalette(world,g_ram[0x14c03]);
+    world[FZERO_WORLD_NATIVE_SHORTCUT]=(uint8_t)(g_ram[0x14c2a]+1);
+  }
   FzeroVersus *candidate=FzeroVersusCreate(config,world,spawns,tables());free(world);
   FzeroVersusVideo *display=FzeroVersusVideoCreate();
   if(!candidate || !display || !FzeroVersusVideoCapture(display,NULL,candidate,tables())) {
@@ -154,32 +193,36 @@ bool FzeroLocalSelectSaveRoot(void) {
 }
 static void put32(uint8_t *p,uint32_t v) {for(unsigned i=0;i<4;++i)p[i]=(uint8_t)(v>>(i*8));}
 static uint32_t get32(const uint8_t *p) {return p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24;}
-size_t FzeroLocalSaveSize(void) {return 32+FzeroVersusSaveSize();}
+enum {LOCAL_HEADER=80};
+size_t FzeroLocalSaveSize(void) {return LOCAL_HEADER+FzeroVersusSaveSize();}
+static void content_identity(uint8_t hash[32]) {
+  memset(hash,0,32);
+  if(FzeroTracksStateActive())memcpy(hash,FzeroTracksActiveHash(),32);
+}
 bool FzeroLocalSave(void *output,size_t size) {
   if(!enabled || !output || size!=FzeroLocalSaveSize())return false;
-  uint8_t *p=output;memset(p,0,size);memcpy(p,"FZLOCAL1",8);
-  put32(p+8,3);put32(p+12,FZERO_VERSUS_RULES);put32(p+16,(uint32_t)size);
+  uint8_t *p=output;memset(p,0,size);memcpy(p,"FZLOCAL2",8);
+  put32(p+8,4);put32(p+12,FZERO_VERSUS_RULES);put32(p+16,(uint32_t)size);
   put32(p+20,session?(FzeroVersusCompleted(session)->phase==FZERO_VS_RESULTS?result_ticks:0):setup_frame);
-  p[24]=config.course;p[25]=config.machine[0];p[26]=config.machine[1];
-  p[27]=(uint8_t)(setup_started|(fast_setup?2:0));p[28]=session!=NULL;
-  p[29]=sound.music;p[30]=sound.landing;
-  p[31]=(uint8_t)((sound.phase==255?8:sound.phase)|(menu_selection<<4));
-  return !session || FzeroVersusSave(session,p+32,size-32);
+  p[24]=(uint8_t)config.course;p[25]=(uint8_t)(config.course>>8);p[26]=config.machine[0];p[27]=config.machine[1];
+  p[28]=(uint8_t)(setup_started|(fast_setup?2:0));p[29]=session!=NULL;
+  p[30]=sound.music;p[31]=sound.landing;
+  p[32]=(uint8_t)((sound.phase==255?8:sound.phase)|(menu_selection<<4));
+  content_identity(p+48);
+  return !session || FzeroVersusSave(session,p+LOCAL_HEADER,size-LOCAL_HEADER);
 }
 static bool decode(const void *input,size_t size,FzeroVersus **candidate,FzeroVersusConfig *c) {
   if(!input || size!=FzeroLocalSaveSize())return false;
-  const uint8_t *p=input;
-  unsigned version=get32(p+8);
-  if(memcmp(p,"FZLOCAL1",8) || version<1 || version>3 || get32(p+12)!=FZERO_VERSUS_RULES ||
-      get32(p+16)!=size || p[24]>=15 || p[25]>=4 || p[26]>=4 ||
-      (version<3?p[27]>1:p[27]>3) || p[28]>1 || (p[28] && !(p[27]&1)) ||
-      (version==1 && (p[29] || p[30] || p[31])) ||
-      (version>=2 && ((p[29]&0x70) || p[30]>12)) ||
-      (version==2 && p[31]>7 && p[31]!=255) ||
-      (version==3 && ((p[31]&15)>8 || (p[31]>>4)>3)))return false;
-  *c=(FzeroVersusConfig){p[24],{p[25],p[26]}};*candidate=NULL;
-  if(p[28])return (*candidate=FzeroVersusDecode(p+32,size-32,tables(),c))!=NULL;
-  for(size_t i=32;i<size;++i)if(p[i])return false;
+  const uint8_t *p=input;uint8_t identity[32];content_identity(identity);
+  unsigned id=p[24]|(unsigned)p[25]<<8;
+  if(memcmp(p,"FZLOCAL2",8) || get32(p+8)!=4 || get32(p+12)!=FZERO_VERSUS_RULES ||
+      get32(p+16)!=size || !FzeroLocalCourseLocation(id,NULL,NULL) || p[26]>=4 || p[27]>=4 ||
+      p[28]>3 || p[29]>1 || (p[29] && !(p[28]&1)) || (p[30]&0x70) || p[31]>12 ||
+      (p[32]&15)>8 || (p[32]>>4)>3 || memcmp(p+48,identity,32))return false;
+  for(unsigned i=33;i<48;++i)if(p[i])return false;
+  *c=(FzeroVersusConfig){(uint16_t)id,{p[26],p[27]}};*candidate=NULL;
+  if(p[29])return (*candidate=FzeroVersusDecode(p+LOCAL_HEADER,size-LOCAL_HEADER,tables(),c))!=NULL;
+  for(size_t i=LOCAL_HEADER;i<size;++i)if(p[i])return false;
   return true;
 }
 bool FzeroLocalValidate(const void *input,size_t size) {
@@ -195,11 +238,9 @@ bool FzeroLocalRestore(const void *input,size_t size) {
   if(candidate && !display){FzeroVersusDestroy(candidate);return false;}
   FzeroVersusDestroy(session);FzeroVersusVideoDestroy(video);
   session=candidate;video=display;config=c;
-  const uint8_t *p=input;setup_frame=session?0:get32(p+20);setup_started=(p[27]&1)!=0;fast_setup=get32(p+8)==3 && (p[27]&2)!=0;
-  result_ticks=session && get32(p+8)==3?get32(p+20):0;
-  menu_selection=get32(p+8)==3?p[31]>>4:0;
-  if(get32(p+8)==1)FzeroSoundInit(&sound,g_ram[0x46]);
-  else sound=(FzeroSoundState){p[29],p[30],get32(p+8)==3?((p[31]&15)==8?255:p[31]&15):p[31]};
+  const uint8_t *p=input;setup_frame=session?0:get32(p+20);setup_started=(p[28]&1)!=0;fast_setup=(p[28]&2)!=0;
+  result_ticks=session?get32(p+20):0;menu_selection=p[32]>>4;
+  sound=(FzeroSoundState){p[30],p[31],(p[32]&15)==8?255:p[32]&15};
   interp_bridge_set_scheduler_aot_policy(0);
   interp_bridge_set_pre_opcode_hook(0x009f08,course_config);
   return true;

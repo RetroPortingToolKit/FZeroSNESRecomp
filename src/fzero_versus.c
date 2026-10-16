@@ -9,7 +9,7 @@ struct FzeroVersus {
   uint8_t world[0x20000], initial_world[0x20000];
   FzeroActorTables tables;
 };
-static bool config_valid(FzeroVersusConfig c) { return c.course<15 && c.machine[0]<4 && c.machine[1]<4; }
+static bool config_valid(FzeroVersusConfig c) { return c.course<UINT16_MAX && c.machine[0]<4 && c.machine[1]<4; }
 static bool same_config(FzeroVersusConfig a,FzeroVersusConfig b) {
   return a.course==b.course && a.machine[0]==b.machine[0] && a.machine[1]==b.machine[1];
 }
@@ -129,6 +129,7 @@ bool FzeroVersusTick(FzeroVersus *s,const uint16_t held[2]) {
   }
   ++s->state.tick;
   if (s->state.phase==FZERO_VS_COUNTDOWN) {
+    if(s->state.countdown>FZERO_VERSUS_REV_COUNTDOWN) {--s->state.countdown;return true;}
     for (unsigned i=0;i<2;++i) {
       FzeroActor *a=&s->state.racers[i].actor;FzeroActorPreRace(a,s->tables);FzeroActorPreRace(a,s->tables);
     }
@@ -214,7 +215,7 @@ static void actor_codec(Stream *x,const FzeroActor *source,FzeroActor *target) {
 }
 static size_t codec(Stream *x,const FzeroVersus *source,FzeroVersus *target) {
 #define S(field,n) do { uint64_t v=scalar(x,source?source->field:0,n);if(target)target->field=v; } while(0)
-  S(state.config.course,1);S(state.config.machine[0],1);S(state.config.machine[1],1);
+  S(state.config.course,2);S(state.config.machine[0],1);S(state.config.machine[1],1);
   S(state.tick,8);S(state.race_tick,8);S(state.countdown,4);
   S(state.phase,1);S(state.pause,1);S(state.ready,1);S(state.contact,1);S(state.winner,1);
   for (unsigned i=0;i<2;++i) {
@@ -242,7 +243,7 @@ static size_t codec(Stream *x,const FzeroVersus *source,FzeroVersus *target) {
 size_t FzeroVersusSaveSize(void) { Stream x={0};return 32+codec(&x,NULL,NULL); }
 static void put32(uint8_t *p,uint32_t v) { for (unsigned i=0;i<4;++i) p[i]=(uint8_t)(v>>(i*8)); }
 static uint32_t get32(const uint8_t *p) { return p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
-static const uint8_t magic[8]={'F','Z','V','S','0','0','4',0};
+static const uint8_t magic[8]={'F','Z','V','S','0','0','5',0};
 static uint64_t integrity(const uint8_t *data,size_t size) {
   uint64_t hash=hash_bytes(UINT64_C(14695981039346656037),data,24);
   return hash_bytes(hash,data+32,size-32);

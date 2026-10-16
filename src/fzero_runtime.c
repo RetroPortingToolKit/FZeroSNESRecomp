@@ -743,7 +743,7 @@ static void fzero_state_save_extra(SaveLoadInfo *sli) {
          sizeof(state.frame_dma_channels));
   memcpy(state.irq_events, s_irq_events, sizeof(state.irq_events));
   sli->func(sli, &state, sizeof(state));
-  if (FzeroTracksStateActive()) {
+  if (FzeroTracksStateActive() && !FzeroLocalEnabled()) {
     uint8_t hash[32]; memcpy(hash, FzeroTracksActiveHash(), 32);
     sli->func(sli, hash, sizeof(hash));
     FzeroTracksSaveState(sli, false);

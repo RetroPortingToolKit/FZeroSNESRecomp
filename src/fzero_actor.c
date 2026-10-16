@@ -1,4 +1,5 @@
 #include "fzero_actor.h"
+#include "fzero_course.h"
 #include <string.h>
 
 static uint8_t table8(FzeroActorTables t, uint32_t address) {
@@ -17,6 +18,26 @@ static uint16_t angle_sub(uint16_t angle, uint16_t amount) {
 }
 static uint16_t subtract_floor(uint16_t value, uint16_t amount) {
   return value >= amount ? (uint16_t)(value - amount) : 0;
+}
+void FzeroActorSetCourseResources(uint8_t world[0x20000],const FzeroCourse *course) {
+  if(!world || !course)return;
+  world[FZERO_WORLD_RESOURCE]=1;
+  memcpy(world+FZERO_WORLD_TERRAIN,course->terrain,sizeof(course->terrain));
+  world[FZERO_WORLD_FEATURES]=course->required;
+  world[FZERO_WORLD_CYCLES]=course->has_palette_cycles?course->palette_cycle_count:0xff;
+  world[FZERO_WORLD_PALETTE]=course->has_palette_cycles;
+  memcpy(world+FZERO_WORLD_CYCLE_OFFSETS,course->palette_cycles,sizeof(course->palette_cycles));
+  memcpy(world+FZERO_WORLD_COURSE_HASH,course->hash,sizeof(course->hash));
+  memcpy(world+FZERO_WORLD_SHORTCUTS,course->shortcuts,sizeof(course->shortcuts));
+}
+void FzeroActorSetNativePalette(uint8_t world[0x20000],unsigned type) {
+  /* Deluxe C1CF reads course metadata $7F:4C03 rather than the venue.
+   * Store its equivalent immutable cycle program without enabling imported
+   * terrain mechanics for a native course. Offsets are relative to CGRAM16. */
+  static const uint8_t offsets[]={0x40,0x60,0x80,0x70};
+  world[FZERO_WORLD_PALETTE]=1;
+  world[FZERO_WORLD_CYCLES]=(uint8_t)(type==0?0:type==2?1:type==3?4:3);
+  memcpy(world+FZERO_WORLD_CYCLE_OFFSETS,offsets,sizeof(offsets));
 }
 
 void FzeroActorScratchReset(FzeroActorScratch *s) {
@@ -333,13 +354,13 @@ void FzeroActorTurnStage(FzeroActor *a) {
   a->turn_acceleration = (uint16_t)(a->turn_acceleration + 0x1e);
 }
 
-void FzeroActorTurnPerformance(FzeroActor *a, FzeroActorTables t) {
+static void turn_performance(FzeroActor *a,FzeroActorTables t,bool magnet) {
   unsigned high = a->turn_stage >> 8;
   unsigned index = (a->speed >> 7) & 255;
   if (high) {
     bool left = (high & 0x80) != 0;
     unsigned magnitude = left ? ((0u - high) & 255) : high;
-    unsigned factor = index < 0x12 ? table8(t, 0x02c9ab + ((index + a->turning_index) & 255))
+    unsigned factor = magnet?0x38:index < 0x12 ? table8(t, 0x02c9ab + ((index + a->turning_index) & 255))
                                   : table8(t, 0x02c9f7 + index);
     a->turning = (uint16_t)(magnitude * factor / 2);
     a->action |= left ? 2 : 1;
@@ -350,7 +371,7 @@ void FzeroActorTurnPerformance(FzeroActor *a, FzeroActorTables t) {
   unsigned shoulder = a->held & 0x30;
   if (!shoulder || shoulder == 0x30) return;
   unsigned difference = ((a->momentum >> 8) + 192 - (a->facing >> 8)) % 192;
-  unsigned amount = table8(t, 0x02ca18 + index) * 16;
+  unsigned amount = (magnet?0x50:table8(t, 0x02ca18 + index)) * 16;
   if (shoulder & 0x10) {
     if (difference >= 96 || difference < 6) {
       a->momentum = angle_add(a->momentum, (uint16_t)amount); a->instant_grip = 2;
@@ -362,6 +383,12 @@ void FzeroActorTurnPerformance(FzeroActor *a, FzeroActorTables t) {
     }
     a->animation = 0x20;
   }
+}
+void FzeroActorTurnPerformance(FzeroActor *a,FzeroActorTables t) {turn_performance(a,t,false);}
+void FzeroActorCourseTurnPerformance(FzeroActor *a,FzeroActorTables t,const uint8_t world[0x20000]) {
+  bool magnet=(world[FZERO_WORLD_FEATURES]&FZERO_TERRAIN_GRIP_MAGNETS) &&
+      !(a->state&128) && (a->surface&8);
+  turn_performance(a,t,magnet);
 }
 
 static void actor_damage(FzeroActor *a, unsigned damage) {
@@ -416,6 +443,19 @@ void FzeroActorDamageSurface(FzeroActor *a, FzeroActorTables t) {
   if (!(a->animation & 0xe0)) a->animation = 0x89;
   if (!(a->health & 0x8000) && !(a->effect_timer & 0x80)) a->effect_timer = 0x8b;
 }
+void FzeroActorCourseDamage(FzeroActor *a,FzeroActorTables t,const uint8_t world[0x20000]) {
+  unsigned features=world[FZERO_WORLD_FEATURES];uint8_t surface=a->surface;
+  if(features&FZERO_TERRAIN_GRIP_MAGNETS)a->surface&=~8u;
+  if(features&FZERO_TERRAIN_RAINBOW) {
+    unsigned flags=a->ground_flags|((a->state&0x80)?0:a->surface&12);
+    flags&=0x8c;
+    if(a->race_state || !flags) {a->surface=surface;return;}
+    if(flags&128) {
+      a->race_state|=0x40;a->death_animation=6;a->death_lap=a->lap;a->surface=surface;return;
+    }
+  }
+  FzeroActorDamageSurface(a,t);a->surface=surface;
+}
 
 static void start_jump(FzeroActor *a, unsigned base_height) {
   a->state = (a->state | 0x80) & 0xfe;
@@ -429,9 +469,10 @@ static void start_jump(FzeroActor *a, unsigned base_height) {
 /* $9B4F..$9D41. Versus has no rank-out; the jump rank guard always admits
  * each human. Return presentation events as fields rather than touching OAM,
  * the camera, music, lives or the shared guest scene. */
-void FzeroActorAltitude(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t, uint8_t tick) {
+static void altitude(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t,uint8_t tick,bool custom,unsigned features) {
   if (a->recovery_active) return;
-  if (a->exhaust) {
+  bool magnetic=(features&FZERO_TERRAIN_GRIP_MAGNETS) && (a->surface&8);
+  if (a->exhaust && !magnetic) {
     if (a->exhaust == 0x80) a->extra_height_index = 0;
     unsigned target = table8(t, 0x9b7e + a->extra_height_index);
     if (target < a->extra_height) --a->extra_height;
@@ -450,9 +491,11 @@ void FzeroActorAltitude(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t,
     }
   }
   a->height = (uint16_t)(a->height + a->height_velocity);
-  if (((a->height & 0x8000) || a->height < ground_height) && (a->height_velocity & 0x8000)) {
+  bool landed=features&FZERO_TERRAIN_UP_MAGNETS?(a->height<ground_height || a->height>=0xc000):
+      (a->height & 0x8000) || a->height<ground_height;
+  if (landed && (a->height_velocity & 0x8000)) {
     a->height = ground_height;
-    bool off_track = a->surface_id >= 0xd0 ||
+    bool off_track = custom?((a->ground_flags&0x80) || (!(a->state&1) && (a->ground_flags&0x20))):a->surface_id >= 0xd0 ||
         (!(a->state & 1) && (a->surface_id == 0x69 || a->surface_id == 0xa5));
     if (off_track) {
       a->race_state |= 0x40; a->death_animation = 6; a->death_lap = a->lap;
@@ -476,9 +519,26 @@ void FzeroActorAltitude(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t,
     }
     if (a->surface & 0x40) start_jump(a,base_height);
   } else {
-    a->height_velocity = (uint16_t)(a->height_velocity - ((a->surface & 8) ? 0x60 : s->gravity) - 1);
+    if((features&FZERO_TERRAIN_UP_MAGNETS) && (a->surface&8)) {
+      bool up=a->surface_id==0xb6 || (a->surface_id>=0xcc && a->surface_id<0xd0);
+      if(!up)a->height_velocity=(uint16_t)(a->height_velocity-(a->surface_id>=0xd0?0x60:0x61));
+      else {
+        static const unsigned gain[]={7,8,5},limit[]={0x190,0x200,0x120};
+        unsigned tilt=(a->action&12)>>2;if(tilt>2)tilt=0;
+        unsigned strength=a->height<=0x7000?(0x7000-a->height)>>10:0;
+        unsigned old=a->height_velocity,fall=(old-s->gravity)&65535;
+        unsigned result=(fall+strength*gain[tilt]+(old>=s->gravity))&65535;
+        a->height_velocity=(uint16_t)((((result-limit[tilt])&0x8000)!=0)?result:limit[tilt]);
+      }
+    } else a->height_velocity = (uint16_t)(a->height_velocity - ((a->surface & 8) ? 0x60 : s->gravity) - 1);
     a->sound_flags |= (a->action & 4) ? 0x80 : 0x40;
   }
+}
+void FzeroActorAltitude(FzeroActor *a,FzeroActorScratch *s,FzeroActorTables t,uint8_t tick) {
+  altitude(a,s,t,tick,false,0);
+}
+void FzeroActorCourseAltitude(FzeroActor *a,FzeroActorScratch *s,FzeroActorTables t,uint8_t tick,const uint8_t world[0x20000]) {
+  altitude(a,s,t,tick,world[FZERO_WORLD_RESOURCE]!=0,world[FZERO_WORLD_FEATURES]);
 }
 
 /* $8E36..$8ECD and $03:9187..$920A, player branch. The boundary animation
@@ -512,6 +572,23 @@ void FzeroActorSurface(FzeroActor *a) {
     else if (tile == 0xa0) a->surface_flags = 0x40;
     else if (tile == 0x9c) a->surface_flags = 0x20;
   }
+}
+void FzeroActorCourseSurface(FzeroActor *a,const uint8_t world[0x20000]) {
+  if(!world[FZERO_WORLD_RESOURCE]) {FzeroActorSurface(a);return;}
+  const uint8_t *terrain=world+FZERO_WORLD_TERRAIN;unsigned id=a->surface_id;
+  a->surface_extra=terrain[id];a->surface=terrain[0x100+id];a->surface_flags=terrain[0x200+id];
+  unsigned flags=terrain[0x300+id];a->ground_flags=(uint8_t)flags;
+  if(flags&128)a->ground_timer=255;
+  else if(flags&64) {a->ground_timer=3;if(a->speed<0x80)a->speed=0x80;}
+  else if(flags&32) {
+    if(!(a->ground_timer&128)) {
+      if(!a->ground_timer)a->ground_timer=1;
+      else if(a->ground_timer==2) {a->ground_flags=64;a->ground_timer=3;}
+      else if(a->ground_timer!=3) {++a->ground_timer;return;}
+    }
+    if(a->speed<0x80)a->speed=0x80;
+  } else a->ground_timer=0;
+  if((flags&128) || ((flags&32) && (a->ground_timer&128)))if(a->speed<0x100)a->speed=0x100;
 }
 
 /* $A1E5..$A23C. Full-course lookup; neither the streamed Mode 7 square nor

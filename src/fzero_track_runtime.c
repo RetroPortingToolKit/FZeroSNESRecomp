@@ -6,6 +6,7 @@
 #include "fzero_vehicles.h"
 #include "fzero_title.h"
 #include "fzero_records.h"
+#include "fzero_local.h"
 #include "cpu_state.h"
 #include "common_rtl.h"
 #include "snes/interp_bridge.h"
@@ -406,6 +407,7 @@ void FzeroTracksMenuReset(void) {
   course = NULL;
 }
 void FzeroTracksMenuTick(uint8_t *ram, uint32_t previous_scene) {
+  if(FzeroLocalEnabled()) {current_course();return;}
   /* The native Practice league screen starts at Knight independently of the
    * GP selection. Subsequent preview navigation uses this same live catalog. */
   if (FzeroTracksActive() && ram[0x58] && ram[0x54] == 1 && ram[0x55] == 1 &&
@@ -461,6 +463,7 @@ bool FzeroTracksClassSelected(void) {
 }
 void FzeroTracksRefreshCourse(void) {
   current_course();
+  if(FzeroLocalEnabled())return;
   if (FzeroRecordsViewState()) return;
   uint8_t digest[32];
   const uint8_t *key = NULL;

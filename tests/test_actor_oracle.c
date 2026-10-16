@@ -17,6 +17,7 @@
 
 #define CHECK(e) do { if (!(e)) { fprintf(stderr, "%d: %s\n", __LINE__, #e); exit(1); } } while (0)
 static uint8_t rom[0x80000], ram[0x20000];
+static uint8_t *deluxe_rom;
 static uint8_t ram_reads[0x20000], ram_writes[0x20000];
 static bool audit_enabled;
 static uint8_t multiplier, multiplicand;
@@ -30,6 +31,10 @@ static unsigned random_word(void) {
 }
 static uint8_t rom_read(void *context, uint32_t address) {
   (void)context;
+  if(deluxe_rom) {
+    CHECK((address&0xffff)>=0x8000 && (address>>16)<32);
+    return deluxe_rom[(address>>16)*0x8000+(address&0x7fff)];
+  }
   if((address&0xffff)<0x8000 || (address>>16)>=16)fprintf(stderr,"unexpected oracle read %06x\n",address);
   CHECK((address & 0xffff) >= 0x8000 && (address >> 16) < 16);
   return rom[(address >> 16) * 0x8000 + (address & 0x7fff)];
@@ -547,13 +552,13 @@ static void test_session(void) {
   spawns[0].facing=spawns[1].facing=0x9000;
   FzeroActorTables t={rom_read,NULL};uint64_t hash=0;
   for (unsigned machine=0;machine<4;++machine) {
-    FzeroVersusConfig c={0,{(uint8_t)machine,(uint8_t)((machine+1)%4)}};
+    FzeroVersusConfig c={(uint16_t)(machine==3?1000:0),{(uint8_t)machine,(uint8_t)((machine+1)%4)}};
     FzeroVersus *s=FzeroVersusCreate(c,ram,spawns,t),*copy=FzeroVersusCreate(c,ram,spawns,t);CHECK(s && copy);
     const FzeroVersusSnapshot *v=FzeroVersusCompleted(s);uint16_t held[2]={0x8000,0};
     CHECK(!FzeroVersusTick(s,held));session_roundtrip(s,copy);
     FzeroVersusReady(s,0,true);CHECK(v->phase==FZERO_VS_READY);
     FzeroVersusReady(s,1,true);CHECK(v->phase==FZERO_VS_COUNTDOWN);
-    for (unsigned i=0;i<179;++i) CHECK(FzeroVersusTick(s,held));
+    for (unsigned i=0;i<FZERO_VERSUS_COUNTDOWN-1;++i) CHECK(FzeroVersusTick(s,held));
     CHECK(v->countdown==1 && v->race_tick==0);session_roundtrip(s,copy);
     CHECK(FzeroVersusTick(s,held) && v->phase==FZERO_VS_RACING);
     FzeroVersusPause(s,FZERO_VS_PAUSE_DEVICE2);uint64_t paused=FzeroVersusHash(s);
@@ -1090,9 +1095,70 @@ static void test_native_flash_colors(void) {
   }
   puts("native course flashes: 40000 electric-ramp colors and27000 surface colors match BE45 construction from original course CGRAM; no initialized guest lookup tables required");
 }
+static void test_native_course_animation(void) {
+  uint16_t base[256],actual[256];
+  for(unsigned venue=0;venue<9;++venue)for(unsigned counter=0;counter<8;++counter) {
+    memset(ram,0,sizeof(ram));ram[0xcf5]=(uint8_t)venue;ram[0x9a]=(uint8_t)counter;ram[0x5b]=1;
+    for(unsigned i=0;i<256;++i) {base[i]=random_word()&0x7fff;set_word(0x500+i*2,base[i]);}
+    for(unsigned tick=0;tick<65;++tick) {
+      FzeroCameraCoursePalette(actual,base,venue,counter,tick,-1,NULL);
+      for(unsigned i=0;i<256;++i)CHECK(actual[i]==ram_word(0x500+i*2));
+      reference(0xc185);
+    }
+  }
+  /* Imported programs include a rotation overlapping the C185 swaps. */
+  const uint8_t offsets[]={0x30,0x40,0xc0};uint16_t expected[256];
+  for(unsigned i=0;i<256;++i)base[i]=expected[i]=(uint16_t)i;
+  for(unsigned tick=0;tick<1025;++tick) {
+    FzeroCameraCoursePalette(actual,base,0,3,tick,3,offsets);CHECK(!memcmp(actual,expected,sizeof(actual)));
+    unsigned phase=(3+tick+1)&3;
+    if(phase<2) {unsigned i=42+phase*2;uint16_t swap=expected[i];expected[i]=expected[i+1];expected[i+1]=swap;}
+    for(unsigned n=0;n<3;++n) {unsigned i=16+offsets[n]/2;uint16_t last=expected[i+7];memmove(expected+i+1,expected+i,14);expected[i]=last;}
+  }
+  for(unsigned elapsed=1;elapsed<=68;++elapsed) {
+    unsigned offset=FzeroCameraArrivalOffset(elapsed);CHECK(offset<=127);
+    if(elapsed>1)CHECK(offset<=FzeroCameraArrivalOffset(elapsed-1));
+  }
+  CHECK(FzeroCameraArrivalOffset(34)==36 && !FzeroCameraArrivalOffset(68));
+  puts("course animation: all native venues/counter phases match C185/C1CF; imported overlapping cycles and native entry trajectory passed");
+}
+static void test_deluxe_course_animation(void) {
+  const char *path=getenv("FZERO_TEST_DELUXE_ROM");if(!path)return;
+  FILE *file=fopen(path,"rb");CHECK(file);
+  deluxe_rom=malloc(0x100000);CHECK(deluxe_rom);
+  CHECK(fread(deluxe_rom,1,0x100000,file)==0x100000 && fgetc(file)==EOF);fclose(file);
+  uint8_t world[0x20000]={0};uint16_t base[256],actual[256];
+  for(unsigned type=0;type<4;++type)for(unsigned counter=0;counter<8;++counter) {
+    memset(ram,0,sizeof(ram));ram[0x14c03]=(uint8_t)type;ram[0x9a]=(uint8_t)counter;ram[0x5b]=1;
+    FzeroActorSetNativePalette(world,type);CHECK(!world[FZERO_WORLD_RESOURCE]);
+    for(unsigned i=0;i<256;++i) {base[i]=random_word()&0x7fff;set_word(0x500+i*2,base[i]);}
+    for(unsigned tick=0;tick<65;++tick) {
+      FzeroCameraCoursePalette(actual,base,0,counter,tick,world[FZERO_WORLD_CYCLES],world+FZERO_WORLD_CYCLE_OFFSETS);
+      for(unsigned i=0;i<256;++i)CHECK(actual[i]==ram_word(0x500+i*2));
+      reference(0xc185);
+    }
+  }
+  puts("native BS palette: all four metadata programs and counter phases match Deluxe CPU C185/C1CF");
+  for(unsigned type=0;type<8;++type)for(unsigned sample=0;sample<2000;++sample) {
+    FzeroActor a={.jump_watch=255,.takeoff_x=random_word()&8191,.takeoff_y=random_word()&4095,
+      .x=random_word()&8191,.y=random_word()&4095};
+    memset(ram,0,sizeof(ram));write_fields(&a,actor_fields,COUNT(actor_fields));
+    ram[0xc2]=10;ram[0xad]=255;ram[0x14c2a]=(uint8_t)type;
+    for(unsigned i=0;i<256;++i) {
+      set_word(0x1200+i*2,random_word()&8191);set_word(0x1400+i*2,random_word()&4095);
+      ram[0x1600+i]=random_word()%192;ram[0x1700+i]=(uint8_t)random_word();
+    }
+    CHECK(FzeroActorCaptureWorld(world,ram));world[FZERO_WORLD_NATIVE_SHORTCUT]=(uint8_t)(type+1);
+    FzeroActorRecoveryTrigger(&a,world,(FzeroActorTables){rom_read,NULL});reference(0xd9c8);
+    compare_fields(&a,actor_fields,COUNT(actor_fields),0xd9c8,type*2000+sample);
+  }
+  puts("native BS shortcuts: all eight metadata predicates match Deluxe CPU on16000 landing/recovery fixtures");
+  free(deluxe_rom);deluxe_rom=NULL;
+}
 static void test_native_pit_art(void) {
   static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
   static uint32_t actual[256*224],expected[256*224];FzeroUiCanvas canvas={actual,256,224,1};
+  static uint32_t wide[768*224];
   for(unsigned machine=0;machine<4;++machine)for(unsigned early=0;early<4;++early) {
     FzeroActor a={.machine=(uint8_t)machine,.health=0x400};
     memset(ram,0,sizeof(ram));
@@ -1110,6 +1176,9 @@ static void test_native_pit_art(void) {
         paint_native_obj(expected,&ui,(unsigned)slot,high&2?16:8,0);
       }
       FzeroUiPit(&ui,canvas,0,&a);
+      memset(wide,0,sizeof(wide));FzeroUiPit(&ui,(FzeroUiCanvas){wide,768,224,1},256,&a);
+      for(unsigned y=0;y<224;++y)for(unsigned x=0;x<768;++x)
+        CHECK(wide[y*768+x]==(x>=256 && x<512?actual[y*256+x-256]:0));
       if(memcmp(actual,expected,sizeof(actual))) {
         for(unsigned i=0;i<COUNT(actual);++i)if(actual[i]!=expected[i]) {
           fprintf(stderr,"native pit art machine=%u exit=%u tick=%u phase=%u pose=%u departure=%u pixel=%u,%u expected=%08x actual=%08x\n",machine,early,tick,a.pit_phase,a.pit_pose,a.pit_departure,i%256,i/256,expected[i],actual[i]);break;
@@ -1146,7 +1215,7 @@ static void test_stock_pits(void) {
       FzeroActor spawn[2]={{.x=(uint16_t)px,.y=(uint16_t)py},{.x=(uint16_t)(px+pdx),.y=(uint16_t)(py+pdy)}};
       FzeroVersus *s=FzeroVersusCreate(config,world,spawn,(FzeroActorTables){rom_read,NULL});CHECK(s);
       FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
-      const uint16_t held[2]={0,0};for(unsigned n=0;n<180;++n)CHECK(FzeroVersusTick(s,held));
+      const uint16_t held[2]={0,0};for(unsigned n=0;n<FZERO_VERSUS_COUNTDOWN;++n)CHECK(FzeroVersusTick(s,held));
       FzeroVersusSnapshot *v=(FzeroVersusSnapshot *)(void *)FzeroVersusCompleted(s);
       for(unsigned p=0;p<2;++p)v->racers[p].actor.health=0x400;
       unsigned healed[2]={0,0};
@@ -1320,6 +1389,8 @@ int main(int argc, char **argv) {
   test_native_flash_colors();
   test_stock_pits();
   test_native_pit_art();
+  test_native_course_animation();
+  test_deluxe_course_animation();
   test_native_effect_art();
   return 0;
 }

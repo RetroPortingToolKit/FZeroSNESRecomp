@@ -4,14 +4,16 @@
 
 /* A single game-owned authoritative race. Presentation and host device state
  * are deliberately absent. All time is measured in FZERO_SIMULATION_HZ ticks.
- * Rule 3: retain native body-palette event latch across save/rewind/replay.
+ * Rule 5: live course catalog/resources, native arrival and content identity.
  * Two stock humans, five laps, movement then one stable-ID contact.
  * This is a new simulation profile, not a claim of stock whole-frame parity. */
-#define FZERO_VERSUS_RULES 4u
+#define FZERO_VERSUS_RULES 5u
 #define FZERO_VERSUS_LAPS 5u
-#define FZERO_VERSUS_COUNTDOWN 180u
+#define FZERO_VERSUS_ARRIVAL 68u
+#define FZERO_VERSUS_REV_COUNTDOWN 180u
+#define FZERO_VERSUS_COUNTDOWN (FZERO_VERSUS_ARRIVAL+FZERO_VERSUS_REV_COUNTDOWN)
 typedef struct FzeroVersus FzeroVersus;
-typedef struct FzeroVersusConfig { uint8_t course, machine[2]; } FzeroVersusConfig;
+typedef struct FzeroVersusConfig { uint16_t course; uint8_t machine[2]; } FzeroVersusConfig;
 enum FzeroVersusPhase { FZERO_VS_READY, FZERO_VS_COUNTDOWN, FZERO_VS_RACING, FZERO_VS_RESULTS };
 enum FzeroVersusStatus { FZERO_VS_ACTIVE, FZERO_VS_FINISHED, FZERO_VS_DNF, FZERO_VS_SURVIVED };
 enum FzeroVersusPause { FZERO_VS_PAUSE_MANUAL=1, FZERO_VS_PAUSE_FOCUS=2,

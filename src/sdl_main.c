@@ -1652,13 +1652,13 @@ int main(int argc, char **argv) {
     if(!positional_only && (!strcmp(argv[i],"--course") || !strcmp(argv[i],"--p1-machine") || !strcmp(argv[i],"--p2-machine")) && i+1<argc) {
       const char *option=argv[i++];char *end;unsigned long value=strtoul(argv[i],&end,10);
       bool course=!strcmp(option,"--course");
-      if(!argv[i][0] || *end || value>=(course?15u:4u)) {fputs("Invalid local race selection\n",stderr);return 2;}
-      if(course)local_config.course=(uint8_t)value;
+      if(!argv[i][0] || *end || value>=(course?UINT16_MAX:4u)) {fputs("Invalid local race selection\n",stderr);return 2;}
+      if(course)local_config.course=(uint16_t)value;
       else local_config.machine[!strcmp(option,"--p2-machine")]=(uint8_t)value;
       continue;
     }
     if (explicit_rom || (!positional_only && argv[i][0] == '-')) {
-      fprintf(stderr, "usage: FZeroSNESRecomp [--launcher] [--profile-mode7] [--local-2p [--course 0..14] [--p1-machine 0..3] [--p2-machine 0..3]] [path-to-rom.sfc]\n");
+      fprintf(stderr, "usage: FZeroSNESRecomp [--launcher] [--profile-mode7] [--local-2p [--course ID] [--p1-machine 0..3] [--p2-machine 0..3]] [path-to-rom.sfc]\n");
       return 2;
     }
     explicit_rom = argv[i];
@@ -1751,7 +1751,7 @@ int main(int argc, char **argv) {
   const char *msu_override = getenv("SNESRECOMP_MSU1");
   if(local_two_player) {
     /* Session-local profile: saved single-player settings remain available. */
-    FzeroTrackLoaderEnable(false);msu_override="off";
+    msu_override="off";
   }
   bool bundled_music = (!msu_override || !*msu_override) && launcher_settings.msu1_enabled;
   const char *msu_pack = msu_override && *msu_override ? msu_override :
@@ -1773,7 +1773,7 @@ int main(int argc, char **argv) {
   if(local_available && !FzeroLocalModeInit(rom,rom_size,rom_path,
       deluxe_override?deluxe_override:deluxe_path,session_msu_pack,use_cgp_music))Die("Cannot prepare local mode transitions");
   FzeroGameplaySettings active_gameplay=local_two_player?(FzeroGameplaySettings){0}:g_video.gameplay;
-  FzeroGameplayConfigure(&active_gameplay,local_two_player?false:g_video.bs_deluxe,local_two_player?false:g_video.bs_tracks);
+  FzeroGameplayConfigure(&active_gameplay,local_two_player?false:g_video.bs_deluxe,g_video.bs_tracks);
   if (!FzeroTracksPrepare(&rom, &rom_size, local_two_player?false:g_video.bs_deluxe,
                           deluxe_override ? deluxe_override : deluxe_path)) {
     if(FzeroVehiclesActive()) {

@@ -785,6 +785,23 @@ static void test_race_cameras(void) {
       CHECK(first[100*256+128]==expected && hd[200*512+256]==expected);
     }
   }
+  /* Actual repair-strip texels must animate, including after an older tick
+   * is restored. Repeated native/HD drawing never advances the palette. */
+  memset(actors,0,sizeof(actors));actors[0].x=512;actors[0].y=512;
+  for(unsigned i=0;i<64;++i)p.vram[7*64+i]=42<<8;
+  p.cgram[42]=31;p.cgram[43]=0x7c00;ram[0x9a]=3;
+  FzeroRenderViewBeginFrame(assets,ram,100);
+  for(unsigned y=1;y<=224;++y) {p.bgmode=y<48?1:7;FzeroRenderViewCaptureLine(assets,&p,y);}
+  FzeroRenderViewEndFrame(assets,&p,stock);
+  static const unsigned ticks[]={0,1,2,8,9,1,0};
+  static const unsigned colors[]={0xff0000,0x0000ff,0x0000ff,0xff0000,0x0000ff,0x0000ff,0xff0000};
+  for(unsigned t=0;t<sizeof(ticks)/sizeof(*ticks);++t) {
+    CHECK(FzeroRenderViewCaptureRace(views[0],assets,ram,&actors[0],&camera,ticks[t]));
+    FzeroViewport v={256,0,4.0/3.0,false};
+    CHECK(FzeroRenderViewDrawPresentation(views[0],first,hd,sizeof(hd)/sizeof(*hd),v,1,2));
+    CHECK(first[100*256+128]==colors[t] && hd[200*512+256]==colors[t]);
+    CHECK(FzeroRenderViewDraw(views[0],again,v,1) && !memcmp(first,again,256*224*sizeof(*first)));
+  }
   FzeroRenderViewDestroy(assets);
   CHECK(FzeroRenderViewDraw(views[0],first,(FzeroViewport){256,0,4.0/3.0,false},1));
   FzeroRenderViewDestroy(views[0]);FzeroRenderViewDestroy(views[1]);

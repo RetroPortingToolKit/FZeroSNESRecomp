@@ -55,6 +55,13 @@ bool FzeroVersusVideoCapture(FzeroVersusVideo *v,const FzeroRenderView *assets,
       if(!FzeroShipBuild(&v->ships[pane][i],camera,actor,tables)) {
         FzeroVersusVideoReset(v);return false;
       }
+      if(s->phase<=FZERO_VS_COUNTDOWN && s->countdown>=FZERO_VERSUS_REV_COUNTDOWN) {
+        unsigned elapsed=FZERO_VERSUS_COUNTDOWN-s->countdown;
+        int entry=(int)FzeroCameraArrivalOffset(elapsed);
+        FzeroShip *ship=&v->ships[pane][i];
+        ship->y+=entry*(16-(int)ship->size)/16;
+        ship->ground_y+=entry*(16-(int)ship->size)/16;
+      }
     }
     const FzeroActor *old=&v->previous.racers[pane].actor;
     if(fabs(remainder((double)a->x-old->x,8192))>128 ||
@@ -130,7 +137,9 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
   if(s->pause)message="PAUSED";
   else if(s->phase==FZERO_VS_READY)message="READY";
   else if(s->phase==FZERO_VS_COUNTDOWN) {
-    snprintf(line,sizeof(line),"%u",(s->countdown+59)/60);message=line;
+    if(s->countdown<=FZERO_VERSUS_REV_COUNTDOWN) {
+      snprintf(line,sizeof(line),"%u",(s->countdown+59)/60);message=line;
+    }
   } else if(r->status==FZERO_VS_FINISHED)message="FINISHED";
   else if(r->status==FZERO_VS_DNF) {
     FzeroUiCrashOut(ui,canvas,64);

@@ -4,6 +4,8 @@
 #include "fzero_actor.h"
 #include "fzero_runtime.h"
 #include "fzero_gameplay.h"
+#include "fzero_course_runtime.h"
+#include "fzero_deluxe.h"
 #include "common_rtl.h"
 #include "cpu_state.h"
 #include "snes/interp_bridge.h"
@@ -31,7 +33,8 @@ static uint8_t stock_table(void *context,uint32_t address) {
 static bool eligible(void) {
   return !(g_ram[0x52]>=4 || g_ram[0x54]!=2 || g_ram[0x55]!=3 ||
       g_ram[0x5b] || word(0xf50) || g_ram[0xdc8]>=20 ||
-      FzeroStateModeCurrent()!=kFzeroStateModeStock || FzeroGameplayActive());
+      (FzeroStateModeCurrent()!=kFzeroStateModeStock &&
+       !(getenv("FZERO_TEST_ACTOR_IMPORTED") && !FzeroDeluxeActive() && FzeroTracksCurrentCourse())) || FzeroGameplayActive());
 }
 static void capture_actor(void) {
   memset(&expected,0,sizeof(expected));
@@ -113,6 +116,8 @@ static FzeroActor full_expected;
 static bool full_enabled,full_pending,full_chain,full_initialized;
 static unsigned full_comparisons,full_mismatches;
 static uint8_t full_world[0x20000];
+static unsigned full_start_recovery;
+static bool full_world_dumped;
 static void before_full_tick(CpuState *cpu,uint32_t pc) {
   (void)cpu;(void)pc;
   full_pending=false;
@@ -123,8 +128,18 @@ static void before_full_tick(CpuState *cpu,uint32_t pc) {
   }
   if(!full_chain || !full_initialized) {
     if(!FzeroActorCaptureWorld(full_world,g_ram)){fputs("full-frame course capture failed\n",stderr);exit(12);}
+    FzeroActorSetCourseResources(full_world,FzeroTracksCurrentCourse());
+    const char *dump=getenv("FZERO_TEST_ACTOR_WORLD");
+    if(dump && !full_world_dumped) {
+      FILE *file=fopen(dump,"wb");
+      if(!file || fwrite(full_world,1,sizeof(full_world),file)!=sizeof(full_world) || fclose(file))exit(12);
+      const CpTrack *track=FzeroTracksRuntimeTrack(FzeroTracksMenuIndex(),g_ram[0x53]);
+      fprintf(stderr,"actor-frame: authored course=%s features=%u\n",track?track->id:"stock",full_world[FZERO_WORLD_FEATURES]);
+      full_world_dumped=true;
+    }
   } else FzeroActorLatch(&full_expected,word(0x65));
   full_initialized=true;
+  full_start_recovery=full_expected.recovery_active;
   FzeroActorMineEvent mine={0};FzeroActorTick(&full_expected,full_world,
       (FzeroActorTables){stock_table,g_snes->cart->rom},g_ram[0x51],&mine);
   /* Finish-side tracking is owned by the session after the uncoupled tick.
@@ -138,8 +153,8 @@ static void after_full_tick(CpuState *cpu,uint32_t pc) {
   /* Handling, motion, surfaces and animation are observed across a complete
    * naturally executed native tick. Audio/HUD/race-award ownership differs. */
   static const char *names[]={"speed","speed_fraction","x","x_fraction","y","y_fraction","vx","vx_fraction","vy","vy_fraction",
-    "height","height_velocity","facing","momentum","turning","spin","no_control","health","action","state","surface","ground_flags",
-    "surface_flags","slide","instant_grip","jump_timer","turn_stage","turn_acceleration","exhaust","exhaust_color","exhaust_frame","exhaust_timer","exhaust_offset","extra_height_index","extra_height",
+    "height","height_velocity","facing","momentum","turning","spin","no_control","health","action","state","surface","surface_id","ground_flags",
+    "surface_flags","surface_extra","recovery_active","slide","instant_grip","jump_timer","turn_stage","turn_acceleration","exhaust","exhaust_color","exhaust_frame","exhaust_timer","exhaust_offset","extra_height_index","extra_height",
     "animation","steering_history","animation_scale","animation_transition","ground_timer","boundary_momentum",
     "electric_flash","track_flash","effect_timer","black_flash",
     "checkpoint","checkpoint_angle","status2","wall_angle","finish_side","branch",
@@ -153,8 +168,10 @@ static void after_full_tick(CpuState *cpu,uint32_t pc) {
     const uint8_t *p=(const uint8_t *)&full_expected+f->offset;
     if(f->size==1)expected_value=*p;else{uint16_t v;memcpy(&v,p,2);expected_value=v;}
     if(native!=expected_value) {
-      if(full_mismatches<40)fprintf(stderr,"actor-frame: tick=%u nmi=%u field=%s native=%04x versus=%04x held=%04x\n",
-          full_comparisons,g_ram[0x51],f->name,native,expected_value,word(0x65));
+      if(full_mismatches<40)fprintf(stderr,"actor-frame: tick=%u nmi=%u field=%s native=%04x versus=%04x held=%04x tile=%02x/%02x resource=%u terrain=%02x pos=%u,%u recovery=%u/%u start=%u\n",
+          full_comparisons,g_ram[0x51],f->name,native,expected_value,word(0x65),g_ram[0xcd0],full_expected.surface_id,
+          full_world[FZERO_WORLD_RESOURCE],full_world[FZERO_WORLD_TERRAIN+full_expected.surface_id],full_expected.x,full_expected.y,
+          g_ram[0xee6],full_expected.recovery_active,full_start_recovery);
       ++full_mismatches;
     }
   }

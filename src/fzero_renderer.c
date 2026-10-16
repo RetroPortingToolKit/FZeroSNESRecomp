@@ -187,7 +187,13 @@ bool FzeroRenderViewCaptureRace(FzeroRenderView *view, const FzeroRenderView *as
   f->ram[0xac] = camera->inverse_angle;
   f->ram[0xb70] = actor->x; f->ram[0xb71] = actor->x >> 8;
   f->ram[0xb90] = actor->y; f->ram[0xb91] = actor->y >> 8;
+  uint16_t palette_indices[256],palette_map[256];
+  for(unsigned i=0;i<256;++i)palette_indices[i]=(uint16_t)i;
+  FzeroCameraCoursePalette(palette_map,palette_indices,source->ram[0xcf5],source->ram[0x9a],frame,
+        world[FZERO_WORLD_PALETTE]?world[FZERO_WORLD_CYCLES]:-1,
+      world+FZERO_WORLD_CYCLE_OFFSETS);
   for (unsigned y = 0; y < 224; ++y) {
+    for(unsigned i=0;i<256;++i)f->lines[y].palette[i]=source->lines[y].palette[palette_map[i]];
     /* Work on owned PPU scratch, then retain only its register prefix. */
     Ppu *p = &view->scanout;
     memcpy(p, f->lines[y].registers, PPU_SAVESTATE_REGS_SIZE);
@@ -210,14 +216,14 @@ bool FzeroRenderViewCaptureRace(FzeroRenderView *view, const FzeroRenderView *as
     /* BF5F/C057 flashes five course colors through the electric-surface
      * ramp. Each camera owns its human's phase; the shared guest is frozen. */
     for(unsigned color=0;color<5;++color) {
-      f->lines[y].palette[18+color]=FzeroCameraFlashColor(source->lines[y].palette[18+color],actor->electric_flash,false);
+      f->lines[y].palette[18+color]=FzeroCameraFlashColor(f->lines[y].palette[18+color],actor->electric_flash,false);
     }
     /* BF5F/C07E/C095 retains a separate three-color surface flash until
      * F5 expires. It must not leak from one human's view into the other. */
     static const unsigned surface_colors[]={25,26,39};
     for(unsigned color=0;color<3;++color) {
       unsigned index=surface_colors[color];
-      f->lines[y].palette[index]=FzeroCameraFlashColor(source->lines[y].palette[index],actor->track_flash,true);
+      f->lines[y].palette[index]=FzeroCameraFlashColor(f->lines[y].palette[index],actor->track_flash,true);
     }
     memcpy(f->lines[y].registers, p, PPU_SAVESTATE_REGS_SIZE);
   }

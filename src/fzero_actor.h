@@ -12,6 +12,16 @@ typedef struct FzeroActorTables {
   FzeroActorReadRom read;
   void *context;
 } FzeroActorTables;
+/* Owned resource metadata in otherwise unused low-bank course space. It is
+ * copied/hashed with the shared world, never read from the live catalog. */
+enum {FZERO_WORLD_RESOURCE=0x2000,FZERO_WORLD_PALETTE=0x2001,FZERO_WORLD_NATIVE_SHORTCUT=0x2002,FZERO_WORLD_TERRAIN=0x2010,
+      FZERO_WORLD_FEATURES=0x2410,FZERO_WORLD_CYCLES=0x2411,
+      FZERO_WORLD_CYCLE_OFFSETS=0x2412,FZERO_WORLD_COURSE_HASH=0x2430,
+      FZERO_WORLD_SHORTCUTS=0x2450};
+enum {FZERO_TERRAIN_GRIP_MAGNETS=1,FZERO_TERRAIN_UP_MAGNETS=2,FZERO_TERRAIN_RAINBOW=4};
+struct FzeroCourse;
+void FzeroActorSetCourseResources(uint8_t world[0x20000],const struct FzeroCourse *course);
+void FzeroActorSetNativePalette(uint8_t world[0x20000],unsigned type);
 
 typedef struct FzeroActor {
   uint16_t speed, speed_fraction;
@@ -88,6 +98,11 @@ void FzeroActorAltitude(FzeroActor *actor, FzeroActorScratch *scratch,
                         FzeroActorTables tables, uint8_t tick);
 void FzeroActorDamageSurface(FzeroActor *actor, FzeroActorTables tables);
 void FzeroActorSurface(FzeroActor *actor);
+void FzeroActorCourseSurface(FzeroActor *actor,const uint8_t world[0x20000]);
+void FzeroActorCourseAltitude(FzeroActor *actor,FzeroActorScratch *scratch,
+    FzeroActorTables tables,uint8_t tick,const uint8_t world[0x20000]);
+void FzeroActorCourseTurnPerformance(FzeroActor *actor,FzeroActorTables tables,const uint8_t world[0x20000]);
+void FzeroActorCourseDamage(FzeroActor *actor,FzeroActorTables tables,const uint8_t world[0x20000]);
 uint8_t FzeroActorSampleSurface(const uint8_t world[0x20000], uint16_t x, uint16_t y);
 typedef struct FzeroActorMineEvent { bool hit; uint16_t x, y; uint8_t surface_id; } FzeroActorMineEvent;
 void FzeroActorMine(FzeroActor *actor, FzeroActorTables tables, FzeroActorMineEvent *event);

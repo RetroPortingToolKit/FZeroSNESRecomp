@@ -17,6 +17,9 @@ def main():
     p.add_argument('--build', type=Path, required=True)
     p.add_argument('--stock', type=Path, required=True)
     p.add_argument('--out', type=Path, required=True)
+    p.add_argument('--packs', type=Path, help='Use this installed/custom course catalog')
+    p.add_argument('--course', type=int, default=0, help='Live catalog course ID for state/replay checks')
+    p.add_argument('--bs', action='store_true', help='Enable the native BS track profile')
     p.add_argument('--all-courses', action='store_true', help='Check native setup of all 15 courses, not full races')
     a = p.parse_args()
     build, stock, out = (v.resolve() for v in (a.build, a.stock, a.out))
@@ -28,9 +31,9 @@ def main():
     sentinel.write_bytes(bytes(range(256))*8)
     original_sram = sentinel.read_bytes()
     env = {k: v for k, v in os.environ.items() if not k.startswith(('FZERO_', 'SNESRECOMP_', 'SDL_', 'LNG_'))}
-    env.update(SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy', FZERO_PACK_LOADER='0',
-               FZERO_BS_CARS='0', FZERO_BS_TRACKS='0', FZERO_CGP_CARS='0', FZERO_RULES='',
-               FZERO_PACKS_DIR=str(out/'packs'), FZERO_TRACK_PACKS=str(out/'settings'),
+    env.update(SDL_AUDIODRIVER='dummy', SDL_VIDEODRIVER='dummy', FZERO_PACK_LOADER=str(int(a.packs is not None)),
+               FZERO_BS_CARS='0', FZERO_BS_TRACKS=str(int(a.bs)), FZERO_CGP_CARS='0', FZERO_RULES='',
+               FZERO_PACKS_DIR=str(a.packs.resolve() if a.packs else out/'packs'), FZERO_TRACK_PACKS=str(out/'settings'),
                SNESRECOMP_SAVE_ROOT=str(out/'s'))
     # The runtime's save-root API is bounded to 95 bytes.
     if len(env['SNESRECOMP_SAVE_ROOT'])+len('/local-2p') >= 96:
@@ -40,10 +43,10 @@ def main():
     route = '1810-2299:4097,1950-1980:524288,2100-2130:64'
     results = {}
 
-    def run(label, frames, extra=None, course=0, machines=(0, 1), expected=0, versus=True):
+    def run(label, frames, extra=None, course=None, machines=(0, 1), expected=0, versus=True):
         print(label, flush=True)
         args = [str(exe), str(stock), str(frames)]
-        if versus: args += ['--versus', str(course), *(str(v) for v in machines)]
+        if versus: args += ['--versus', str(a.course if course is None else course), *(str(v) for v in machines)]
         with (out/f'{label}.log').open('w', encoding='utf-8') as log:
             r = subprocess.run(args, cwd=build, env=dict(env, **(extra or {})), stdout=log, stderr=log, timeout=300)
         log = (out/f'{label}.log').read_text(encoding='utf-8', errors='replace')

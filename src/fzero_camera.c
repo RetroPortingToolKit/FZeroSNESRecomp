@@ -49,3 +49,45 @@ uint16_t FzeroCameraFlashColor(uint16_t base,unsigned phase,bool surface) {
   unsigned half=((0x7fff-base)>>1)&0x3def,quarter=(half>>1)&0x1ce7;
   return (uint16_t)(base+(phase==1?quarter:phase==3?half+quarter:half));
 }
+static void palette_step(uint16_t map[256],unsigned phase,const unsigned *starts,unsigned count) {
+  if(phase==0 || phase==1) {
+    unsigned i=42+phase*2;uint16_t swap=map[i];map[i]=map[i+1];map[i+1]=swap;
+  }
+  for(unsigned n=0;n<count;++n) {
+    unsigned start=starts[n];uint16_t last=map[start+7];
+    memmove(map+start+1,map+start,7*sizeof(*map));map[start]=last;
+  }
+}
+void FzeroCameraCoursePalette(uint16_t out[256],const uint16_t base[256],
+    unsigned venue,unsigned counter,uint64_t ticks,int cycles,const uint8_t *offsets) {
+  unsigned starts[14],count=0;
+  if(cycles>=0) {
+    for(unsigned i=0;i<(unsigned)cycles && i<14;++i)starts[count++]=16+offsets[i]/2;
+  } else if(venue!=1 && venue!=5) {
+    starts[count++]=48;
+    if(venue!=8) {
+      starts[count++]=64;starts[count++]=80;
+      if(venue==0 || venue==4)starts[count++]=72;
+    }
+  }
+  /* Compose the exact four-counter-phase permutation. Authored cycles may
+   * overlap the two native swaps, so a simple independent rotation is wrong.
+   * Exponentiation bounds the work even after a long race or restored replay. */
+  uint16_t map[256],power[256],next[256];
+  for(unsigned i=0;i<256;++i)map[i]=power[i]=(uint16_t)i;
+  for(unsigned tick=1;tick<=4;++tick)palette_step(power,(counter+tick)&3,starts,count);
+  for(uint64_t blocks=ticks/4;blocks;blocks>>=1) {
+    if(blocks&1) {for(unsigned i=0;i<256;++i)next[i]=map[power[i]];memcpy(map,next,sizeof(map));}
+    for(unsigned i=0;i<256;++i)next[i]=power[power[i]];
+    memcpy(power,next,sizeof(power));
+  }
+  for(unsigned tick=1;tick<=(ticks&3);++tick)palette_step(map,(counter+tick)&3,starts,count);
+  for(unsigned i=0;i<256;++i)out[i]=base[map[i]];
+}
+unsigned FzeroCameraArrivalOffset(unsigned elapsed) {
+  unsigned cd=0x44,ce=0x54,offset=127;
+  for(unsigned tick=0;tick<elapsed && cd;++tick,--cd)if(ce<128 && cd<0x3c) {
+    offset=ce;ce=(ce-1)&255;if(ce>=9)ce=(ce-1)&255;
+  }
+  return offset;
+}

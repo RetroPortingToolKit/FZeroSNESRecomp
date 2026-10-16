@@ -301,8 +301,10 @@ void FzeroUiPit(const FzeroNativeUi *ui,FzeroUiCanvas c,int offset_x,const Fzero
   unsigned q=a->pit_pose-1;
   for(int i=11;i>=0;--i) {
     unsigned hi=(high[i/4]>>((i%4)*2))&3;
+    /* C4E9 parks these four spare OBJ pieces offscreen with X-high set.
+     * A wider camera must not expose their flame tiles beside the HUD. */
+    if(hi&1)continue;
     int x=a->pit_pose==1?body[i*4]:(int)((0x88-q*2+dx[i])&255);
-    if(hi&1)x-=256;
     unsigned y=a->pit_pose==1?body[i*4+1]:(0xf0+(q+1)/2+((i==2 || i==3)?5:0))&255;
     pit_object(ui,c,offset_x,x,y,body[i*4+2],body[i*4+3],hi&2?16:8);
   }

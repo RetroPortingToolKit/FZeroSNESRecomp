@@ -1275,3 +1275,89 @@ flow, not natural driving; natural course-bot passes remain waived. Extended
 cadence and full recovery-flight/exhaust-palette parity remain unqualified.
 No Linux or netplay validation was performed. Dependency pins, private assets
 and the unstaged absent local snesrecomp gitlink are preserved.
+
+## Expanded course catalog and native arrival (owner scope change, 2026-10-16)
+
+The owner expanded the original stock-only content scope to every league and
+course available in the single-player runtime catalog, including custom
+imports. VS now enumerates `FzeroTracksRuntimeCup/Track`, selects through that
+same resource loader, and retains the selected map profile when entering and
+leaving VS. It does not maintain another list of supported pack names or maps.
+Native BS mode retains single-player's existing exclusive loader behavior;
+the imported-library profile exposes its installed/custom cups. Stock machines
+still use the verified original car/handling/art tables, including when BS
+native code prepares a map. Elective machine/rule modifications remain outside
+this local simulation profile, and the complete single-player profile returns
+when leaving VS.
+
+The shared native-style league/course pages scroll the live catalog and long
+labels. Each player's full machine page remains first. No course selector or
+shortcut footer is added to the machine pages. Flat course IDs are now 16-bit;
+the portable session codec also tests IDs beyond 255.
+
+Imported normalized terrain, mandatory grip/up-magnet/Rainbow declarations,
+authored palette rotations, shortcut bounds and content hash are copied into
+owned canonical world state. Simulation never consults live catalog pointers.
+The surface adapter follows the existing single-player course hooks, including
+property-driven custom landings and recovery. Native BS maps retain their own
+eight metadata-selected shortcut predicates, verified independently against
+Deluxe CPU execution on 16,000 landing fixtures.
+
+Course colors now advance using original C185/C1CF counter phases and color
+rotations, including the repair strip's flashing colors. Native BS metadata
+selects its palette program; imports use their authored program when present.
+The original palette capture stays immutable. Each view derives its colors
+from the completed shared tick before applying that human's original electric
+and surface flashes. Overlapping imported rotations compose as one permutation
+and use bounded exponentiation for restored/long-running sessions. Repainting,
+resizing, pause and rewind do not advance palette state. CPU comparisons cover
+all stock venues/counter phases, all four native BS programs and overlapping
+imported cycles; native/HD renderer checks verify visible repair colors and
+restoring an earlier tick. Offscreen native UFO reservations remain hidden in
+wide views instead of leaking spare flame sprites beside the HUD.
+
+Both cars glide into their grid positions before the shared three-second rev
+countdown, using the original 68-tick 8C16 entry trajectory. Both cameras show
+both arrivals together. Physical spawning/collisions and race time stay paused
+until racing; this is the car glide, not the complete single-player course
+overview/intro sequence. Arrival can be paused, saved and restored normally.
+
+Rules5/FZVS005 and the FZLOCAL2 host prefix version4 intentionally reject older
+VS snapshots/replays. The host prefix includes the live catalog content
+identity, and local snapshots do not append a second single-player records
+trailer. Single-player state format and record namespaces remain unchanged.
+
+Windows evidence before the final commit: all17 CTests pass, including the
+stock scalar/native-effect oracles, native BS palette/recovery, wide pit and
+animated repair renderer regressions. All90 stock/imported courses (18 cups,
+including the custom Astra Front import) pass two five-lap finishes, arrival /
+racing / results snapshots, rematch and native/HD image generation in
+`captures/l2p-catalog-all-01`. All25 native BS courses pass the same lifecycle
+fixtures in `captures/l2p-catalog-bs-01`. These are the owner-authorized forced
+pose/motion/health fixtures; progress, laps, times and outcomes are never
+injected. They do not qualify natural driving. The reusable runner is
+`tests/validate_local_catalog.py`, requiring private ROM and pack paths.
+
+Imported handling comparison found and fixed reversed surface/surface-extra
+table interpretation, a custom wall timer transition, and an up-magnet rule
+incorrectly applied outside magnetic surfaces. Two bounded native routes and
+twelve four-machine surface/air/shoulder fixtures pass with zero differences
+(3,360 complete native tick comparisons). These are bounded comparisons, not
+all-interaction qualification. An attempted long Rainbow GP comparison meets
+native CPU opponents, so it cannot compare an uncoupled human adapter with
+the complete GP; it is not accepted as parity evidence. An earlier Practice
+route did not reach racing and likewise is not counted.
+
+Actual SDL native/HD2 runs in `captures/l2p-catalog-desktop-01` pass title VS
+entry, two devices, all four machines, custom/late-catalog league and course
+selection, three arrival images, countdown3/2/1, five actual resizes each,
+driven shoulder/steering, Restart / Change Race / Main Menu and single-player
+return. Presenter images were directly inspected. Fresh-process snapshot,
+actual rewind, exact replay/viewport identity, tamper rejection and namespace
+checks pass for both stock and imported sessions in
+`captures/l2p-catalog-state-02` and `captures/l2p-import-state-01`.
+
+Final exact-commit checks, launch and SHA are recorded in central beads-8uc1.
+Owner physical two-human QA remains open. Natural course-bot completion remains
+waived; full imported interaction coverage, sustained cadence, complete course
+overview, Linux and netplay are not claimed as validated.

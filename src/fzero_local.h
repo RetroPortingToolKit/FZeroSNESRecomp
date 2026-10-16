@@ -4,6 +4,13 @@
 
 /* Bridge from native asset setup to the authoritative stock race. */
 bool FzeroLocalConfigure(FzeroVersusConfig config);
+bool FzeroLocalStockTables(const uint8_t *rom,size_t size);
+unsigned FzeroLocalCupCount(void);
+unsigned FzeroLocalCourseCount(unsigned cup);
+unsigned FzeroLocalCourseId(unsigned cup,unsigned order);
+bool FzeroLocalCourseLocation(unsigned id,unsigned *cup,unsigned *order);
+const char *FzeroLocalCupName(unsigned cup);
+const char *FzeroLocalCourseName(unsigned id);
 void FzeroLocalShutdown(void);
 bool FzeroLocalEnabled(void);
 FzeroVersus *FzeroLocalSession(void);

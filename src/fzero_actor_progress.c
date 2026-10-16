@@ -147,8 +147,32 @@ void FzeroActorRecoveryTrigger(FzeroActor *a,const uint8_t world[0x20000],FzeroA
   a->jump_watch=0;a->landing_x=a->x;a->landing_y=a->y;
   unsigned index=world[0x1075];
   unsigned entry=table(t,0xdab8+index)|(table(t,0xdab9+index)<<8);
+  /* Deluxe 1EAAD5 selects its native shortcut predicate from course metadata,
+   * including the extra BS regions. Car statistics still use stock tables. */
+  unsigned native=world[FZERO_WORLD_NATIVE_SHORTCUT];
+  if(native) {
+    static const unsigned entries[]={0,0x1eab14,0xda0b,0xda25,0xda3a,0x1eab45,0xda58,0xda80};
+    entry=native<=8?entries[native-1]:0;
+  }
   int checkpoint=-1;
-  switch (entry) {
+  if(world[FZERO_WORLD_RESOURCE]) {
+    for(unsigned i=0;i<16;++i) {
+      const uint8_t *p=world+FZERO_WORLD_SHORTCUTS+i*17;
+      unsigned bounds[8];for(unsigned j=0;j<8;++j)bounds[j]=p[j*2]|(unsigned)p[j*2+1]<<8;
+      if(bounds[0]&0x8000)break;
+      if(a->takeoff_x>=bounds[0] && a->takeoff_x<bounds[2] && a->takeoff_y>=bounds[1] && a->takeoff_y<bounds[3] &&
+         a->landing_x>=bounds[4] && a->landing_x<bounds[6] && a->landing_y>=bounds[5] && a->landing_y<bounds[7]) {
+        checkpoint=p[16];break;
+      }
+    }
+  } else switch (entry) {
+    case 0x1eab14:
+      if(a->landing_y<0x700)checkpoint=22;
+      break;
+    case 0x1eab45:
+      if(a->takeoff_x<0x1980 && (a->landing_x>=0x1b80 ||
+          (a->landing_y<0x700 && a->takeoff_x<0x1600 && a->landing_x>=0x1880)))checkpoint=42;
+      break;
     case 0xda0b:
       if (a->landing_y>=0x400) checkpoint=a->takeoff_x>=0x1300 && a->takeoff_x<0x1680?15:20;
       break;
