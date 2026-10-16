@@ -64,6 +64,12 @@ installed pack, settings, video configuration and fresh output paths. It launche
 two actual muted SDL peers and compares their canonical completed states only
 through the confirmed frontier. Replayed rows replace previous executions of
 the same game tick. After a synchronized load it checks the new wire epoch.
+Peer executables stay at `BUILD/qa-peers/peer0` and `peer1` across cases. Approve
+those two paths once in Windows Firewall. Cases run sequentially under an
+exclusive installation lock; fresh output folders retain separate traces,
+images and copied test saves. `--peers-dir` selects another persistent location.
+Do not create a new executable path for each matrix cell: that prompts for
+firewall permission again. The runner never changes firewall policy.
 
 Scenarios cover ordinary driving, host aspect mismatch rejection before tick
 zero, synchronized save/load and real keyboard/pad browser controls, finish and

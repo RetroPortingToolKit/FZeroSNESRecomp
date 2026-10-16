@@ -28,10 +28,27 @@ def main():
     p.add_argument('--hd-peer', action='store_true')
     p.add_argument('--rematch', action='store_true', help='Start another race after the finish fixture results')
     p.add_argument('--port', type=int, default=18770)
+    p.add_argument('--peers-dir', type=Path, help='Persistent QA installation (default: BUILD/qa-peers); reuse for every case')
     a = p.parse_args()
     for name in ('build', 'runtime', 'rom', 'packs', 'settings', 'video', 'out'):
         setattr(a, name, getattr(a, name).resolve())
+    a.peers_dir = (a.peers_dir or a.build / 'qa-peers').resolve()
+    if a.out.is_relative_to(a.peers_dir) or a.peers_dir.is_relative_to(a.out):
+        p.error('The persistent peer installation must be outside the case output directory')
     a.out.mkdir(parents=True, exist_ok=False)
+    a.peers_dir.mkdir(parents=True, exist_ok=True)
+    marker = a.peers_dir / '.fzero-netplay-qa'
+    if not marker.exists():
+        if any(a.peers_dir.iterdir()):
+            p.error('Refusing to reuse an unmarked, nonempty peer installation')
+        marker.write_text('F-Zero automated netplay peers; no owner saves\n', newline='\n')
+    # One installation per seat, not per scenario: Windows firewall program
+    # rules identify a full executable path. Serialize cases to protect these
+    # two installations while keeping every result/trace in its fresh folder.
+    lock = a.peers_dir / '.running'
+    lock_fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+    os.write(lock_fd, ('%d %s\n' % (os.getpid(), a.out)).encode())
+    os.close(lock_fd)
     frames = dict(driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, exit=1000, change=1300)[a.scenario]
     processes, logs = [], []
     started = time.monotonic()
@@ -39,12 +56,20 @@ def main():
         for slot in range(2):
             folder = a.out / ('peer%d' % slot)
             folder.mkdir()
-            shutil.copy2(a.build / 'FZeroSNESRecomp.exe', folder / 'FZeroSNESRecomp.exe')
+            install = a.peers_dir / ('peer%d' % slot)
+            install.mkdir(exist_ok=True)
+            saves = install / 'saves/netplay/fzero'
+            if saves.exists():
+                assert saves.resolve().is_relative_to(a.peers_dir), 'QA save path escaped its installation'
+                for old in saves.glob('fzero-local-2p*.sav*'):
+                    if old.is_file():
+                        old.unlink()
+            shutil.copy2(a.build / 'FZeroSNESRecomp.exe', install / 'FZeroSNESRecomp.exe')
             for dll in a.runtime.glob('*.dll'):
-                shutil.copy2(dll, folder / dll.name)
-            shutil.copytree(a.build / 'assets', folder / 'assets')
+                shutil.copy2(dll, install / dll.name)
+            shutil.copytree(a.build / 'assets', install / 'assets', dirs_exist_ok=True)
             for name in ('config.ini', 'keybinds.ini'):
-                shutil.copy2(a.runtime / name, folder / name)
+                shutil.copy2(a.runtime / name, install / name)
             video = a.video.read_text().replace('HDMode7=0', 'HDMode7=' + str(int(slot == 1 and a.hd_peer)))
             (folder / 'video.ini').write_text(video, newline='\n')
             env = {k: v for k, v in os.environ.items() if not k.startswith(
@@ -90,8 +115,8 @@ def main():
             env['SNESRECOMP_INPUT_SCRIPT'] = inputs
             log = (folder / 'game.log').open('w')
             logs.append(log)
-            processes.append(subprocess.Popen([str(folder / 'FZeroSNESRecomp.exe'), str(a.rom)],
-                                               cwd=folder, env=env, stdout=log, stderr=log))
+            processes.append(subprocess.Popen([str(install / 'FZeroSNESRecomp.exe'), str(a.rom)],
+                                               cwd=install, env=env, stdout=log, stderr=log))
             time.sleep(.2)
         deadline = time.monotonic() + 100
         while any(proc.poll() is None for proc in processes) and time.monotonic() < deadline:
@@ -104,8 +129,16 @@ def main():
             proc.wait()
         for log in logs:
             log.close()
+        try:
+            for slot in range(2):
+                saves = a.peers_dir / ('peer%d/saves' % slot)
+                if saves.exists():
+                    shutil.copytree(saves, a.out / ('peer%d/saves' % slot))
+        finally:
+            lock.unlink()
     text = [(a.out / ('peer%d/game.log' % i)).read_text(errors='replace') for i in range(2)]
     report = dict(scenario=a.scenario, aspect=a.aspect, loss=a.loss, hd_peer=a.hd_peer,
+                  peer_installation=str(a.peers_dir),
                   executable_sha256=hashlib.sha256((a.build / 'FZeroSNESRecomp.exe').read_bytes()).hexdigest(),
                   seconds=round(time.monotonic() - started, 3), exits=[proc.returncode for proc in processes])
     if a.scenario == 'reject':
