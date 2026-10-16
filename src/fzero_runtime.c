@@ -18,6 +18,7 @@
  */
 
 #include "fzero_runtime.h"
+#include "../tests/fzero_local_teleport.h"
 #include "fzero_renderer.h"
 #include "fzero_deluxe.h"
 #include "fzero_tracks.h"
@@ -30,6 +31,7 @@
 #include "fzero_gameplay.h"
 #include "fzero_vehicles.h"
 #include "fzero_local.h"
+#include "fzero_online.h"
 #include "fzero_vs_menu.h"
 #include "snapshot_guard.h"
 
@@ -74,6 +76,7 @@ static uint32_t s_resume_pc;
 static uint64_t s_next_frame_master;
 static unsigned s_host_frames;
 static bool s_restoring_local_assets;
+static bool s_online_bootstrap;
 static int s_last_lle_result = 1;
 static uint8_t s_frame_hdmaen;
 static bool s_loaded_runtime_state;
@@ -215,7 +218,14 @@ static bool run_main_slice(uint64_t deadline) {
 }
 
 static void run_one_frame(void) {
-  if(FzeroLocalTick((uint32_t)g_snes->input1_currentState|((uint32_t)g_snes->input2_currentState<<12))) {
+  uint32_t pads=(uint32_t)g_snes->input1_currentState|((uint32_t)g_snes->input2_currentState<<12);
+  if(!s_online_bootstrap && FzeroOnlineTick(&pads))return;
+  if(FzeroOnlineEnabled()) {
+    const char *fixture=getenv("FZERO_TEST_ONLINE_FIXTURE");
+    if(fixture && !strcmp(fixture,"teleport"))FzeroLocalTeleportFixture(FzeroLocalSession());
+    else if(fixture && !strcmp(fixture,"crash"))FzeroLocalCrashFixture(FzeroLocalSession());
+  }
+  if(FzeroLocalTick(pads)) {
     /* One host tick advances one shared race. Keep SPC/beam clocks running
      * for the single soundtrack; neither camera invokes a guest frame. */
     g_cpu.master_cycles+=kMasterClocksPerFrame;
@@ -375,7 +385,7 @@ void FzeroBeginDrawing(uint8_t *pixels, size_t pitch) {
 }
 
 int FzeroFrameWidth(void) { return s_viewport.width; }
-int FzeroFrameHeight(void) { return FzeroLocalEnabled()?448:224; }
+int FzeroFrameHeight(void) { return FzeroLocalEnabled() && !FzeroOnlineEnabled()?448:224; }
 
 void FzeroSetViewport(FzeroViewport viewport) {
   if (viewport.width != s_viewport.width) {
@@ -388,6 +398,11 @@ void FzeroSetViewport(FzeroViewport viewport) {
 }
 
 void FzeroPresent(double alpha) {
+  if(FzeroOnlineEnabled() && FzeroOnlineCompleted()->phase!=FZERO_ONLINE_RACE) {
+    s_hd_ready=false;
+    if(s_output_pixels)FzeroOnlineDraw((uint32_t *)s_output_pixels,s_viewport,1);
+    return;
+  }
   if(FzeroLocalEnabled() && !FzeroLocalSession()) {
     s_hd_ready=false;
     if(s_output_pixels) {
@@ -404,7 +419,7 @@ void FzeroPresent(double alpha) {
   if(FzeroLocalSession()) {
     s_hd_ready=s_hd_scale && s_hd_pixels &&
         FzeroLocalDraw(s_hd_pixels,s_hd_capacity,s_viewport,alpha,s_hd_scale);
-    if(s_output_pixels)FzeroLocalDraw((uint32_t *)s_output_pixels,(size_t)s_viewport.width*448,s_viewport,alpha,1);
+    if(s_output_pixels)FzeroLocalDraw((uint32_t *)s_output_pixels,(size_t)s_viewport.width*FzeroFrameHeight(),s_viewport,alpha,1);
     return;
   }
   s_hd_ready = s_hd_scale && s_hd_pixels &&
@@ -644,6 +659,28 @@ static void session_reset(void) {
   interp_bridge_set_master_deadline(0);
 }
 
+bool FzeroOnlineLoadCourse(FzeroVersusConfig config) {
+  FzeroViewport viewport=s_viewport;RtlReset(1);session_reset();
+  bool ok=FzeroLocalConfigure(config);FzeroSetViewport(viewport);return ok;
+}
+static bool online_frame_begin(uint32_t *inputs) {
+  (void)inputs;
+  if(!FzeroOnlineEnabled() || s_online_bootstrap ||
+      FzeroOnlineCompleted()->phase!=FZERO_ONLINE_LOADING)return true;
+  /* Resource loading is one deterministic network transition, not hundreds
+   * of wall-clock racing ticks. Enter before RtlRunFrame establishes its
+   * frame clock/watchdog; each inner native frame has its own complete clock.
+   * Capture the real loader/grid and stop before advancing either racer.
+   * Rollback repeats exactly this work; no devices, transport or time queried. */
+  s_online_bootstrap=true;
+  for(unsigned n=0;n<2400 && !FzeroLocalSession() && s_last_lle_result && !g_fail;++n) {
+    (void)RtlRunFrame(0);FzeroDrawPpuFrame();
+  }
+  s_online_bootstrap=false;
+  if(!FzeroLocalSession()) {s_last_lle_result=0;return false;}
+  return true;
+}
+
 enum {
   kFzeroStateMagic = 0x4f52465au, /* "zFRO" */
   kFzeroStateVersion = 1u,
@@ -702,6 +739,9 @@ typedef struct FzeroRuntimeState {
 } FzeroRuntimeState;
 
 static void fzero_state_save_extra(SaveLoadInfo *sli) {
+  if(FzeroOnlineEnabled()) {
+    uint8_t image[FZERO_ONLINE_STATE_SIZE];FzeroOnlineSave(image);sli->func(sli,image,sizeof(image));
+  }
   if (FzeroLocalEnabled()) {
     size_t size=FzeroLocalSaveSize();uint8_t *image=calloc(1,size);
     if(image) {FzeroLocalSave(image,size);sli->func(sli,image,size);free(image);}
@@ -753,6 +793,10 @@ static void fzero_state_save_extra(SaveLoadInfo *sli) {
 static void fzero_state_load_extra(SaveLoadInfo *sli, uint32_t version) {
   FzeroRuntimeState state;
   (void)version;
+  if(FzeroOnlineEnabled()) {
+    uint8_t image[FZERO_ONLINE_STATE_SIZE];sli->func(sli,image,sizeof(image));
+    if(!FzeroOnlineRestore(image)) {s_loaded_runtime_state=false;s_state_mode_refused=true;return;}
+  }
   uint8_t *local=NULL;
   if(FzeroLocalEnabled()) {
     local=malloc(FzeroLocalSaveSize());
@@ -833,7 +877,7 @@ static const FzeroStateTrailer kFzeroStateTrailer = {
     kFzeroStateMagic, kFzeroStateVersion};
 
 static const char *fzero_snapshot_identity(void) {
-  return FzeroLocalEnabled()?"fzero-local-2p-v1":NULL;
+  return FzeroOnlineEnabled()?"fzero-online-v1":FzeroLocalEnabled()?"fzero-local-2p-v1":NULL;
 }
 static bool fzero_snapshot_preflight(const void *data,size_t size) {
   if(!FzeroLocalEnabled())return true;
@@ -841,6 +885,15 @@ static bool fzero_snapshot_preflight(const void *data,size_t size) {
   uint32_t version=0;size_t guest=RtlSnapshotGuestSize(&version);
   uint32_t header[2]={0};if(size>=sizeof(header))memcpy(header,data,sizeof(header));
   size_t total=RtlSaveSnapshotToMemory(NULL,0);
+  if(FzeroOnlineEnabled()) {
+    if(size<guest+FZERO_ONLINE_STATE_SIZE+FzeroLocalSaveSize() || !FzeroOnlineValidate((const uint8_t *)data+guest) ||
+        ((const uint8_t *)data)[guest+40]!=FzeroOnlineCompleted()->aspect)return false;
+    const uint8_t *online=(const uint8_t *)data+guest,*local=online+FZERO_ONLINE_STATE_SIZE;
+    if(online[38]==FZERO_ONLINE_LOADING || online[38]==FZERO_ONLINE_RACE) {
+      if(memcmp(online+28,local+24,4) || (online[38]==FZERO_ONLINE_RACE && !local[29]))return false;
+    }
+    guest+=FZERO_ONLINE_STATE_SIZE;
+  }
   return guest && total>SNES_SNAPSHOT_GUARD_OVERHEAD &&
       size==total-SNES_SNAPSHOT_GUARD_OVERHEAD && header[1]==version &&
       size>=guest+FzeroLocalSaveSize()+sizeof(FzeroRuntimeState) &&
@@ -1016,6 +1069,7 @@ static const RtlGameInfo kFzeroGameInfo = {
 const RtlGameInfo *FzeroLocalGameInfo(void) {
   static RtlGameInfo local;
   local=kFzeroGameInfo;local.title="f_zero_local_2p";local.save_name_prefix="fzero-local-2p";
+  local.frame_begin=online_frame_begin;
   local.snapshot_guard_identity=fzero_snapshot_identity;local.snapshot_preflight=fzero_snapshot_preflight;
   return &local;
 }

@@ -1,4 +1,5 @@
 #include "fzero_local.h"
+#include "fzero_online.h"
 #include "fzero_deluxe.h"
 #include "fzero_gameplay.h"
 #include "fzero_tracks.h"
@@ -171,6 +172,7 @@ void FzeroLocalCapture(void) {
 }
 bool FzeroLocalDraw(uint32_t *out,size_t capacity,FzeroViewport viewport,double alpha,unsigned scale) {
   FzeroVersusVideoMenu(video,menu_selection,result_ticks);
+  if(FzeroOnlineEnabled())return session && FzeroVersusVideoDrawPlayer(video,out,capacity,viewport,alpha,scale,(unsigned)FzeroOnlineView());
   return session && FzeroVersusVideoDraw(video,out,capacity,viewport,alpha,scale);
 }
 void FzeroLocalResetViews(void) {

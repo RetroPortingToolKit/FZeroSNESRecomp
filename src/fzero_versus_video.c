@@ -184,11 +184,11 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     FzeroUiCenter(ui,canvas,76,message,FZERO_UI_MENU,ink[pane]);
   }
 }
-static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsigned scale) {
+static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsigned scale,bool single) {
   const FzeroVersusSnapshot *s=&v->state;
   if(!s->pause && s->phase!=FZERO_VS_RESULTS)return;
   if(!s->pause && !FzeroVersusVideoResultsReady(s,v->result_ticks))return;
-  FzeroUiCanvas c={out,viewport.width*(int)scale,448*(int)scale,scale};
+  FzeroUiCanvas c={out,viewport.width*(int)scale,(single?224:448)*(int)scale,scale};
   const FzeroNativeUi *ui=&v->ui;int center=viewport.width/2;
   bool paused=s->pause!=0;unsigned count=paused?4:3;
   const char *heading=paused?"PAUSE":s->winner==FZERO_VS_TIE?"TIE":
@@ -196,10 +196,11 @@ static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsign
   static const char *pause[]={"CONTINUE","RESTART RACE","CHANGE RACE","MAIN MENU"};
   static const char *results[]={"RACE AGAIN","CHANGE RACE","MAIN MENU"};
   bool disconnected=paused && (s->pause&12);
-  FzeroUiFrame(ui,c,center-112,paused?120:88,224,paused?(disconnected?184:160):264);
-  FzeroUiCenter(ui,c,paused?136:104,heading,FZERO_UI_MENU,FZERO_UI_YELLOW);
+  FzeroUiFrame(ui,c,center-112,single?(paused?32:8):(paused?120:88),224,
+      single?(paused?160:208):paused?(disconnected?184:160):264);
+  FzeroUiCenter(ui,c,single?(paused?48:20):(paused?136:104),heading,FZERO_UI_MENU,FZERO_UI_YELLOW);
   if(!paused)for(unsigned i=0;i<2;++i) {
-    const FzeroVersusRacer *r=&s->racers[i];char line[64],timer[32];int y=140+(int)i*48;
+    const FzeroVersusRacer *r=&s->racers[i];char line[64],timer[32];int y=(single?52:140)+(int)i*(single?40:48);
     bool won=s->winner==i+1;
     snprintf(line,sizeof(line),"P%u  %s",i+1,FzeroUiMachineName(r->actor.machine));
     FzeroUiText(ui,c,center-96,y,line,FZERO_UI_SMALL,i?FZERO_UI_YELLOW:FZERO_UI_CYAN);
@@ -212,9 +213,10 @@ static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsign
     FzeroUiRaceClock(ui,c,center+24,y+16,timer);
   }
   for(unsigned i=0;i<count;++i) {
-    int y=(paused?172:264)+(int)i*24;bool selected=i==v->menu_selection;
+    int y=(single?(paused?84:144):(paused?172:264))+(int)i*24;bool selected=i==v->menu_selection;
     if(selected)FzeroUiTile(ui,c,center-96,y+4,0x2f,FZERO_UI_YELLOW,true,false);
-    FzeroUiText(ui,c,center-80,y,paused?pause[i]:results[i],FZERO_UI_MENU,selected?FZERO_UI_YELLOW:FZERO_UI_CYAN);
+    const char *label=single && i==count-1?"LOBBY":paused?pause[i]:results[i];
+    FzeroUiText(ui,c,center-80,y,label,FZERO_UI_MENU,selected?FZERO_UI_YELLOW:FZERO_UI_CYAN);
   }
   if(disconnected)FzeroUiCenter(ui,c,284,"PRESS START TO REJOIN",FZERO_UI_SMALL,FZERO_UI_CYAN);
 }
@@ -234,6 +236,17 @@ bool FzeroVersusVideoDraw(FzeroVersusVideo *v,uint32_t *out,size_t capacity,Fzer
   }
   FzeroUiRect((FzeroUiCanvas){out,viewport.width*(int)scale,448*(int)scale,scale},
       0,223,viewport.width,1,0xff000000);
-  menu(v,out,viewport,scale);
+  menu(v,out,viewport,scale,false);
   return true;
+}
+bool FzeroVersusVideoDrawPlayer(FzeroVersusVideo *v,uint32_t *out,size_t capacity,
+                               FzeroViewport viewport,double alpha,unsigned scale,unsigned player) {
+  if(!v || !v->valid || !out || player>=2 || viewport.width<256 || viewport.width>FZERO_MAX_WIDTH ||
+     (scale!=1 && !FzeroValidHdScale(scale)) || capacity<(size_t)viewport.width*224*scale*scale)return false;
+  if(!isfinite(alpha) || alpha>1)alpha=1;if(alpha<0)alpha=0;if(!v->interpolate)alpha=1;
+  size_t count=(size_t)viewport.width*224*scale*scale;
+  bool ok=scale==1?FzeroRenderViewDraw(v->views[player],out,viewport,alpha):
+      FzeroRenderViewDrawPresentation(v->views[player],NULL,out,count,viewport,alpha,scale);
+  if(!ok)return false;
+  overlay(v,out,viewport,player,alpha,scale);menu(v,out,viewport,scale,true);return true;
 }

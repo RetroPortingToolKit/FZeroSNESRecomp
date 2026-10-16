@@ -3,11 +3,12 @@
 Implement local two-player versus racing in F-Zero Forever with one shared
 simulation and two independent cameras, always displayed top/bottom. The owner
 selected versus races without CPU opponents for the first release and approved
-the implementation plan. The latest instruction is to prepare this handoff and
-leave gameplay implementation to a new session.
+the implementation plan. This document preserves the preparation, verified
+source map and subsequent implementation milestones. Current online behavior
+and validation instructions are in [NETPLAY.md](NETPLAY.md).
 
 Tracking: central Beads `beads-8uc1`, beneath F-Zero epic `beads-8wg.5`.
-Prepared 2026-10-15. No multiplayer prototype or new gameplay code exists yet.
+Prepared 2026-10-15; implementation and owner QA milestones follow below.
 
 ## Repository and checkpoint
 
@@ -1381,3 +1382,57 @@ in central beads-8wg.5.101, linked to beads-8uc1. Online presentation defaults
 to the participant's full viewport; host selects 4:3/16:9/21:9, default16:9,
 fixed across clients for the match. This supersedes the original exclusion;
 online implementation and qualification remain outstanding at this milestone.
+
+
+Netplay integration milestone (2026-10-16): owner explicitly supersedes the old
+preserve-pins instruction with latest upstream dependencies. Engine branch
+`feat/fzero-netplay-integration` starts at upstream a6be975, updates recomp-net
+to 3b46cf7088d45a440ab20cf6d3ce7bdd5c2333c3 (commit8959de2), and adds the small
+shared profile/digest and complete-snapshot quick-save/load fixes in
+b1f129b99ef6a5f7092be9db65b0412a6e7c883b. UI branch `feat/fzero-netplay-label`
+starts at latest upstream0546fbc, adds the optional Viewport caption in3d5739f,
+and merges the previous F-Zero custom-import/preset/binding support in
+06e0eebeb1f8bc62b3147de04a7d01c9de97cf6a. Exact gitlinks are updated explicitly;
+the absent local snesrecomp directory is never staged as a deletion.
+
+The game now uses the existing shared recomp-ui lobby/account/ICE and recomp-net
+input/rollback stack. Every peer runs the same shared VS core. Each sees its
+own full viewport; host fixes4:3/16:9/21:9, default16:9. Synchronized native
+machine/league/course menus, pause/results/rematch/change/lobby transitions,
+arrival/countdown, canonical snapshot extras and digest, and shared saves are
+connected. Actual CPU/backend/profile offers settle once before frame0, with
+only the qualified portable scalar race profile offered. Full build, catalog,
+rules, profile transcript and aspect checks remain. Rewind is offline-only.
+
+Windows integration evidence:18/18 game CTests PASS10.33s;43/43 merged UI tests
+PASS0.42s; recomp-net startup-profile normal/loss tests2/2 PASS37.57s. Actual
+recomp-ui LAN/DirectIP host+guest join,21:9 read-only guest setting, Play,1000
+race ticks and automatic room re-seat pass netplay-lobby-pair-03. A discovery
+version longer than the shared32-byte field was corrected without weakening
+full runtime identity. Full own-camera native/HD peers and asymmetric window
+resizes agree under10%loss,30ms latency and15ms jitter. Imported league3 also
+passes975 confirmed equal ticks in netplay-imported-01. Two actual five-lap
+finishes with native/HD results PASS45.17s (netplay-finish-02); finish/rematch
+PASS57.61s/2848 confirmed equal ticks (netplay-rematch-01). Real void landing,
+native explosion and DNF/survivor result PASS19.23s/698 confirmed equal ticks
+(netplay-crash-03). Change race and a second native course bootstrap pass32.09s
+(netplay-change-01). Intentional lobby exit passes17.23s/685 confirmed equal
+ticks (netplay-exit-02). Aspect mismatch refuses both at simulation0
+(netplay-reject-03). All launches are muted.
+
+Shared save testing found and corrected missing fresh-install namespace parents,
+a fixed512KiB transfer buffer, and old quick-load history surviving a new wire
+epoch. A593142-byte online snapshot now transfers intact. Real SDL keyboard
+browser open/cancel and virtual-pad save pause both peers at the same confirmed
+frame and verify identical slot0 files. Quick slot4 also matches, reloads on
+both peers, and resumes398 confirmed identical ticks (netplay-state-06).
+Online setup and wide-course codec/authority/rematch/restore tests require no
+ROM. The reusable actual-peer runner is tests/validate_netplay.py.
+
+Latest-dependency local desktop native/HD2 smoke PASS28.27/28.79s with five
+resizes each, title VS, four machines, custom/late cups, arrival/countdown,
+handling, restart/change/main and single-player return. Exact final build and
+commit evidence is recorded in beads-8wg.5.101 and beads-8uc1. Owner physical
+controller QA and real remote Internet/ICE play remain manual checks. This is
+Windows same-build evidence; no Linux or cross-build netplay qualification is
+claimed. Natural course bots remain waived by the owner.

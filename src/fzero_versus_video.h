@@ -17,3 +17,5 @@ bool FzeroVersusVideoCapture(FzeroVersusVideo *video, const FzeroRenderView *ass
  * scale=1 is native; HD retains crisp ship/HUD pixels over resampled track. */
 bool FzeroVersusVideoDraw(FzeroVersusVideo *video, uint32_t *output, size_t capacity,
                           FzeroViewport viewport, double alpha, unsigned scale);
+bool FzeroVersusVideoDrawPlayer(FzeroVersusVideo *video,uint32_t *output,size_t capacity,
+                               FzeroViewport viewport,double alpha,unsigned scale,unsigned player);

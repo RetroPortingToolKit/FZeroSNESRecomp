@@ -100,7 +100,12 @@ if(BUILD_TESTING)
     add_executable(fzero_state_mode_tests tests/test_state_mode.c src/fzero_state_mode.c)
     target_include_directories(fzero_state_mode_tests PRIVATE "${CMAKE_SOURCE_DIR}/src")
     add_test(NAME fzero_state_mode COMMAND fzero_state_mode_tests)
+    add_executable(fzero_online_tests tests/test_online.c src/fzero_online.c)
+    target_include_directories(fzero_online_tests PRIVATE "${SNESRECOMP_ROOT}/runner/src")
+    target_link_libraries(fzero_online_tests PRIVATE fzero_camera)
+    add_test(NAME fzero_online COMMAND fzero_online_tests)
     if(NOT MSVC)
+        target_compile_options(fzero_online_tests PRIVATE -Wall -Wextra -Werror)
         target_compile_options(fzero_hotkeys_tests PRIVATE -Wall -Wextra -Werror)
         target_compile_options(fzero_state_mode_tests PRIVATE -Wall -Wextra -Werror)
     endif()
@@ -120,6 +125,7 @@ set(RECOMP_UI_ROOT "${CMAKE_SOURCE_DIR}/recomp-ui" CACHE PATH
 set(SNESRECOMP_SDL_BACKEND "SDL3" CACHE STRING
     "Desktop SDL backend (SDL3 or SDL2)")
 set(RECOMP_UI_ENABLE_MODS ON CACHE BOOL "F-Zero built-in native presentation mod" FORCE)
+set(SNESRECOMP_NET_ICE ON CACHE BOOL "Shared online transport" FORCE)
 include(${SNESRECOMP_ROOT}/runner/runner.cmake)
 include(${SNESRECOMP_ROOT}/runner/render_workers.cmake)
 include(${RECOMP_UI_ROOT}/recomp_ui.cmake)
@@ -180,6 +186,8 @@ endif()
 list(REMOVE_ITEM SNESRECOMP_RUNNER_SOURCES
     "${SNESRECOMP_ROOT}/runner/src/keybinds.c"
     "${SNESRECOMP_ROOT}/runner/src/host_report.c"
+    "${SNESRECOMP_ROOT}/runner/src/diagnostics/trace_writer.c"
+    "${SNESRECOMP_ROOT}/runner/src/diagnostics/replay_writer.c"
     "${SNESRECOMP_ROOT}/runner/src/snes_savestate_menu.c"
     "${SNESRECOMP_ROOT}/runner/src/snes_osd.c")
 
@@ -234,6 +242,8 @@ target_link_libraries(FZeroSNESRecompHeadless PRIVATE fzero_actor)
 # launcher's Controls page and the game read the same keybinds.ini.
 add_executable(FZeroSNESRecomp
     ${SNESRECOMP_RUNNER_SOURCES}
+    "${SNESRECOMP_ROOT}/runner/src/diagnostics/trace_writer.c"
+    "${SNESRECOMP_ROOT}/runner/src/diagnostics/replay_writer.c"
     "${SNESRECOMP_ROOT}/runner/src/host_report.c"
     "${SNESRECOMP_ROOT}/runner/src/keybinds.c"
     "${SNESRECOMP_ROOT}/runner/src/snes_savestate_menu.c"
@@ -249,6 +259,7 @@ add_executable(FZeroSNESRecomp
     src/fzero_hotkeys.c
     src/fzero_gamepad.c
     src/fzero_local_controls.c
+    src/fzero_netplay.c
     src/fzero_runtime.c)
 
 # Defaults scoped to this game target: the shared stores and launcher retain
@@ -271,7 +282,7 @@ function(configure_fzero_target target)
         add_dependencies(${target} fzero_deluxe_payload_source)
         target_compile_definitions(${target} PRIVATE FZERO_HAS_DELUXE=1)
     endif()
-    target_sources(${target} PRIVATE src/fzero_renderer.c src/fzero_versus_video.c src/fzero_local.c src/fzero_vs_menu.c src/fzero_local_mode.c)
+    target_sources(${target} PRIVATE src/fzero_renderer.c src/fzero_versus_video.c src/fzero_local.c src/fzero_vs_menu.c src/fzero_local_mode.c src/fzero_online.c)
     snesrecomp_target_render_workers(${target})
     target_link_libraries(${target} PRIVATE fzero_video)
     target_include_directories(${target} PRIVATE
@@ -315,6 +326,7 @@ if(BUILD_TESTING AND SNESRECOMP_SDL_BACKEND STREQUAL "SDL3")
 endif()
 target_link_libraries(FZeroSNESRecomp PRIVATE OpenGL::GL)
 recomp_target_launcher_ui(FZeroSNESRecomp CONSOLE snes)
+snesrecomp_enable_recomp_net(FZeroSNESRecomp)
 # Identify dependencies as well as the game in player performance reports.
 find_package(Git QUIET)
 function(fzero_revision directory output)
@@ -337,6 +349,8 @@ file(GLOB FZERO_BUILD_INPUTS CONFIGURE_DEPENDS src/*.c src/*.cpp src/*.h)
 list(APPEND FZERO_BUILD_INPUTS "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fzero_local_ui_driver.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fzero_local_driver.h")
+  list(APPEND FZERO_BUILD_INPUTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/fzero_local_teleport.h")
+  list(APPEND FZERO_BUILD_INPUTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/fzero_online_ui_driver.h")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${FZERO_BUILD_INPUTS})
 set(fingerprint "${SNESRECOMP_BUILD_VERSION};${FZERO_SOURCE_REVISION};${FZERO_FRAMEWORK_REVISION};${FZERO_UI_REVISION};${CMAKE_BUILD_TYPE};${CMAKE_C_COMPILER_ID};${CMAKE_C_COMPILER_VERSION};${CMAKE_C_FLAGS};${CMAKE_C_FLAGS_RELEASE}")
 foreach(input IN LISTS FZERO_BUILD_INPUTS)

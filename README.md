@@ -35,12 +35,14 @@ You bring your own legally dumped *F-Zero (USA)* ROM. No ROM is included.
 ## Features
 
 - Play *F-Zero* as a native app.
+- Local two-player racing: enable Local Two Player, then choose **VS MODE** on the original title menu. Independent top/bottom views share one race and collisions.
+- [Versus netplay](docs/NETPLAY.md) through recomp-ui and recomp-net: each participant gets a full viewport; the host selects 4:3, 16:9 (default), or 21:9.
 - Widescreen modes: 16:9, 21:9, 32:9, and Fit.
 - Optional [HD Mode 7](docs/HD_MODE7.md): 2x through 10x track rendering, independent of widescreen and presentation FPS.
 - High refresh presentation: 60, 90, 120, 144, 165, 240, or 360 FPS.
 - Display shaders: CRT Soft, LCD Grid, Sharp, Warm Composite, or your own GLSL shader.
 - Save states with a slot browser and thumbnails, opened with **F7** or **Select + R**.
-- Rewind: step back through the last few seconds and drop back in.
+- Offline rewind: step back through the last few seconds and drop back in.
 - Gamepad support through SDL.
 - Optional BS F-Zero Deluxe content.
 - Discoverable [track and audio packs](docs/PACK_FORMAT.md), including raw FZEdit course exports. Reviewed ROM/IPS/BPS conversion is an author-side step.
