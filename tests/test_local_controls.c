@@ -48,9 +48,47 @@ int main(void) {
   for(unsigned i=0;i<2;++i)CHECK(SDL_SetJoystickVirtualButton(pads[i],SDL_GAMEPAD_BUTTON_START,false));
   poll(c,0);
   CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_DPAD_DOWN,true));poll(c,0);
-  FzeroVersusConfig config=FzeroLocalControlsConfig(c);CHECK(config.machine[0]==1 && config.machine[1]==1);
+  FzeroVersusConfig config=FzeroLocalControlsConfig(c);CHECK(config.machine[0]==2 && config.machine[1]==1);
+  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
+  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_DPAD_DOWN,true));poll(c,0);
+  CHECK(FzeroLocalControlsConfig(c).machine[0]==1); /* Native order, duplicate cars allowed. */
   CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
   for(unsigned i=0;i<2;++i)CHECK(SDL_SetJoystickVirtualButton(pads[i],SDL_GAMEPAD_BUTTON_START,true));
+  CHECK(!poll(c,0));CHECK(FzeroLocalControlsPage(c)==FZERO_LOCAL_CUP);
+  for(unsigned i=0;i<2;++i)CHECK(SDL_SetJoystickVirtualButton(pads[i],SDL_GAMEPAD_BUTTON_START,false));poll(c,0);
+  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_SOUTH,true));CHECK(!poll(c,0));
+  CHECK(FzeroLocalControlsPage(c)==FZERO_LOCAL_MACHINES);
+  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_SOUTH,false));poll(c,0);
+  for(unsigned i=0;i<2;++i)CHECK(SDL_SetJoystickVirtualButton(pads[i],SDL_GAMEPAD_BUTTON_START,true));poll(c,0);
+  CHECK(FzeroLocalControlsPage(c)==FZERO_LOCAL_CUP);
+  for(unsigned i=0;i<2;++i)CHECK(SDL_SetJoystickVirtualButton(pads[i],SDL_GAMEPAD_BUTTON_START,false));poll(c,0);
+  /* Either player can select the shared league. B backs up one page. */
+  for(unsigned league=0;league<3;++league) {
+    CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_START,true));CHECK(!poll(c,0));
+    CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_START,false));poll(c,0);
+    CHECK(FzeroLocalControlsPage(c)==FZERO_LOCAL_COURSE);
+    for(unsigned course=0;course<5;++course) {
+      CHECK(FzeroLocalControlsConfig(c).course==league*5+course);
+      CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,true));poll(c,0);
+      CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
+    }
+    FzeroLocalControlsBack(c);CHECK(!poll(c,0));poll(c,0);
+    CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,true));poll(c,0);
+    CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
+  }
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,true));poll(c,0);
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_START,true));CHECK(!poll(c,0));
+  CHECK(FzeroLocalControlsPage(c)==FZERO_LOCAL_COURSE && FzeroLocalControlsConfig(c).course==5);
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_START,false));poll(c,0);
+  FzeroLocalControlsBack(c);CHECK(!poll(c,0));CHECK(FzeroLocalControlsPage(c)==FZERO_LOCAL_CUP);poll(c,0);
+  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_START,true));poll(c,0);
+  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_START,false));poll(c,0);
+  CHECK(FzeroLocalControlsPage(c)==FZERO_LOCAL_COURSE);
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,true));poll(c,0);
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
+  CHECK(FzeroLocalControlsConfig(c).course==6);
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_START,true));
   CHECK(poll(c,0)&FZERO_LOCAL_START);CHECK(!FzeroLocalControlsSetup(c));
   for(unsigned i=0;i<2;++i)for(unsigned b=0;b<15;++b)CHECK(SDL_SetJoystickVirtualButton(pads[i],b,false));
   poll(c,0);

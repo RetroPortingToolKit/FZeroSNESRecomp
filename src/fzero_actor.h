@@ -41,6 +41,8 @@ typedef struct FzeroActor {
   uint8_t body_flash;
   uint16_t recovery_x, recovery_y;
   uint8_t recovery_angle, pit_phase, pit_departure, beam_top, beam_bottom;
+  /* Last native C476 OAM pose; retained during beam service/departure delay. */
+  uint8_t pit_pose, pit_recovery;
   uint16_t next_checkpoint_x, next_checkpoint_y, previous_checkpoint_x, previous_checkpoint_y;
   uint8_t checkpoint, next_checkpoint_angle, previous_checkpoint_angle;
   uint8_t next_checkpoint_flags, previous_checkpoint_flags, status2, wall_angle, finish_side;

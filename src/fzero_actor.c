@@ -805,9 +805,11 @@ void FzeroActorPit(FzeroActor *a, FzeroActorTables t) {
     if (!a->pit_phase) { a->screen_flags |= 1; ++a->pit_phase; return; }
     a->pit_departure = 16;
     if (a->pit_phase < 0x22) {
+      a->pit_pose=a->pit_phase;
       ++a->pit_phase;
       if (a->recovery_active && a->pit_phase != 0x22) a->pit_phase = 0x21;
     } else if (a->pit_phase == 0x22) {
+      a->pit_recovery=a->recovery_active!=0;
       a->beam_top = 0; a->beam_bottom = 0x50; ++a->pit_phase;
     } else {
       a->beam_top = (uint8_t)(a->beam_top + 16);
@@ -829,6 +831,7 @@ void FzeroActorPit(FzeroActor *a, FzeroActorTables t) {
       --a->pit_phase;
       if ((a->health >> 8) >= 2) a->screen_flags &= 0xbf;
     } else if (a->pit_departure) --a->pit_departure;
-    else if (!--a->pit_phase) a->screen_flags &= 0xfe;
+    else if (!--a->pit_phase) {a->screen_flags &= 0xfe;a->pit_pose=0;}
+    else a->pit_pose=a->pit_phase;
   }
 }

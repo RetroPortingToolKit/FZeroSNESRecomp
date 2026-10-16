@@ -113,6 +113,7 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     FzeroUiContact(ui,canvas,ship->ground_x+viewport.extra,y+48,ship->size,s->racers[i].actor.effect_timer);
     FzeroUiPlayerTag(ui,canvas,ship->ground_x+viewport.extra-8,y+2,i,ink[i]);
   }
+  if(r->status!=FZERO_VS_DNF)FzeroUiPit(ui,canvas,viewport.extra,&r->actor);
   /* Native instruments overlay each complete scenery view, with transparent
    * font backing rather than a reserved HUD band. */
   char line[64],timer[32];

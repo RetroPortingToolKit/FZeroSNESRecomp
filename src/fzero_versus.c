@@ -207,6 +207,10 @@ static void actor_codec(Stream *x,const FzeroActor *source,FzeroActor *target) {
   }
   unsigned flash=(unsigned)scalar(x,source?source->body_flash:0,1);
   if(target) {if(flash>1)x->invalid=true;target->body_flash=(uint8_t)flash;}
+  unsigned pose=(unsigned)scalar(x,source?source->pit_pose:0,1);
+  if(target) {if(pose>0x22)x->invalid=true;target->pit_pose=(uint8_t)pose;}
+  unsigned beam=(unsigned)scalar(x,source?source->pit_recovery:0,1);
+  if(target) {if(beam>1)x->invalid=true;target->pit_recovery=(uint8_t)beam;}
 }
 static size_t codec(Stream *x,const FzeroVersus *source,FzeroVersus *target) {
 #define S(field,n) do { uint64_t v=scalar(x,source?source->field:0,n);if(target)target->field=v; } while(0)
@@ -238,7 +242,7 @@ static size_t codec(Stream *x,const FzeroVersus *source,FzeroVersus *target) {
 size_t FzeroVersusSaveSize(void) { Stream x={0};return 32+codec(&x,NULL,NULL); }
 static void put32(uint8_t *p,uint32_t v) { for (unsigned i=0;i<4;++i) p[i]=(uint8_t)(v>>(i*8)); }
 static uint32_t get32(const uint8_t *p) { return p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
-static const uint8_t magic[8]={'F','Z','V','S','0','0','3',0};
+static const uint8_t magic[8]={'F','Z','V','S','0','0','4',0};
 static uint64_t integrity(const uint8_t *data,size_t size) {
   uint64_t hash=hash_bytes(UINT64_C(14695981039346656037),data,24);
   return hash_bytes(hash,data+32,size-32);

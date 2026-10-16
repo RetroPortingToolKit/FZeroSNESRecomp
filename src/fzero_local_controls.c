@@ -13,10 +13,12 @@ struct FzeroLocalControls {
   uint32_t previous[2],input[2],keyboard;
   bool setup,ready[2],release[2],scan,scripted,back;
   unsigned menu_tag;
+  FzeroLocalPage page;
+  unsigned cup;
 };
 FzeroLocalControls *FzeroLocalControlsCreate(FzeroVersusConfig config,bool scripted) {
   FzeroLocalControls *c=calloc(1,sizeof(*c));if(!c)return NULL;
-  c->config=config;c->seat[0]=c->seat[1]=NO_DEVICE;c->setup=!scripted;c->scripted=scripted;c->scan=true;return c;
+  c->config=config;c->cup=config.course/5;c->seat[0]=c->seat[1]=NO_DEVICE;c->setup=!scripted;c->scripted=scripted;c->scan=true;return c;
 }
 void FzeroLocalControlsDestroy(FzeroLocalControls *c) {
   if(!c)return;
@@ -43,6 +45,7 @@ static void scan_pads(FzeroLocalControls *c) {
     SDL_GameControllerClose(c->pads[i].handle);c->pads[i].handle=NULL;c->pads[i].start=false;
     for(unsigned p=0;p<2;++p)if(c->seat[p]==(int)i) {
       c->seat[p]=NO_DEVICE;c->ready[p]=false;c->input[p]=0;c->release[p]=true;
+      if(c->setup)c->page=FZERO_LOCAL_MACHINES;
       if(FzeroLocalSession())FzeroVersusPause(FzeroLocalSession(),FZERO_VS_PAUSE_DEVICE1<<p);
       if(FzeroLocalSession())FzeroLocalControlChanged();
     }
@@ -100,12 +103,18 @@ static unsigned activate(FzeroLocalControls *c,unsigned choice) {
     if(c->menu_tag==1) {FzeroVersusEndRace(race);FzeroVersusResume(race);}
     FzeroVersusRematch(race);FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
   } else if(choice==(c->menu_tag==1?2:1)) {
-    c->setup=true;c->ready[0]=c->ready[1]=false;
+    c->setup=true;c->page=FZERO_LOCAL_MACHINES;c->cup=c->config.course/5;c->ready[0]=c->ready[1]=false;
     release_inputs(c);return FZERO_LOCAL_CHANGE;
   } else {release_inputs(c);return FZERO_LOCAL_MAIN;}
   FzeroLocalSetMenuSelection(0);FzeroLocalControlChanged();release_inputs(c);return 0;
 }
 void FzeroLocalControlsBack(FzeroLocalControls *c) {if(c)c->back=true;}
+static unsigned setup_back(FzeroLocalControls *c) {
+  if(c->page==FZERO_LOCAL_COURSE)c->page=FZERO_LOCAL_CUP;
+  else if(c->page==FZERO_LOCAL_CUP) {c->page=FZERO_LOCAL_MACHINES;c->ready[0]=c->ready[1]=false;}
+  else {release_inputs(c);return FZERO_LOCAL_MAIN;}
+  release_inputs(c);return 0;
+}
 unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
   if(!c)return 0;
   if(!c->setup && FzeroLocalSession())c->config=FzeroLocalConfig();
@@ -129,24 +138,46 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
   if(tag!=c->menu_tag) {c->menu_tag=tag;FzeroLocalSetMenuSelection(0);}
   if(c->back) {
     c->back=false;
-    if(c->setup || tag==2) {release_inputs(c);return FZERO_LOCAL_MAIN;}
+    if(c->setup)return setup_back(c);
+    if(tag==2) {release_inputs(c);return FZERO_LOCAL_MAIN;}
     if(tag==1)return activate(c,0);
     if(FzeroLocalSession()) {FzeroVersusPause(FzeroLocalSession(),FZERO_VS_PAUSE_MANUAL);FzeroLocalControlChanged();release_inputs(c);}
     return 0;
   }
-  unsigned action=0;
   for(unsigned p=0;p<2;++p) {
     int device=c->seat[p];
     uint32_t held=device==KEYBOARD?keyboard:device>=0?FzeroGamepadReadPlayer(c->pads[device].handle,p):0;
     if(c->release[p]) {if(!held)c->release[p]=false;held=0;}
     uint32_t pressed=held&~c->previous[p];c->previous[p]=held;c->input[p]=held;
     if(c->setup) {
-      if(pressed&0x30) {c->config.machine[p]=(uint8_t)((c->config.machine[p]+((pressed&0x10)?3:1))%4);c->ready[p]=false;}
-      if(!p && (pressed&0xc0)) {
-        c->config.course=(uint8_t)((c->config.course+((pressed&0x40)?14:1))%15);
-        c->ready[0]=c->ready[1]=false;
+      if(c->page==FZERO_LOCAL_MACHINES) {
+        if(pressed&1) {
+          if(c->ready[p])c->ready[p]=false;
+          else return setup_back(c);
+        }
+        static const unsigned order[4]={0,2,1,3};
+        if(!c->ready[p] && (pressed&0x30)) {
+          unsigned row=0;while(order[row]!=c->config.machine[p])++row;
+          c->config.machine[p]=(uint8_t)order[(row+((pressed&0x10)?3:1))%4];
+        }
+        if(pressed&0x108)c->ready[p]=true;
+      } else {
+        if(pressed&1)return setup_back(c);
+        if(pressed&0x30) {
+          int delta=pressed&0x10?-1:1;
+          if(c->page==FZERO_LOCAL_CUP)c->cup=(c->cup+3+delta)%3;
+          else c->config.course=(uint8_t)(c->cup*5+(c->config.course%5+5+delta)%5);
+        }
+        if(pressed&0x108) {
+          if(c->page==FZERO_LOCAL_CUP) {
+            if(c->config.course/5!=c->cup)c->config.course=(uint8_t)(c->cup*5);
+            c->page=FZERO_LOCAL_COURSE;release_inputs(c);return 0;
+          }
+          c->setup=false;release_inputs(c);return FZERO_LOCAL_START;
+        }
+        /* One shared cursor move per frame even if both pads press. */
+        if(pressed)return 0;
       }
-      if(pressed&0x109)c->ready[p]=!c->ready[p];
     } else if(FzeroLocalSession() && tag && FzeroLocalMenuReady()) {
       unsigned count=tag==1?4:3,choice=FzeroLocalMenuSelection();
       if(choice>=count)choice=0;
@@ -156,13 +187,14 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
     }
   }
   if(c->setup && c->ready[0] && c->ready[1]) {
-    c->setup=false;c->release[0]=c->release[1]=true;c->input[0]=c->input[1]=0;action|=FZERO_LOCAL_START;
+    if(c->page==FZERO_LOCAL_MACHINES) {c->page=FZERO_LOCAL_CUP;release_inputs(c);}
   }
-  return action;
+  return 0;
 }
 FzeroVersusConfig FzeroLocalControlsConfig(const FzeroLocalControls *c) {return c->config;}
 uint32_t FzeroLocalControlsInput(const FzeroLocalControls *c) {return c?c->input[0]|(c->input[1]<<12):0;}
 bool FzeroLocalControlsSetup(const FzeroLocalControls *c) {return c && c->setup;}
+FzeroLocalPage FzeroLocalControlsPage(const FzeroLocalControls *c) {return c?c->page:FZERO_LOCAL_MACHINES;}
 unsigned FzeroLocalControlsKeyboardPlayer(const FzeroLocalControls *c) {
   if(c) {
     for(unsigned p=0;p<2;++p)if(c->seat[p]==KEYBOARD)return p;
@@ -178,33 +210,51 @@ void FzeroLocalControlsLoaded(FzeroLocalControls *c) {
 }
 void FzeroLocalControlsReopen(FzeroLocalControls *c) {
   if(!c)return;
-  c->setup=true;c->ready[0]=c->ready[1]=false;
+  c->setup=true;c->page=FZERO_LOCAL_MACHINES;c->cup=c->config.course/5;c->ready[0]=c->ready[1]=false;
   c->previous[0]=c->previous[1]=c->input[0]=c->input[1]=0;
   c->release[0]=c->release[1]=true;
 }
+/* The native car page is a 256x224 composition. Give each human a complete
+ * copy, using its original car order, portraits, frame and menu alphabet. */
 void FzeroLocalControlsDraw(const FzeroLocalControls *c,uint32_t *pixels,int width,int height) {
   if(!c || !pixels || !c->setup || width<256 || height<448)return;
   const FzeroNativeUi *ui=FzeroLocalUi();if(!ui)return;
-  FzeroUiCanvas canvas={pixels,width,height,1};int center=width/2;
+  FzeroUiCanvas canvas={pixels,width,height,1};int center=width/2,left=center-128;
   FzeroUiRect(canvas,0,0,width,height,0xff000000);
-  FzeroUiCenter(ui,canvas,16,"VERSUS MODE",FZERO_UI_MENU,FZERO_UI_YELLOW);
-  FzeroUiCenter(ui,canvas,43,"SELECT COURSE",FZERO_UI_SMALL,FZERO_UI_CYAN);
-  FzeroUiTile(ui,canvas,center-112,60,0x2f,FZERO_UI_CYAN,false,false);
-  FzeroUiTile(ui,canvas,center+104,60,0x2f,FZERO_UI_CYAN,true,false);
-  FzeroUiCenter(ui,canvas,56,FzeroUiCourseName(c->config.course),FZERO_UI_MENU,FZERO_UI_CYAN);
-  for(unsigned p=0;p<2;++p) {
-    int y=96+(int)p*164,device=c->seat[p];
-    FzeroUiInk ink=device==NO_DEVICE?FZERO_UI_GREY:FZERO_UI_CYAN;
-    char label[32];snprintf(label,sizeof(label),"PLAYER %u",p+1);
-    FzeroUiText(ui,canvas,center-104,y,label,FZERO_UI_MENU,FZERO_UI_YELLOW);
-    if(device!=NO_DEVICE)FzeroUiText(ui,canvas,center+8,y+5,device==KEYBOARD?"KEYBOARD":"CONTROL PAD",FZERO_UI_SMALL,FZERO_UI_GREY);
-    for(unsigned m=0;m<4;++m) {
-      int row=y+24+(int)m*24;bool selected=m==c->config.machine[p];
-      FzeroUiMachine(ui,canvas,center-88,row,m,device!=NO_DEVICE && selected);
-      if(selected)FzeroUiTile(ui,canvas,center-108,row+4,0x2f,ink,true,false);
-      FzeroUiText(ui,canvas,center-48,row+4,FzeroUiMachineName(m),FZERO_UI_SMALL,selected?ink:FZERO_UI_GREY);
+  static const unsigned order[4]={0,2,1,3};
+  static const char *cups[]={"KNIGHT LEAGUE","QUEEN LEAGUE","KING LEAGUE"};
+  if(c->page==FZERO_LOCAL_MACHINES) {
+    for(unsigned p=0;p<2;++p) {
+      int top=(int)p*224;bool joined=c->seat[p]!=NO_DEVICE;
+      FzeroUiCanvas pane={pixels+(size_t)top*width,width,224,1};
+      FzeroUiPlayerTag(ui,pane,center-8,8,p,p?FZERO_UI_YELLOW:FZERO_UI_CYAN);
+      for(unsigned row=0;row<4;++row) {
+        unsigned m=order[row];int y=48+(int)row*40;bool selected=m==c->config.machine[p];
+        FzeroUiMenuMachine(ui,pane,left+32,y,m,joined && selected);
+        if(joined && selected)FzeroUiTile(ui,pane,left+16,y+8,0x2f,FZERO_UI_CYAN,true,false);
+      }
+      FzeroUiFrame(ui,pane,left+96,40,152,152);
+      FzeroUiText(ui,pane,left+104,56,"SELECT",FZERO_UI_MENU,FZERO_UI_YELLOW);
+      FzeroUiText(ui,pane,left+104,80,"YOUR CAR",FZERO_UI_MENU,FZERO_UI_YELLOW);
+      const char *name=FzeroUiMachineName(c->config.machine[p]);
+      FzeroUiText(ui,pane,left+104,112,name,FZERO_UI_MENU,joined?FZERO_UI_CYAN:FZERO_UI_GREY);
+      const char *state=!joined?"PRESS START":c->ready[p]?"READY":NULL;
+      if(state)FzeroUiText(ui,pane,left+104,152,state,FZERO_UI_MENU,c->ready[p]?FZERO_UI_YELLOW:FZERO_UI_CYAN);
     }
-    FzeroUiCenter(ui,canvas,y+124,device==NO_DEVICE?"PRESS START TO JOIN":c->ready[p]?"READY":"START OR ENTER WHEN READY",
-        FZERO_UI_SMALL,c->ready[p]?FZERO_UI_YELLOW:FZERO_UI_CYAN);
+    return;
+  }
+  /* One shared native-style league/course page, after both cars are chosen. */
+  int top=112;
+  FzeroUiCenter(ui,canvas,top+8,"VS MODE",FZERO_UI_MENU,FZERO_UI_YELLOW);
+  bool cup=c->page==FZERO_LOCAL_CUP;
+  FzeroUiFrame(ui,canvas,left+8,top+40,240,176);
+  FzeroUiCenter(ui,canvas,top+32,cup?"SELECT LEAGUE":"SELECT COURSE",FZERO_UI_MENU,FZERO_UI_YELLOW);
+  if(!cup)FzeroUiCenter(ui,canvas,top+56,cups[c->cup],FZERO_UI_SMALL,FZERO_UI_YELLOW);
+  for(unsigned row=0;row<(cup?3u:5u);++row) {
+    bool selected=cup?row==c->cup:row==c->config.course%5;
+    int y=top+80+(int)row*24;
+    if(selected)FzeroUiTile(ui,canvas,left+24,y+4,0x2f,FZERO_UI_YELLOW,true,false);
+    FzeroUiText(ui,canvas,left+40,y,cup?cups[row]:FzeroUiCourseName(c->cup*5+row),
+        FZERO_UI_MENU,selected?FZERO_UI_CYAN:FZERO_UI_GREY);
   }
 }

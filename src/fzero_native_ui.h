@@ -5,6 +5,7 @@
  * simulation pointers or generated/redistributed ROM artwork. */
 typedef struct FzeroNativeUi {
   uint8_t tiles[256][64], hud[56][64], machines[4][24*16];
+  uint8_t menu_machines[4][40*24];
   uint8_t numbers[10][128], objects[256][64];
   uint16_t hud_map[128];
   uint32_t hud_palette[4][4];
@@ -12,6 +13,7 @@ typedef struct FzeroNativeUi {
   uint8_t power_colors[5][4];
   uint32_t power_warning;
   struct {int x,y;unsigned tile,attr;} contact[14][3];
+  uint8_t pit_objects[3][48];
   struct {int x,y;unsigned tile,attr;} explosion[10][64];
   unsigned explosion_count[10], explosion_frame[20], explosion_duration[20];
   uint8_t title_letters[26][128];
@@ -44,6 +46,8 @@ void FzeroUiCenter(const FzeroNativeUi *ui,FzeroUiCanvas c,int y,const char *tex
                     FzeroUiFont font,FzeroUiInk ink);
 void FzeroUiFrame(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,int width,int height);
 void FzeroUiMachine(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned machine,bool selected);
+void FzeroUiMenuMachine(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned machine,bool selected);
+void FzeroUiPit(const FzeroNativeUi *ui,FzeroUiCanvas c,int offset_x,const FzeroActor *actor);
 
 void FzeroUiExplosion(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned distance,unsigned age);
 void FzeroUiCrashOut(const FzeroNativeUi *ui,FzeroUiCanvas c,int y);

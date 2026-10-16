@@ -3,6 +3,8 @@
 #include "desktop/sdl_compat.h"
 typedef struct FzeroLocalControls FzeroLocalControls;
 enum {FZERO_LOCAL_START=1,FZERO_LOCAL_CHANGE=2,FZERO_LOCAL_MAIN=4};
+typedef enum FzeroLocalPage {FZERO_LOCAL_MACHINES,FZERO_LOCAL_CUP,FZERO_LOCAL_COURSE} FzeroLocalPage;
+FzeroLocalPage FzeroLocalControlsPage(const FzeroLocalControls *controls);
 FzeroLocalControls *FzeroLocalControlsCreate(FzeroVersusConfig config,bool scripted);
 void FzeroLocalControlsDestroy(FzeroLocalControls *controls);
 void FzeroLocalControlsEvent(FzeroLocalControls *controls,const SDL_Event *event);

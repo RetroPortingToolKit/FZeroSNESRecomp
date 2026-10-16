@@ -7,7 +7,7 @@
  * Rule 3: retain native body-palette event latch across save/rewind/replay.
  * Two stock humans, five laps, movement then one stable-ID contact.
  * This is a new simulation profile, not a claim of stock whole-frame parity. */
-#define FZERO_VERSUS_RULES 3u
+#define FZERO_VERSUS_RULES 4u
 #define FZERO_VERSUS_LAPS 5u
 #define FZERO_VERSUS_COUNTDOWN 180u
 typedef struct FzeroVersus FzeroVersus;

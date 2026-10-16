@@ -81,6 +81,14 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
   /* $03:8BB5's four DMA descriptors upload three tiles per half, at
    * $4600/$4700 etc. Reassemble the exact 24x16 menu side-profile icons. */
   for(unsigned m=0;m<4;++m) {
+    /* Original car-select BG portraits, including the native non-linear
+     * bottom-row arrangement. The blank upper-left tile is transparent. */
+    static const int layout[15]={-1,0,1,2,3,6,7,8,9,10,4,5,11,12,13};
+    for(unsigned n=0;n<15;++n)if(layout[n]>=0) {
+      uint8_t pixels[64];decode(pixels,t,((8+m)<<16)| (0xd600+layout[n]*32),4);
+      for(unsigned y=0;y<8;++y)for(unsigned x=0;x<8;++x)
+        ui->menu_machines[m][((n/5)*8+y)*40+(n%5)*8+x]=pixels[y*8+x];
+    }
     for(unsigned tile=0;tile<6;++tile) {
       uint8_t pixels[64];decode(pixels,t,((8+m)<<16)| (0xe860+tile*32),4);
       for(unsigned y=0;y<8;++y)for(unsigned x=0;x<8;++x)
@@ -98,6 +106,8 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
     ui->effect_palette[i]=rgb(word(t,(i<8?0x0aeee0:0x0fcd60)+i*2));
     ui->crash_palette[i]=rgb(word(t,0x0fcd40+i*2));
   }
+  for(unsigned set=0;set<3;++set)for(unsigned i=0;i<(set==2?48:32);++i)
+    ui->pit_objects[set][i]=(uint8_t)byte(t,0x0bed50+set*32+i);
   /* $CD2B's native result banner is CRASHED OUT, rendered by $D107 as
    * paired 8x8 OBJ tiles. Keep its wording, glyphs and $35 palette. */
   for(unsigned i=0;i<32 && byte(t,0xcd2e +i);++i) {
@@ -259,6 +269,42 @@ void FzeroUiMachine(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned
   for(unsigned row=0;row<16;++row)for(unsigned col=0;col<24;++col) {
     unsigned color=ui->machines[m][row*24+col];
     if(color)FzeroUiRect(c,x+(int)col,y+(int)row,1,1,ui->machine_palette[selected?1:0][m][color]);
+  }
+}
+void FzeroUiMenuMachine(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned m,bool selected) {
+  if(!ui || !ui->valid || m>=4)return;
+  for(unsigned row=0;row<24;++row)for(unsigned col=0;col<40;++col) {
+    unsigned color=ui->menu_machines[m][row*40+col];
+    if(color)FzeroUiRect(c,x+(int)col,y+(int)row,1,1,ui->machine_palette[selected?1:0][m][color]);
+  }
+}
+static void pit_object(const FzeroNativeUi *ui,FzeroUiCanvas c,int offset_x,int x,unsigned y,
+    unsigned id,unsigned attr,unsigned size) {
+  const uint32_t *palette=(attr&14)==6?ui->effect_palette:ui->boost_palette[(attr>>1)&7];
+  for(unsigned row=0;row<size;++row)for(unsigned col=0;col<size;++col) {
+    unsigned cx=attr&64?size-1-col:col,cy=attr&128?size-1-row:row;
+    unsigned color=ui->objects[(id+(cy/8)*16+cx/8)&255][(cy&7)*8+(cx&7)];
+    /* Native OBJ Y wraps at 256; the arrival starts above the viewport. */
+    if(color)FzeroUiRect(c,offset_x+x+(int)col,(int)((y+row)&255),1,1,palette[color]);
+  }
+}
+void FzeroUiPit(const FzeroNativeUi *ui,FzeroUiCanvas c,int offset_x,const FzeroActor *a) {
+  if(!ui || !ui->valid || !a || !a->pit_pose)return;
+  if(a->pit_phase==0x23) {
+    const uint8_t *beam=ui->pit_objects[a->pit_recovery?0:1];
+    for(int i=7;i>=0;--i)pit_object(ui,c,offset_x,beam[i*4],i<4?a->beam_top:a->beam_bottom,
+        beam[i*4+2],beam[i*4+3],16);
+  }
+  const uint8_t *body=ui->pit_objects[2];
+  static const unsigned high[3]={0xff,0xa8,0x2a};
+  static const unsigned dx[12]={12,92,10,94,0,8,24,40,56,72,88,104};
+  unsigned q=a->pit_pose-1;
+  for(int i=11;i>=0;--i) {
+    unsigned hi=(high[i/4]>>((i%4)*2))&3;
+    int x=a->pit_pose==1?body[i*4]:(int)((0x88-q*2+dx[i])&255);
+    if(hi&1)x-=256;
+    unsigned y=a->pit_pose==1?body[i*4+1]:(0xf0+(q+1)/2+((i==2 || i==3)?5:0))&255;
+    pit_object(ui,c,offset_x,x,y,body[i*4+2],body[i*4+3],hi&2?16:8);
   }
 }
 

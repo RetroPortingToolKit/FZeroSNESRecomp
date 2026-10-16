@@ -1009,11 +1009,12 @@ static void test_transient_effects(void) {
 static void paint_native_obj(uint32_t out[256*224],const FzeroNativeUi *ui,unsigned slot,unsigned size,int offset_x) {
   unsigned at=0x200+slot*4,attr=ram_word(at+2);
   int x=(int)ram[at]+offset_x,y=ram[at+1];
+  if((ram[0x400+slot/4]>>((slot%4)*2))&1)x-=256;
   for(unsigned row=0;row<size;++row)for(unsigned col=0;col<size;++col) {
     unsigned cx=attr&0x4000?size-1-col:col,cy=attr&0x8000?size-1-row:row;
     unsigned id=((attr&255)+(cy/8)*16+cx/8)&255;
     unsigned color=ui->objects[id][(cy&7)*8+(cx&7)];
-    int dx=x+(int)col,dy=y+(int)row;if(!color || dx<0 || dx>=256 || dy<0 || dy>=224)continue;
+    int dx=x+(int)col,dy=(y+(int)row)&255;if(!color || dx<0 || dx>=256 || dy>=224)continue;
     unsigned address=0x0fcd00+((attr>>9)&7)*32+color*2;
     if(((attr>>9)&7)==3 && color<8)address=0x0aeee0+color*2;
     unsigned rgb=rom_read(NULL,address)|(unsigned)rom_read(NULL,address+1)<<8;
@@ -1088,6 +1089,114 @@ static void test_native_flash_colors(void) {
       CHECK(FzeroCameraFlashColor(ram_word(0x500+surface[color]*2),phase,true)==ram_word(0x900+(phase?8:0)+color*2));
   }
   puts("native course flashes: 40000 electric-ramp colors and27000 surface colors match BE45 construction from original course CGRAM; no initialized guest lookup tables required");
+}
+static void test_native_pit_art(void) {
+  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
+  static uint32_t actual[256*224],expected[256*224];FzeroUiCanvas canvas={actual,256,224,1};
+  for(unsigned machine=0;machine<4;++machine)for(unsigned early=0;early<4;++early) {
+    FzeroActor a={.machine=(uint8_t)machine,.health=0x400};
+    memset(ram,0,sizeof(ram));
+    ram[0xd1]=(uint8_t)(machine*2);
+    memset(ram+0x400,0xff,32);for(unsigned slot=0;slot<128;++slot)ram[0x200+slot*4]=0x80;
+    for(unsigned tick=0;tick<230;++tick) {
+      a.surface_flags=tick<(early==0?8:early==1?80:150)?0x10:0;
+      if(early==3)a.recovery_active=tick<60;
+      write_fields(&a,actor_fields,COUNT(actor_fields));reference(0xb61b);FzeroActorPit(&a,(FzeroActorTables){rom_read,NULL});
+      compare_fields(&a,actor_fields,COUNT(actor_fields),0xb61b,tick);
+      memset(actual,0,sizeof(actual));memset(expected,0,sizeof(expected));
+      for(int slot=59;slot>=52;--slot)paint_native_obj(expected,&ui,(unsigned)slot,16,0);
+      for(int slot=11;slot>=0;--slot) {
+        unsigned high=(ram[0x400+slot/4]>>((slot%4)*2))&3;
+        paint_native_obj(expected,&ui,(unsigned)slot,high&2?16:8,0);
+      }
+      FzeroUiPit(&ui,canvas,0,&a);
+      if(memcmp(actual,expected,sizeof(actual))) {
+        for(unsigned i=0;i<COUNT(actual);++i)if(actual[i]!=expected[i]) {
+          fprintf(stderr,"native pit art machine=%u exit=%u tick=%u phase=%u pose=%u departure=%u pixel=%u,%u expected=%08x actual=%08x\n",machine,early,tick,a.pit_phase,a.pit_pose,a.pit_departure,i%256,i/256,expected[i],actual[i]);break;
+        }
+        CHECK(false);
+      }
+    }
+  }
+  puts("native pit art: all four machines, short entry and full arrival/beam/healing/departure match original CPU OAM and palettes");
+}
+/* Owner-authorized pose fixture on actual captured stock repair tiles.
+ * Only pose/motion and initial damage are injected; pit flags, arrival,
+ * healing, departure and snapshot continuation run through the real session. */
+static void test_stock_pits(void) {
+  const char *paths=getenv("FZERO_TEST_PIT_WORLDS");if(!paths)return;
+  char *list=malloc(strlen(paths)+1);CHECK(list);strcpy(list,paths);unsigned courses=0;
+  for(char *path=strtok(list,";");path;path=strtok(NULL,";")) {
+    static uint8_t world[0x20000];FILE *f=fopen(path,"rb");CHECK(f);
+    CHECK(fread(world,sizeof(world),1,f)==1 && fgetc(f)==EOF);CHECK(!fclose(f));
+    unsigned px=0,py=0,rx=0,ry=0,pdx=0,pdy=0,rdx=0,rdy=0;
+    for(unsigned y=8;y<4000 && !py;y+=8)for(unsigned x=8;x<8096;x+=8) {
+      if(FzeroActorSampleSurface(world,x,y)!=0xb9)continue;
+      if(FzeroActorSampleSurface(world,x+64,y)==0xb9) {px=x;py=y;pdx=64;break;}
+      if(FzeroActorSampleSurface(world,x,y+64)==0xb9) {px=x;py=y;pdy=64;break;}
+    }
+    for(unsigned y=8;y<4000 && !ry;y+=8)for(unsigned x=8;x<8096;x+=8) {
+      if(FzeroActorSampleSurface(world,x,y)!=0x9a)continue;
+      if(FzeroActorSampleSurface(world,x+64,y)==0x9a) {rx=x;ry=y;rdx=64;break;}
+      if(FzeroActorSampleSurface(world,x,y+64)==0x9a) {rx=x;ry=y;rdy=64;break;}
+    }
+    CHECK(py && ry);
+    for(unsigned machine=0;machine<4;++machine) {
+      FzeroVersusConfig config={0,{(uint8_t)machine,(uint8_t)((machine+1)%4)}};
+      FzeroActor spawn[2]={{.x=(uint16_t)px,.y=(uint16_t)py},{.x=(uint16_t)(px+pdx),.y=(uint16_t)(py+pdy)}};
+      FzeroVersus *s=FzeroVersusCreate(config,world,spawn,(FzeroActorTables){rom_read,NULL});CHECK(s);
+      FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
+      const uint16_t held[2]={0,0};for(unsigned n=0;n<180;++n)CHECK(FzeroVersusTick(s,held));
+      FzeroVersusSnapshot *v=(FzeroVersusSnapshot *)(void *)FzeroVersusCompleted(s);
+      for(unsigned p=0;p<2;++p)v->racers[p].actor.health=0x400;
+      unsigned healed[2]={0,0};
+      for(unsigned tick=0;tick<650;++tick) {
+        for(unsigned p=0;p<2;++p) {
+          FzeroActor *a=&v->racers[p].actor;
+          a->x=(uint16_t)(px+p*pdx);a->y=(uint16_t)(py+p*pdy);a->state=0;a->recovery_active=0;
+          a->speed=a->speed_fraction=a->vx=a->vy=a->vx_fraction=a->vy_fraction=0;
+        }
+        CHECK(FzeroVersusTick(s,held));
+        for(unsigned p=0;p<2;++p) {
+          const FzeroActor *a=&v->racers[p].actor;
+          if(a->health>0x400 && !healed[p])healed[p]=tick+1;
+          if(a->surface_id!=0xb9 || !(a->surface_flags&0x10) || a->health<0x400) {
+            fprintf(stderr,"pit integration %s machine=%u seat=%u tick=%u pos=%u,%u tile=%02x flags=%02x phase=%u health=%04x recovery=%u\n",path,a->machine,p,tick,a->x,a->y,a->surface_id,a->surface_flags,a->pit_phase,a->health,a->recovery_active);CHECK(false);
+          }
+        }
+      }
+      CHECK(healed[0] && healed[1] && v->racers[0].actor.health==0x800 && v->racers[1].actor.health==0x800);
+      FzeroVersus *copy=FzeroVersusCreate(config,world,spawn,(FzeroActorTables){rom_read,NULL});CHECK(copy);
+      session_roundtrip(s,copy);
+      CHECK(FzeroVersusTick(s,held) && FzeroVersusTick(copy,held));
+      CHECK(FzeroVersusHash(s)==FzeroVersusHash(copy));
+      for(unsigned p=0;p<2;++p) {
+        CHECK(FzeroVersusCompleted(copy)->racers[p].actor.pit_pose==v->racers[p].actor.pit_pose);
+        v->racers[p].actor.health=0x600;
+      }
+      for(unsigned tick=0;tick<80;++tick) {
+        for(unsigned p=0;p<2;++p) {
+          FzeroActor *a=&v->racers[p].actor;a->x=(uint16_t)(rx+p*rdx);a->y=(uint16_t)(ry+p*rdy);
+          a->state=0;a->recovery_active=0;
+          a->speed=a->speed_fraction=a->vx=a->vy=a->vx_fraction=a->vy_fraction=0;
+        }
+        CHECK(FzeroVersusTick(s,held));
+        for(unsigned p=0;p<2;++p)CHECK(v->racers[p].actor.surface_id==0x9a && v->racers[p].actor.health==0x600);
+        if(tick==8 || tick==35) {
+          session_roundtrip(s,copy);
+          CHECK(FzeroVersusTick(s,held) && FzeroVersusTick(copy,held));
+          CHECK(FzeroVersusHash(s)==FzeroVersusHash(copy));
+        }
+      }
+      CHECK(!v->racers[0].actor.pit_phase && !v->racers[1].actor.pit_phase);
+      CHECK(!v->racers[0].actor.pit_pose && !v->racers[1].actor.pit_pose);
+      FzeroVersusDestroy(copy);
+      printf("stock pit %s machines=%u/%u first-heal=%u/%u health=%04x/%04x\n",path,config.machine[0],config.machine[1],healed[0],healed[1],v->racers[0].actor.health,v->racers[1].actor.health);
+      FzeroVersusDestroy(s);
+    }
+    ++courses;
+  }
+  free(list);printf("stock repair integration: %u course captures, all four machines and both seats passed\n",courses);
 }
 static void test_native_effect_art(void) {
   static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
@@ -1209,6 +1318,8 @@ int main(int argc, char **argv) {
   test_transient_effects();
   test_native_hud();
   test_native_flash_colors();
+  test_stock_pits();
+  test_native_pit_art();
   test_native_effect_art();
   return 0;
 }

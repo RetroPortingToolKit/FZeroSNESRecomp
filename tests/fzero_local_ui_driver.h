@@ -5,6 +5,8 @@
 static SDL_Joystick *local_ui_pads[2];
 static unsigned local_ui_stage,local_ui_step,local_ui_resizes,local_ui_captured;
 static unsigned local_ui_countdowns;
+static unsigned local_ui_setup_shots,local_ui_page;
+static bool local_ui_setup;
 static bool local_ui_racing;
 static unsigned local_ui_drive_captured;
 static uint16_t local_ui_drive_start[2][2];
@@ -31,6 +33,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
   for(unsigned p=0;p<2;++p)for(unsigned b=0;b<15;++b)local_ui_button(p,(SDL_GamepadButton)b,false);
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(FzeroLocalSession());
   bool setup=FzeroLocalControlsSetup(controls);unsigned t=local_ui_step++;
+  local_ui_setup=setup;local_ui_page=FzeroLocalControlsPage(controls);
   if(!local_ui_stage && controls) {
     /* Native menu input was an ordinary script. From here the virtual pads
      * exclusively drive joining, selection, pause and mode transitions. */
@@ -40,13 +43,19 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
   switch(local_ui_stage) {
     case 1:
       if(t<3)for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_START,true);
-      if(getenv("FZERO_TEST_LOCAL_UI_ALT_MACHINES") && (t==4 || t==5 || t==8 || t==9))
+      if(getenv("FZERO_TEST_LOCAL_UI_ALT_MACHINES") && (t==4 || t==5))
         for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
       if(t>12 && s) {if(!setup || s->tick)Die("UI preload advanced a human race");local_ui_stage=2;local_ui_step=0;}
       break;
     case 2: case 8:
       if(t<3)for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_START,true);
-      if(t>5) {if(setup)Die("UI Ready failed");++local_ui_stage;local_ui_step=0;}
+      if(t==10 || t==11)local_ui_button(1,SDL_GAMEPAD_BUTTON_START,true);
+      if(local_ui_stage==8 && (t==16 || t==17))local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
+      if(t==22 || t==23)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
+      if(t>26) {
+        if(setup || !s || s->config.course!=(local_ui_stage==8?1:0))Die("UI car/league/course confirmation failed");
+        ++local_ui_stage;local_ui_step=0;
+      }
       break;
     case 3: case 5: case 9:
       if(local_ui_stage==3 && s && getenv("FZERO_TEST_LOCAL_UI_DRIVE")) {
@@ -85,11 +94,11 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
       if(t>14) {if(!setup)Die("UI Change Race failed");local_ui_stage=7;local_ui_step=0;}
       break;
     case 7:
-      if(t==2 || t==3) {local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_RIGHT,true);local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);}
+      if(t==2 || t==3) {local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);}
       if(t>8 && s) {
         FzeroVersusConfig c=FzeroLocalControlsConfig(controls);
-        unsigned machine=getenv("FZERO_TEST_LOCAL_UI_ALT_MACHINES")?0:2;
-        if(c.course!=1 || c.machine[1]!=machine || s->config.course!=1 || s->config.machine[1]!=machine || s->tick)Die("UI course/machine preparation failed");
+        unsigned machine=getenv("FZERO_TEST_LOCAL_UI_ALT_MACHINES")?0:3;
+        if(c.course!=0 || c.machine[1]!=machine || s->config.course!=0 || s->config.machine[1]!=machine || s->tick)Die("UI course/machine preparation failed");
         local_ui_stage=8;local_ui_step=0;
       }
       break;
@@ -106,6 +115,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
       if(t>4) {
         if(getenv("FZERO_TEST_LOCAL_UI_RESIZE") &&
            (local_ui_captured!=31 || local_ui_countdowns!=14 || !local_ui_racing))Die("UI resize/countdown presentation coverage incomplete");
+        if(local_ui_setup_shots!=7)Die("UI setup-page presentation coverage incomplete");
         if(getenv("FZERO_TEST_LOCAL_UI_DRIVE") && local_ui_drive_captured!=63)Die("UI drive animation coverage incomplete");
         fprintf(stderr,"local-ui: PASS native VS entry, two SDL devices, preload/Ready, cursor Restart/Change/Main Menu and single-player return\n");return true;}
       break;
@@ -130,6 +140,10 @@ static void local_ui_presented(const FzeroPresenter *p) {
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(FzeroLocalSession());
   static bool title_captured;
   char label[64];
+  if(local_ui_setup && !(local_ui_setup_shots&(1u<<local_ui_page))) {
+    local_ui_setup_shots|=1u<<local_ui_page;
+    snprintf(label,sizeof(label),"setup-page-%u",local_ui_page);local_ui_images(p,directory,label);return;
+  }
   if(s && local_ui_stage==3 && s->phase==FZERO_VS_RACING && getenv("FZERO_TEST_LOCAL_UI_DRIVE")) {
     static const unsigned ticks[]={15,45,80,115,175,215};
     for(unsigned shot=0;shot<6;++shot)if(!(local_ui_drive_captured&(1u<<shot)) && s->race_tick>=ticks[shot]) {

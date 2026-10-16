@@ -1234,3 +1234,44 @@ All fifteen teleport lifecycle checks also pass with the new rules3 wire
 format in captures/l2p-hud-teleport-final; that remains course-flow evidence,
 not natural driving or visual qualification. No gameplay rule changed in the
 course-palette correction.
+
+
+## Owner repair/setup QA correction (2026-10-16)
+
+Setup now follows machine selection -> league -> course -> race. Each human
+gets a complete 224-line native-style car page in their own half, with the
+original 40x24 BG portraits, native Blue Falcon / Golden Fox / Wild Goose /
+Fire Stingray order, cartridge fonts, cursor and blue frame. Both confirm
+before the separate shared Knight / Queen / King League page. The next page
+lists only that league's five stock courses. Either assigned pad controls the
+shared cursor; A/Start confirms and B backs up one page. No course selector
+or generic shortcut footer occupies the machine page. Change Race reopens
+machine selection; the normal single-player title and VS MODE entry remain.
+
+The reported repair strip was missing the native service UFO and beam. Real
+stock B9 tiles already healed both humans with native machine-specific rates
+and the original arrival delay (first heal tick36 from a fresh entry). Keep
+that behavior and restore the original C476/ED90 UFO, ED70 repair beam and
+ED50 recovery beam, including arrival, wrapped OBJ Y, departure delay, exact
+sprite sizes/order/palettes, and retained beam type. The last emitted UFO pose
+and beam type are explicit actor state, so save/rewind redraw does not guess
+from an ambiguous phase or advance simulation. Rules4/FZVS004 serialize them;
+older VS state/replay payloads are rejected. Single-player state is unchanged.
+
+Windows validation before final handoff: original CPU sprite output matches
+for all four machines through short entry, complete arrival/heal/departure
+and recovery-beam transitions. Actual captured repair tiles from all15 stock
+courses pass both-seat healing to full, departure/no continued healing, and
+service/departure snapshot round trips. Only pose/motion and starting damage
+are injected; tile sampling, healing, timers and presentation use real code.
+Native and HD2 SDL desktop runs pass separate setup-page presentation, all
+four machines, countdown, five actual window resizes each, driven shoulder/
+steering, Restart/Change Race/Main Menu and single-player return. Images in
+captures/l2p-pit-setup-01 were inspected directly. Final exact-build state,
+replay and lifecycle results are recorded in beads-8uc1 after committing.
+
+Owner physical two-human QA remains required. Teleport fixtures qualify course
+flow, not natural driving; natural course-bot passes remain waived. Extended
+cadence and full recovery-flight/exhaust-palette parity remain unqualified.
+No Linux or netplay validation was performed. Dependency pins, private assets
+and the unstaged absent local snesrecomp gitlink are preserved.
