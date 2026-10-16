@@ -1,6 +1,6 @@
 #include "fzero_versus_video.h"
 #include "fzero_ship.h"
-#include "snes_overlay_draw.h"
+#include "fzero_native_ui.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,6 +10,7 @@ struct FzeroVersusVideo {
   FzeroRenderView *views[2];
   FzeroVersusSnapshot state, previous;
   FzeroShip ships[2][2], old_ships[2][2];
+  FzeroNativeUi ui;
   bool valid, interpolate;
 };
 FzeroVersusVideo *FzeroVersusVideoCreate(void) {
@@ -31,6 +32,7 @@ void FzeroVersusVideoReset(FzeroVersusVideo *v) {
 bool FzeroVersusVideoCapture(FzeroVersusVideo *v,const FzeroRenderView *assets,
                              const FzeroVersus *session,FzeroActorTables tables) {
   if(!v || !session || !tables.read)return false;
+  if(!v->ui.valid && !FzeroNativeUiInit(&v->ui,tables))return false;
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(session);
   v->interpolate=v->valid && s->tick==v->state.tick+1 &&
       !memcmp(&s->config,&v->state.config,sizeof(s->config)) && s->phase==v->state.phase;
@@ -54,20 +56,19 @@ bool FzeroVersusVideoCapture(FzeroVersusVideo *v,const FzeroRenderView *assets,
   v->valid=true;return true;
 }
 static void rect(uint32_t *p,FzeroViewport v,unsigned scale,int x,int y,int w,int h,uint32_t color) {
-  snes_ovl_fill_rect(p,v.width*(int)scale,224*(int)scale,x*(int)scale,y*(int)scale,w*(int)scale,h*(int)scale,color);
-}
-static void text(uint32_t *p,FzeroViewport v,unsigned scale,int x,int y,const char *s,uint32_t color) {
-  snes_ovl_draw_text(p,v.width*(int)scale,224*(int)scale,x*(int)scale,y*(int)scale,s,color,(int)scale);
+  FzeroUiRect((FzeroUiCanvas){p,v.width*(int)scale,224*(int)scale,scale},x,y,w,h,color);
 }
 static void time_text(char out[32],uint64_t tick) {
   uint64_t centiseconds=(uint64_t)((double)tick*100/FZERO_SIMULATION_HZ);
-  snprintf(out,32,"%02u:%02u.%02u",(unsigned)(centiseconds/6000)%100,
+  snprintf(out,32,"%02u'%02u\"%02u",(unsigned)(centiseconds/6000)%100,
       (unsigned)(centiseconds/100)%60,(unsigned)(centiseconds%100));
 }
 static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsigned pane,double alpha,unsigned scale) {
   const FzeroVersusSnapshot *s=&v->state;
   const FzeroVersusRacer *r=&s->racers[pane];
-  const uint32_t colors[2]={0xff65dfff,0xffffb059};
+  FzeroUiCanvas canvas={p,viewport.width*(int)scale,224*(int)scale,scale};
+  const FzeroNativeUi *ui=&v->ui;
+  const FzeroUiInk ink[2]={FZERO_UI_CYAN,FZERO_UI_YELLOW};
   /* Stable actor IDs are drawn in depth order in each independent camera. */
   unsigned first=v->ships[pane][0].ground_y>v->ships[pane][1].ground_y?1:0;
   for(unsigned n=0;n<2;++n) {
@@ -94,43 +95,59 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     if(s->racers[i].actor.boost_timer && (s->tick&1))
       rect(p,viewport,scale,ship->ground_x+viewport.extra-2,y+47,4,4,0xff80e8ff);
     char label[4];snprintf(label,sizeof(label),"P%u",i+1);
-    text(p,viewport,scale,ship->ground_x+viewport.extra-8,y+10,label,colors[i]);
+    FzeroUiText(ui,canvas,ship->ground_x+viewport.extra-8,y+10,label,FZERO_UI_SMALL,ink[i]);
   }
-  rect(p,viewport,scale,0,0,viewport.width,35,0xff111625);
-  rect(p,viewport,scale,0,0,3,224,colors[pane]);
+  /* Match the native 48-line black instrument strip. Use cartridge race
+   * digits/gauge/boost symbols and the original shaded menu lettering. */
+  FzeroUiRect(canvas,0,0,viewport.width,48,0xff000000);
   char line[64],timer[32];
   unsigned lap=r->completed_laps+1;if(lap>5)lap=5;
-  snprintf(line,sizeof(line),"P%u  LAP %u/5",pane+1,lap);text(p,viewport,scale,8,5,line,colors[pane]);
+  snprintf(line,sizeof(line),"P%u  LAP %u",pane+1,lap);
+  FzeroUiText(ui,canvas,8,3,line,FZERO_UI_SMALL,ink[pane]);
+  FzeroUiText(ui,canvas,8,18,"TIME",FZERO_UI_SMALL,FZERO_UI_YELLOW);
   uint64_t tick=r->status!=FZERO_VS_ACTIVE?r->finish_tick:s->race_tick;
-  time_text(timer,tick);text(p,viewport,scale,8,20,timer,0xfff4f4ff);
-  snprintf(line,sizeof(line),"%3u KM/H",FzeroDisplaySpeed(r->actor.speed));
-  text(p,viewport,scale,viewport.width-96,20,line,0xfff4f4ff);
+  time_text(timer,tick);FzeroUiText(ui,canvas,8,31,timer,FZERO_UI_HUD,FZERO_UI_YELLOW);
+  snprintf(line,sizeof(line),"%3u",FzeroDisplaySpeed(r->actor.speed));
+  FzeroUiText(ui,canvas,viewport.width-64,31,line,FZERO_UI_HUD,FZERO_UI_YELLOW);
+  for(unsigned i=0;i<3;++i)FzeroUiHudTile(ui,canvas,viewport.width-40+(int)i*8,31,0x0a+i,FZERO_UI_YELLOW,false);
   unsigned power=(r->actor.health&0x8000)?0:r->actor.health;
   if(power>0x800)power=0x800;
-  int right=viewport.width-104;
-  rect(p,viewport,scale,right,5,96,8,0xff3b3e4d);
-  rect(p,viewport,scale,right,5,(int)(power*96/0x800),8,power<0x200?0xffff6868:colors[pane]);
-  snprintf(line,sizeof(line),"S:%u",r->actor.boosts);text(p,viewport,scale,viewport.width/2-12,20,line,colors[pane]);
+  int right=viewport.width-80,filled=(int)(power/32);
+  FzeroUiText(ui,canvas,right,1,"POWER",FZERO_UI_SMALL,FZERO_UI_YELLOW);
+  FzeroUiRect(canvas,right,12,64,8,0xff420000);
+  FzeroUiRect(canvas,right,12,filled,8,power<0x200 && (s->tick&8)?0xff840000:0xffff0000);
+  for(unsigned i=0;i<8;++i) {
+    unsigned amount=filled>(int)i*8?(unsigned)(filled-(int)i*8):0;
+    unsigned tile=amount>=8?0x10:amount?0x18-amount:0x19;
+    FzeroUiHudTile(ui,canvas,right+(int)i*8,8,tile,FZERO_UI_YELLOW,false);
+    FzeroUiHudTile(ui,canvas,right+(int)i*8,16,tile,FZERO_UI_YELLOW,true);
+  }
+  for(unsigned i=0;i<r->actor.boosts && i<3;++i)
+    FzeroUiHudTile(ui,canvas,viewport.width/2-8+(int)i*8,31,0x33,FZERO_UI_CYAN,false);
   const char *message=NULL;
   if(s->pause)message="PAUSED";
   else if(s->phase==FZERO_VS_READY)message="READY";
   else if(s->phase==FZERO_VS_COUNTDOWN) {
     snprintf(line,sizeof(line),"%u",(s->countdown+59)/60);message=line;
   } else if(r->status==FZERO_VS_FINISHED)message="FINISHED";
-  else if(r->status==FZERO_VS_DNF)message="DNF";
-  if(message) {
-    int w=(int)strlen(message)*8;
-    rect(p,viewport,scale,(viewport.width-w)/2-8,66,w+16,16,0xff111625);
-    text(p,viewport,scale,(viewport.width-w)/2,70,message,colors[pane]);
-  }
+  else if(r->status==FZERO_VS_DNF)message="CRASH OUT";
   if(s->phase==FZERO_VS_RESULTS) {
     const char *result=s->winner==FZERO_VS_TIE?"TIE":s->winner==FZERO_VS_PLAYER1?"PLAYER 1 WINS":
         s->winner==FZERO_VS_PLAYER2?"PLAYER 2 WINS":"NO FINISHERS";
-    text(p,viewport,scale,(viewport.width-(int)strlen(result)*8)/2,90,result,0xfff4f4ff);
-    text(p,viewport,scale,(viewport.width-24*8)/2,106,"B REMATCH / Y CHANGE RACE",0xffb9bfd0);
+    FzeroUiFrame(ui,canvas,(viewport.width-224)/2,64,224,112);
+    FzeroUiCenter(ui,canvas,80,result,FZERO_UI_MENU,FZERO_UI_YELLOW);
+    FzeroUiCenter(ui,canvas,112,r->status==FZERO_VS_FINISHED?"FINISHED":"CRASH OUT",FZERO_UI_SMALL,ink[pane]);
+    FzeroUiCenter(ui,canvas,136,"B  REMATCH",FZERO_UI_SMALL,FZERO_UI_CYAN);
+    FzeroUiCenter(ui,canvas,152,"Y  CHANGE RACE",FZERO_UI_SMALL,FZERO_UI_CYAN);
   } else if(s->pause) {
-    const char *hint=(s->pause&12)?"START ON REPLACEMENT PAD":"START RESUME / X END RACE";
-    text(p,viewport,scale,(viewport.width-(int)strlen(hint)*8)/2,90,hint,0xffb9bfd0);
+    FzeroUiFrame(ui,canvas,(viewport.width-224)/2,64,224,112);
+    FzeroUiCenter(ui,canvas,80,"PAUSE",FZERO_UI_MENU,FZERO_UI_YELLOW);
+    FzeroUiCenter(ui,canvas,112,(s->pause&12)?"PRESS START TO JOIN":"START  CONTINUE",FZERO_UI_SMALL,FZERO_UI_CYAN);
+    FzeroUiCenter(ui,canvas,144,"X  END RACE",FZERO_UI_SMALL,FZERO_UI_CYAN);
+  } else if(message) {
+    int w=(int)strlen(message)*8;
+    FzeroUiFrame(ui,canvas,(viewport.width-w-32)/2,64,w+32,40);
+    FzeroUiCenter(ui,canvas,76,message,FZERO_UI_MENU,ink[pane]);
   }
 }
 bool FzeroVersusVideoDraw(FzeroVersusVideo *v,uint32_t *out,size_t capacity,FzeroViewport viewport,double alpha,unsigned scale) {

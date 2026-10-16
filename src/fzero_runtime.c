@@ -31,7 +31,6 @@
 #include "fzero_vehicles.h"
 #include "fzero_local.h"
 #include "snapshot_guard.h"
-#include "snes_overlay_draw.h"
 
 #include "common_rtl.h"
 #include "cpu_state.h"
@@ -380,9 +379,12 @@ void FzeroPresent(double alpha) {
     s_hd_ready=false;
     if(s_output_pixels) {
       uint32_t *p=(uint32_t *)s_output_pixels;
-      for(int i=0;i<s_viewport.width*448;++i)p[i]=0xff111625;
-      snes_ovl_draw_text(p,s_viewport.width,448,(s_viewport.width-18*8)/2,216,
-          "LOADING LOCAL RACE",0xfff4f4ff,1);
+      FzeroUiCanvas canvas={p,s_viewport.width,448,1};
+      const FzeroNativeUi *ui=FzeroLocalUi();
+      FzeroUiRect(canvas,0,0,s_viewport.width,448,0xff000000);
+      FzeroUiCenter(ui,canvas,176,"VERSUS MODE",FZERO_UI_MENU,FZERO_UI_YELLOW);
+      FzeroUiCenter(ui,canvas,208,FzeroUiCourseName(FzeroLocalConfig().course),FZERO_UI_MENU,FZERO_UI_CYAN);
+      FzeroUiCenter(ui,canvas,240,"PLEASE WAIT",FZERO_UI_SMALL,FZERO_UI_GREY);
     }
     return;
   }

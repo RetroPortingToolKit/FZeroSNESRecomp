@@ -6,6 +6,7 @@
 /* Real shared core and virtual devices; no guest/assets/speaker output. */
 static FzeroVersus *race;
 FzeroVersus *FzeroLocalSession(void) {return race;}
+const FzeroNativeUi *FzeroLocalUi(void) {return NULL;}
 FzeroVersusConfig FzeroLocalConfig(void) {return FzeroVersusCompleted(race)->config;}
 void FzeroLocalResetViews(void) {}
 void FzeroLocalControlChanged(void) {}

@@ -1,5 +1,6 @@
 #pragma once
 #include "fzero_versus_video.h"
+#include "fzero_native_ui.h"
 
 /* Bridge from native asset setup to the authoritative stock race. */
 bool FzeroLocalConfigure(FzeroVersusConfig config);
@@ -16,6 +17,7 @@ bool FzeroLocalDraw(uint32_t *output,size_t capacity,FzeroViewport viewport,doub
 void FzeroLocalResetViews(void);
 bool FzeroLocalSelectSaveRoot(void);
 FzeroVersusConfig FzeroLocalConfig(void);
+const FzeroNativeUi *FzeroLocalUi(void);
 /* Fixed-size host bridge image, including native setup before handoff.
  * Validation is read-only; restore replaces the session atomically. Asset
  * captures are rebuilt from the accompanying native PPU snapshot afterwards. */

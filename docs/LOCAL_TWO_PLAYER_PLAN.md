@@ -741,3 +741,41 @@ title-menu entry. A separate muted Windows preview lives under ignored
 `build/playtest-local-2p`; keep it stable while the owner playtests. The native
 UI restyle, failed driver cases, broader HD/rate/worker/performance gates and
 physical two-human qualification remain outstanding. Windows only per owner.
+
+## Native versus UI milestone (2026-10-15)
+
+`fzero_native_ui.c` decodes the original cartridge's menu font (3bpp), race
+instruments (2bpp), palettes, cursor/border tiles and four machine side-profile
+icons on the presentation side. Setup, loading, individual HUDs, countdown,
+pause, finish/results and rematch prompts use those assets on the native black
+background. Single-player UI is untouched; no bitmap/font/ROM data is embedded
+or redistributed. Numeric menu prompts use the actual race numerals at the
+menu lettering's height; `$40..$5F` contain instrument fragments, not digits.
+The original race clock punctuation and instrument colors are retained in the
+adapted two-human layout. Player labels use the native cyan/yellow palettes.
+
+Windows desktop/headless builds pass; CTest 17/17 passes (295.76 seconds,
+including the 275.51-second full catalog fixture). The virtual-controller
+race-flow fixture passes after the UI change. Private visual artifacts at
+`captures/l2p-ui-01` cover waiting/joined/ready setup and countdown/racing/
+one-finished/pause/results. All 16,384 decoded menu-font pixels and 1,536
+machine-icon pixels match the actual uploaded VRAM from the unmodified native
+machine-selection capture. Visual review caught and corrected wrong number
+and cursor tile assumptions before this milestone.
+
+`captures/l2p-ui-life-01` repeats the complete Windows host lifecycle suite
+successfully, including real disk/ring restore, fresh processes, viewport
+changes, exact replay, deliberate divergence and atomic corrupt-state refusal.
+The ordinary route still reaches race hash `da14e581ab108d4d`. Same-build desktop
+replays (300 frames each) pass every recorded race check at native and HD2;
+both 48-line instrument strips in HD2 match exact nearest-neighbor replication
+of native pixels. These bounded checks do not qualify sustained HD performance,
+all stock races or physical human input. The separate earlier preview remains
+unchanged. Continue with launcher/player-binding integration, the five failed
+automated course cases, remaining machine effects and broader acceptance gates.
+
+The owner requested launching the full recomp-ui launcher once ready with local
+two player and netplay. This pinned F-Zero host currently supplies no netplay
+backend/callbacks, and the approved plan excluded netplay. A clarification is
+pending about expanding scope to working online racing; do not expose an
+unconnected Netplay button or claim network support. Local work continues.

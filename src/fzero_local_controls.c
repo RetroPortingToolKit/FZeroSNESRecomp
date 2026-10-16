@@ -1,6 +1,5 @@
 #include "fzero_local_controls.h"
 #include "fzero_gamepad.h"
-#include "snes_overlay_draw.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -14,10 +13,6 @@ struct FzeroLocalControls {
   uint32_t previous[2],input[2],keyboard;
   bool setup,ready[2],release[2],scan,scripted;
 };
-static const char *machines[] = {"BLUE FALCON","WILD GOOSE","GOLDEN FOX","FIRE STINGRAY"};
-static const char *courses[] = {"MUTE CITY I","BIG BLUE","SAND OCEAN","DEATH WIND I","SILENCE",
-  "MUTE CITY II","PORT TOWN I","RED CANYON I","WHITE LAND I","WHITE LAND II",
-  "MUTE CITY III","DEATH WIND II","PORT TOWN II","RED CANYON II","FIRE FIELD"};
 FzeroLocalControls *FzeroLocalControlsCreate(FzeroVersusConfig config,bool scripted) {
   FzeroLocalControls *c=calloc(1,sizeof(*c));if(!c)return NULL;
   c->config=config;c->seat[0]=c->seat[1]=NO_DEVICE;c->setup=!scripted;c->scripted=scripted;c->scan=true;return c;
@@ -158,22 +153,29 @@ void FzeroLocalControlsReopen(FzeroLocalControls *c) {
 }
 void FzeroLocalControlsDraw(const FzeroLocalControls *c,uint32_t *pixels,int width,int height) {
   if(!c || !pixels || !c->setup || width<256 || height<448)return;
-  for(int i=0;i<width*height;++i)pixels[i]=0xff111625;
-  snes_ovl_draw_text(pixels,width,height,(width-14*8)/2,18,"LOCAL 2 PLAYER",0xfff4f4ff,1);
-  snes_ovl_draw_text(pixels,width,height,8,42,"STOCK COURSES / 5 LAPS",0xffb9bfd0,1);
-  snes_ovl_draw_text(pixels,width,height,8,60,courses[c->config.course],0xfff4f4ff,1);
+  const FzeroNativeUi *ui=FzeroLocalUi();if(!ui)return;
+  FzeroUiCanvas canvas={pixels,width,height,1};int center=width/2;
+  FzeroUiRect(canvas,0,0,width,height,0xff000000);
+  FzeroUiCenter(ui,canvas,16,"VERSUS MODE",FZERO_UI_MENU,FZERO_UI_YELLOW);
+  FzeroUiCenter(ui,canvas,43,"SELECT COURSE",FZERO_UI_SMALL,FZERO_UI_CYAN);
+  FzeroUiTile(ui,canvas,center-112,60,0x2f,FZERO_UI_CYAN,false,false);
+  FzeroUiTile(ui,canvas,center+104,60,0x2f,FZERO_UI_CYAN,true,false);
+  FzeroUiCenter(ui,canvas,56,FzeroUiCourseName(c->config.course),FZERO_UI_MENU,FZERO_UI_CYAN);
   for(unsigned p=0;p<2;++p) {
-    int y=105+(int)p*140;uint32_t color=p?0xffffb059:0xff65dfff;
-    char line[64];snprintf(line,sizeof(line),"PLAYER %u",p+1);
-    snes_ovl_draw_text(pixels,width,height,8,y,line,color,1);
-    int device=c->seat[p];
-    const char *name=device==KEYBOARD?"KEYBOARD":device<0?"ENTER OR GAMEPAD START TO JOIN":SDL_GameControllerName(c->pads[device].handle);
-    snprintf(line,sizeof(line),"%.30s",name?name:"GAMEPAD");
-    snes_ovl_draw_text(pixels,width,height,8,y+20,line,0xffb9bfd0,1);
-    snes_ovl_draw_text(pixels,width,height,8,y+40,machines[c->config.machine[p]],color,1);
-    snes_ovl_draw_text(pixels,width,height,8,y+60,c->ready[p]?"READY":"UP/DOWN MACHINE - B/START READY",0xfff4f4ff,1);
+    int y=96+(int)p*164,device=c->seat[p];
+    FzeroUiInk ink=device==NO_DEVICE?FZERO_UI_GREY:FZERO_UI_CYAN;
+    char label[32];snprintf(label,sizeof(label),"PLAYER %u",p+1);
+    FzeroUiText(ui,canvas,center-104,y,label,FZERO_UI_MENU,FZERO_UI_YELLOW);
+    if(device!=NO_DEVICE)FzeroUiText(ui,canvas,center+8,y+5,device==KEYBOARD?"KEYBOARD":"CONTROL PAD",FZERO_UI_SMALL,FZERO_UI_GREY);
+    for(unsigned m=0;m<4;++m) {
+      int row=y+24+(int)m*24;bool selected=m==c->config.machine[p];
+      FzeroUiMachine(ui,canvas,center-88,row,m,device!=NO_DEVICE && selected);
+      if(selected)FzeroUiTile(ui,canvas,center-108,row+4,0x2f,ink,true,false);
+      FzeroUiText(ui,canvas,center-48,row+4,FzeroUiMachineName(m),FZERO_UI_SMALL,selected?ink:FZERO_UI_GREY);
+    }
+    FzeroUiCenter(ui,canvas,y+124,device==NO_DEVICE?"PRESS START TO JOIN":c->ready[p]?"READY":"PRESS START WHEN READY",
+        FZERO_UI_SMALL,c->ready[p]?FZERO_UI_YELLOW:FZERO_UI_CYAN);
   }
-  snes_ovl_draw_text(pixels,width,height,8,396,"P1 LEFT/RIGHT: COURSE",0xffb9bfd0,1);
-  snes_ovl_draw_text(pixels,width,height,8,412,"ONE DEVICE PER PLAYER",0xffb9bfd0,1);
-  snes_ovl_draw_text(pixels,width,height,8,428,"ESC: EXIT",0xffb9bfd0,1);
+  FzeroUiCenter(ui,canvas,416,"UP DOWN SELECT MACHINE",FZERO_UI_SMALL,FZERO_UI_CYAN);
+  FzeroUiCenter(ui,canvas,432,"P1 LEFT RIGHT SELECT COURSE",FZERO_UI_SMALL,FZERO_UI_GREY);
 }

@@ -20,6 +20,7 @@ static FzeroVersusConfig config;
 static FzeroVersus *session;
 static FzeroVersusVideo *video;
 static FzeroSoundState sound;
+static FzeroNativeUi ui;
 static unsigned word(unsigned at) {return g_ram[at]|(unsigned)g_ram[at+1]<<8;}
 static uint8_t read_table(void *context,uint32_t address) {
   (void)context;
@@ -32,6 +33,7 @@ static void course_config(CpuState *cpu,uint32_t pc) {
 }
 bool FzeroLocalEnabled(void) {return enabled;}
 FzeroVersus *FzeroLocalSession(void) {return session;}
+const FzeroNativeUi *FzeroLocalUi(void) {return enabled && ui.valid?&ui:NULL;}
 void FzeroLocalShutdown(void) {
   if(enabled)interp_bridge_set_scheduler_aot_policy(-1);
   FzeroVersusDestroy(session);FzeroVersusVideoDestroy(video);
@@ -42,6 +44,7 @@ bool FzeroLocalConfigure(FzeroVersusConfig c) {
   if(c.course>=15 || c.machine[0]>=4 || c.machine[1]>=4 ||
       FzeroDeluxeActive() || FzeroGameplayActive() || FzeroTracksActive())return false;
   FzeroLocalShutdown();config=c;enabled=true;++epoch;
+  if(!FzeroNativeUiInit(&ui,tables())) {FzeroLocalShutdown();return false;}
   /* Resource loader hooks are interpreted-opcode hooks. Keep native setup
    * on the byte interpreter so a compiled call cannot bypass configuration.
    * Gameplay never executes this CPU after the authoritative handoff. */
