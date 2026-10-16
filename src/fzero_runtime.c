@@ -30,6 +30,7 @@
 #include "fzero_gameplay.h"
 #include "fzero_vehicles.h"
 #include "fzero_local.h"
+#include "fzero_vs_menu.h"
 #include "snapshot_guard.h"
 
 #include "common_rtl.h"
@@ -226,7 +227,16 @@ static void run_one_frame(void) {
    * must not also consume its tables while the CPU runs ahead of that frame. */
   snes_set_hdma_beam_enabled(g_snes, false);
   RtlSetPadState(0,FzeroLocalEnabled()?FzeroLocalSetupInput():
-      FzeroTracksMenuInput(FzeroGameplayMenuInput(g_snes->input1_currentState,g_ram),g_ram));
+      FzeroVsMenuInput(FzeroTracksMenuInput(FzeroGameplayMenuInput(g_snes->input1_currentState,g_ram),g_ram),g_ram));
+  /* A consumed host menu confirmation must not execute the native handler
+   * later in this frame. Its delayed joypad sample could otherwise select GP
+   * before the host saves the single-player return point (notably with HD). */
+  if(FzeroVsMenuPending()) {
+    /* Keep the single SPC/beam clock running while the CPU menu is parked,
+     * just as during a versus pause. No stale native confirmation executes. */
+    g_cpu.master_cycles+=kMasterClocksPerFrame;synchronize_hardware();
+    s_next_frame_master=g_cpu.master_cycles+kMasterClocksPerFrame;++s_host_frames;return;
+  }
   const uint32_t previous_scene = g_ram[0x54] | (uint32_t)g_ram[0x55] << 8 | (uint32_t)g_ram[0x56] << 16;
   if (!s_initialized) {
     uint64_t reset_master = g_cpu.master_cycles;
@@ -341,6 +351,7 @@ static void run_one_frame(void) {
   s_host_frames++;
   FzeroTracksMenuTick(g_ram, previous_scene);
   FzeroLocalSetupTick(s_host_frames);
+  FzeroVsMenuTick(g_ram);
 
 #if SNESRECOMP_TRACE
   if (s_host_frames <= 16 || (s_host_frames % 600u) == 0) {
@@ -401,6 +412,8 @@ void FzeroPresent(double alpha) {
     FzeroRendererDraw((uint32_t *)s_output_pixels, s_viewport, alpha);
   if(s_hd_ready)FzeroTracksOverlay(s_hd_pixels,s_viewport.width*s_hd_scale,224*s_hd_scale,s_viewport.width*s_hd_scale*4);
   else if(s_output_pixels)FzeroTracksOverlay((uint32_t *)s_output_pixels,s_viewport.width,224,s_output_pitch);
+  if(s_hd_ready)FzeroVsMenuDraw((FzeroUiCanvas){s_hd_pixels,s_viewport.width*(int)s_hd_scale,224*(int)s_hd_scale,s_hd_scale},s_viewport.extra,g_ram);
+  else if(s_output_pixels)FzeroVsMenuDraw((FzeroUiCanvas){(uint32_t *)s_output_pixels,s_viewport.width,224,1},s_viewport.extra,g_ram);
 }
 void FzeroSetDeferredPresentation(bool deferred) { s_deferred_presentation = deferred; }
 
@@ -702,6 +715,7 @@ static void fzero_state_save_extra(SaveLoadInfo *sli) {
   state.version = kFzeroStateVersion;
   state.mode = (uint8_t)FzeroStateModeCurrent();
   FzeroTracksMenuState(state.reserved, false);
+  if(FzeroVsMenuSelected())state.reserved[1]|=128;
   state.cpu = g_cpu;
   /* Never persist an address-space-dependent host pointer. */
   state.cpu.ram = NULL;
@@ -782,6 +796,7 @@ static void fzero_state_load_extra(SaveLoadInfo *sli, uint32_t version) {
 
   if(state.mode == kFzeroStateModeTrackPack)FzeroTracksSaveState(sli, true);
 
+  FzeroVsMenuRestore((state.reserved[1]&128)!=0);state.reserved[1]&=127;
   FzeroTracksMenuState(state.reserved, true);
   FzeroVehiclesLoaded();
   g_cpu = state.cpu;

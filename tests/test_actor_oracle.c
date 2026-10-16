@@ -763,6 +763,21 @@ static void test_display(void) {
     for(unsigned i=0;i<64*64;++i) if(ship.pixels[i])painted=true;
     CHECK(painted);
   }
+  for(unsigned machine=0;machine<4;++machine) {
+    FzeroActor a={.x=2048,.y=1024,.facing=0x3000,.machine=(uint8_t)machine};
+    FzeroShip straight,left,right;CHECK(FzeroShipBuild(&straight,&a,&a,tables));
+    a.steering_history=0x80;FzeroActor before=a;CHECK(FzeroShipBuild(&left,&a,&a,tables));CHECK(!memcmp(&a,&before,sizeof(a)));
+    a.steering_history=0x81;CHECK(FzeroShipBuild(&right,&a,&a,tables));
+    CHECK(memcmp(straight.pixels,left.pixels,sizeof(left.pixels)) && memcmp(left.pixels,right.pixels,sizeof(left.pixels)));
+    /* The actual stock shoulder routines are included in the differential
+     * oracle; exercise their public chain for each machine as well. */
+    a=(FzeroActor){.machine=(uint8_t)machine,.speed=0x600,.facing=0x3000,.momentum=0x3000};
+    FzeroActorLatch(&a,0x8020);FzeroActorInputAction(&a,tables);FzeroActorTurnPerformance(&a,tables);FzeroActorAnimation(&a,tables);
+    CHECK(a.momentum!=0x3000 && a.steering_history==0x80);
+    a=(FzeroActor){.machine=(uint8_t)machine,.speed=0x600,.facing=0x3000,.momentum=0x3000};
+    FzeroActorLatch(&a,0x8010);FzeroActorInputAction(&a,tables);FzeroActorTurnPerformance(&a,tables);FzeroActorAnimation(&a,tables);
+    CHECK(a.momentum!=0x3000 && a.steering_history==0x81);
+  }
   puts("display: all65536 speed values and16000 ship pose/asset-selection fixtures passed against stock routines");
 }
 

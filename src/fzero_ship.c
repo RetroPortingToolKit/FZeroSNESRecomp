@@ -33,6 +33,15 @@ bool FzeroShipBuild(FzeroShip *s,const FzeroActor *camera,const FzeroActor *a,Fz
    * Select directly from the completed pose. Native hysteresis is a visual
    * cache optimization, unnecessary when both displays own their art. */
   int angle=(int)(camera->facing>>8)-(int)(a->facing>>8);
+  /* Human bank/steering history is owned by the simulation ($BA70..$BB11).
+   * Use the cartridge's authored angle poses to show its lean in each view;
+   * the followed actor otherwise always has angle zero and looks rigid even
+   * while L/R is changing its lateral momentum. This is presentation only. */
+  int lean=(a->steering_history&0x80)?((a->steering_history&1)?12:-12):
+      a->turn_stage?((int)a->steering_history-5)*2:0;
+  if(lean>12)lean=12;
+  if(lean< -12)lean= -12;
+  angle+=lean;
   if(angle< -96)angle+=192;
   if(angle>=96)angle-=192;
   bool mirror=angle<0;

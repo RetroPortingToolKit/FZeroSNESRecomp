@@ -6,6 +6,7 @@ typedef struct FzeroVersusVideo FzeroVersusVideo;
 FzeroVersusVideo *FzeroVersusVideoCreate(void);
 void FzeroVersusVideoDestroy(FzeroVersusVideo *video);
 void FzeroVersusVideoReset(FzeroVersusVideo *video);
+void FzeroVersusVideoMenu(FzeroVersusVideo *video,unsigned selection,unsigned result_ticks);
 /* Copy a completed session; no live pointers are retained. assets may be NULL
  * for the legacy guest capture, used only as an immutable course art source. */
 bool FzeroVersusVideoCapture(FzeroVersusVideo *video, const FzeroRenderView *assets,

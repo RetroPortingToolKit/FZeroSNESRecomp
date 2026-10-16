@@ -37,7 +37,18 @@ static uint32_t local_driver_player(const FzeroVersus *session,unsigned player) 
   double error=remainder(angle-actor->facing/256.0,192);
   double steer=error+0.3*remainder(angle-actor->momentum/256.0,192);
   uint32_t input=steer>1.2?128:steer< -1.2?64:0;
-  unsigned target=fabs(error)>16?0x280:fabs(error)>8?0x400:0x650;
+  unsigned target=fabs(error)>16?0x280:fabs(error)>8?0x400:0x780;
+  bool jump=(actor->state&0x80)!=0 || actor->surface==4;
+  double forward=actor->momentum/256.0*(2*3.141592653589793)/192;
+  for(unsigned ahead=16;!jump && ahead<=128;ahead+=16) {
+    unsigned sx=(unsigned)((int)actor->x+(int)round(sin(forward)*ahead))&8191;
+    unsigned sy=(unsigned)((int)actor->y-(int)round(cos(forward)*ahead))&4095;
+    unsigned tile=FzeroActorSampleSurface(world,(uint16_t)sx,(uint16_t)sy);
+    jump=tile==0x9e || tile==0xa1 || tile==0xa2;
+  }
+  /* Ordinary stock jump controls: accelerate into ramps and hold Down in
+   * flight. The earlier conservative bot braked before the long gaps. */
+  if(jump)return input|1|((actor->state&0x80)?32:0);
   return input|(actor->speed>target?2:1);
 }
 static uint32_t FzeroLocalDriverInput(const FzeroVersus *session) {

@@ -32,7 +32,7 @@ static const FzeroRule menu_rules[] = {
 enum { VEHICLE_COUNT=2, VEHICLE_START=6+sizeof(menu_rules)/sizeof(*menu_rules), TITLE_INDEX=VEHICLE_START+VEHICLE_COUNT,
        RECORDS_INDEX=TITLE_INDEX+1, CRASH_INDEX=RECORDS_INDEX+1, LOCAL_INDEX=CRASH_INDEX+1, TRACK_START=LOCAL_INDEX+1,
        TITLE_KIND=200, RECORDS_KIND=201, CRASH_KIND=202, LOCAL_KIND=203 };
-static const char local_description[]="Two humans race on one shared course with top/bottom split-screen. Choose devices, machines and a stock course in setup. Uses the 15 stock courses, four stock machines and stock handling for this session; your single-player content settings are retained.";
+static const char local_description[]="Add VS MODE to the main menu. Single-player modes remain available. Two humans race on one shared course with top/bottom split-screen. Choose devices, machines and a stock course in setup. Uses the 15 stock courses, four stock machines and stock handling for this session; your single-player content settings are retained.";
 static const char crash_description[] =
   "Automatically keep recent inputs and checkpoints in diagnostics beside the game. "
   "Enabled by default for testing, including existing installations. After a crash, "
@@ -122,7 +122,7 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
     COPY(out->name,"Local 2 Player");COPY(out->package_name,out->name);COPY(out->package_version,"1");
     COPY(out->group,"Game Modes");COPY(out->author,"FZeroSNESRecomp contributors");
     COPY(out->description,local_description);out->enabled=video->local_two_player;
-    COPY(out->status,out->enabled?"Open two-player setup on Play":"Single player");return 1;
+    COPY(out->status,out->enabled?"VS MODE on main menu":"Single player");return 1;
   }
   if (index == CRASH_INDEX && out) {
     memset(out,0,sizeof(*out)); COPY(out->id,"crash-replay"); COPY(out->package_id,"fzero-crash-replay");

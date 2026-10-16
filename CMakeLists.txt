@@ -271,7 +271,7 @@ function(configure_fzero_target target)
         add_dependencies(${target} fzero_deluxe_payload_source)
         target_compile_definitions(${target} PRIVATE FZERO_HAS_DELUXE=1)
     endif()
-    target_sources(${target} PRIVATE src/fzero_renderer.c src/fzero_versus_video.c src/fzero_local.c)
+    target_sources(${target} PRIVATE src/fzero_renderer.c src/fzero_versus_video.c src/fzero_local.c src/fzero_vs_menu.c src/fzero_local_mode.c)
     snesrecomp_target_render_workers(${target})
     target_link_libraries(${target} PRIVATE fzero_video)
     target_include_directories(${target} PRIVATE
@@ -334,7 +334,9 @@ fzero_revision("${SNESRECOMP_ROOT}" FZERO_FRAMEWORK_REVISION)
 fzero_revision("${RECOMP_UI_ROOT}" FZERO_UI_REVISION)
 # Dirty builds need more than an unchanged Git commit stamp for safe replay.
 file(GLOB FZERO_BUILD_INPUTS CONFIGURE_DEPENDS src/*.c src/*.cpp src/*.h)
-list(APPEND FZERO_BUILD_INPUTS "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt")
+list(APPEND FZERO_BUILD_INPUTS "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fzero_local_ui_driver.h"
+    "${CMAKE_CURRENT_SOURCE_DIR}/tests/fzero_local_driver.h")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${FZERO_BUILD_INPUTS})
 set(fingerprint "${SNESRECOMP_BUILD_VERSION};${FZERO_SOURCE_REVISION};${FZERO_FRAMEWORK_REVISION};${FZERO_UI_REVISION};${CMAKE_BUILD_TYPE};${CMAKE_C_COMPILER_ID};${CMAKE_C_COMPILER_VERSION};${CMAKE_C_FLAGS};${CMAKE_C_FLAGS_RELEASE}")
 foreach(input IN LISTS FZERO_BUILD_INPUTS)

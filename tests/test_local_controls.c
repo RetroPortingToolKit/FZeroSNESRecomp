@@ -9,6 +9,10 @@ FzeroVersus *FzeroLocalSession(void) {return race;}
 const FzeroNativeUi *FzeroLocalUi(void) {return NULL;}
 FzeroVersusConfig FzeroLocalConfig(void) {return FzeroVersusCompleted(race)->config;}
 void FzeroLocalResetViews(void) {}
+static unsigned selection;
+bool FzeroLocalMenuReady(void) {return true;}
+unsigned FzeroLocalMenuSelection(void) {return selection;}
+void FzeroLocalSetMenuSelection(unsigned n) {selection=n;}
 void FzeroLocalControlChanged(void) {}
 #if SNESRECOMP_SDL3
 static uint8_t empty_table(void *context,uint32_t address) {(void)context;(void)address;return 0;}
@@ -35,7 +39,7 @@ int main(void) {
   CHECK(FzeroLocalControlsKeyboardPlayer(probe)==1);
   CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_START,false));poll(probe,0);
   poll(probe,8);poll(probe,0);CHECK(FzeroLocalControlsKeyboardPlayer(probe)==1);
-  poll(probe,1);CHECK(FzeroLocalControlsInput(probe)==4096); /* keyboard's actual P2 seat */
+  poll(probe,256);CHECK(FzeroLocalControlsInput(probe)==1048576); /* keyboard's actual P2 seat */
   FzeroLocalControlsDestroy(probe);
   FzeroLocalControls *c=FzeroLocalControlsCreate((FzeroVersusConfig){0,{0,1}},false);CHECK(c);
   poll(c,0);
@@ -46,8 +50,7 @@ int main(void) {
   CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_DPAD_DOWN,true));poll(c,0);
   FzeroVersusConfig config=FzeroLocalControlsConfig(c);CHECK(config.machine[0]==1 && config.machine[1]==1);
   CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
-  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_SOUTH,true));
-  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_WEST,true));
+  for(unsigned i=0;i<2;++i)CHECK(SDL_SetJoystickVirtualButton(pads[i],SDL_GAMEPAD_BUTTON_START,true));
   CHECK(poll(c,0)&FZERO_LOCAL_START);CHECK(!FzeroLocalControlsSetup(c));
   for(unsigned i=0;i<2;++i)for(unsigned b=0;b<15;++b)CHECK(SDL_SetJoystickVirtualButton(pads[i],b,false));
   poll(c,0);
@@ -55,6 +58,11 @@ int main(void) {
   CHECK(FzeroLocalControlsInput(c)==1);
   CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_WEST,true));poll(c,0);
   CHECK(FzeroLocalControlsInput(c)==4097);
+  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,true));
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,true));poll(c,0);
+  CHECK(FzeroLocalControlsInput(c)==(1025u|(2049u<<12)));
+  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_LEFT_SHOULDER,false));
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,false));poll(c,0);
   /* Keyboard cannot take either occupied seat or duplicate either input. */
   poll(c,8);poll(c,0);CHECK(FzeroLocalControlsInput(c)==4097);
   CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_SOUTH,false));
@@ -71,10 +79,15 @@ int main(void) {
   SDL_Event focus={0};focus.type=SDL_EVENT_WINDOW_FOCUS_LOST;FzeroLocalControlsEvent(c,&focus);
   CHECK(FzeroVersusCompleted(race)->pause==FZERO_VS_PAUSE_FOCUS);
   poll(c,0);poll(c,8);CHECK(!FzeroVersusCompleted(race)->pause);poll(c,0);
-  FzeroVersusPause(race,FZERO_VS_PAUSE_MANUAL);poll(c,0x200);
-  CHECK(FzeroVersusCompleted(race)->phase==FZERO_VS_RESULTS);poll(c,0);
-  poll(c,1);CHECK(FzeroVersusCompleted(race)->phase==FZERO_VS_COUNTDOWN && !FzeroLocalControlsInput(c));poll(c,0);
-  FzeroVersusEndRace(race);poll(c,2);CHECK(FzeroLocalControlsSetup(c));poll(c,0);
+  FzeroVersusPause(race,FZERO_VS_PAUSE_MANUAL);poll(c,0);
+  poll(c,0x200);CHECK(FzeroVersusCompleted(race)->pause && FzeroVersusCompleted(race)->phase!=FZERO_VS_RESULTS);poll(c,0);
+  poll(c,0x20);CHECK(selection==1);poll(c,0);poll(c,8);
+  CHECK(FzeroVersusCompleted(race)->phase==FZERO_VS_COUNTDOWN && !FzeroVersusCompleted(race)->pause);poll(c,0);
+  FzeroVersusEndRace(race);poll(c,0);poll(c,2);CHECK(!FzeroLocalControlsSetup(c));poll(c,0);
+  poll(c,8);CHECK(FzeroVersusCompleted(race)->phase==FZERO_VS_COUNTDOWN && !FzeroLocalControlsInput(c));poll(c,0);
+  FzeroVersusEndRace(race);poll(c,0);poll(c,0x20);poll(c,0);
+  CHECK(poll(c,8)&FZERO_LOCAL_CHANGE);CHECK(FzeroLocalControlsSetup(c));poll(c,0);
+  FzeroLocalControlsBack(c);CHECK(poll(c,0)&FZERO_LOCAL_MAIN);
   FzeroLocalControlsLoaded(c);CHECK(!FzeroLocalControlsSetup(c));poll(c,0);
   CHECK(SDL_DetachVirtualJoystick(ids[1]));poll(c,0);
   CHECK(FzeroVersusCompleted(race)->pause&FZERO_VS_PAUSE_DEVICE2);

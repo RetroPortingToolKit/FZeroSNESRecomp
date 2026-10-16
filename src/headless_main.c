@@ -19,6 +19,8 @@
 #include "fzero_replay.h"
 #include "fzero_capture.h"
 #include "fzero_local.h"
+#include "fzero_local_mode.h"
+#include "fzero_vs_menu.h"
 #include "snapshot_guard.h"
 #include "../tests/fzero_local_driver.h"
 
@@ -426,6 +428,11 @@ int main(int argc, char **argv) {
   if (!FzeroMsuConfigure(getenv("SNESRECOMP_MSU1"), FzeroRuleEnabled(FZERO_RULE_MSU), argv[1])) {
     fprintf(stderr,"[fzero-msu1] %s\n",FzeroMsuError());free(rom);return 2;
   }
+  bool mode_test=getenv("FZERO_TEST_VS_FLOW")!=NULL;
+  if(mode_test) {
+    const char *root=getenv("SNESRECOMP_SAVE_ROOT");if(root)RtlSetSaveRoot(root);
+    if(!FzeroLocalModeInit(rom,rom_size,argv[1],deluxe_data,getenv("SNESRECOMP_MSU1"),FzeroRuleEnabled(FZERO_RULE_MSU)))return 12;
+  }
   if (!FzeroTracksPrepare(&rom, &rom_size, deluxe_data && *deluxe_data, deluxe_data)) {
     fprintf(stderr, "[content] %s %s\n", FzeroTracksError(), FzeroDeluxeError());
     free(rom);
@@ -453,6 +460,7 @@ int main(int argc, char **argv) {
     return 3;
   }
   RtlReadSram();
+  FzeroVsMenuConfigure(capture_video.local_two_player || mode_test || getenv("FZERO_TEST_VS_MENU")!=NULL);
   if (!FzeroCaptureReplayLoad()) return 11;
   const char *capture_directory=getenv("FZERO_CAPTURE_DIR");
   if (capture_directory && !FzeroCaptureStart(true,capture_directory,&capture_video)) return 11;
@@ -532,7 +540,32 @@ int main(int argc, char **argv) {
     interp_bridge_set_pre_opcode_hook(0x1ebb3b, finish_rank_fixture);
   FzeroActorLiveInstall();
 
+  bool ui_cache_written=false;
+  unsigned mode_stage=0;static uint8_t menu_ram[0x20000];char menu_root[96];
+  FzeroGameplaySettings menu_rules={0};
   for (long frame = 0; frame < frame_limit; frame++) {
+    if(mode_test && !mode_stage && FzeroVsMenuRequested()) {
+      memcpy(menu_ram,g_ram,sizeof(menu_ram));snprintf(menu_root,sizeof(menu_root),"%s",RtlSaveRoot());
+      menu_rules=*FzeroGameplaySettingsCurrent();
+      if(!FzeroLocalModeEnter((FzeroVersusConfig){0,{0,1}}))return 12;
+      mode_stage=1;FzeroSetViewport(FzeroCalculateViewport(&replay_video,768,288));
+      frame_width=FzeroFrameWidth();FzeroBeginDrawing(pixels,(size_t)frame_width*4);
+      fprintf(stderr,"mode-flow: entered VS at frame=%ld\n",frame);
+    }
+    if(mode_test && (mode_stage==1 || mode_stage==2) && FzeroLocalSession() && FzeroVersusCompleted(FzeroLocalSession())->tick>=200) {
+      if(mode_stage==1) {
+        if(!FzeroLocalModeSetup() || !FzeroLocalConfigure((FzeroVersusConfig){1,{2,3}}))return 12;
+        mode_stage=2;fprintf(stderr,"mode-flow: changed course/machines at frame=%ld\n",frame);
+      } else {
+        if(!FzeroLocalModeReturn() || memcmp(menu_ram,g_ram,sizeof(menu_ram)) || strcmp(menu_root,RtlSaveRoot()) ||
+            memcmp(&menu_rules,FzeroGameplaySettingsCurrent(),sizeof(menu_rules)) || FzeroLocalEnabled()) {
+          fputs("mode-flow: return context mismatch\n",stderr);return 12;
+        }
+        mode_stage=3;FzeroSetViewport(FzeroCalculateViewport(&replay_video,768,576));
+        frame_width=FzeroFrameWidth();FzeroBeginDrawing(pixels,(size_t)frame_width*4);
+        fprintf(stderr,"mode-flow: returned exact single-player RAM/profile/root at frame=%ld\n",frame);
+      }
+    }
     if(driver_lifecycle) {
       save_frame=-1;
       const FzeroVersusSnapshot *race=FzeroVersusCompleted(FzeroLocalSession());
@@ -736,6 +769,12 @@ int main(int argc, char **argv) {
       frame_width=viewport.width;
       FzeroBeginDrawing(pixels,(size_t)frame_width*4u);
     }
+    /* Private UI fixture: normal public End Race transition, then native
+     * explosion playback and results; never used by the race qualification. */
+    const char *end_frame=getenv("FZERO_TEST_LOCAL_END_FRAME");
+    if(end_frame && frame==strtol(end_frame,NULL,10) && FzeroLocalSession()) {
+      FzeroVersusEndRace(FzeroLocalSession());FzeroLocalControlChanged();
+    }
     FzeroCaptureBefore(frame_input,FzeroCalculateViewport(&replay_video,drawable_width,versus?drawable_height/2:drawable_height));
     (void)RtlRunFrame(frame_input);
     if (wram_trace && fwrite(g_ram, 1, 0x2000, wram_trace) != 0x2000) return 10;
@@ -763,6 +802,7 @@ int main(int argc, char **argv) {
     stats.logic_hash = next_logic;
 
     FzeroDrawPpuFrame();
+    if(mode_test || getenv("FZERO_TEST_VS_MENU"))FzeroPresent(1);
     if(versus && present_every>1 && frame%present_every==0)FzeroPresent(1);
     FzeroCaptureAfter();
     /* Private UI regressions need the final composed frame, including host
@@ -772,6 +812,11 @@ int main(int argc, char **argv) {
       char path[1024];
       if (snprintf(path, sizeof(path), "%s/%06ld.ppm", frame_dir, frame) >= (int)sizeof(path) ||
           !write_ppm(path, pixels, frame_width)) return 10;
+    }
+    if(!ui_cache_written && getenv("FZERO_TEST_UI_CACHE") && FzeroLocalUi()) {
+      FILE *cache=fopen(getenv("FZERO_TEST_UI_CACHE"),"wb");
+      if(!cache || fwrite(FzeroLocalUi(),sizeof(*FzeroLocalUi()),1,cache)!=1 || fclose(cache))return 10;
+      ui_cache_written=true;
     }
     collect_video(&stats, pixels, frame, frame_width);
 

@@ -68,7 +68,7 @@ def main():
         FZERO_VIEWPORT_SCRIPT='0:Fit@1920x1080,1700:4:3@640x960,1900:32:9@3840x720,2100:16:9@1280x720'))
     assert wide == baseline, (wide, baseline)
 
-    for label, frame in [('bootstrap', 1000), ('countdown', 1650)]:
+    for label, frame in [('bootstrap', 100), ('countdown', 650)]:
         path = out/f'{label}.sav'
         run(label, 1800, dict(FZERO_TEST_SAVE_FRAME=str(frame), FZERO_STATE_SAVE=str(path),
                             FZERO_LIFECYCLE_TEST='1', FZERO_REWIND_TEST='1'))

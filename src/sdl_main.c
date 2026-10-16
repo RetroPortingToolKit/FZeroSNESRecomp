@@ -20,6 +20,8 @@
 #include "fzero_build.h"
 #include "fzero_local.h"
 #include "fzero_local_controls.h"
+#include "fzero_local_mode.h"
+#include "fzero_vs_menu.h"
 
 #include "common_rtl.h"
 #include "host_paths.h"
@@ -1615,6 +1617,16 @@ static void configure_rewind(const RecompLauncherCSettings *settings) {
   }
 }
 
+#include "../tests/fzero_local_ui_driver.h"
+
+static void restart_mode_capture(void) {
+  if(FzeroCaptureReplayActive())return;
+  char directory[1200];const char *override=getenv("FZERO_DIAGNOSTICS_DIR");
+  if(override && *override)snprintf(directory,sizeof(directory),"%s",override);
+  else if(!snesrecomp_exe_dir_path("diagnostics",directory,sizeof(directory)))snprintf(directory,sizeof(directory),"diagnostics");
+  if(!FzeroCaptureStart(g_video.crash_replay,directory,&g_video))fprintf(stderr,"[fzero-replay] Unable to restart mode capture\n");
+  if(*FzeroCaptureDirectory())host_report_set_output_directory(FzeroCaptureDirectory());
+}
 int main(int argc, char **argv) {
   SDL_SetMainReady();
   /* Launcher paths, imported shaders/music and saves are installation-relative,
@@ -1693,7 +1705,7 @@ int main(int argc, char **argv) {
   int resolve_result =
       resolve_rom(argv[0], explicit_rom, force_launcher, rom_path, sizeof(rom_path), &launcher_settings);
   if (resolve_result <= 0) return resolve_result == 0 ? 0 : 2;
-  local_two_player=local_two_player || g_video.local_two_player;
+  const bool local_available=local_two_player || g_video.local_two_player;
   if (!FzeroReplayConfigurePlayers(getenv("SNESRECOMP_INPUT_SCRIPT"),getenv("FZERO_VIEWPORT_SCRIPT"),local_two_player?2:1)) {
     fprintf(stderr,"[fzero] Invalid validation replay\n");return 2;
   }
@@ -1742,12 +1754,17 @@ int main(int argc, char **argv) {
                       (bundled_music || !FzeroMsuHasLegacyPatch(msu_pack));
   g_video.gameplay.enabled &= ~(1u << FZERO_RULE_MSU);
   if (use_cgp_music) g_video.gameplay.enabled |= 1u << FZERO_RULE_MSU;
-  if (!FzeroMsuConfigure(msu_pack,use_cgp_music,rom_path)) {
+  char session_msu_pack[1024];snprintf(session_msu_pack,sizeof(session_msu_pack),"%s",msu_pack);
+  if (!FzeroMsuConfigure(session_msu_pack,use_cgp_music,rom_path)) {
     fprintf(stderr,"[fzero-msu1] %s Starting with SNES music.\n",FzeroMsuError());
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING,"Music pack not loaded",FzeroMsuError(),NULL);
-    FzeroMsuConfigure("",false,rom_path);
+    FzeroMsuConfigure("",false,rom_path);session_msu_pack[0]=0;use_cgp_music=false;
     g_video.gameplay.enabled &= ~(1u << FZERO_RULE_MSU);
   }
+  const char *save_root = getenv("SNESRECOMP_SAVE_ROOT");
+  if (save_root && *save_root) RtlSetSaveRoot(save_root);
+  if(local_available && !FzeroLocalModeInit(rom,rom_size,rom_path,
+      deluxe_override?deluxe_override:deluxe_path,session_msu_pack,use_cgp_music))Die("Cannot prepare local mode transitions");
   FzeroGameplaySettings active_gameplay=local_two_player?(FzeroGameplaySettings){0}:g_video.gameplay;
   FzeroGameplayConfigure(&active_gameplay,local_two_player?false:g_video.bs_deluxe,local_two_player?false:g_video.bs_tracks);
   if (!FzeroTracksPrepare(&rom, &rom_size, local_two_player?false:g_video.bs_deluxe,
@@ -1798,8 +1815,7 @@ int main(int argc, char **argv) {
 #endif
     }
   }
-  const char *save_root = getenv("SNESRECOMP_SAVE_ROOT");
-  if (save_root && *save_root) RtlSetSaveRoot(save_root);
+  FzeroVsMenuConfigure(local_available);
   if(local_two_player) {
     if(!FzeroLocalConfigure(local_config))Die("Cannot initialize stock local versus");
     if(!FzeroLocalSelectSaveRoot())Die("Local versus save path is too long");
@@ -1852,7 +1868,7 @@ int main(int argc, char **argv) {
     for (;;) {
       texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
                                   SDL_TEXTUREACCESS_STREAMING, FZERO_MAX_WIDTH * texture_scale,
-                                  FzeroFrameHeight() * texture_scale);
+                                  (local_available?448:FzeroFrameHeight()) * texture_scale);
       if (texture || texture_scale == 1) break;
       texture_scale = texture_scale > 4 ? 4 : texture_scale > 2 ? 2 : 1;
     }
@@ -1876,7 +1892,7 @@ int main(int argc, char **argv) {
 
   static uint8_t pixels[FZERO_MAX_WIDTH * kFrameHeight * 2 * kBytesPerPixel];
   uint32_t *hd_pixels = NULL;
-  size_t hd_capacity = (size_t)FZERO_MAX_WIDTH * FzeroFrameHeight() * texture_scale * texture_scale;
+  size_t hd_capacity = (size_t)FZERO_MAX_WIDTH * (local_available?448:FzeroFrameHeight()) * texture_scale * texture_scale;
   if (texture_scale > 1) {
     hd_pixels = calloc(hd_capacity, sizeof(*hd_pixels));
     if (!hd_pixels) Die("Unable to allocate HD Mode 7 frame");
@@ -1923,6 +1939,7 @@ int main(int argc, char **argv) {
 
   /* Before the pad scan below, so the virtual pad is the one player 1 gets. */
   selftest_attach();
+  local_ui_attach();
 
   SDL_GameController *pad = NULL;
   FzeroGamepadConfigure(g_config_path, g_selftest_pad ? g_selftest_guid : launcher_settings.player_gamepad_guid[0],
@@ -1933,6 +1950,7 @@ int main(int argc, char **argv) {
   if(local_two_player && !local_controls)Die("Cannot allocate local two-player controls");
   uint64_t local_controls_generation=RtlStateGeneration();
 
+  bool sp_release=false;
   int running = 1;
   int paused = 0;
   Uint64 state_feedback_until = 0;
@@ -2102,7 +2120,7 @@ int main(int argc, char **argv) {
         }
         switch (key) {
           case SDLK_ESCAPE:
-            running = 0;
+            if(local_controls)FzeroLocalControlsBack(local_controls);else running = 0;
             break;
           case SDLK_p:
             paused = !paused;
@@ -2134,22 +2152,90 @@ int main(int argc, char **argv) {
       }
     }
 
+    if(local_ui_tick(local_controls)) {running=0;break;}
+    if(!local_two_player && !FzeroCaptureReplayActive() && FzeroVsMenuRequested()) {
+      snesrecomp_sdl_pause_audio_device(audio,true);SDL_LockMutex(g_audio_mutex);
+      FzeroCaptureStop();snes_rewind_shutdown();FzeroStateGuardDisarm();
+      if(!FzeroLocalModeEnter(local_config))Die("Cannot enter local versus");
+      local_two_player=true;debug_server_set_ram(g_snes->ram,0x20000);
+      local_controls=FzeroLocalControlsCreate(local_config,false);
+      if(!local_controls)Die("Cannot allocate local controls");
+      local_controls_generation=RtlStateGeneration();
+      snes_rewind_configure();SDL_UnlockMutex(g_audio_mutex);
+      snesrecomp_sdl_pause_audio_device(audio,suspended || !launcher_settings.enable_audio);
+      g_reset_presentation_clock=true;
+    }
     if(local_controls) {
       if(local_controls_generation!=RtlStateGeneration()) {
         local_controls_generation=RtlStateGeneration();FzeroLocalControlsLoaded(local_controls);
       }
       unsigned action=FzeroCaptureReplayActive()?0:FzeroLocalControlsUpdate(local_controls,keyboard_guest_input_for_player(FzeroLocalControlsKeyboardPlayer(local_controls)));
+      if(action&FZERO_LOCAL_MAIN) {
+        snesrecomp_sdl_pause_audio_device(audio,true);SDL_LockMutex(g_audio_mutex);
+        FzeroCaptureStop();snes_rewind_shutdown();FzeroStateGuardDisarm();
+        if(!FzeroLocalModeReturn())Die("Cannot return to single-player menu");
+        FzeroLocalControlsDestroy(local_controls);local_controls=NULL;local_two_player=false;sp_release=true;FzeroSetMode7Hd(texture_scale>1?texture_scale:0,hd_pixels,hd_capacity);restart_mode_capture();
+        debug_server_set_ram(g_snes->ram,0x20000);snes_rewind_configure();
+        SDL_UnlockMutex(g_audio_mutex);
+        snesrecomp_sdl_pause_audio_device(audio,suspended || !launcher_settings.enable_audio);
+        viewport=FzeroCalculateViewport(&g_video,drawable_width,drawable_height);logical_width=viewport.width;
+        FzeroSetViewport(viewport);FzeroBeginDrawing(pixels,(size_t)logical_width*kBytesPerPixel);
+        g_reset_presentation_clock=true;continue;
+      }
       if(action&FZERO_LOCAL_CHANGE) {
-        RtlReset(1);FzeroGameInfo()->session_reset();
+        snesrecomp_sdl_pause_audio_device(audio,true);SDL_LockMutex(g_audio_mutex);
+        FzeroCaptureStop();snes_rewind_shutdown();
+        if(!FzeroLocalModeSetup()) {RtlReset(1);FzeroGameInfo()->session_reset();}
         if(!FzeroLocalConfigure(FzeroLocalControlsConfig(local_controls)))Die("Cannot reopen local setup");
+        local_controls_generation=RtlStateGeneration();snes_rewind_configure();SDL_UnlockMutex(g_audio_mutex);
+        snesrecomp_sdl_pause_audio_device(audio,suspended || !launcher_settings.enable_audio);
         FzeroSetViewport(viewport);FzeroBeginDrawing(pixels,(size_t)logical_width*kBytesPerPixel);
         g_reset_presentation_clock=true;
       }
       if(action&FZERO_LOCAL_START) {
-        if(!FzeroLocalConfigure(FzeroLocalControlsConfig(local_controls)))Die("Cannot start selected local race");
+        snesrecomp_sdl_pause_audio_device(audio,true);SDL_LockMutex(g_audio_mutex);
+        FzeroVersusConfig chosen=FzeroLocalControlsConfig(local_controls),loaded=FzeroLocalConfig();
+        if(memcmp(&chosen,&loaded,sizeof(chosen))) {
+          if(!FzeroLocalModeSetup()) {RtlReset(1);FzeroGameInfo()->session_reset();}
+          if(!FzeroLocalConfigure(chosen))Die("Cannot start selected local race");
+        }
+        double setup_start=monotonic_seconds();unsigned setup_frames=0;
+        /* Loading is host work, not 800 frames of wall-clock gameplay. Pump
+         * SDL between bounded batches; run the native CPU/SPC exactly once
+         * per emulated frame and capture the real loader/asset result. */
+        while(!FzeroLocalSession() && setup_frames<2400) {
+          for(unsigned n=0;n<16 && !FzeroLocalSession();++n) {
+            (void)RtlRunFrame(0);FzeroDrawPpuFrame();++setup_frames;
+            if(g_fail || !FzeroLastLleResult())Die("Native versus setup failed");
+            int16_t discarded[1068];RtlRenderAudio(discarded,534,2);
+          }
+          SDL_PumpEvents();
+        }
+        if(!FzeroLocalSession())Die("Native versus setup did not reach the starting grid");
+        fprintf(stderr,"[local-versus] setup %.3f seconds (%u native frames)\n",monotonic_seconds()-setup_start,setup_frames);
+        FzeroSetMode7Hd(texture_scale>1?texture_scale:0,hd_pixels,hd_capacity);restart_mode_capture();
+        SDL_UnlockMutex(g_audio_mutex);snes_rewind_shutdown();snes_rewind_configure();
+        snesrecomp_sdl_pause_audio_device(audio,suspended || !launcher_settings.enable_audio);
         g_reset_presentation_clock=true;
       }
       if(FzeroLocalControlsSetup(local_controls)) {
+        FzeroSetMode7Hd(0,NULL,0);
+        /* Prepare the selected real course while people join and choose cars.
+         * This freezes at the authoritative countdown; Ready starts the race,
+         * it never runs a hidden human simulation behind the selection UI. */
+        snesrecomp_sdl_pause_audio_device(audio,true);SDL_LockMutex(g_audio_mutex);
+        FzeroVersusConfig chosen=FzeroLocalControlsConfig(local_controls),loaded=FzeroLocalConfig();
+        if(memcmp(&chosen,&loaded,sizeof(chosen))) {
+          if(!FzeroLocalModeSetup()) {RtlReset(1);FzeroGameInfo()->session_reset();}
+          if(!FzeroLocalConfigure(chosen))Die("Cannot prepare selected course");
+          local_controls_generation=RtlStateGeneration();
+        }
+        for(unsigned n=0;n<8 && !FzeroLocalSession();++n) {
+          (void)RtlRunFrame(0);FzeroDrawPpuFrame();
+          if(g_fail || !FzeroLastLleResult())Die("Native versus course preparation failed");
+          int16_t discarded[1068];RtlRenderAudio(discarded,534,2);
+        }
+        SDL_UnlockMutex(g_audio_mutex);
         if(use_gl_renderer)snesrecomp_sdl_get_drawable_size(window,&drawable_width,&drawable_height);
         else snesrecomp_sdl_get_render_output_size(renderer,&drawable_width,&drawable_height);
         viewport=FzeroCalculateViewport(&g_video,drawable_width,drawable_height/2);logical_width=viewport.width;
@@ -2261,6 +2347,7 @@ int main(int argc, char **argv) {
                        debug_server_get_controller_inputs() | (1u << 30) |
                        debug_server_get_controller_active_mask();
       if(local_two_player)input=FzeroLocalControlsInput(local_controls);
+      else if(sp_release) {if(!(input&4095))sp_release=false;input&=~4095u;}
       if (FzeroReplayHasInput() && !g_menu_pad_replay) input = FzeroReplayInput((unsigned)frames);
       /* Seat 0's word, before the guest sees it: the overlays are a player-1
        * facility, and the press that closed one must neither reach the game
@@ -2395,7 +2482,7 @@ int main(int argc, char **argv) {
   RtlWriteSram();
   FzeroSetMode7Hd(0, NULL, 0);
   FzeroRendererShutdown();
-  FzeroLocalControlsDestroy(local_controls);FzeroLocalShutdown();
+  FzeroLocalControlsDestroy(local_controls);FzeroLocalShutdown();FzeroLocalModeShutdown();
   free(hd_pixels);
   debug_server_shutdown();
   snesrecomp_sdl_pause_audio_device(audio, true);

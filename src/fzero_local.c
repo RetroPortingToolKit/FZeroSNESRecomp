@@ -13,7 +13,7 @@
 #include <string.h>
 
 extern Snes *g_snes;
-static bool enabled,setup_started;
+static bool enabled,setup_started,fast_setup;
 static unsigned setup_frame;
 static uint64_t epoch;
 static FzeroVersusConfig config;
@@ -21,6 +21,7 @@ static FzeroVersus *session;
 static FzeroVersusVideo *video;
 static FzeroSoundState sound;
 static FzeroNativeUi ui;
+static unsigned menu_selection,result_ticks;
 static unsigned word(unsigned at) {return g_ram[at]|(unsigned)g_ram[at+1]<<8;}
 static uint8_t read_table(void *context,uint32_t address) {
   (void)context;
@@ -34,16 +35,27 @@ static void course_config(CpuState *cpu,uint32_t pc) {
 bool FzeroLocalEnabled(void) {return enabled;}
 FzeroVersus *FzeroLocalSession(void) {return session;}
 const FzeroNativeUi *FzeroLocalUi(void) {return enabled && ui.valid?&ui:NULL;}
+bool FzeroLocalMenuReady(void) {
+  const FzeroVersusSnapshot *s=FzeroVersusCompleted(session);if(!s)return false;
+  if(s->pause)return true;
+  for(unsigned i=0;i<2;++i)if(s->racers[i].status==FZERO_VS_DNF && s->race_tick-s->racers[i].finish_tick+result_ticks<48)return false;
+  return true;
+}
+unsigned FzeroLocalMenuSelection(void) {return menu_selection;}
+void FzeroLocalSetMenuSelection(unsigned choice) {
+  if(choice<4 && choice!=menu_selection) {menu_selection=choice;FzeroLocalControlChanged();}
+}
 void FzeroLocalShutdown(void) {
   if(enabled)interp_bridge_set_scheduler_aot_policy(-1);
   FzeroVersusDestroy(session);FzeroVersusVideoDestroy(video);
   session=NULL;video=NULL;enabled=setup_started=false;setup_frame=0;
   memset(&sound,0,sizeof(sound));
+  menu_selection=result_ticks=0;
 }
 bool FzeroLocalConfigure(FzeroVersusConfig c) {
   if(c.course>=15 || c.machine[0]>=4 || c.machine[1]>=4 ||
       FzeroDeluxeActive() || FzeroGameplayActive() || FzeroTracksActive())return false;
-  FzeroLocalShutdown();config=c;enabled=true;++epoch;
+  FzeroLocalShutdown();config=c;enabled=fast_setup=true;++epoch;
   if(!FzeroNativeUiInit(&ui,tables())) {FzeroLocalShutdown();return false;}
   /* Resource loader hooks are interpreted-opcode hooks. Keep native setup
    * on the byte interpreter so a compiled call cannot bypass configuration.
@@ -59,14 +71,23 @@ static uint16_t auto_word(uint32_t runner) {
 }
 bool FzeroLocalTick(uint32_t packed) {
   if(!session)return false;
+  unsigned previous_phase=FzeroVersusCompleted(session)->phase;
   uint16_t held[2]={auto_word(packed&4095),auto_word((packed>>12)&4095)};
   bool advanced=FzeroVersusTick(session,held);
+  const FzeroVersusSnapshot *state=FzeroVersusCompleted(session);
+  if(state->phase!=FZERO_VS_RESULTS || previous_phase!=FZERO_VS_RESULTS)result_ticks=0;
+  else if(!state->pause && result_ticks<UINT32_MAX)++result_ticks;
   FzeroSoundCommands commands=FzeroSoundTick(&sound,FzeroVersusCompleted(session),advanced);
   for(unsigned port=0;port<4;++port)snes_writeBBus(g_snes,(uint8_t)(0x40+port),commands.ports[port]);
   return true;
 }
 uint16_t FzeroLocalSetupInput(void) {
   if(!enabled)return 0;
+  if(fast_setup) {
+    /* Scene-driven confirmations use the real native setup handlers. There
+     * are no wall-clock waits between car/class/cup confirmation attempts. */
+    return g_ram[0x54]<2 && (setup_frame&7)<2?8:0;
+  }
   /* Ordinary native menu inputs reach the normal GP handoff. Keep CPU stack,
    * scratch, asset and fade setup owned by their original menu routines. */
   const unsigned presses[]={320,800,920,1090,1150};
@@ -87,7 +108,7 @@ void FzeroLocalPrepareCourse(void) {
   setup_started=true;
 }
 void FzeroLocalCapture(void) {
-  if(!enabled || session || !setup_started || g_ram[0x54]!=2 || g_ram[0x55]!=3 ||
+  if(!enabled || session || !setup_started || g_ram[0x54]!=2 || (g_ram[0x55]!=3 && !(fast_setup && g_ram[0x55]==2 && g_ram[0x56]==2)) ||
       g_ram[0xc3] || !FzeroRendererHasFrame())return;
   FzeroActor spawns[2]={{0},{0}};
   for(unsigned i=0;i<2;++i) {
@@ -111,6 +132,7 @@ void FzeroLocalCapture(void) {
       config.course,config.machine[0],config.machine[1],spawns[0].x,spawns[0].y,spawns[1].x,spawns[1].y);
 }
 bool FzeroLocalDraw(uint32_t *out,size_t capacity,FzeroViewport viewport,double alpha,unsigned scale) {
+  FzeroVersusVideoMenu(video,menu_selection,result_ticks);
   return session && FzeroVersusVideoDraw(video,out,capacity,viewport,alpha,scale);
 }
 void FzeroLocalResetViews(void) {
@@ -136,21 +158,25 @@ size_t FzeroLocalSaveSize(void) {return 32+FzeroVersusSaveSize();}
 bool FzeroLocalSave(void *output,size_t size) {
   if(!enabled || !output || size!=FzeroLocalSaveSize())return false;
   uint8_t *p=output;memset(p,0,size);memcpy(p,"FZLOCAL1",8);
-  put32(p+8,2);put32(p+12,FZERO_VERSUS_RULES);put32(p+16,(uint32_t)size);put32(p+20,setup_frame);
+  put32(p+8,3);put32(p+12,FZERO_VERSUS_RULES);put32(p+16,(uint32_t)size);
+  put32(p+20,session?(FzeroVersusCompleted(session)->phase==FZERO_VS_RESULTS?result_ticks:0):setup_frame);
   p[24]=config.course;p[25]=config.machine[0];p[26]=config.machine[1];
-  p[27]=setup_started;p[28]=session!=NULL;
-  p[29]=sound.music;p[30]=sound.landing;p[31]=sound.phase;
+  p[27]=(uint8_t)(setup_started|(fast_setup?2:0));p[28]=session!=NULL;
+  p[29]=sound.music;p[30]=sound.landing;
+  p[31]=(uint8_t)((sound.phase==255?8:sound.phase)|(menu_selection<<4));
   return !session || FzeroVersusSave(session,p+32,size-32);
 }
 static bool decode(const void *input,size_t size,FzeroVersus **candidate,FzeroVersusConfig *c) {
   if(!input || size!=FzeroLocalSaveSize())return false;
   const uint8_t *p=input;
   unsigned version=get32(p+8);
-  if(memcmp(p,"FZLOCAL1",8) || (version!=1 && version!=2) || get32(p+12)!=FZERO_VERSUS_RULES ||
+  if(memcmp(p,"FZLOCAL1",8) || version<1 || version>3 || get32(p+12)!=FZERO_VERSUS_RULES ||
       get32(p+16)!=size || p[24]>=15 || p[25]>=4 || p[26]>=4 ||
-      p[27]>1 || p[28]>1 || (p[28] && !p[27]) ||
+      (version<3?p[27]>1:p[27]>3) || p[28]>1 || (p[28] && !(p[27]&1)) ||
       (version==1 && (p[29] || p[30] || p[31])) ||
-      (version==2 && ((p[29]&0x70) || p[30]>12 || (p[31]>7 && p[31]!=255))))return false;
+      (version>=2 && ((p[29]&0x70) || p[30]>12)) ||
+      (version==2 && p[31]>7 && p[31]!=255) ||
+      (version==3 && ((p[31]&15)>8 || (p[31]>>4)>3)))return false;
   *c=(FzeroVersusConfig){p[24],{p[25],p[26]}};*candidate=NULL;
   if(p[28])return (*candidate=FzeroVersusDecode(p+32,size-32,tables(),c))!=NULL;
   for(size_t i=32;i<size;++i)if(p[i])return false;
@@ -169,9 +195,11 @@ bool FzeroLocalRestore(const void *input,size_t size) {
   if(candidate && !display){FzeroVersusDestroy(candidate);return false;}
   FzeroVersusDestroy(session);FzeroVersusVideoDestroy(video);
   session=candidate;video=display;config=c;
-  const uint8_t *p=input;setup_frame=get32(p+20);setup_started=p[27]!=0;
+  const uint8_t *p=input;setup_frame=session?0:get32(p+20);setup_started=(p[27]&1)!=0;fast_setup=get32(p+8)==3 && (p[27]&2)!=0;
+  result_ticks=session && get32(p+8)==3?get32(p+20):0;
+  menu_selection=get32(p+8)==3?p[31]>>4:0;
   if(get32(p+8)==1)FzeroSoundInit(&sound,g_ram[0x46]);
-  else sound=(FzeroSoundState){p[29],p[30],p[31]};
+  else sound=(FzeroSoundState){p[29],p[30],get32(p+8)==3?((p[31]&15)==8?255:p[31]&15):p[31]};
   interp_bridge_set_scheduler_aot_policy(0);
   interp_bridge_set_pre_opcode_hook(0x009f08,course_config);
   return true;

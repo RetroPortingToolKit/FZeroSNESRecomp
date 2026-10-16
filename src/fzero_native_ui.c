@@ -23,7 +23,7 @@ static void decode(uint8_t out[64],FzeroActorTables t,unsigned address,unsigned 
   for(unsigned y=0;y<8;++y)for(unsigned x=0;x<8;++x) {
     unsigned color=0;
     for(unsigned p=0;p<planes;++p) {
-      unsigned offset=p==2 && planes==3?16+y:(p/2)*16+y*2+p%2;
+      unsigned offset=planes==1?y:p==2 && planes==3?16+y:(p/2)*16+y*2+p%2;
       color|=((byte(t,address+offset)>>(7-x))&1)<<p;
     }
     out[y*8+x]=(uint8_t)color;
@@ -45,6 +45,12 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
   for(unsigned pos=0x0f8000;pos+2<0x100000;) {
     unsigned header=byte(t,pos++),first=byte(t,pos++),count=header&63,mode=header>>6;
     if(!count || first+count>256 || pos+count*sizes[mode]>0x100000)break;
+    for(unsigned n=0;n<count;++n) {
+      decode(ui->objects[first+n],t,pos+n*sizes[mode],mode==0?4:mode);
+      /* The native OBJ loader expands nontransparent 3bpp colors into the
+       * upper half of its palette. Menu BG tiles use the lower half. */
+      if(mode==3)for(unsigned i=0;i<64;++i)if(ui->objects[first+n][i])ui->objects[first+n][i]|=8;
+    }
     if(mode==2)for(unsigned n=0;n<10;++n)for(unsigned half=0;half<2;++half) {
       unsigned id=0x80+n+half*16;
       if(id>=first && id<first+count)decode(ui->numbers[n]+half*64,t,pos+(id-first)*16,2);
@@ -63,6 +69,45 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
       ui->machine_palette[0][m][i]=rgb(word(t,0x0ee180+m*32+i*2));
       ui->machine_palette[1][m][i]=rgb(word(t,0x0fcd80+m*32+i*2));
     }
+  }
+  for(unsigned i=0;i<16;++i) {
+    ui->title_palette[i]=rgb(word(t,0x0fcd00+i*2));
+    ui->effect_palette[i]=rgb(word(t,0x0fcd60+i*2));
+  }
+  /* Native $ED6A..$EED1 explosion frames: the first four use big OBJ
+   * offsets; the remaining six expand paired 16x16 layouts from $FED9. */
+  for(unsigned i=0;i<20;++i) {
+    ui->explosion_frame[i]=byte(t,0xeee2+i);ui->explosion_duration[i]=byte(t,0xeef6+i);
+  }
+  for(unsigned f=0;f<10;++f) {
+    unsigned at=word(t,0xef14+f*2),count=0;int base=(int)byte(t,0xef0a+f);if(base>=128)base-=256;
+    if(byte(t,at)!=255) {
+      for(unsigned i=0;i<64 && byte(t,at)!=255;++i,at+=2) {
+        unsigned xy=byte(t,at),attr=byte(t,at+1);
+        int x=(int)byte(t,0xee5f+(xy>>4)),y=(int)byte(t,0xee6b+(xy&15));
+        if(x>=128)x-=256;
+        if(y>=128)y-=256;
+        ui->explosion[f][count].x=x;ui->explosion[f][count].y=y+base;
+        ui->explosion[f][count].tile=attr&63;ui->explosion[f][count++].attr=attr;
+      }
+    } else {
+      unsigned groups=byte(t,++at);++at;
+      for(unsigned g=0;g<groups && g<16;++g,at+=3) {
+        unsigned pattern=byte(t,at);int dx=byte(t,at+1),dy=byte(t,at+2);
+        if(dx>=128)dx-=256;
+        if(dy>=128)dy-=256;
+        unsigned parts=byte(t,0xfed9+pattern++);
+        for(unsigned j=0;j<parts && j<16;++j,pattern+=2) {
+          unsigned id=byte(t,0xfed9+pattern);int x=byte(t,0xfed9+pattern+1);if(x>=128)x-=256;
+          for(unsigned half=0;half<2 && count<64;++half) {
+            unsigned attr=word(t,0xfec1+id+half*2);
+            ui->explosion[f][count].x=dx+x;ui->explosion[f][count].y=dy+base+(int)half*16;
+            ui->explosion[f][count].tile=attr&255;ui->explosion[f][count++].attr=attr>>8;
+          }
+        }
+      }
+    }
+    ui->explosion_count[f]=count;
   }
   ui->valid=true;return true;
 }
@@ -151,5 +196,30 @@ void FzeroUiMachine(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned
   for(unsigned row=0;row<16;++row)for(unsigned col=0;col<24;++col) {
     unsigned color=ui->machines[m][row*24+col];
     if(color)FzeroUiRect(c,x+(int)col,y+(int)row,1,1,ui->machine_palette[selected?1:0][m][color]);
+  }
+}
+
+void FzeroUiExplosion(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned distance,unsigned age) {
+  if(!ui || !ui->valid || distance>8)return;
+  unsigned stage=0;
+  while(stage<20 && age>=ui->explosion_duration[stage]) {age-=ui->explosion_duration[stage];++stage;}
+  if(stage>=20 || ui->explosion_frame[stage]>=10)return;
+  unsigned f=ui->explosion_frame[stage],zoom=16-distance;
+  for(unsigned i=0;i<ui->explosion_count[f];++i) {
+    for(unsigned row=0;row<16;++row)for(unsigned col=0;col<16;++col) {
+      unsigned attr=ui->explosion[f][i].attr,cx=attr&64?15-col:col,cy=attr&128?15-row:row;
+      unsigned id=ui->explosion[f][i].tile+(cy/8)*16+cx/8;
+      unsigned color=ui->objects[id&255][(cy&7)*8+(cx&7)];if(!color)continue;
+      int dx=ui->explosion[f][i].x+(int)col,dy=ui->explosion[f][i].y+(int)row;
+      FzeroUiRect(c,x+dx*(int)zoom/16,y+dy*(int)zoom/16,1,1,ui->effect_palette[color]);
+    }
+  }
+}
+void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text) {
+  static const unsigned letters[]={0x64,0x65,0x66,0x67,0x68,0x69,0x6a,0x6b,0x8e,0x6c,0x6e,0x6f,0x8a,0x8b,0x8c,0x8d,0x6d,0x8f,0xa0,0xa1,0xa2,0xa3,0xa4,0xa6,0xa5,0xa7};
+  if(!ui || !ui->valid || !text)return;
+  for(;*text;++text,x+=8)if(*text>='A' && *text<='Z') {
+    unsigned id=letters[*text-'A'];tile(ui->objects[id],ui->title_palette,c,x,y,false,false);
+    tile(ui->objects[id+16],ui->title_palette,c,x,y+8,false,false);
   }
 }

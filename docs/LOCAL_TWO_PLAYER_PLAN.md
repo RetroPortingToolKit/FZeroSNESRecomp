@@ -847,3 +847,65 @@ reboot (`RtlWriteSram` -> `snes_free` -> `RtlRegisterGame`/`SnesInit` ->
 change is implied. Reuse/restore the actual single-player context and guard
 audio, buffers, replay, rewind and root changes when implementing the native
 menu transition. Menu, fast setup and explosion work remain incomplete.
+
+
+## Revised UI implementation and Windows QA handoff (2026-10-15)
+
+The owner feedback changes are implemented. Local 2 Player now adds a native
+**VS MODE** main-menu row while normal startup and one-player choices remain
+available. The title row and shared cursor menus use decoded cartridge art.
+Pause offers Continue / Restart Race / Change Race / Main Menu; results offer
+Race Again / Change Race / Main Menu. Up/Down selects and Start/Enter or a
+confirm face button activates the highlighted choice. The old per-action
+shortcuts are removed. The filled player identities, complete half-screen
+views, inline HUDs and thin divider from `be73b37` remain in place.
+
+`fzero_local_mode` saves the real single-player context, isolates the versus
+save root, and restores the original RAM/profile/namespace on Main Menu.
+Modified single-player content is rebuilt around the stock versus session;
+dependency revisions are unchanged. A consumed VS confirmation parks native
+CPU menu processing before the return snapshot, preventing a delayed Start
+sample from entering Grand Prix. Both native and HD desktop flows now verify
+that the returned main menu stays there for subsequent ordinary frames.
+
+New sessions prepare native course assets while players join/select and skip
+the redundant native countdown. Both initial and changed-course Ready actions
+in the final native and HD2 desktop tests reported **0.000 seconds / 0 native
+frames** of remaining setup. This measures the Ready transition after preload,
+not zero total initialization cost. Existing version 1/2 states keep their old
+bootstrap behavior; version 3 preserves the new setup/menu/effect state.
+
+Crash-outs hide the intact ship and play the cartridge explosion layouts,
+tiles, colors and timing in both cameras before exposing results. A 5,824-pixel
+comparison against native uploaded OBJ data passes; a mid-explosion snapshot
+restored in a fresh process yields an identical final composed frame. Stock
+L/R handling was already present in the authoritative actor path. Both seats'
+shoulder bindings and all four stock machine actor checks pass. The renderer
+now reflects native steering/lean state with cartridge angle poses; this is a
+presentation approximation rather than an exact human OBJ animation decoder.
+
+Validation: Windows CTest 17/17 passes (1,328.43 seconds; the Deluxe test reports
+its existing no-stock-ROM skip). The explicit-ROM stock actor oracle passes.
+The current host lifecycle suite passes disk/ring/fresh-process restore, exact
+replay/divergence checks, atomic bad-state refusal, namespaces and all 15 course
+setups. Final muted desktop tests use two SDL virtual controllers and ordinary
+input through native VS entry, join/Ready, Restart Race, changed course/machine,
+Main Menu and continued single-player menu frames. Both native and HD2 pass;
+the final HD menu image was visually inspected. Private evidence is under
+`captures/l2p-feedback-02` and `captures/l2p-feedback-life-01`.
+
+The owner offered to perform hands-on QA. The separately staged, muted full
+recomp-ui launcher is `build/playtest-local-2p-vs-menu/open-launcher.ps1`, with
+Local 2 Player enabled and ordinary one-player startup. Its validated executable
+was built from the exact pending source represented by this commit; the binary
+still identifies the precommit `be73b37-dirty` revision and source fingerprint.
+Older preview copies are preserved. No netplay backend is exposed.
+
+Full feature qualification remains open in `beads-8uc1`: physical two-human
+playtesting, sustained HD/rate/worker performance and remaining machine effects
+are outstanding. Ordinary-input full-race bots now finish Mute City III, but
+Port Town I, White Land II, Port Town II and Fire Field still end in DNFs and
+are unqualified; all-course setup success does not establish all-course race
+completion. No Linux validation was performed, per owner direction. The known
+baseline single-player strict rewind clock discrepancy remains separately
+recorded. Do not close the issue or claim all original acceptance gates passed.

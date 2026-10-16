@@ -5,7 +5,10 @@
  * simulation pointers or generated/redistributed ROM artwork. */
 typedef struct FzeroNativeUi {
   uint8_t tiles[256][64], hud[56][64], machines[4][24*16];
-  uint8_t numbers[10][128];
+  uint8_t numbers[10][128], objects[256][64];
+  struct {int x,y;unsigned tile,attr;} explosion[10][64];
+  unsigned explosion_count[10], explosion_frame[20], explosion_duration[20];
+  uint32_t title_palette[16], effect_palette[16];
   uint32_t palette[4][8], machine_palette[2][4][16];
   bool valid;
 } FzeroNativeUi;
@@ -30,3 +33,6 @@ void FzeroUiCenter(const FzeroNativeUi *ui,FzeroUiCanvas c,int y,const char *tex
                     FzeroUiFont font,FzeroUiInk ink);
 void FzeroUiFrame(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,int width,int height);
 void FzeroUiMachine(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned machine,bool selected);
+
+void FzeroUiExplosion(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned distance,unsigned age);
+void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text);

@@ -18,6 +18,10 @@ void FzeroLocalResetViews(void);
 bool FzeroLocalSelectSaveRoot(void);
 FzeroVersusConfig FzeroLocalConfig(void);
 const FzeroNativeUi *FzeroLocalUi(void);
+unsigned FzeroLocalMenuSelection(void);
+/* Results become interactive after both native crash animations finish. */
+bool FzeroLocalMenuReady(void);
+void FzeroLocalSetMenuSelection(unsigned selection);
 /* Fixed-size host bridge image, including native setup before handoff.
  * Validation is read-only; restore replaces the session atomically. Asset
  * captures are rebuilt from the accompanying native PPU snapshot afterwards. */
