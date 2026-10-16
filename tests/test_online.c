@@ -37,7 +37,10 @@ static void press(unsigned p1,unsigned p2) {tick(p1,p2);tick(0,0);}
 static void image(uint8_t out[FZERO_ONLINE_STATE_SIZE]) {FzeroOnlineSave(out);CHECK(FzeroOnlineValidate(out));}
 static void choose(void) {
   press(0x20,0);CHECK(FzeroOnlineCompleted()->config.machine[0]==2);
+  uint64_t p1_spin=FzeroOnlineCompleted()->selection_tick[0];
   press(0,0x20);CHECK(FzeroOnlineCompleted()->config.machine[1]==3);
+  CHECK(FzeroOnlineCompleted()->selection_tick[0]==p1_spin);
+  CHECK(FzeroOnlineCompleted()->selection_tick[1]>p1_spin);
   press(8,0);CHECK(FzeroOnlineCompleted()->ready==1);
   press(0,8);CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_CUP);
 }
@@ -46,7 +49,15 @@ int main(void) {
   for(unsigned aspect=0;aspect<3;++aspect) {
     FzeroOnlineBegin(aspect,0);image(initial);
     FzeroOnlineBegin(aspect,1);image(same);CHECK(!memcmp(initial,same,sizeof(same)));
-    CHECK(FzeroOnlineView()==1);choose();image(saved);
+    CHECK(FzeroOnlineView()==1);
+    CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_TITLE);
+    press(8,8);CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_TITLE);
+    image(saved);FzeroOnlineEnterVs();tick(0,0);
+    /* Back from an unconfirmed selector resumes the native title. Its
+     * owner-facing navigation remains outside this pure reducer test. */
+    press(1,0);CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_TITLE);
+    CHECK(FzeroOnlineRestore(saved));image(same);CHECK(!memcmp(saved,same,sizeof(saved)));
+    FzeroOnlineEnterVs();tick(0,0);choose();image(saved);
     /* A guest cannot change the host's league/course decision. */
     press(0,0x20);CHECK(FzeroOnlineCompleted()->cup==0);
     press(0,8);CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_CUP);
@@ -63,11 +74,12 @@ int main(void) {
     image(same);CHECK(!memcmp(initial,same,sizeof(same)));
     memcpy(bad,same,sizeof(bad));bad[40]=(uint8_t)((aspect+1)%3);
     CHECK(!FzeroOnlineRestore(bad));image(saved);CHECK(!memcmp(same,saved,sizeof(same)));
-    memcpy(bad,same,sizeof(bad));bad[38]=FZERO_ONLINE_CAPS;CHECK(!FzeroOnlineValidate(bad));
+    memcpy(bad,same,sizeof(bad));bad[38]=255;CHECK(!FzeroOnlineValidate(bad));
     memcpy(bad,same,sizeof(bad));bad[28]=0xff;bad[29]=0xff;CHECK(!FzeroOnlineValidate(bad));
-    for(unsigned offset=41;offset<96;++offset)if(offset!=43 && offset!=60) {
+    for(unsigned offset=41;offset<96;++offset)if(offset==41 || offset==42 || offset>60) {
       memcpy(bad,same,sizeof(bad));bad[offset]=1;CHECK(!FzeroOnlineValidate(bad));
     }
+    memcpy(bad,same,sizeof(bad));memset(bad+44,255,8);CHECK(!FzeroOnlineValidate(bad));
     press(8,0);CHECK(loads==aspect+1);CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_RACE);
     CHECK(FzeroVersusCompleted(race)->config.course==359);
     FzeroVersusPause(race,FZERO_VS_PAUSE_MANUAL);selection=1;

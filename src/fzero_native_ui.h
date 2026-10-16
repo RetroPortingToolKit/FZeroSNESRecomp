@@ -23,7 +23,10 @@ typedef struct FzeroNativeUi {
   unsigned crash_length;
   struct {int x,y;unsigned tile,attr;} sparks[8];
   uint32_t palette[4][8], machine_palette[2][4][16];
-  bool valid;
+  uint16_t information[4][1024];
+  uint32_t information_palette[4][8];
+  FzeroActorTables tables;
+  bool valid,information_valid;
 } FzeroNativeUi;
 typedef struct FzeroUiCanvas {
   uint32_t *pixels;
@@ -58,3 +61,8 @@ void FzeroUiRaceClock(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const 
 void FzeroUiRaceInstruments(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,uint16_t health,unsigned speed,uint64_t tick);
 void FzeroUiBoosts(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned count,bool active);
 void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text,bool dim);
+
+/* A complete native machine pane, independent of participant count/layout.
+ * Local play supplies one canvas per seat; online supplies its own full view. */
+void FzeroUiMachineSelect(const FzeroNativeUi *ui,FzeroUiCanvas canvas,unsigned machine,
+    uint64_t age,unsigned player,bool joined,bool ready);

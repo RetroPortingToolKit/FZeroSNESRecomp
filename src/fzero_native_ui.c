@@ -1,4 +1,5 @@
 #include "fzero_native_ui.h"
+#include "fzero_ship.h"
 #include <ctype.h>
 #include <string.h>
 
@@ -82,9 +83,9 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
    * $4600/$4700 etc. Reassemble the exact 24x16 menu side-profile icons. */
   for(unsigned m=0;m<4;++m) {
     /* Original car-select BG portraits, including the native non-linear
-     * bottom-row arrangement. The blank upper-left tile is transparent. */
-    static const int layout[15]={-1,0,1,2,3,6,7,8,9,10,4,5,11,12,13};
-    for(unsigned n=0;n<15;++n)if(layout[n]>=0) {
+     * bottom-row arrangement and the optional upper-left nose/wing tile. */
+    static const int layout[15]={-1,0,1,2,3,7,8,9,10,11,4,5,6,12,13};
+    for(unsigned n=0;n<15;++n) {
       uint8_t pixels[64];decode(pixels,t,((8+m)<<16)| (0xd600+layout[n]*32),4);
       for(unsigned y=0;y<8;++y)for(unsigned x=0;x<8;++x)
         ui->menu_machines[m][((n/5)*8+y)*40+(n%5)*8+x]=pixels[y*8+x];
@@ -182,7 +183,29 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
     }
     ui->explosion_count[f]=count;
   }
-  ui->valid=true;return true;
+  /* $03:9892's four original information maps. Keep the authored frame,
+   * engine/power/speed/weight text and acceleration curves as actual tiles. */
+  unsigned pos=0x0fb8b0,count=0,hi=0,lo=0;
+  while(pos<0x0fc100) {
+    unsigned command=byte(t,pos++),run=1;
+    if(!(command&0x20)) {hi=command;lo=byte(t,pos++);}
+    else if(command&0x80)run=(command&31)+1;
+    else if(!(command&0x40))run=(command&31)+1;
+    else break;
+    if(count+run>4096)break;
+    for(unsigned n=0;n<run;++n) {
+      unsigned value=(command&0xa0)==0xa0?byte(t,pos++):lo;
+      ui->information[count/1024][count%1024]=(uint16_t)((hi<<8)|value);++count;
+    }
+  }
+  /* Alternate native cartridges can replace this stream. Their title/HUD
+   * assets remain usable; VS selection always reads the verified stock copy. */
+  ui->information_valid=count==4096;
+  for(unsigned m=0;m<4;++m) {
+    memcpy(ui->information_palette[m],ui->palette[0],sizeof(ui->palette[0]));
+    for(unsigned i=0;i<3;++i)ui->information_palette[m][3+i]=rgb(word(t,0x038901+m*6+i*2));
+  }
+  ui->tables=t;ui->valid=true;return true;
 }
 void FzeroUiRect(FzeroUiCanvas c,int x,int y,int w,int h,uint32_t color) {
   if(!c.pixels || !c.scale || c.scale>10 || w<=0 || h<=0)return;
@@ -471,4 +494,39 @@ void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const 
     tile(glyph,ui->title_palette[dim],c,x,y,false,false);
     tile(glyph+64,ui->title_palette[dim],c,x,y+8,false,false);
   }
+}
+
+void FzeroUiMachineSelect(const FzeroNativeUi *ui,FzeroUiCanvas c,unsigned machine,
+    uint64_t age,unsigned player,bool joined,bool ready) {
+  if(!ui || !ui->valid || !ui->information_valid || machine>=4 || !c.scale)return;
+  int left=(c.width/(int)c.scale-256)/2;
+  static const unsigned order[]={0,2,1,3};unsigned selected=0;
+  while(order[selected]!=machine)++selected;
+  FzeroUiPlayerTag(ui,c,left+120,8,player,player?FZERO_UI_YELLOW:FZERO_UI_CYAN);
+  for(unsigned row=0;row<4;++row) {
+    if(!joined || row!=selected)FzeroUiMenuMachine(ui,c,left+32,47+(int)row*40,order[row],false);
+  }
+  /* The original map's YES/NO row belongs to GP confirmation. VS readiness
+   * replaces just that row, keeping the information artwork unchanged. */
+  for(unsigned y=4;y<24;++y)for(unsigned x=13;x<30;++x) {
+    unsigned entry=ui->information[selected][y*32+(y==23 && x>13 && x<29?14:x)];
+    unsigned id=entry&1023,pal=(entry>>10)&7;
+    if(id>=256 || pal>1)continue;
+    tile(ui->tiles[id],pal?ui->palette[1]:ui->information_palette[machine],c,
+        left+(int)x*8,(int)y*8-1,(entry&0x4000)!=0,(entry&0x8000)!=0);
+  }
+  if(joined) {
+    FzeroShip spin;
+    if(FzeroShipMenu(&spin,machine,age,ui->tables)) {
+      /* Original $03:8B0A row origins, with native $34 horizontal center. */
+      int origin=byte(ui->tables,0x038b0a+selected);
+      for(unsigned y=0;y<64;++y)for(unsigned x=0;x<64;++x) {
+        uint32_t color=spin.pixels[y*64+x];
+        if(color)FzeroUiRect(c,left+52+spin.x+(int)x,origin+spin.y+(int)y-1,1,1,color);
+      }
+    }
+    FzeroUiTile(ui,c,left+16,55+(int)selected*40,0x2f,FZERO_UI_CYAN,true,false);
+  }
+  const char *status=!joined?"PRESS START":ready?"READY":NULL;
+  if(status)FzeroUiText(ui,c,left+144,192,status,FZERO_UI_MENU,ready?FZERO_UI_YELLOW:FZERO_UI_CYAN);
 }

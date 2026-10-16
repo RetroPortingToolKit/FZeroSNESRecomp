@@ -129,7 +129,8 @@ void FzeroLocalSetupTick(unsigned frame) {
   setup_frame=frame;
 }
 void FzeroLocalPrepareCourse(void) {
-  if(!enabled || setup_started || g_ram[0x54]!=2)return;
+  if(!enabled || setup_started || g_ram[0x54]!=2 ||
+      (FzeroOnlineEnabled() && FzeroOnlineCompleted()->phase==FZERO_ONLINE_TITLE))return;
   /* At the native $9F08 loader entry, after the ordinary GP menu handoff.
    * Only the selected config changes; decompression and legal grid setup
    * remain native, and no physics outcomes are injected. */

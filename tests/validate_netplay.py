@@ -21,7 +21,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     for name in ('build', 'runtime', 'rom', 'packs', 'settings', 'video', 'out'):
         p.add_argument('--' + name, type=Path, required=True)
-    p.add_argument('--scenario', choices=('driving', 'finish', 'crash', 'state', 'reject', 'exit', 'change'), default='driving')
+    p.add_argument('--scenario', choices=('selection', 'titleback', 'titlestate', 'driving', 'finish', 'crash', 'state', 'reject', 'exit', 'change'), default='driving')
     p.add_argument('--cup', type=int, default=0, help='Select this enabled league through synchronized menu inputs')
     p.add_argument('--aspect', choices=(0, 1, 2), type=int, default=1)
     p.add_argument('--loss', action='store_true')
@@ -49,7 +49,9 @@ def main():
     lock_fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     os.write(lock_fd, ('%d %s\n' % (os.getpid(), a.out)).encode())
     os.close(lock_fd)
-    frames = dict(driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, exit=1000, change=1300)[a.scenario]
+    frames = dict(selection=550, titleback=600, titlestate=1000, driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, exit=1000, change=1300)[a.scenario]
+    if a.scenario != 'selection':
+        frames += 400  # Real native boot/title and the synchronized VS action.
     processes, logs = [], []
     started = time.monotonic()
     try:
@@ -85,8 +87,8 @@ def main():
                        SNESRECOMP_FRAME_BMP=str(folder / 'final.bmp'),
                        FZERO_VIEWPORT_SCRIPT=('450:4:3@600x800,550:16:9@1342x1378,650:Fit@1280x720,750:32:9@1600x600,850:21:9@768x576' if slot == 0 else
                                               '450:Fit@1600x600,550:32:9@600x800,650:4:3@1342x1378,750:16:9@1280x720,850:Fit@768x576'))
-            inputs = '10-12:32,20-22:8'
-            if slot == 0:
+            inputs = '10-12:32,60-62:1' if a.scenario == 'titleback' else '10-12:32' if a.scenario == 'selection' else '10-12:32,20-22:8'
+            if slot == 0 and a.scenario not in ('selection', 'titleback'):
                 for cup in range(a.cup):
                     inputs += ',%d-%d:32' % (40 + cup * 10, 42 + cup * 10)
                 delay = a.cup * 10
@@ -97,10 +99,12 @@ def main():
                     inputs += ',2400-2402:8'
             elif a.scenario == 'crash':
                 env['FZERO_TEST_ONLINE_FIXTURE'] = 'crash'
-            elif frames > 400:
-                inputs += ',400-%d:1' % (frames - 1)
+            elif frames > 400 and a.scenario not in ('selection', 'titleback'):
+                inputs += ',400-%d:1' % (frames - 401)
+            if a.scenario == 'titlestate' and slot == 0:
+                env.update(FZERO_STATE_SAVE_AT='335:4', FZERO_STATE_LOAD_AT='350:4')
             if a.scenario == 'state' and slot == 0:
-                env.update(FZERO_STATE_SAVE_AT='500:4', FZERO_STATE_LOAD_AT='900:4', FZERO_TEST_ONLINE_MENU='1')
+                env.update(FZERO_STATE_SAVE_AT='900:4', FZERO_STATE_LOAD_AT='1300:4', FZERO_TEST_ONLINE_MENU='1')
             if a.scenario == 'exit' and slot == 0:
                 inputs += ',600-602:8,620-622:32,640-642:32,660-662:32,680-682:8'
             if a.scenario == 'change':
@@ -112,7 +116,15 @@ def main():
                 env['FZERO_NET_ASPECT'] = str((a.aspect + 1) % 3)
             if a.loss:
                 env.update(RNET_SIM_LATENCY_MS='30', RNET_SIM_JITTER_MS='15', RNET_SIM_LOSS_PCT='10', RNET_SIM_SEED=str(42 + slot))
-            env['SNESRECOMP_INPUT_SCRIPT'] = inputs
+            # Every case enters the actual native menu. An extra Down is harmless
+            # when Records is locked, since VS is the final row in either layout.
+            shifted = []
+            for part in inputs.split(','):
+                span, button = part.split(':')
+                first, last = map(int, span.split('-'))
+                shifted.append('%d-%d:%s' % (first+400,last+400,button))
+            boot = '300-302:32,330-332:32,360-362:32,390-392:8,' if slot == 0 else ''
+            env['SNESRECOMP_INPUT_SCRIPT'] = boot + ','.join(shifted)
             log = (folder / 'game.log').open('w')
             logs.append(log)
             processes.append(subprocess.Popen([str(install / 'FZeroSNESRecomp.exe'), str(a.rom)],
@@ -180,23 +192,32 @@ def main():
         assert not mismatches, 'authoritative differences: %s' % mismatches[:10]
         report['matching_ticks'] = len(common)
         shared = [rows[0][tick] for tick in common]
-        assert any(row['phase'] == '5' for row in shared), 'did not enter race'
+        assert any(row['phase'] == '0' for row in rows[0].values()), 'native title was skipped'
+        if a.scenario == 'titleback':
+            assert any(row['phase'] == '1' for row in shared), 'did not enter selector'
+            assert shared[-1]['phase'] == '0', 'Back did not restore title'
+        elif a.scenario == 'selection':
+            assert shared[-1]['phase'] == '1', 'did not remain in independent selection'
+            assert shared[-1]['p1'] == '2' and shared[-1]['p2'] == '3', 'independent choices missing'
+        else:
+            assert any(row['phase'] == '5' for row in shared), 'did not enter race'
         if a.scenario == 'finish':
             results = [row for row in shared if row['stage'] == '3']
             assert results and all(row['lap1'] == row['lap2'] == '5' for row in results), 'two real five-lap finishes missing'
             if a.rematch:
-                assert any(int(row['tick']) > 2403 and row['stage'] == '1' for row in shared), 'rematch countdown missing'
+                assert any(int(row['tick']) > 2803 and row['stage'] == '1' for row in shared), 'rematch countdown missing'
         if a.scenario == 'crash':
             assert any(row['status1'] == '2' and row['status2'] == '3' and row['stage'] == '3' for row in shared), 'DNF/survivor result missing'
         if a.scenario == 'exit':
             assert any(row['phase'] == '6' for row in shared), 'confirmed return to lobby missing'
         if a.scenario == 'change':
-            assert any(int(row['tick']) > 700 and row['phase'] == '1' for row in shared), 'change race did not return to machine selection'
-            assert any(int(row['tick']) > 1000 and row['stage'] == '2' for row in shared), 'changed race did not start'
-        if a.scenario == 'state':
-            assert 'online-menu-test:' in text[0], 'real keyboard browser flow incomplete'
+            assert any(int(row['tick']) > 1100 and row['phase'] == '1' for row in shared), 'change race did not return to machine selection'
+            assert any(int(row['tick']) > 1400 and row['stage'] == '2' for row in shared), 'changed race did not start'
+        if a.scenario in ('state', 'titlestate'):
+            if a.scenario == 'state':
+                assert 'online-menu-test:' in text[0], 'real keyboard browser flow incomplete'
             assert all('hard_resync' in s or 'hard resync' in s for s in text), 'synchronized load epoch missing'
-            for slot in (0, 4):
+            for slot in ((0, 4) if a.scenario == 'state' else (4,)):
                 files = [a.out / ('peer%d/saves/netplay/fzero/fzero-local-2p%d.sav' % (i, slot)) for i in range(2)]
                 assert all(f.exists() for f in files), 'missing synchronized slot'
                 assert files[0].read_bytes() == files[1].read_bytes(), 'slot bytes differ'

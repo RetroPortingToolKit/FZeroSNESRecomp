@@ -155,21 +155,8 @@ static bool player_build(FzeroShip *s,const FzeroActor *a,FzeroActorProjection p
   s->visible=true;return true;
 }
 
-bool FzeroShipBuild(FzeroShip *s,const FzeroActor *camera,const FzeroActor *a,FzeroActorTables t) {
-  if (!s || !camera || !a || !t.read || a->machine>=4) return false;
-  memset(s,0,sizeof(*s));
-  FzeroActorProjection p=FzeroActorProject(camera,a,t);
-  if (!p.projectable) return true;
-  if(camera==a && player_build(s,a,p,t))return true;
-  /* $F228 orientation folding; $F1F7 distance bands and $F215 graphic ID.
-   * Select directly from the completed pose. Native hysteresis is a visual
-   * cache optimization, unnecessary when both displays own their art. */
-  int angle=(int)(camera->facing>>8)-(int)(a->facing>>8);
-  if(angle< -96)angle+=192;
-  if(angle>=96)angle-=192;
-  bool mirror=angle<0;
-  unsigned direction=byte(t,0xf26a+(unsigned)(mirror?-angle:angle)/4),band=0;
-  while(band<8 && p.y<(int)byte(t,0xf283+band))++band;
+static bool projected_build(FzeroShip *s,unsigned machine,FzeroActorProjection p,
+    unsigned band,unsigned direction,bool mirror,unsigned height,bool body_flash,FzeroActorTables t) {
   unsigned graphic=byte(t,0x02fd56+byte(t,0xf260+band)+direction);
   unsigned flags=byte(t,0xe84e + ((graphic>>1)&7));
   unsigned variant=(byte(t,0xf330+(graphic>>4))&flags)?1:0;
@@ -178,14 +165,10 @@ bool FzeroShipBuild(FzeroShip *s,const FzeroActor *camera,const FzeroActor *a,Fz
   unsigned sizes=word(t,layout),art=word(t,0x02fdcb+graphic);
   s->layout=layout;s->graphic=graphic;
   unsigned half=byte(t,0x02feb3+(graphic>>1))*2;
-  unsigned height=a->height>>8;
-  /* $03:907E distant jump-height scaling. The followed human retains the
-   * stock full-resolution height adjustment from $9D42. */
-  if(camera!=a && height<128) height=(height*2*byte(t,0x08ede0+255-(unsigned)p.y))>>8;
   s->ground_x=p.x;s->ground_y=p.y;s->size=band;
   s->x=p.x-32;s->y=p.y-(int)height-48;
   uint32_t palette[16];
-  for(unsigned i=0;i<16;++i)palette[i]=rgb(word(t,(a->body_flash?0x0aef00:0x0fcd80)+a->machine*32+i*2));
+  for(unsigned i=0;i<16;++i)palette[i]=rgb(word(t,(body_flash?0x0aef00:0x0fcd80)+machine*32+i*2));
   for(unsigned slot=0;slot<8;++slot) {
     unsigned entry=layout+2+slot*5,dx=word(t,entry);
     if(dx==128)break;
@@ -201,10 +184,43 @@ bool FzeroShipBuild(FzeroShip *s,const FzeroActor *camera,const FzeroActor *a,Fz
       unsigned offset=(tile>=16?half+(tile-16)*32:tile*32)+(cy&7)*2;
       unsigned color=0;
       for(unsigned bit=0;bit<4;++bit)
-        color|=((byte(t,((8+a->machine)<<16)|((art+offset+(bit/2)*16+bit%2)&65535))>>(7-(cx&7)))&1)<<bit;
+        color|=((byte(t,((8+machine)<<16)|((art+offset+(bit/2)*16+bit%2)&65535))>>(7-(cx&7)))&1)<<bit;
       if(color && !s->pixels[oy*64+ox])s->pixels[oy*64+ox]=palette[color];
     }
   }
   s->visible=true;
   return true;
+}
+
+bool FzeroShipBuild(FzeroShip *s,const FzeroActor *camera,const FzeroActor *a,FzeroActorTables t) {
+  if (!s || !camera || !a || !t.read || a->machine>=4) return false;
+  memset(s,0,sizeof(*s));
+  FzeroActorProjection p=FzeroActorProject(camera,a,t);
+  if (!p.projectable) return true;
+  if(camera==a && player_build(s,a,p,t))return true;
+  /* $F228 orientation folding; $F1F7 distance bands and $F215 graphic ID.
+   * Select directly from the completed pose. Native hysteresis is a visual
+   * cache optimization, unnecessary when both displays own their art. */
+  int angle=(int)(camera->facing>>8)-(int)(a->facing>>8);
+  if(angle< -96)angle+=192;
+  if(angle>=96)angle-=192;
+  bool mirror=angle<0;
+  unsigned direction=byte(t,0xf26a+(unsigned)(mirror?-angle:angle)/4),band=0;
+  while(band<8 && p.y<(int)byte(t,0xf283+band))++band;
+  unsigned height=a->height>>8;
+  /* $03:907E distant jump-height scaling, also retained for native race views. */
+  if(camera!=a && height<128)height=(height*2*byte(t,0x08ede0+255-(unsigned)p.y))>>8;
+  return projected_build(s,a->machine,p,band,direction,mirror,height,a->body_flash!=0,t);
+}
+
+bool FzeroShipMenu(FzeroShip *s,unsigned machine,uint64_t age,FzeroActorTables t) {
+  if(!s || machine>=4 || !t.read)return false;
+  memset(s,0,sizeof(*s));
+  /* $03:8AD9 decreases CE every six frames, from 8 through -12, wrapping
+   * to 11. $00:ECC5 sends its magnitude straight to the distance-zero
+   * opponent layout and mirrors negative angles; no host rotation/filter. */
+  int direction=8-(int)((age/6)%24);
+  if(direction< -12)direction+=24;
+  FzeroActorProjection p={0};p.projectable=true;
+  return projected_build(s,machine,p,0,(unsigned)(direction<0?-direction:direction),direction<0,0,false,t);
 }

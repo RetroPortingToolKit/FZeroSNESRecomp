@@ -1436,3 +1436,32 @@ commit evidence is recorded in beads-8wg.5.101 and beads-8uc1. Owner physical
 controller QA and real remote Internet/ICE play remain manual checks. This is
 Windows same-build evidence; no Linux or cross-build netplay qualification is
 claimed. Natural course bots remain waived by the owner.
+
+
+## Native selector and online title refinement (2026-10-16)
+
+Owner selected independent full-screen car selection on each online client,
+including future larger fields. Online now boots the original title; Player 1
+enters VS MODE through synchronized native menu input. Back from selection
+returns to a real cold title, including after a previous race. The match still
+has two seats; this does not claim 3/4/8-player simulation or shared-stack support.
+
+Local split panes and each online full pane call the same native car selector.
+It decodes the original information tilemaps, frame/name colors, engine/power/
+speed/weight units and acceleration graph. The original ECC5 opponent layouts
+provide all 24 rotating poses, held six simulation ticks each. Animation ages
+belong to the individual selector; online protocol2 stores them and the title
+phase canonically. Restored online input edges include native VS navigation.
+The SPC/beam clock continues through online setup and uses the native selection
+click command. Offline race rules and save formats are unchanged.
+
+The information panels and all unselected portraits compare pixel for pixel
+with actual single-player guest output for every stock vehicle. This exposed
+and fixed an older portrait tile assembly error, including Wild Goose's nose.
+`tests/validate_selector.py` preserves private comparison artifacts only under
+its explicit output directory; no cartridge-derived artwork is committed.
+
+The optional 12-identity CGP roster remains unavailable in VS. Its additional
+handling, boost and exhaust mechanics need their own authoritative adapters
+and qualification before selection can truthfully expose those identities.
+Current VS remains the four original machines with their validated mechanics.

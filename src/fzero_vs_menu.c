@@ -68,3 +68,5 @@ void FzeroVsMenuDraw(FzeroUiCanvas canvas,int extra,const uint8_t *ram) {
 }
 bool FzeroVsMenuSelected(void) {return selected;}
 void FzeroVsMenuRestore(bool value) {selected=available && value;requested=false;previous=0;}
+
+void FzeroVsMenuRestoreInput(uint16_t input) {previous=input&4095;}

@@ -14,7 +14,7 @@ struct FzeroLocalControls {
   bool setup,ready[2],release[2],scan,scripted,back;
   unsigned menu_tag;
   FzeroLocalPage page;
-  unsigned cup,menu_ticks;
+  unsigned cup,menu_ticks,selection_tick[2];
 };
 FzeroLocalControls *FzeroLocalControlsCreate(FzeroVersusConfig config,bool scripted) {
   FzeroLocalControls *c=calloc(1,sizeof(*c));if(!c)return NULL;
@@ -160,6 +160,7 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
         if(!c->ready[p] && (pressed&0x30)) {
           unsigned row=0;while(order[row]!=c->config.machine[p])++row;
           c->config.machine[p]=(uint8_t)order[(row+((pressed&0x10)?3:1))%4];
+          c->selection_tick[p]=c->menu_ticks;
         }
         if(pressed&0x108)c->ready[p]=true;
       } else {
@@ -228,24 +229,11 @@ void FzeroLocalControlsDraw(const FzeroLocalControls *c,uint32_t *pixels,int wid
   const FzeroNativeUi *ui=FzeroLocalUi();if(!ui)return;
   FzeroUiCanvas canvas={pixels,width,height,1};int center=width/2,left=center-128;
   FzeroUiRect(canvas,0,0,width,height,0xff000000);
-  static const unsigned order[4]={0,2,1,3};
   if(c->page==FZERO_LOCAL_MACHINES) {
     for(unsigned p=0;p<2;++p) {
-      int top=(int)p*224;bool joined=c->seat[p]!=NO_DEVICE;
-      FzeroUiCanvas pane={pixels+(size_t)top*width,width,224,1};
-      FzeroUiPlayerTag(ui,pane,center-8,8,p,p?FZERO_UI_YELLOW:FZERO_UI_CYAN);
-      for(unsigned row=0;row<4;++row) {
-        unsigned m=order[row];int y=48+(int)row*40;bool selected=m==c->config.machine[p];
-        FzeroUiMenuMachine(ui,pane,left+32,y,m,joined && selected);
-        if(joined && selected)FzeroUiTile(ui,pane,left+16,y+8,0x2f,FZERO_UI_CYAN,true,false);
-      }
-      FzeroUiFrame(ui,pane,left+96,40,152,152);
-      FzeroUiText(ui,pane,left+104,56,"SELECT",FZERO_UI_MENU,FZERO_UI_YELLOW);
-      FzeroUiText(ui,pane,left+104,80,"YOUR CAR",FZERO_UI_MENU,FZERO_UI_YELLOW);
-      const char *name=FzeroUiMachineName(c->config.machine[p]);
-      FzeroUiText(ui,pane,left+104,112,name,FZERO_UI_MENU,joined?FZERO_UI_CYAN:FZERO_UI_GREY);
-      const char *state=!joined?"PRESS START":c->ready[p]?"READY":NULL;
-      if(state)FzeroUiText(ui,pane,left+104,152,state,FZERO_UI_MENU,c->ready[p]?FZERO_UI_YELLOW:FZERO_UI_CYAN);
+      FzeroUiCanvas pane={pixels+(size_t)p*224*width,width,224,1};
+      FzeroUiMachineSelect(ui,pane,c->config.machine[p],c->menu_ticks-c->selection_tick[p],p,
+          c->seat[p]!=NO_DEVICE,c->ready[p]);
     }
     return;
   }

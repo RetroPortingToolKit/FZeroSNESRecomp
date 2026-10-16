@@ -219,7 +219,27 @@ static bool run_main_slice(uint64_t deadline) {
 
 static void run_one_frame(void) {
   uint32_t pads=(uint32_t)g_snes->input1_currentState|((uint32_t)g_snes->input2_currentState<<12);
-  if(!s_online_bootstrap && FzeroOnlineTick(&pads))return;
+  FzeroOnlineState menu_before=*FzeroOnlineCompleted();
+  if(!s_online_bootstrap && FzeroOnlineTick(&pads)) {
+    const FzeroOnlineState *menu=FzeroOnlineCompleted();
+    if(menu->phase==FZERO_ONLINE_TITLE && menu_before.phase!=FZERO_ONLINE_TITLE) {
+      /* Change Race may leave a previous native course behind the picker.
+       * Back always boots a real title, never unmasks that parked race. */
+      if(!FzeroOnlineLoadCourse(menu->config)) {s_last_lle_result=0;return;}
+      FzeroVsMenuRestore(false);
+    }
+    /* A native menu tick still runs the one SPC/beam timeline. $F9D9's
+     * selection click is bit $40 of $2141; do not freeze a sustained note
+     * while the guest CPU is parked behind an independent selector. */
+    bool click=menu->phase!=menu_before.phase || menu->ready!=menu_before.ready ||
+        menu->cup!=menu_before.cup || menu->config.course!=menu_before.config.course ||
+        memcmp(menu->config.machine,menu_before.config.machine,sizeof(menu->config.machine));
+    snes_writeBBus(g_snes,0x40,g_ram[0x46]);
+    snes_writeBBus(g_snes,0x41,click?0x40:0);
+    snes_writeBBus(g_snes,0x42,0);snes_writeBBus(g_snes,0x43,0);
+    g_cpu.master_cycles+=kMasterClocksPerFrame;synchronize_hardware();
+    s_next_frame_master=g_cpu.master_cycles+kMasterClocksPerFrame;++s_host_frames;return;
+  }
   if(FzeroOnlineEnabled()) {
     const char *fixture=getenv("FZERO_TEST_ONLINE_FIXTURE");
     if(fixture && !strcmp(fixture,"teleport"))FzeroLocalTeleportFixture(FzeroLocalSession());
@@ -236,12 +256,14 @@ static void run_one_frame(void) {
   /* This host replays HDMA during deferred scanout. The clock-driven engine
    * must not also consume its tables while the CPU runs ahead of that frame. */
   snes_set_hdma_beam_enabled(g_snes, false);
-  RtlSetPadState(0,FzeroLocalEnabled()?FzeroLocalSetupInput():
+  bool online_title=FzeroOnlineEnabled() && FzeroOnlineCompleted()->phase==FZERO_ONLINE_TITLE;
+  RtlSetPadState(0,FzeroLocalEnabled() && !online_title?FzeroLocalSetupInput():
       FzeroVsMenuInput(FzeroTracksMenuInput(FzeroGameplayMenuInput(g_snes->input1_currentState,g_ram),g_ram),g_ram));
   /* A consumed host menu confirmation must not execute the native handler
    * later in this frame. Its delayed joypad sample could otherwise select GP
    * before the host saves the single-player return point (notably with HD). */
   if(FzeroVsMenuPending()) {
+    if(online_title) {FzeroVsMenuRequested();FzeroVsMenuRestore(false);FzeroOnlineEnterVs();}
     /* Keep the single SPC/beam clock running while the CPU menu is parked,
      * just as during a versus pause. No stale native confirmation executes. */
     g_cpu.master_cycles+=kMasterClocksPerFrame;synchronize_hardware();
@@ -398,12 +420,14 @@ void FzeroSetViewport(FzeroViewport viewport) {
 }
 
 void FzeroPresent(double alpha) {
-  if(FzeroOnlineEnabled() && FzeroOnlineCompleted()->phase!=FZERO_ONLINE_RACE) {
+  if(FzeroOnlineEnabled() && FzeroOnlineCompleted()->phase!=FZERO_ONLINE_RACE &&
+      FzeroOnlineCompleted()->phase!=FZERO_ONLINE_TITLE) {
     s_hd_ready=false;
     if(s_output_pixels)FzeroOnlineDraw((uint32_t *)s_output_pixels,s_viewport,1);
     return;
   }
-  if(FzeroLocalEnabled() && !FzeroLocalSession()) {
+  if(FzeroLocalEnabled() && !FzeroLocalSession() &&
+      !(FzeroOnlineEnabled() && FzeroOnlineCompleted()->phase==FZERO_ONLINE_TITLE)) {
     s_hd_ready=false;
     if(s_output_pixels) {
       uint32_t *p=(uint32_t *)s_output_pixels;
@@ -843,6 +867,7 @@ static void fzero_state_load_extra(SaveLoadInfo *sli, uint32_t version) {
   if(state.mode == kFzeroStateModeTrackPack)FzeroTracksSaveState(sli, true);
 
   FzeroVsMenuRestore((state.reserved[1]&128)!=0);state.reserved[1]&=127;
+  if(FzeroOnlineEnabled())FzeroVsMenuRestoreInput(FzeroOnlineCompleted()->previous[0]);
   FzeroTracksMenuState(state.reserved, true);
   FzeroVehiclesLoaded();
   g_cpu = state.cpu;
@@ -877,7 +902,7 @@ static const FzeroStateTrailer kFzeroStateTrailer = {
     kFzeroStateMagic, kFzeroStateVersion};
 
 static const char *fzero_snapshot_identity(void) {
-  return FzeroOnlineEnabled()?"fzero-online-v1":FzeroLocalEnabled()?"fzero-local-2p-v1":NULL;
+  return FzeroOnlineEnabled()?"fzero-online-v2":FzeroLocalEnabled()?"fzero-local-2p-v1":NULL;
 }
 static bool fzero_snapshot_preflight(const void *data,size_t size) {
   if(!FzeroLocalEnabled())return true;

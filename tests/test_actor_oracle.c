@@ -169,6 +169,7 @@ static uint16_t reference_until(unsigned pc,unsigned stop) {
   if (pc==0xbc4a || pc==0xbe02) cpu.y=2;
   if (pc==0xf188 || pc==0xf28b) cpu.x=2;
   if(pc==0xd107) {cpu.mf=false;cpu.a=0xcd2b;}
+  if(pc==0xecc5) {cpu.mf=false;cpu.a=ram[0xce];cpu.x=0x34;cpu.y=0x4c;}
   ram[0x1fe] = ram[0x1ff] = 255;
   unsigned steps = 0;
   do { CHECK(++steps < 10000); interp816_runOpcode(&cpu); }
@@ -824,6 +825,34 @@ static void player_reference_pixels(uint32_t out[4096],unsigned machine,int orig
     }
   }
 }
+static void test_menu_spin(void) {
+  for(unsigned machine=0;machine<4;++machine)for(unsigned age=0;age<288;++age) {
+    FzeroShip ship;CHECK(FzeroShipMenu(&ship,machine,age,(FzeroActorTables){rom_read,NULL}));
+    int phase=8-(int)((age/6)%24);if(phase< -12)phase+=24;
+    memset(ram,0,sizeof(ram));ram[0x52]=(uint8_t)machine;ram[0xce]=(uint8_t)phase;
+    reference(0xecc5);
+    if(ship.graphic!=ram[0x26] || ship.layout!=ram_word(0xcba))fprintf(stderr,"spin m=%u age=%u phase=%d actual=%x/%x native=%x/%x\n",machine,age,phase,ship.graphic,ship.layout,ram[0x26],ram_word(0xcba));
+    CHECK(ship.visible && ship.graphic==ram[0x26] && ship.layout==ram_word(0xcba));
+    CHECK(ship.size==0);
+  }
+  const char *folder=getenv("FZERO_TEST_SELECTOR_DUMP");
+  if(folder) {
+    static FzeroNativeUi ui;static uint32_t pixels[256*224];
+    CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
+    for(unsigned machine=0;machine<4;++machine) {
+      memset(pixels,0,sizeof(pixels));
+      FzeroUiMachineSelect(&ui,(FzeroUiCanvas){pixels,256,224,1},machine,0,0,true,false);
+      char path[2048];snprintf(path,sizeof(path),"%s/selector%u.ppm",folder,machine);
+      FILE *f=fopen(path,"wb");CHECK(f);fprintf(f,"P6\n256 224\n255\n");
+      for(unsigned n=0;n<256*224;++n) {
+        uint8_t rgb[3]={(uint8_t)(pixels[n]>>16),(uint8_t)(pixels[n]>>8),(uint8_t)pixels[n]};
+        CHECK(fwrite(rgb,3,1,f)==1);
+      }
+      CHECK(!fclose(f));
+    }
+  }
+  puts("native selector spin: all four machines, every six-frame angle and both full rotations match original ECC5 layouts");
+}
 static void test_player_display(void) {
   FzeroActorTables tables={rom_read,NULL};
   for(unsigned machine=0;machine<4;++machine)for(unsigned pose=0;pose<13;++pose)for(unsigned scale=0;scale<7;++scale)for(unsigned height=0;height<4;++height) {
@@ -1404,6 +1433,7 @@ int main(int argc, char **argv) {
   test_camera();
   test_display();
   test_player_display();
+  test_menu_spin();
   test_player_captures();
   test_sound();
   test_transient_effects();

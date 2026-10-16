@@ -3,17 +3,20 @@
 
 /* Deterministic online setup/control state. Only admitted pad rows enter it;
  * device handles, transport, wall clocks and the local camera stay outside. */
-enum {FZERO_ONLINE_CAPS,FZERO_ONLINE_MACHINES,FZERO_ONLINE_CUP,
+enum {FZERO_ONLINE_TITLE,FZERO_ONLINE_MACHINES,FZERO_ONLINE_CUP,
       FZERO_ONLINE_COURSE,FZERO_ONLINE_LOADING,FZERO_ONLINE_RACE,FZERO_ONLINE_EXIT};
-enum {FZERO_ONLINE_STATE_SIZE=96,FZERO_ONLINE_PROTOCOL=1};
+enum {FZERO_ONLINE_STATE_SIZE=96,FZERO_ONLINE_PROTOCOL=2};
 typedef struct FzeroOnlineState {
   uint64_t tick,exit_tick;
+  uint64_t selection_tick[2];
   FzeroVersusConfig config;
   uint16_t previous[2],cup;
   uint8_t phase,ready,aspect,failed,release;
 } FzeroOnlineState;
 void FzeroOnlineBegin(unsigned aspect,unsigned local_slot);
 void FzeroOnlineEnd(void);
+/* Called by the native VS title action on an admitted simulation tick. */
+void FzeroOnlineEnterVs(void);
 bool FzeroOnlineEnabled(void);
 int FzeroOnlineView(void);
 const FzeroOnlineState *FzeroOnlineCompleted(void);

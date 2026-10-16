@@ -13,6 +13,14 @@ for the match and shown read-only to the guest. Window size, HD rendering and
 presentation cadence remain local. Local multiplayer keeps top/bottom views;
 ordinary single-player still opens at the original title menu with VS MODE.
 
+Starting the match opens the original F-Zero title screen on every client.
+Player 1 navigates to **VS MODE** with ordinary game controls. Each person then
+gets an independent full-screen machine selector, with the original rotating
+car, information panel, numerical stats and acceleration graph. The other
+participant's current car/readiness appears below it. Selection does not divide
+the viewport; the same pane renderer accepts a local seat or an online seat,
+so increasing the online field does not require smaller selection panes.
+
 Each person selects and confirms their own machine with ordinary game controls.
 After both are ready, the host chooses league and course. The same enabled
 course catalog as single-player is available, including custom imports. Both
@@ -58,6 +66,10 @@ This does not replace the full pre-race identity check. New UI is either existin
 recomp-ui lobby UI or the same native F-Zero assets used by local VS.
 
 ## Validation
+
+`tests/validate_selector.py` compares all four VS information panels and
+unselected previews pixel for pixel with real single-player screens. The stock
+CPU oracle also verifies all 24 spin angles and their six-tick timing.
 
 Run `tests/validate_netplay.py --help` for explicit private ROM, runtime DLL,
 installed pack, settings, video configuration and fresh output paths. It launches
