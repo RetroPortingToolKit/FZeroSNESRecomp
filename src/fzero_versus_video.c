@@ -45,10 +45,17 @@ bool FzeroVersusVideoCapture(FzeroVersusVideo *v,const FzeroRenderView *assets,
        !FzeroRenderViewCaptureRace(v->views[pane],assets,FzeroVersusWorld(session),a,&c,(unsigned)s->tick)) {
       FzeroVersusVideoReset(v);return false;
     }
-    for(unsigned i=0;i<2;++i)
-      if(!FzeroShipBuild(&v->ships[pane][i],a,&s->racers[i].actor,tables)) {
+    for(unsigned i=0;i<2;++i) {
+      FzeroActor grid_pose=*a;
+      if(i==pane && s->phase<=FZERO_VS_COUNTDOWN) {
+        grid_pose.steering_history=5;grid_pose.animation_scale=3;
+      }
+      const FzeroActor *camera=i==pane && s->phase<=FZERO_VS_COUNTDOWN?&grid_pose:a;
+      const FzeroActor *actor=i==pane?camera:&s->racers[i].actor;
+      if(!FzeroShipBuild(&v->ships[pane][i],camera,actor,tables)) {
         FzeroVersusVideoReset(v);return false;
       }
+    }
     const FzeroActor *old=&v->previous.racers[pane].actor;
     if(fabs(remainder((double)a->x-old->x,8192))>128 ||
        fabs(remainder((double)a->y-old->y,4096))>128 || a->recovery_active!=old->recovery_active)

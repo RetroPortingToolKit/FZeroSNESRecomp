@@ -6,6 +6,8 @@ static SDL_Joystick *local_ui_pads[2];
 static unsigned local_ui_stage,local_ui_step,local_ui_resizes,local_ui_captured;
 static unsigned local_ui_countdowns;
 static bool local_ui_racing;
+static unsigned local_ui_drive_captured;
+static uint16_t local_ui_drive_start[2][2];
 static const unsigned local_ui_resize_ticks[]={10,65,125,220,260};
 static const int local_ui_sizes[][2]={{600,800},{1342,1378},{1280,720},{1600,600},{768,576}};
 static void local_ui_attach(void) {
@@ -38,19 +40,37 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
   switch(local_ui_stage) {
     case 1:
       if(t<3)for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_START,true);
-      if(t>8 && s) {if(!setup || s->tick)Die("UI preload advanced a human race");local_ui_stage=2;local_ui_step=0;}
+      if(getenv("FZERO_TEST_LOCAL_UI_ALT_MACHINES") && (t==4 || t==5 || t==8 || t==9))
+        for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
+      if(t>12 && s) {if(!setup || s->tick)Die("UI preload advanced a human race");local_ui_stage=2;local_ui_step=0;}
       break;
     case 2: case 8:
       if(t<3)for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_START,true);
       if(t>5) {if(setup)Die("UI Ready failed");++local_ui_stage;local_ui_step=0;}
       break;
     case 3: case 5: case 9:
+      if(local_ui_stage==3 && s && getenv("FZERO_TEST_LOCAL_UI_DRIVE")) {
+        for(unsigned p=0;p<2;++p) {
+          if(s->phase==FZERO_VS_RACING)local_ui_button(p,SDL_GAMEPAD_BUTTON_SOUTH,true);
+          else {local_ui_drive_start[p][0]=s->racers[p].actor.x;local_ui_drive_start[p][1]=s->racers[p].actor.y;}
+        }
+        unsigned tick=(unsigned)s->race_tick;
+        /* Presenter readback can consume several simulation ticks in HD.
+         * Hold each input until its image is observed before releasing it. */
+        if((tick>=30 && !(local_ui_drive_captured&2)) ||
+           (tick>=100 && (local_ui_drive_captured&4) && !(local_ui_drive_captured&8)))for(unsigned p=0;p<2;++p)
+          local_ui_button(p,((!(local_ui_drive_captured&2))^p)?SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,true);
+        if(tick>=155 && (local_ui_drive_captured&8) && !(local_ui_drive_captured&16)) {
+          local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_LEFT,true);local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_RIGHT,true);
+        }
+      }
       if(local_ui_stage==3 && s && getenv("FZERO_TEST_LOCAL_UI_RESIZE") && local_ui_resizes<5 &&
          s->tick>=local_ui_resize_ticks[local_ui_resizes]) {
         SDL_SetWindowSize(window,local_ui_sizes[local_ui_resizes][0],local_ui_sizes[local_ui_resizes][1]);
         ++local_ui_resizes;
       }
-      if(s && s->tick>=(local_ui_stage==3?(getenv("FZERO_TEST_LOCAL_UI_RESIZE")?320u:200u):12u))local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
+      if(s && !(local_ui_stage==3 && getenv("FZERO_TEST_LOCAL_UI_DRIVE") && local_ui_drive_captured!=63) &&
+         s->tick>=(local_ui_stage==3?(getenv("FZERO_TEST_LOCAL_UI_DRIVE")?405u:getenv("FZERO_TEST_LOCAL_UI_RESIZE")?320u:200u):12u))local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
       if(s && s->pause) {++local_ui_stage;local_ui_step=0;}
       break;
     case 4:
@@ -67,7 +87,8 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
       if(t==2 || t==3) {local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_RIGHT,true);local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);}
       if(t>8 && s) {
         FzeroVersusConfig c=FzeroLocalControlsConfig(controls);
-        if(c.course!=1 || c.machine[1]!=2 || s->config.course!=1 || s->config.machine[1]!=2 || s->tick)Die("UI course/machine preparation failed");
+        unsigned machine=getenv("FZERO_TEST_LOCAL_UI_ALT_MACHINES")?0:2;
+        if(c.course!=1 || c.machine[1]!=machine || s->config.course!=1 || s->config.machine[1]!=machine || s->tick)Die("UI course/machine preparation failed");
         local_ui_stage=8;local_ui_step=0;
       }
       break;
@@ -84,6 +105,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
       if(t>4) {
         if(getenv("FZERO_TEST_LOCAL_UI_RESIZE") &&
            (local_ui_captured!=31 || local_ui_countdowns!=14 || !local_ui_racing))Die("UI resize/countdown presentation coverage incomplete");
+        if(getenv("FZERO_TEST_LOCAL_UI_DRIVE") && local_ui_drive_captured!=63)Die("UI drive animation coverage incomplete");
         fprintf(stderr,"local-ui: PASS native VS entry, two SDL devices, preload/Ready, cursor Restart/Change/Main Menu and single-player return\n");return true;}
       break;
     default:break;
@@ -91,6 +113,14 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
   SDL_PumpEvents();return false;
 }
 
+static void local_ui_images(const FzeroPresenter *p,const char *directory,const char *label) {
+  if(!directory)return;
+  char path[2048];snprintf(path,sizeof(path),"%s/%s-presenter.ppm",directory,label);dump_presenter(p,path);
+  const uint32_t *frame=FzeroHdFrame();unsigned scale=FzeroHdScale();
+  snprintf(path,sizeof(path),"%s/%s-frame.bmp",directory,label);
+  if(!write_frame_bmp(path,frame?(const uint8_t *)frame:p->pixels,p->logical_width*(int)scale,FzeroFrameHeight()*(int)scale))
+    Die("UI frame capture failed");
+}
 /* Observe the actual composed frame and real presenter before swap. The old
  * fixture proved menu transitions while accepting a completely corrupt image. */
 static void local_ui_presented(const FzeroPresenter *p) {
@@ -98,7 +128,24 @@ static void local_ui_presented(const FzeroPresenter *p) {
   const char *directory=getenv("FZERO_TEST_LOCAL_UI_DUMP");
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(FzeroLocalSession());
   static bool title_captured;
-  char label[64],path[2048];
+  char label[64];
+  if(s && local_ui_stage==3 && s->phase==FZERO_VS_RACING && getenv("FZERO_TEST_LOCAL_UI_DRIVE")) {
+    static const unsigned ticks[]={15,45,80,115,175,215};
+    for(unsigned shot=0;shot<6;++shot)if(!(local_ui_drive_captured&(1u<<shot)) && s->race_tick>=ticks[shot]) {
+      if(shot==1 || shot==3)for(unsigned seat=0;seat<2;++seat) {
+        unsigned expected=((shot==1)^seat)?0x80:0x81;
+        if(s->racers[seat].actor.steering_history!=expected)Die("UI shoulder input did not reach native animation");
+      }
+      for(unsigned seat=0;seat<2;++seat) {
+        const FzeroActor *a=&s->racers[seat].actor;
+        if(!a->speed || (a->x==local_ui_drive_start[seat][0] && a->y==local_ui_drive_start[seat][1]))Die("UI drive did not move");
+        fprintf(stderr,"local-ui-drive: shot=%u seat=%u race=%llu machine=%u pos=%u,%u speed=%u DD=%02x DE=%02x status=%u\n",
+          shot,seat,(unsigned long long)s->race_tick,a->machine,a->x,a->y,a->speed,a->steering_history,a->animation_scale,s->racers[seat].status);
+      }
+      local_ui_drive_captured|=1u<<shot;
+      snprintf(label,sizeof(label),"drive-%u",shot);local_ui_images(p,directory,label);return;
+    }
+  }
   if(!s) {
     if(!directory || title_captured || g_ram[0x54] || g_ram[0x55]!=1 || g_ram[0xc3])return;
     /* Scene flags precede the first complete native title image. Wait for
@@ -141,13 +188,7 @@ static void local_ui_presented(const FzeroPresenter *p) {
         (unsigned long long)s->tick,s->phase,s->countdown,s->pause);
     snprintf(label,sizeof(label),"resize-%u-phase-%u-count-%u",local_ui_resizes,s->phase,(s->countdown+59)/60);
   }
-  if(directory) {
-    snprintf(path,sizeof(path),"%s/%s-presenter.ppm",directory,label);dump_presenter(p,path);
-    const uint32_t *frame=FzeroHdFrame();unsigned scale=FzeroHdScale();
-    snprintf(path,sizeof(path),"%s/%s-frame.bmp",directory,label);
-    if(!write_frame_bmp(path,frame?(const uint8_t *)frame:p->pixels,p->logical_width*(int)scale,FzeroFrameHeight()*(int)scale))
-      Die("UI frame capture failed");
-  }
+  local_ui_images(p,directory,label);
 }
 #else
 static void local_ui_attach(void) {}

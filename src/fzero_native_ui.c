@@ -90,8 +90,10 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
     uint8_t *glyph=ui->title_letters[letter-'A'];
     for(unsigned y=1;y<15;++y)for(unsigned x=0;x<8;++x) {
       unsigned sy=(n?2:3)+(y-1)*(n?11:10)/14;
-      if(ui->objects[id+(sy/8)*16][(sy&7)*8+x]==3)
-        glyph[y*8+x]=ui->title_letters['I'-'A'][y*8+3];
+      unsigned left=y<8?1:y<12?2:3,right=7-left;
+      bool stroke=n?((x>=left && x<left+2) || (x>right-2 && x<=right)):
+          ui->objects[id+(sy/8)*16][(sy&7)*8+x]==3;
+      if(stroke)glyph[y*8+x]=ui->title_letters['I'-'A'][y*8+3];
     }
     /* Main-menu letters use a black outline rather than the introduction's
      * bright left edge and drop shadow. Keep that same outline on M and V. */

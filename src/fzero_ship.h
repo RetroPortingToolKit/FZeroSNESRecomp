@@ -2,7 +2,8 @@
 #include "fzero_actor.h"
 
 /* A camera-local raster of one stable actor. Zero pixels are transparent.
- * Geometry and art are derived from the original opponent display tables;
+ * Followed actors use native human steering/tilt layouts; other actors use
+ * the original opponent orientation/distance tables;
  * neither visibility nor animation selection feeds back into simulation. */
 typedef struct FzeroShip {
   uint32_t pixels[64 * 64];

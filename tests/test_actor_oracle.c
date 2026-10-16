@@ -736,6 +736,133 @@ static void test_camera(void) {
   }
   puts("camera: 40000 independent pose/skyline/center/perspective fixtures passed against five stock display entries (normalized inverse-angle carry)");
 }
+/* Execute the actual human OAM routines, then rasterize their result. This
+ * catches swapped/yawed poses and wrong layout/flip/size, not just different
+ * left/right pictures. Atlas loading is separately checked against native PPU
+ * captures; these are the original human DMA destinations. */
+static void player_reference_pixels(uint32_t out[4096],unsigned machine,int origin_x,int origin_y) {
+  uint8_t atlas[0x4000]={0};
+  for(unsigned i=0;i<0xc00;++i)atlas[0xa0*32+i]=rom_read(NULL,((8+machine)<<16)| (0xf000+i));
+  static const unsigned destinations[]={0x0e,0x2e,0x4e,0x6e,0x8e,0x100,0x102,0x104};
+  for(unsigned pair=0;pair<8;++pair)for(unsigned half=0;half<2;++half)
+    for(unsigned i=0;i<64;++i)atlas[(destinations[pair]+half*16)*32+i]=
+        rom_read(NULL,((8+machine)<<16)|(0xfc00+pair*64+half*0x200+i));
+  if(!(machine&1)) {
+    for(unsigned pair=0;pair<4;++pair)for(unsigned half=0;half<2;++half)
+      for(unsigned i=0;i<64;++i)atlas[(0x0c+pair*0x20+half*16)*32+i]=
+          rom_read(NULL,0x09fc00+(machine?0x100:0)+pair*64+half*0x200+i);
+    for(unsigned i=0;i<64;++i) {
+      atlas[0x8c*32+i]=rom_read(NULL,0x0bfc00+i);
+      atlas[0x9c*32+i]=rom_read(NULL,0x0bfdfe +i);
+    }
+  }
+  /* Native DMA readback confirms the stream's final overlap on even cars. */
+  if(!(machine&1))for(unsigned i=0;i<2;++i)atlas[0x9e*32+i]=rom_read(NULL,0x0bfe3e +i);
+  memset(out,0,4096*sizeof(*out));
+  for(unsigned slot=0;slot<8;++slot) {
+    unsigned at=0x300+slot*4,high=ram[0xd80+slot/4]>>((slot%4)*2),attr=ram_word(at+2);
+    int x=ram[at]+((high&1)?256:0);if(x>=256)x-=512;
+    int y=ram[at+1];unsigned size=high&2?16:8;
+    for(unsigned row=0;row<size;++row)for(unsigned col=0;col<size;++col) {
+      int ox=x+(int)col-origin_x,oy=y+(int)row-origin_y;
+      if(ox<0 || ox>=64 || oy<0 || oy>=64)continue;
+      unsigned cx=attr&0x4000?size-1-col:col,cy=attr&0x8000?size-1-row:row;
+      unsigned tile=(attr&256)|(((((attr&255)>>4)+cy/8)*16+(((attr&15)+cx/8)&15))&255);
+      unsigned color=0;
+      for(unsigned plane=0;plane<4;++plane)
+        color|=((atlas[tile*32+(cy&7)*2+plane/2*16+plane%2]>>(7-(cx&7)))&1)<<plane;
+      if(!color || out[oy*64+ox])continue;
+      unsigned rgb=rom_read(NULL,0x0fcd80+machine*32+color*2)|
+          (unsigned)rom_read(NULL,0x0fcd81+machine*32+color*2)<<8;
+      unsigned r=rgb&31,g=(rgb>>5)&31,bb=(rgb>>10)&31;
+      out[oy*64+ox]=0xff000000u|(((r<<3)|(r>>2))<<16)|(((g<<3)|(g>>2))<<8)|(bb<<3)|(bb>>2);
+    }
+  }
+}
+static void test_player_display(void) {
+  FzeroActorTables tables={rom_read,NULL};
+  for(unsigned machine=0;machine<4;++machine)for(unsigned pose=0;pose<13;++pose)for(unsigned scale=0;scale<7;++scale)for(unsigned height=0;height<4;++height) {
+    FzeroActor a={.x=2048,.y=1024,.facing=0x3000,.machine=(uint8_t)machine,
+        .steering_history=(uint8_t)(pose<11?pose:0x80+pose-11),.animation_scale=(uint8_t)scale};
+    const unsigned heights[]={0,0x100,0xff00,0x700};a.height=(uint16_t)heights[height];
+    FzeroActor before=a;FzeroShip ship;CHECK(FzeroShipBuild(&ship,&a,&a,tables));CHECK(!memcmp(&a,&before,sizeof(a)));
+    memset(ram,0,sizeof(ram));ram[0x52]=(uint8_t)machine;reference(0xd71d);
+    for(unsigned i=0;i<8;++i) {ram[0x300+i*4]=128;set_word(0x302+i*4,0x105);}
+    ram[0xc41]=(uint8_t)(8+machine*2);
+    ram[0xdd]=a.steering_history;ram[0xde]=a.animation_scale;ram[0x10f0]=0x10; /* invalidate native OAM cache */
+    set_word(0x1a,(unsigned)ship.ground_x);set_word(0x1c,(uint8_t)((unsigned)ship.ground_y-(a.height>>8)));
+    reference(0xf4e9);
+    uint32_t expected[4096];player_reference_pixels(expected,machine,ship.x,ship.y);
+    for(unsigned i=0;i<4096;++i)if(expected[i]!=ship.pixels[i]) {
+      fprintf(stderr,"human art mismatch machine=%u DD=%02x DE=%u pixel=%u,%u native=%08x host=%08x\n",
+          machine,a.steering_history,scale,i%64,i/64,expected[i],ship.pixels[i]);
+      for(unsigned part=0;part<8;++part)fprintf(stderr,"oam%u %02x %02x %04x high=%02x\n",part,ram[0x300+part*4],ram[0x301+part*4],ram_word(0x302+part*4),ram[0xd80+part/4]);
+      fprintf(stderr,"header %u %u %u %u %u %u %u %u yoffset %u\n",ram[0x11e0],ram[0x11e1],ram[0x11e2],ram[0x11e3],ram[0x11e4],ram[0x11e6],ram[0x11e8],ram[0xdd],ram[0x10]);CHECK(false);
+    }
+  }
+  puts("human display: 1456 complete steering/shoulder/height pose bitmaps match native D71D/F4E9 OAM (four machines)");
+}
+
+/* Optional private stock-PPU captures independently qualify the complete
+ * texture lookup, beyond the CPU/OAM/layout differential fixtures above. */
+static void test_player_captures(void) {
+  const char *paths=getenv("FZERO_TEST_PLAYER_CAPTURES");if(!paths)return;
+  char *list=malloc(strlen(paths)+1);CHECK(list);strcpy(list,paths);unsigned cases=0;
+  for(char *path=strtok(list,";");path;path=strtok(NULL,";")) {
+    struct Line {uint8_t regs[64];uint16_t palette[256],oam[256];uint8_t high[32];};
+    struct Capture {struct Line lines[224];uint16_t vram[32768];uint32_t stock[256*224];uint8_t ram[131072];unsigned frame;bool valid;};
+    _Static_assert(sizeof(struct Capture)==676872,"legacy private capture format");
+    struct Capture *c=malloc(sizeof(*c));CHECK(c);FILE *f=fopen(path,"rb");CHECK(f);
+    CHECK(fread(c,sizeof(*c),1,f)==1 && fgetc(f)==EOF);CHECK(!fclose(f));
+    FzeroActor actor={0};for(unsigned field=0;field<COUNT(actor_fields);++field) {
+      const Field *a=&actor_fields[field];memcpy((uint8_t *)&actor+a->offset,c->ram+a->address,a->size);
+    }
+    actor.machine=c->ram[0x52];FzeroActorTables tables={rom_read,NULL};FzeroShip ship;
+    CHECK(FzeroShipBuild(&ship,&actor,&actor,tables));uint32_t expected[4096]={0};
+    const struct Line *line=&c->lines[160];
+    /* Capture RAM and displayed OAM straddle a native frame boundary. Align
+     * by the first body sprite to isolate artwork from the one-frame bob. */
+    memset(ram,0,sizeof(ram));ram[0x52]=actor.machine;reference(0xd71d);ram[0xc41]=8+actor.machine*2;
+    ram[0xdd]=actor.steering_history;ram[0xde]=actor.animation_scale;ram[0x10f0]=0x10;
+    set_word(0x1a,ship.ground_x);set_word(0x1c,(uint8_t)(ship.ground_y-(actor.height>>8)));reference(0xf4e9);
+    int origin_x=ship.x+(int)(line->oam[136]&255)-ram[0x300];
+    int origin_y=ship.y+(int)(line->oam[136]>>8)-ram[0x301];
+    for(unsigned slot=68;slot<76;++slot) {
+      unsigned position=line->oam[slot*2],attr=line->oam[slot*2+1],high=line->high[slot/4]>>((slot%4)*2);
+      int x=(position&255)|((high&1)<<8);if(x>=256)x-=512;
+      int y=position>>8;unsigned size=high&2?16:8;
+      for(unsigned row=0;row<size;++row)for(unsigned col=0;col<size;++col) {
+        int ox=x+(int)col-origin_x,oy=y+(int)row-origin_y;if(ox<0 || ox>=64 || oy<0 || oy>=64)continue;
+        unsigned cx=attr&0x4000?size-1-col:col,cy=attr&0x8000?size-1-row:row;
+        unsigned tile=((attr&255)/16+cy/8)*16+(((attr&15)+cx/8)&15);
+        unsigned base=((line->regs[1]&7)<<13)+(attr&256?(((line->regs[1]&24)+8)<<9):0),color=0;
+        for(unsigned plane=0;plane<4;++plane) {
+          unsigned word=c->vram[(base+tile*16+(cy&7)+plane/2*8)&32767];
+          /* The shared lower pair uploads at $49C1: its preceding word is
+           * leftover VRAM. The ROM-only raster initializes that gap to zero. */
+          if(!(actor.machine&1) && tile==0x9c && !(cy&7) && plane<2)word=0;
+          color|=((word>>(plane%2*8+7-(cx&7)))&1)<<plane;
+        }
+        if(!color || expected[oy*64+ox])continue;
+        /* The native engine-glow palette animates independently of pose.
+         * Normalize it to the same stock palette used by the host raster. */
+        unsigned rgb=rom_read(NULL,0x0fcd80+actor.machine*32+color*2)|
+            (unsigned)rom_read(NULL,0x0fcd81+actor.machine*32+color*2)<<8;
+        unsigned r=rgb&31,g=(rgb>>5)&31,bb=(rgb>>10)&31;
+        expected[oy*64+ox]=0xff000000u|(((r<<3)|(r>>2))<<16)|(((g<<3)|(g>>2))<<8)|(bb<<3)|(bb>>2);
+      }
+    }
+    for(unsigned i=0;i<4096;++i)if(expected[i]!=ship.pixels[i]) {
+      fprintf(stderr,"stock PPU mismatch %s machine=%u DD=%02x pixel=%u,%u native=%08x host=%08x\n",
+          path,actor.machine,actor.steering_history,i%64,i/64,expected[i],ship.pixels[i]);
+      fprintf(stderr,"origin=%d,%d ship=%d,%d height=%04x first=%u,%u native=%u,%u\n",origin_x,origin_y,ship.x,ship.y,actor.height,ram[0x300],ram[0x301],line->oam[136]&255,line->oam[136]>>8);
+      CHECK(false);
+    }
+    ++cases;free(c);
+  }
+  free(list);printf("human display: %u stock-PPU artwork captures match (bob/glow/unused upload word normalized)\n",cases);
+}
+
 static void test_display(void) {
   for(unsigned speed=0;speed<65536;++speed) {
     memset(ram,0,sizeof(ram));set_word(0xb20,speed);reference(0xa98a);
@@ -865,6 +992,8 @@ int main(int argc, char **argv) {
   test_session_contact_dnf();
   test_camera();
   test_display();
+  test_player_display();
+  test_player_captures();
   test_sound();
   return 0;
 }

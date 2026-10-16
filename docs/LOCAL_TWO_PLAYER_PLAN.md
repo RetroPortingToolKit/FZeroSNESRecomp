@@ -971,3 +971,58 @@ previously unqualified full-race bot cases, sustained performance and other
 original acceptance gaps remain open in `beads-8uc1`. No Linux validation was
 performed, per owner direction. Dependency pins and private assets are
 unchanged; the absent `snesrecomp` gitlink is not staged.
+
+
+### Steering artwork and title V correction (2026-10-15)
+
+Owner playtest found that L/R animation used a guessed opponent-facing offset,
+and that the added title V had an asymmetric silhouette. The followed human
+now uses the cartridge human OAM layouts ($D71D..$D8BE, $F4E9..$F7C9) for ground
+steering and L/R, including extreme-turn pieces and Golden Fox's small nose.
+The other camera retains actual relative-facing/distance artwork. Ready and
+countdown render a neutral pose through a presentation copy, without changing
+race state. Air/recovery continues through the existing projected-ship path.
+The V now has symmetric two-pixel strokes with native title shading/outline.
+
+Visual inspection caught a gap in the first CPU/OAM oracle: it shared an
+incomplete texture map and therefore accepted missing Blue Falcon/Golden Fox
+pieces. Their additional tilt art comes from shared tiles in bank $09 and
+bank $0B, alongside the selected machine's $F000..$FFFF data. These are now
+included. A native DMA observer confirmed the shared lower upload starts at
+word $49C1 (source $0B:FE00, 64 bytes), leaving the preceding word untouched.
+The ROM-only raster initializes that gap to zero instead of using stale VRAM;
+it also preserves the upload's final overlap at $49E0. Temporary observer code
+was removed before the final build. No dependency revisions changed.
+
+The corrected oracle passes 1,456 complete human pose/layout bitmap fixtures
+(four machines, 13 steering/shoulder poses, seven animation scales, four bob
+heights). An additional opt-in FZERO_TEST_PLAYER_CAPTURES oracle independently
+reads private native PPU/OAM/VRAM captures: four neutral references and both
+L/R directions on all four machines pass. These artwork comparisons normalize
+the one-frame capture bob, the independently animated engine-glow palette and
+the single untouched upload word described above. They do not qualify those
+separate palette/effect behaviors. References remain private in captures.
+
+The desktop driver now actually accelerates both SDL virtual controllers,
+uses L/R in both directions and ordinary steering, and requires movement,
+nonzero speed and the correct native DD=80/81 poses. Slow HD screenshot
+readback initially sampled after releasing a shoulder input; the fixture now
+holds each input until its corresponding presenter image is captured.
+
+Final muted Windows runs pass native/software with machines 0/1 and HD2 on
+Direct3D11 with machines 2/3, including all five settled resize sizes, actual
+3/2/1/countdown-to-racing progression, six driven samples per run, Restart,
+Change Race and single-player return. Actual presenter images show complete
+ships, scenery, overlay HUDs and separator. Final desktop binary SHA-256:
+`c2e743796bd76d2f2a94c1efa1d73662ab2f2c314243d4f2a6743906b2e68e26`.
+Evidence: captures/l2p-native-lean-04. Eight focused CTests pass in 13.29 s.
+Single-player with VS availability off/on still produces identical 128 KiB
+RAM at race scene 02/03, SHA-256
+`89426e6f0098c8db953e283ae7d305e9e9f728cf3fb966bc0e492610aa333247`.
+
+This qualifies ground steering/L/R presentation and the exercised Windows
+menu/resize paths. Physical two-human QA, sustained cadence, air/recovery
+effects, the four previously unqualified full-race bot cases and remaining
+original gates are still open in beads-8uc1. Screenshot runs include readback
+stalls and are not performance certification. No Linux build was performed,
+per owner direction. The absent snesrecomp gitlink remains unstaged.
