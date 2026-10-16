@@ -982,7 +982,8 @@ steering and L/R, including extreme-turn pieces and Golden Fox's small nose.
 The other camera retains actual relative-facing/distance artwork. Ready and
 countdown render a neutral pose through a presentation copy, without changing
 race state. Air/recovery continues through the existing projected-ship path.
-The V now has symmetric two-pixel strokes with native title shading/outline.
+The V uses the cartridge intro glyph's complete taper/tip with native title
+shading and outline.
 
 Visual inspection caught a gap in the first CPU/OAM oracle: it shared an
 incomplete texture map and therefore accepted missing Blue Falcon/Golden Fox
@@ -1014,8 +1015,9 @@ Direct3D11 with machines 2/3, including all five settled resize sizes, actual
 3/2/1/countdown-to-racing progression, six driven samples per run, Restart,
 Change Race and single-player return. Actual presenter images show complete
 ships, scenery, overlay HUDs and separator. Final desktop binary SHA-256:
-`c2e743796bd76d2f2a94c1efa1d73662ab2f2c314243d4f2a6743906b2e68e26`.
-Evidence: captures/l2p-native-lean-04. Eight focused CTests pass in 13.29 s.
+`f94344c53e0fb3e44a37e7843877ba991503d0fc663a419448d587947c287c9f`.
+Evidence: captures/l2p-native-lean-04 (stock references) and
+captures/l2p-native-lean-05-v (final desktop runs). Eight focused CTests pass in 13.29 s.
 Single-player with VS availability off/on still produces identical 128 KiB
 RAM at race scene 02/03, SHA-256
 `89426e6f0098c8db953e283ae7d305e9e9f728cf3fb966bc0e492610aa333247`.
@@ -1026,3 +1028,12 @@ effects, the four previously unqualified full-race bot cases and remaining
 original gates are still open in beads-8uc1. Screenshot runs include readback
 stalls and are not performance certification. No Linux build was performed,
 per owner direction. The absent snesrecomp gitlink remains unstaged.
+
+Independent owner-authorized Astra xhigh read-only review confirms complete
+ship silhouettes for all four machines and clean HUD/divider/resize images.
+It caught a Y-like tail in the initial geometric V candidate; using both the
+core and highlight pixels of the original cartridge V restores its taper.
+Astra's follow-up accepts the final V shape, shading and outline. Native and
+HD2 desktop flows were repeated on the final binary above (21.30/20.41 s,
+both pass), plus renderer/local-controls CTests (2/2, 3.20 s). This supplements
+the earlier eight-test run and twelve private stock artwork references.
