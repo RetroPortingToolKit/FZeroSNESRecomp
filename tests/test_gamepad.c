@@ -75,6 +75,31 @@ int main(void) {
   CHECK(FzeroGamepadReadShortcuts(pad, shortcuts, 2, &active) ==
         (0x0080u | 0x0100u | 1u | (1u << 9)));
   CHECK(active == 0); /* explicit unbind remains unbound */
+  /* Recomp-ui stores two active seat maps independently of a device GUID.
+   * Identical controllers must still honor different bindings/deadzones. */
+  cfg=fopen("gamepad-test.ini","w");CHECK(cfg);
+  fprintf(cfg,"[GamepadMap]\nControls=DpadUp,DpadDown,DpadLeft,DpadRight,Back,Start,B,A,Y,X,Lb,Rb\n"
+      "ControlsP2=DpadUp,DpadDown,DpadLeft,DpadRight,Back,Start,B,X,Y,A,Lb,Rb\n"
+      "[Controller.%s]\nControls=,DpadDown,DpadLeft,DpadRight,Back,Start,L2,X,Y,A,Lb,Rb\nDeadzone=3\n"
+      "[Controller]\nDeadzoneP1=10\nDeadzoneP2=80\n",guid);
+  fclose(cfg);FzeroGamepadConfigure("gamepad-test.ini",guid,25);
+  CHECK(SDL_SetJoystickVirtualButton(joy,SDL_GAMEPAD_BUTTON_NORTH,false));
+  CHECK(SDL_SetJoystickVirtualButton(joy,SDL_GAMEPAD_BUTTON_WEST,false));
+  CHECK(SDL_SetJoystickVirtualAxis(joy,SDL_GAMEPAD_AXIS_LEFT_TRIGGER,-32768));
+  CHECK(SDL_SetJoystickVirtualAxis(joy,SDL_GAMEPAD_AXIS_LEFTX,10000));pump(&pad);
+  CHECK(FzeroGamepadReadPlayer(pad,0)==128 && !FzeroGamepadReadPlayer(pad,1));
+  CHECK(SDL_SetJoystickVirtualButton(joy,SDL_GAMEPAD_BUTTON_SOUTH,true));pump(&pad);
+  CHECK(FzeroGamepadReadPlayer(pad,0)==129 && FzeroGamepadReadPlayer(pad,1)==2);
+  CHECK(SDL_SetJoystickVirtualButton(joy,SDL_GAMEPAD_BUTTON_SOUTH,false));
+  CHECK(SDL_SetJoystickVirtualButton(joy,SDL_GAMEPAD_BUTTON_WEST,true));pump(&pad);
+  CHECK(FzeroGamepadReadPlayer(pad,0)==130 && FzeroGamepadReadPlayer(pad,1)==1);
+  CHECK(FzeroGamepadRead(pad)==129); /* local maps do not replace the SP device profile */
+  cfg=fopen("gamepad-test.ini","a");CHECK(cfg);
+  fputs("[Local2P.P2]\nDeadzone=2\nControls=DpadUp,DpadDown,DpadLeft,DpadRight,Back,Start,B,A,Y,X,Lb,Rb\n",cfg);
+  fclose(cfg);FzeroGamepadConfigure("gamepad-test.ini",guid,25);
+  CHECK(FzeroGamepadReadPlayer(pad,1)==130); /* explicit local overrides remain final */
+  CHECK(SDL_SetJoystickVirtualButton(joy,SDL_GAMEPAD_BUTTON_WEST,false));
+  CHECK(SDL_SetJoystickVirtualAxis(joy,SDL_GAMEPAD_AXIS_LEFTX,0));pump(&pad);
   CHECK(SDL_DetachVirtualJoystick(decoy));
   pump(&pad);
   CHECK(pad && SDL_GetGamepadID(pad) == selected); /* other device removal */
@@ -88,7 +113,7 @@ int main(void) {
   SDL_CloseGamepad(pad);
   SDL_Quit();
   remove("gamepad-test.ini");
-  puts("F-Zero gamepad: selection, bindings, deadzone, removal and reconnect passed");
+  puts("F-Zero gamepad: selection, bindings, per-seat launcher maps/deadzones, local overrides, removal and reconnect passed");
   return 0;
 }
 #endif

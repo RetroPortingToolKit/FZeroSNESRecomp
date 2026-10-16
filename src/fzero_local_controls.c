@@ -139,6 +139,13 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
 FzeroVersusConfig FzeroLocalControlsConfig(const FzeroLocalControls *c) {return c->config;}
 uint32_t FzeroLocalControlsInput(const FzeroLocalControls *c) {return c?c->input[0]|(c->input[1]<<12):0;}
 bool FzeroLocalControlsSetup(const FzeroLocalControls *c) {return c && c->setup;}
+unsigned FzeroLocalControlsKeyboardPlayer(const FzeroLocalControls *c) {
+  if(c) {
+    for(unsigned p=0;p<2;++p)if(c->seat[p]==KEYBOARD)return p;
+    for(unsigned p=0;p<2;++p)if(c->seat[p]==NO_DEVICE)return p;
+  }
+  return 0;
+}
 void FzeroLocalControlsLoaded(FzeroLocalControls *c) {
   if(!c)return;
   c->config=FzeroLocalConfig();c->setup=false;

@@ -779,3 +779,16 @@ two player and netplay. This pinned F-Zero host currently supplies no netplay
 backend/callbacks, and the approved plan excluded netplay. A clarification is
 pending about expanding scope to working online racing; do not expose an
 unconnected Netplay button or claim network support. Local work continues.
+
+The owner clarified **finish and launch local 2P first**; netplay remains out of
+scope for this build. The full recomp-ui launcher now advertises two supported
+players and persists both players' device/source/deadzone choices. Local gamepad
+reads honor the launcher's independent `Controls` / `ControlsP2` maps and
+`DeadzoneP1/P2`, retaining explicit `Local2P.P1/P2` overrides. Keyboard input
+uses the assigned seat's keybinds, including P2, or the next free seat's Start
+binding when joining. The single-player reader still uses P1 and its original
+device-profile precedence. Windows desktop builds and the four relevant
+hotkey/state-mode/gamepad/local-controller tests pass. Expanded virtual input
+checks cover different maps/deadzones on the same GUID, explicit override
+priority, and keyboard joining/controlling P2. Full 17/17 precedes this bounded
+input follow-up; physical controller acceptance remains outstanding.

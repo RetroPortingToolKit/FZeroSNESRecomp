@@ -29,6 +29,14 @@ int main(void) {
   FILE *f=fopen("local-controls-test.ini","w");CHECK(f);
   fputs("[Local2P.P2]\nControls=DpadUp,DpadDown,DpadLeft,DpadRight,Back,Start,B,X,Y,A,Lb,Rb\n",f);fclose(f);
   FzeroGamepadConfigure("local-controls-test.ini","",25);
+  FzeroLocalControls *probe=FzeroLocalControlsCreate((FzeroVersusConfig){0,{0,1}},false);CHECK(probe);
+  CHECK(FzeroLocalControlsKeyboardPlayer(probe)==0);poll(probe,0);
+  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_START,true));poll(probe,0);
+  CHECK(FzeroLocalControlsKeyboardPlayer(probe)==1);
+  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_START,false));poll(probe,0);
+  poll(probe,8);poll(probe,0);CHECK(FzeroLocalControlsKeyboardPlayer(probe)==1);
+  poll(probe,1);CHECK(FzeroLocalControlsInput(probe)==4096); /* keyboard's actual P2 seat */
+  FzeroLocalControlsDestroy(probe);
   FzeroLocalControls *c=FzeroLocalControlsCreate((FzeroVersusConfig){0,{0,1}},false);CHECK(c);
   poll(c,0);
   for(unsigned i=0;i<2;++i)CHECK(SDL_SetJoystickVirtualButton(pads[i],SDL_GAMEPAD_BUTTON_START,true));

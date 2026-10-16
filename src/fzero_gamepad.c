@@ -57,6 +57,9 @@ static void load_map(SDL_GameController *pad,uint32_t out[12],int *deadzone,int 
   char controls[1024] = "DpadUp,DpadDown,DpadLeft,DpadRight,Back,Start,B,A,Y,X,Lb,Rb";
   FzeroIniReadString(s_config, "GamepadMap", "Controls", controls, sizeof(controls));
   FzeroIniReadString(s_config, section, "Controls", controls, sizeof(controls));
+  /* The launcher's two active seat maps may differ even for identical GUIDs.
+   * Keep the single-player device-profile order unchanged. */
+  if(player>=0)FzeroIniReadString(s_config,"GamepadMap",player?"ControlsP2":"Controls",controls,sizeof(controls));
   char local_section[32];snprintf(local_section,sizeof(local_section),"Local2P.P%d",player+1);
   if(player>=0)FzeroIniReadString(s_config,local_section,"Controls",controls,sizeof(controls));
   char *comment = strpbrk(controls, "#;");
@@ -71,6 +74,10 @@ static void load_map(SDL_GameController *pad,uint32_t out[12],int *deadzone,int 
   }
   int percent = s_default_deadzone;
   FzeroIniReadInt(s_config, section, "Deadzone", &percent);
+  if(player>=0) {
+    char key[24];snprintf(key,sizeof(key),"DeadzoneP%d",player+1);
+    FzeroIniReadInt(s_config,"Controller",key,&percent);
+  }
   if(player>=0)FzeroIniReadInt(s_config,local_section,"Deadzone",&percent);
   if (percent < 0 || percent > 100) percent = s_default_deadzone;
   *deadzone = (percent * 32767 + 50) / 100;

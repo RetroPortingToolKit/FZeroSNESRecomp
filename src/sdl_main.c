@@ -459,14 +459,19 @@ static void load_launcher_settings(RecompLauncherCSettings *settings) {
   if (FzeroIniReadInt(g_config_path, "Sound", "Msu1Enabled", &value))
     settings->msu1_enabled = value != 0;
 
-  if (FzeroIniReadString(g_config_path, "Controller", "GuidP1", text, sizeof(text))) {
-    trim_ini_value(text);
-    snprintf(settings->player_gamepad_guid[0], sizeof(settings->player_gamepad_guid[0]), "%s", text);
+  for (unsigned player=0;player<2;++player) {
+    char key[24];snprintf(key,sizeof(key),"GuidP%u",player+1);
+    if (FzeroIniReadString(g_config_path,"Controller",key,text,sizeof(text))) {
+      trim_ini_value(text);
+      snprintf(settings->player_gamepad_guid[player],sizeof(settings->player_gamepad_guid[player]),"%s",text);
+    }
+    snprintf(key,sizeof(key),"SourceP%u",player+1);
+    if (FzeroIniReadInt(g_config_path,"Controller",key,&value) && value>=0 && value<=2)
+      settings->player_src[player]=value;
+    snprintf(key,sizeof(key),"DeadzoneP%u",player+1);
+    if (FzeroIniReadInt(g_config_path,"Controller",key,&value) && value>=0 && value<=100)
+      settings->deadzone[player]=value;
   }
-  if (FzeroIniReadInt(g_config_path, "Controller", "SourceP1", &value) && value >= 0 && value <= 2)
-    settings->player_src[0] = value;
-  if (FzeroIniReadInt(g_config_path, "Controller", "DeadzoneP1", &value) && value >= 0 && value <= 100)
-    settings->deadzone[0] = value;
 
   if (FzeroIniReadInt(g_config_path, "Rewind", "Enabled", &value))
     settings->rewind_enabled = value != 0;
@@ -513,11 +518,16 @@ static void save_launcher_settings(const RecompLauncherCSettings *settings) {
   snprintf(number, sizeof(number), "%d", settings->msu1_enabled ? 1 : 0);
   launcher_ini_kv_write(g_config_path, "Sound", "Msu1Enabled", number);
 
-  launcher_ini_kv_write(g_config_path, "Controller", "GuidP1", settings->player_gamepad_guid[0]);
-  snprintf(number, sizeof(number), "%d", settings->player_src[0]);
-  launcher_ini_kv_write(g_config_path, "Controller", "SourceP1", number);
-  snprintf(number, sizeof(number), "%d", settings->deadzone[0]);
-  launcher_ini_kv_write(g_config_path, "Controller", "DeadzoneP1", number);
+  for (unsigned player=0;player<2;++player) {
+    char key[24];snprintf(key,sizeof(key),"GuidP%u",player+1);
+    launcher_ini_kv_write(g_config_path,"Controller",key,settings->player_gamepad_guid[player]);
+    snprintf(key,sizeof(key),"SourceP%u",player+1);
+    snprintf(number,sizeof(number),"%d",settings->player_src[player]);
+    launcher_ini_kv_write(g_config_path,"Controller",key,number);
+    snprintf(key,sizeof(key),"DeadzoneP%u",player+1);
+    snprintf(number,sizeof(number),"%d",settings->deadzone[player]);
+    launcher_ini_kv_write(g_config_path,"Controller",key,number);
+  }
 
   snprintf(number, sizeof(number), "%d", settings->rewind_enabled ? 1 : 0);
   launcher_ini_kv_write(g_config_path, "Rewind", "Enabled", number);
@@ -537,7 +547,8 @@ static int resolve_rom(const char *executable, const char *explicit_rom,
   settings->audio_freq = 32040;
   settings->volume = 100;
   settings->player_src[0] = 1;
-  settings->deadzone[0] = 25;
+  settings->player_src[1] = 2;
+  settings->deadzone[0] = settings->deadzone[1] = 25;
   settings->rewind_enabled = 1;
   settings->rewind_depth = 50;
   settings->rewind_interval = 15;
@@ -568,7 +579,7 @@ static int resolve_rom(const char *executable, const char *explicit_rom,
   game.num_known_sha1 = 1;
   game.known_sha256 = &kFzeroSha256;
   game.num_known_sha256 = 1;
-  game.num_players = 1;
+  game.num_players = 2;
   game.sram_path = "saves/fzero.srm";
   game.widescreen_supported = 0;
   game.adaptive_view_supported = 0;
@@ -671,7 +682,7 @@ static FzeroAspect launcher_aspect(int index) {
   return (FzeroAspect)index;
 }
 
-static uint32_t keyboard_input_from_keys(const uint8_t *keys) {
+static uint32_t keyboard_input_from_keys(const uint8_t *keys,unsigned player) {
   /* keybinds_read_player() is the engine's shared keybinds.ini reader, so the
    * launcher's Controls page and the game agree on the bindings. Its bitmask
    * layout (keybinds.h) is bit0=R,1=L,2=X,3=A,4=Right,5=Left,6=Down,7=Up,
@@ -694,7 +705,7 @@ static uint32_t keyboard_input_from_keys(const uint8_t *keys) {
       1,  /* input bit10 L      <- keybinds bit1  L      */
       0,  /* input bit11 R      <- keybinds bit0  R      */
   };
-  uint16_t kb = keybinds_read_player(keys, 1); /* F-Zero is single-player */
+  uint16_t kb = keybinds_read_player(keys,(int)player+1);
   uint32_t input = 0;
   for (int i = 0; i < 12; i++)
     if ((kb >> kKbBitForInputBit[i]) & 1) input |= (1u << i);
@@ -702,16 +713,18 @@ static uint32_t keyboard_input_from_keys(const uint8_t *keys) {
 }
 
 static uint32_t keyboard_input(void) {
-  return keyboard_input_from_keys(snesrecomp_sdl_get_keyboard_state());
+  return keyboard_input_from_keys(snesrecomp_sdl_get_keyboard_state(),0);
 }
 
-static uint32_t keyboard_guest_input(void) {
+static uint32_t keyboard_guest_input_for_player(unsigned player) {
   uint8_t keys[SDL_SCANCODE_COUNT];
   memcpy(keys, snesrecomp_sdl_get_keyboard_state(), sizeof(keys));
   for (int i = 0; i < 2; ++i)
     if (g_quick_keys[i] > 0 && g_quick_keys[i] < SDL_SCANCODE_COUNT) keys[g_quick_keys[i]] = 0;
-  return keyboard_input_from_keys(keys);
+  return keyboard_input_from_keys(keys,player);
 }
+
+static uint32_t keyboard_guest_input(void) {return keyboard_guest_input_for_player(0);}
 
 static uint32_t quick_actions(SDL_GameController *pad) {
   uint32_t active = 0;
@@ -2125,7 +2138,7 @@ int main(int argc, char **argv) {
       if(local_controls_generation!=RtlStateGeneration()) {
         local_controls_generation=RtlStateGeneration();FzeroLocalControlsLoaded(local_controls);
       }
-      unsigned action=FzeroCaptureReplayActive()?0:FzeroLocalControlsUpdate(local_controls,keyboard_guest_input());
+      unsigned action=FzeroCaptureReplayActive()?0:FzeroLocalControlsUpdate(local_controls,keyboard_guest_input_for_player(FzeroLocalControlsKeyboardPlayer(local_controls)));
       if(action&FZERO_LOCAL_CHANGE) {
         RtlReset(1);FzeroGameInfo()->session_reset();
         if(!FzeroLocalConfigure(FzeroLocalControlsConfig(local_controls)))Die("Cannot reopen local setup");
