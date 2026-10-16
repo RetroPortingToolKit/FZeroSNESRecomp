@@ -20,6 +20,7 @@
 #include "fzero_capture.h"
 #include "fzero_local.h"
 #include "snapshot_guard.h"
+#include "../tests/fzero_local_driver.h"
 
 #include "audio_trace.h"
 #include "common_rtl.h"
@@ -490,6 +491,10 @@ int main(int argc, char **argv) {
   static uint8_t pixels[FZERO_MAX_WIDTH * 448u * 4u];
   int16_t audio[600 * 2];
   FzeroBeginDrawing(pixels, (size_t)frame_width * 4u);
+  const char *present_text=getenv("FZERO_TEST_PRESENT_EVERY");
+  unsigned present_every=present_text?(unsigned)strtoul(present_text,NULL,10):1;
+  if(!present_every || present_every>120)return 2;
+  if(versus && present_every>1)FzeroSetDeferredPresentation(true);
 
   AttractStats stats = {0};
   WavWriter wav;
@@ -502,12 +507,17 @@ int main(int argc, char **argv) {
   /* Private validation: replay ten frames across an actual disk snapshot. */
   const char *lifecycle = getenv("FZERO_LIFECYCLE_TEST");
   static uint8_t replay_expected[0x20000];
+  static uint8_t replay_apu[0x10000];
   uint64_t replay_master = 0;
   uint64_t replay_versus = 0;
   const char *progress_test = getenv("FZERO_LIBRARY_PROGRESS_TEST");
   long next_completed_result = 1450;
   const char *save_frame_text = getenv("FZERO_TEST_SAVE_FRAME");
   long save_frame = save_frame_text ? strtol(save_frame_text, NULL, 10) : 1500;
+  bool local_driver=versus && getenv("FZERO_TEST_LOCAL_DRIVER")!=NULL;
+  bool driver_lifecycle=local_driver && getenv("FZERO_LOCAL_DRIVER_LIFECYCLE")!=NULL;
+  unsigned driver_checked=0,driver_laps[2]={0,0},driver_status[2]={0,0};
+  if(driver_lifecycle)lifecycle="1";
   /* Private records QA: cross each course's actual finish line on the final
    * lap. Native finish, record-writing and cup-completion code still runs. */
   bool records_test = getenv("FZERO_TEST_RECORDS_CUP") != NULL;
@@ -523,6 +533,27 @@ int main(int argc, char **argv) {
   FzeroActorLiveInstall();
 
   for (long frame = 0; frame < frame_limit; frame++) {
+    if(driver_lifecycle) {
+      save_frame=-1;
+      const FzeroVersusSnapshot *race=FzeroVersusCompleted(FzeroLocalSession());
+      int event=-1;
+      if(race) {
+        if(race->phase==FZERO_VS_COUNTDOWN && race->tick>=30)event=0;
+        if(race->phase==FZERO_VS_RACING && race->race_tick>=200)event=1;
+        if(race->phase==FZERO_VS_RACING && race->contact)event=2;
+        if((race->racers[0].status==FZERO_VS_FINISHED)!=(race->racers[1].status==FZERO_VS_FINISHED))event=3;
+        if(race->phase==FZERO_VS_RESULTS)event=4;
+      }
+      if(event>=0 && !(driver_checked&(1u<<event))) {
+        driver_checked|=1u<<event;save_frame=frame;
+        fprintf(stderr,"local-driver: lifecycle event=%d frame=%ld\n",event,frame);
+        const char *directory=getenv("FZERO_LOCAL_DRIVER_CHECKPOINTS");
+        if(directory) {
+          char path[1200];
+          if(snprintf(path,sizeof(path),"%s/phase-%d.sav",directory,event)>=(int)sizeof(path) || !RtlSaveSnapshot(path))return 8;
+        }
+      }
+    }
     replay_wram_before(frame);
     bool records_racing = records_test && g_ram[0x54] == 2 && g_ram[0x55] == 3;
     /* Skip only the final winner's fly-away animation after native record
@@ -580,6 +611,7 @@ int main(int argc, char **argv) {
         snes_rewind_note_frame();
       }
       memcpy(replay_expected, g_ram, sizeof(replay_expected));
+      memcpy(replay_apu,g_snes->apu->ram,sizeof(replay_apu));
       replay_master = g_cpu.master_cycles;
       replay_versus=FzeroVersusHash(FzeroLocalSession());
       if (getenv("FZERO_VEHICLE_CROSS_STATE") && FzeroVehicleCount()>4) {
@@ -605,7 +637,7 @@ int main(int argc, char **argv) {
         FzeroDrawPpuFrame();
       }
       if (memcmp(replay_expected,g_ram,sizeof(replay_expected)) || replay_master!=g_cpu.master_cycles ||
-          replay_versus!=FzeroVersusHash(FzeroLocalSession())) {
+          replay_versus!=FzeroVersusHash(FzeroLocalSession()) || memcmp(replay_apu,g_snes->apu->ram,sizeof(replay_apu))) {
         fprintf(stderr,"rewind: resimulated master=%llu/%llu versus=%016llx/%016llx\n",
             (unsigned long long)g_cpu.master_cycles,(unsigned long long)replay_master,
             (unsigned long long)FzeroVersusHash(FzeroLocalSession()),(unsigned long long)replay_versus);
@@ -617,7 +649,7 @@ int main(int argc, char **argv) {
       if (!RtlLoadSnapshotFromMemory(initial,length)) return 8;
       free(initial);
       snes_rewind_shutdown();
-      fputs("rewind: actual ring restore and ten-frame resimulation identical (RAM, master clock, versus hash)\n",stderr);
+      fputs("rewind: actual ring restore and ten-frame resimulation identical (RAM, SPC RAM, master clock, versus hash)\n",stderr);
     }
     /* Private integration check: inject a completed results state, then let
      * the unmodified GP transition routine advance/load/finish the cup.
@@ -639,6 +671,7 @@ int main(int argc, char **argv) {
         FzeroDrawPpuFrame();
       }
       memcpy(replay_expected, g_ram, sizeof(replay_expected));
+      memcpy(replay_apu,g_snes->apu->ram,sizeof(replay_apu));
       replay_master = g_cpu.master_cycles;
       replay_versus=FzeroVersusHash(FzeroLocalSession());
       if (getenv("FZERO_VEHICLE_CROSS_STATE") && FzeroVehicleCount()>4) {
@@ -656,7 +689,7 @@ int main(int argc, char **argv) {
         FzeroDrawPpuFrame();
       }
       if (memcmp(replay_expected, g_ram, sizeof(replay_expected)) || replay_master != g_cpu.master_cycles ||
-          replay_versus!=FzeroVersusHash(FzeroLocalSession())) {
+          replay_versus!=FzeroVersusHash(FzeroLocalSession()) || memcmp(replay_apu,g_snes->apu->ram,sizeof(replay_apu))) {
         fputs("lifecycle: resimulation differs after load\n", stderr);
         int reported = 0;
         for (size_t i = 0; i < sizeof(replay_expected) && reported < 12; ++i)
@@ -668,7 +701,7 @@ int main(int argc, char **argv) {
                 (unsigned long long)replay_master, (unsigned long long)g_cpu.master_cycles);
         return 8;
       }
-      fputs("lifecycle: save/load ten-frame resimulation identical (RAM, master clock, versus hash)\n", stderr);
+      fputs("lifecycle: save/load ten-frame resimulation identical (RAM, SPC RAM, master clock, versus hash)\n", stderr);
       if (!RtlLoadSnapshot(path)) return 8;
     }
     if (lifecycle && !versus && frame == 1800) {
@@ -689,6 +722,7 @@ int main(int argc, char **argv) {
       fprintf(stderr, "[fzero-viewport] frame=%ld width=%d\n", frame, frame_width);
     }
     uint32_t frame_input = scripted_input(input_spans, input_span_count, frame);
+    if(local_driver)frame_input=FzeroLocalDriverInput(FzeroLocalSession());
     if (records_racing) frame_input |= 1;
     if (records_test && g_ram[0x54] == 3 && g_ram[0x55] == 1 &&
         g_ram[0x56] == 3 && !(frame & 15))
@@ -729,6 +763,7 @@ int main(int argc, char **argv) {
     stats.logic_hash = next_logic;
 
     FzeroDrawPpuFrame();
+    if(versus && present_every>1 && frame%present_every==0)FzeroPresent(1);
     FzeroCaptureAfter();
     /* Private UI regressions need the final composed frame, including host
      * course/records labels which are absent from the raw PPU captures. */
@@ -753,6 +788,17 @@ int main(int argc, char **argv) {
       free(rom);
       return 7;
     }
+    if(local_driver && FzeroLocalSession()) {
+      const FzeroVersusSnapshot *race=FzeroVersusCompleted(FzeroLocalSession());
+      for(unsigned i=0;i<2;++i)if(driver_laps[i]!=race->racers[i].completed_laps || driver_status[i]!=race->racers[i].status) {
+        driver_laps[i]=race->racers[i].completed_laps;driver_status[i]=race->racers[i].status;
+        fprintf(stderr,"local-driver: frame=%ld player=%u laps=%u status=%u race=%llu\n",frame,i+1,
+            driver_laps[i],driver_status[i],(unsigned long long)race->race_tick);
+      }
+      if(race->phase==FZERO_VS_RESULTS && (!driver_lifecycle || (driver_checked&16))) {
+        frame_limit=frame+1;break;
+      }
+    }
   }
 
   if (wram_trace && fclose(wram_trace)) return 10;
@@ -766,10 +812,11 @@ int main(int argc, char **argv) {
     if (!RtlSaveSnapshot(path)) return 8;
     static uint8_t saved_ram[0x20000];
     memcpy(saved_ram, g_ram, sizeof(saved_ram));
+    uint64_t saved_versus=FzeroVersusHash(FzeroLocalSession());
     RtlSetSaveRoot("quick-root-test-unused");
     RtlSaveSlotPath(SNES_SAVESTATE_QUICK_SLOT, next_path, sizeof(next_path));
     if (strcmp(path, next_path) || !RtlLoadSnapshot(next_path) ||
-        memcmp(saved_ram, g_ram, sizeof(saved_ram))) return 8;
+        memcmp(saved_ram, g_ram, sizeof(saved_ram)) || saved_versus!=FzeroVersusHash(FzeroLocalSession())) return 8;
     RtlSetSaveRoot(original_root);
     fprintf(stderr, "quick-slot: saved/loaded across course namespaces at %s\n", path);
   }
@@ -817,6 +864,8 @@ int main(int argc, char **argv) {
   if(versus) {
     const FzeroVersusSnapshot *v=FzeroVersusCompleted(FzeroLocalSession());
     qualified=qualified && v!=NULL;
+    if(local_driver)qualified=qualified && v && v->phase==FZERO_VS_RESULTS &&
+        v->racers[0].status==FZERO_VS_FINISHED && v->racers[1].status==FZERO_VS_FINISHED;
     if(v)fprintf(stderr,"local-versus: tick=%llu phase=%u race=%llu hash=%016llx p1=%u,%u status=%u p2=%u,%u status=%u\n",
         (unsigned long long)v->tick,v->phase,(unsigned long long)v->race_tick,
         (unsigned long long)FzeroVersusHash(FzeroLocalSession()),v->racers[0].actor.x,v->racers[0].actor.y,

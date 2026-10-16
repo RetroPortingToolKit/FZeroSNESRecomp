@@ -6,6 +6,7 @@
 #include "fzero_versus.h"
 #include "fzero_camera.h"
 #include "fzero_ship.h"
+#include "fzero_sound.h"
 #include "snes/interp816.h"
 #include "sha256.h"
 #include <stddef.h>
@@ -765,6 +766,29 @@ static void test_display(void) {
   puts("display: all65536 speed values and16000 ship pose/asset-selection fixtures passed against stock routines");
 }
 
+static void test_sound(void) {
+  for(unsigned sample=0;sample<40000;++sample) {
+    FzeroActor a;FzeroActorScratch scratch;randomize(&a,&scratch,sample%4);
+    a.sound_flags=(uint8_t)sample;a.sound_flags2=(uint8_t)(sample>>8);a.landing_sound=0;
+    FzeroActor before=a;FzeroSoundCommands out=FzeroSoundActor(&a);CHECK(!memcmp(&a,&before,sizeof(a)));
+    memset(ram,0,sizeof(ram));write_fields(&a,actor_fields,COUNT(actor_fields));
+    reference(0xf8dd);reference(0xf999);reference(0xf975);
+    CHECK(out.ports[1]==ram[0x47] && out.ports[2]==ram[0x48]);
+    FzeroVersusSnapshot v={.phase=FZERO_VS_RACING,.race_tick=20,.tick=200};
+    v.racers[0].actor=a;randomize(&v.racers[1].actor,&scratch,(sample/4)%4);
+    v.racers[0].actor.landing_sound%=13;v.racers[1].actor.landing_sound%=13;
+    FzeroSoundState one={2,0,FZERO_VS_RACING},two=one;
+    FzeroSoundCommands mixed=FzeroSoundTick(&one,&v,true);
+    FzeroVersusRacer swap=v.racers[0];v.racers[0]=v.racers[1];v.racers[1]=swap;
+    FzeroSoundCommands reversed=FzeroSoundTick(&two,&v,true);
+    CHECK(!memcmp(&mixed,&reversed,sizeof(mixed)) && !memcmp(&one,&two,sizeof(one)));
+    unsigned landing=one.landing;v.pause=FZERO_VS_PAUSE_MANUAL;
+    out=FzeroSoundTick(&one,&v,false);CHECK(out.ports[2]==0x80 && !out.ports[1] && one.landing==landing);
+    v.pause=0;out=FzeroSoundTick(&one,&v,false);CHECK(!out.ports[1] && !out.ports[2]);
+  }
+  puts("sound: 40000 native engine/effect encoders, immutable actors, symmetric two-human mixing and paused effects passed");
+}
+
 int main(int argc, char **argv) {
   CHECK(argc == 2);
   FILE *f = fopen(argv[1], "rb"); CHECK(f);
@@ -826,5 +850,6 @@ int main(int argc, char **argv) {
   test_session_contact_dnf();
   test_camera();
   test_display();
+  test_sound();
   return 0;
 }

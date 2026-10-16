@@ -2,6 +2,7 @@
 #include "fzero_deluxe.h"
 #include "fzero_gameplay.h"
 #include "fzero_tracks.h"
+#include "fzero_sound.h"
 #include "common_rtl.h"
 #include "cpu_state.h"
 #include "snes/interp_bridge.h"
@@ -18,6 +19,7 @@ static uint64_t epoch;
 static FzeroVersusConfig config;
 static FzeroVersus *session;
 static FzeroVersusVideo *video;
+static FzeroSoundState sound;
 static unsigned word(unsigned at) {return g_ram[at]|(unsigned)g_ram[at+1]<<8;}
 static uint8_t read_table(void *context,uint32_t address) {
   (void)context;
@@ -34,6 +36,7 @@ void FzeroLocalShutdown(void) {
   if(enabled)interp_bridge_set_scheduler_aot_policy(-1);
   FzeroVersusDestroy(session);FzeroVersusVideoDestroy(video);
   session=NULL;video=NULL;enabled=setup_started=false;setup_frame=0;
+  memset(&sound,0,sizeof(sound));
 }
 bool FzeroLocalConfigure(FzeroVersusConfig c) {
   if(c.course>=15 || c.machine[0]>=4 || c.machine[1]>=4 ||
@@ -54,7 +57,9 @@ static uint16_t auto_word(uint32_t runner) {
 bool FzeroLocalTick(uint32_t packed) {
   if(!session)return false;
   uint16_t held[2]={auto_word(packed&4095),auto_word((packed>>12)&4095)};
-  (void)FzeroVersusTick(session,held);
+  bool advanced=FzeroVersusTick(session,held);
+  FzeroSoundCommands commands=FzeroSoundTick(&sound,FzeroVersusCompleted(session),advanced);
+  for(unsigned port=0;port<4;++port)snes_writeBBus(g_snes,(uint8_t)(0x40+port),commands.ports[port]);
   return true;
 }
 uint16_t FzeroLocalSetupInput(void) {
@@ -98,6 +103,7 @@ void FzeroLocalCapture(void) {
   }
   session=candidate;video=display;
   FzeroVersusReady(session,0,true);FzeroVersusReady(session,1,true);
+  FzeroSoundInit(&sound,g_ram[0x46]);
   fprintf(stderr,"[local-versus] course=%u machines=%u,%u grid=%u,%u / %u,%u shared session ready\n",
       config.course,config.machine[0],config.machine[1],spawns[0].x,spawns[0].y,spawns[1].x,spawns[1].y);
 }
@@ -127,17 +133,21 @@ size_t FzeroLocalSaveSize(void) {return 32+FzeroVersusSaveSize();}
 bool FzeroLocalSave(void *output,size_t size) {
   if(!enabled || !output || size!=FzeroLocalSaveSize())return false;
   uint8_t *p=output;memset(p,0,size);memcpy(p,"FZLOCAL1",8);
-  put32(p+8,1);put32(p+12,FZERO_VERSUS_RULES);put32(p+16,(uint32_t)size);put32(p+20,setup_frame);
+  put32(p+8,2);put32(p+12,FZERO_VERSUS_RULES);put32(p+16,(uint32_t)size);put32(p+20,setup_frame);
   p[24]=config.course;p[25]=config.machine[0];p[26]=config.machine[1];
   p[27]=setup_started;p[28]=session!=NULL;
+  p[29]=sound.music;p[30]=sound.landing;p[31]=sound.phase;
   return !session || FzeroVersusSave(session,p+32,size-32);
 }
 static bool decode(const void *input,size_t size,FzeroVersus **candidate,FzeroVersusConfig *c) {
   if(!input || size!=FzeroLocalSaveSize())return false;
   const uint8_t *p=input;
-  if(memcmp(p,"FZLOCAL1",8) || get32(p+8)!=1 || get32(p+12)!=FZERO_VERSUS_RULES ||
+  unsigned version=get32(p+8);
+  if(memcmp(p,"FZLOCAL1",8) || (version!=1 && version!=2) || get32(p+12)!=FZERO_VERSUS_RULES ||
       get32(p+16)!=size || p[24]>=15 || p[25]>=4 || p[26]>=4 ||
-      p[27]>1 || p[28]>1 || p[29] || p[30] || p[31] || (p[28] && !p[27]))return false;
+      p[27]>1 || p[28]>1 || (p[28] && !p[27]) ||
+      (version==1 && (p[29] || p[30] || p[31])) ||
+      (version==2 && ((p[29]&0x70) || p[30]>12 || (p[31]>7 && p[31]!=255))))return false;
   *c=(FzeroVersusConfig){p[24],{p[25],p[26]}};*candidate=NULL;
   if(p[28])return (*candidate=FzeroVersusDecode(p+32,size-32,tables(),c))!=NULL;
   for(size_t i=32;i<size;++i)if(p[i])return false;
@@ -157,6 +167,8 @@ bool FzeroLocalRestore(const void *input,size_t size) {
   FzeroVersusDestroy(session);FzeroVersusVideoDestroy(video);
   session=candidate;video=display;config=c;
   const uint8_t *p=input;setup_frame=get32(p+20);setup_started=p[27]!=0;
+  if(get32(p+8)==1)FzeroSoundInit(&sound,g_ram[0x46]);
+  else sound=(FzeroSoundState){p[29],p[30],p[31]};
   interp_bridge_set_scheduler_aot_policy(0);
   interp_bridge_set_pre_opcode_hook(0x009f08,course_config);
   return true;

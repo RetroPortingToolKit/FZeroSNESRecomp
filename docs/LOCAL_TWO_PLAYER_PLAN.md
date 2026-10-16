@@ -692,3 +692,52 @@ Remaining implementation/qualification includes shared soundtrack/effects,
 additional machine effects, complete stock races and race-state lifecycle
 scenarios, renderer-rate/HD/worker determinism and sustained performance,
 and a physical two-human/controller playtest. Keep `beads-8uc1` in progress.
+
+## Sound and full-race qualification in progress (2026-10-15)
+
+Persistence was committed as `145d482`. The shared host now encodes the native
+`$F8DD` engine and `$F999/$F975` effect commands for both completed actors and
+feeds the one original SPC program. The mix is symmetric in player IDs and
+independent of cameras. The stock program has one engine-pitch command and
+encoded effect groups: choose the faster engine and the higher-priority event
+within each group, preserving independent flags. This does not claim two
+independent engine voices. Music, landing and phase latches occupy the three
+reserved host-prefix bytes; version 2 saves retain them, and version 1 saves
+with empty reserved bytes migrate on load.
+
+Windows sound oracle: 40,000 native encoder fixtures pass, including immutable
+actor inputs and symmetric mixing. The lifecycle suite with active SPC writes
+passes at `captures/l2p-sound-01`; race hashes are unchanged. Actual host
+disk/rewind comparisons now include all 64 KiB SPC RAM as well as guest RAM,
+master clock and shared race hash.
+
+After correcting countdown rev pitch to use each actor's native countdown
+acceleration, both Windows hosts build, the complete actor/sound oracle passes
+again, and `captures/l2p-sound-02` passes disk/rewind/fresh-process/viewport/
+replay/corrupt-state/cross-mode lifecycle checks. The preview copy is unchanged.
+
+`tests/validate_local_races.py` drives the real headless host using only ordinary
+pad inputs selected by observing completed actors and authored checkpoints.
+It never edits actors, course data, progress or expected outcomes. Mute City I
+machines 0/1 both finish five laps: tick 12610, race tick 12430, shared hash
+`0d1e61a0dbe4b3d3`. Countdown/racing/one-finished/results disk and actual ring
+rewind checks and a quick-slot load from another save root pass. The same final
+hash results when presenting every eighth tick instead of every tick.
+
+The first full 15-course sweep (`captures/l2p-races-01`) has **10 passing cases**.
+Cases 6, 9, 10, 12 and 14 fail driver qualification with DNFs (one finisher on
+case 10); investigate bot steering/jump speed and simulation before counting
+any of those as a completed-course pass. Cases 3, 4 and 11 also exercise actual
+shared contacts through host persistence. No physical human/controller playtest
+or full-course acceptance is claimed from these automated routes.
+
+The owner now requires all new versus UI to use or emulate actual F-Zero UI.
+The generic setup/HUD/loading/pause/results preview does not satisfy that gate.
+Native ROM font tiles (`$0E:E800`, 3bpp), menu palettes (`$0E:E100` onward),
+cursor/border tiles and menu machine graphics have been located for a runtime
+decoder; no ROM-derived art is to be committed. Versus is currently exposed by
+the launcher's Game Modes option and `--local-2p`, rather than a new native-ROM
+title-menu entry. A separate muted Windows preview lives under ignored
+`build/playtest-local-2p`; keep it stable while the owner playtests. The native
+UI restyle, failed driver cases, broader HD/rate/worker/performance gates and
+physical two-human qualification remain outstanding. Windows only per owner.
