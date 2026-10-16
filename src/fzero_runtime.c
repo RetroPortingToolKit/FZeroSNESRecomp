@@ -902,7 +902,7 @@ static const FzeroStateTrailer kFzeroStateTrailer = {
     kFzeroStateMagic, kFzeroStateVersion};
 
 static const char *fzero_snapshot_identity(void) {
-  return FzeroOnlineEnabled()?"fzero-online-v2":FzeroLocalEnabled()?"fzero-local-2p-v1":NULL;
+  return FzeroOnlineEnabled()?"fzero-online-v3":FzeroLocalEnabled()?"fzero-local-2p-v2":NULL;
 }
 static bool fzero_snapshot_preflight(const void *data,size_t size) {
   if(!FzeroLocalEnabled())return true;

@@ -5,6 +5,7 @@
 #include "fzero_course_runtime.h"
 #include "fzero_deluxe.h"
 #include "fzero_gameplay_patches.inc"
+#include "fzero_exhaust_layouts.inc"
 #include "fzero_tracks.h"
 #include "fzero_vehicles.h"
 #include "sha256.h"
@@ -555,4 +556,13 @@ uint16_t FzeroGameplayMenuInput(uint16_t input, const uint8_t *ram) {
   class_last_input = input;
   class_hold = 0;
   return input;
+}
+
+void FzeroGameplayBuildVehicleProfile(uint8_t *image,unsigned group) {
+  if(!image || group<1 || group>3)return;
+  unsigned indices[]={group-1,group+2,group+5};
+  for(unsigned n=0;n<3;++n) {
+    const RulePatch *p=&rule_patches[0][indices[n]];
+    for(unsigned i=0;i<p->count;++i)memcpy(image+p->writes[i].offset,p->writes[i].data,p->writes[i].size);
+  }
 }

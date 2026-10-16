@@ -4,10 +4,10 @@
 
 /* A single game-owned authoritative race. Presentation and host device state
  * are deliberately absent. All time is measured in FZERO_SIMULATION_HZ ticks.
- * Rule 5: live course catalog/resources, native arrival and content identity.
- * Two stock humans, five laps, movement then one stable-ID contact.
+ * Rule 6: twelve identity-owned stock/CGP vehicle profiles.
+ * Two humans, five laps, movement then one stable-ID contact.
  * This is a new simulation profile, not a claim of stock whole-frame parity. */
-#define FZERO_VERSUS_RULES 5u
+#define FZERO_VERSUS_RULES 6u
 #define FZERO_VERSUS_LAPS 5u
 #define FZERO_VERSUS_ARRIVAL 68u
 #define FZERO_VERSUS_REV_COUNTDOWN 180u

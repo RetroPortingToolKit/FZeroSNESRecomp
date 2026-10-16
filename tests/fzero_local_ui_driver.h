@@ -47,7 +47,10 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
       if(t<3)for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_START,true);
       if(getenv("FZERO_TEST_LOCAL_UI_ALT_MACHINES") && (t==4 || t==5))
         for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
-      if(t>12 && s) {if(!setup || s->tick)Die("UI preload advanced a human race");local_ui_stage=2;local_ui_step=0;}
+      if(getenv("FZERO_TEST_LOCAL_UI_FULL_MACHINES") && (t==4 || t==5)) {
+        local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_LEFT,true);local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_UP,true);
+      }
+      if(t>(getenv("FZERO_TEST_LOCAL_UI_FULL_MACHINES")?24u:12u) && s) {if(!setup || s->tick)Die("UI preload advanced a human race");local_ui_stage=2;local_ui_step=0;}
       break;
     case 2: case 8: {
       unsigned cup=getenv("FZERO_TEST_LOCAL_UI_CUP")?(unsigned)atoi(getenv("FZERO_TEST_LOCAL_UI_CUP")):0;
@@ -106,7 +109,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
       if(t==2 || t==3) {local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);}
       if(t>8 && s) {
         FzeroVersusConfig c=FzeroLocalControlsConfig(controls);
-        unsigned machine=getenv("FZERO_TEST_LOCAL_UI_ALT_MACHINES")?0:3;
+        unsigned machine=getenv("FZERO_TEST_LOCAL_UI_FULL_MACHINES")?1:getenv("FZERO_TEST_LOCAL_UI_ALT_MACHINES")?10:3;
         if(c.course!=FzeroLocalCourseId(local_ui_cup,0) || c.machine[1]!=machine || s->config.course!=c.course || s->config.machine[1]!=machine || s->tick)Die("UI course/machine preparation failed");
         local_ui_stage=8;local_ui_step=0;
       }

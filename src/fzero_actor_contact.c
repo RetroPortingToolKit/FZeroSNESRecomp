@@ -1,4 +1,5 @@
 #include "fzero_actor.h"
+#include "fzero_machine.h"
 
 static unsigned byte(FzeroActorTables t,unsigned address) { return t.read(t.context,address); }
 static unsigned word(FzeroActorTables t,unsigned address) { return byte(t,address)|(byte(t,address+1)<<8); }
@@ -55,16 +56,21 @@ void FzeroActorContactSpeed(FzeroActor *f,FzeroActor *l) {
   }
   unsigned relative=f->speed>=l->speed?f->speed-l->speed:l->speed-f->speed;
   if (f->speed>=l->speed) swap_motion(f,l);
-  if (relative<0x100) { f->speed=f->speed>=128?(uint16_t)(f->speed-128):0;l->speed+=128; }
-  if (l->speed<0x400) l->speed=0x400;
+  if(relative<0x100) {
+    bool cgp=FzeroMachineGroup(f->machine) || FzeroMachineGroup(l->machine);
+    if(!cgp)f->speed=f->speed>=128?(uint16_t)(f->speed-128):0;
+    l->speed+=(uint16_t)(cgp?32:128);
+  }
+  if(l->speed<0x400)l->speed=0x400;
 }
 void FzeroActorContactSpin(FzeroActor *a,FzeroActor *b,FzeroActorTables t,uint8_t geometry) {
   /* $BE02 assigns a player table to slot zero and a CPU table to the other
    * slot. Both versus participants use their own PLAYER table under the same
    * verified response interface. Position-derived signs remain stock. */
   unsigned sign=byte(t,0xbe3d+(geometry&6))&0x80;
-  a->spin=(uint16_t)(word(t,0xfadd+a->machine*2)|(sign<<8));
-  b->spin=(uint16_t)(word(t,0xfadd+b->machine*2)|(sign<<8));
+  FzeroMachineReader ar,br;FzeroActorTables at=FzeroMachineTables(&ar,t,a->machine),bt=FzeroMachineTables(&br,t,b->machine);
+  a->spin=(uint16_t)(word(at,0xfadd+FzeroMachineSlot(a->machine)*2)|(sign<<8));
+  b->spin=(uint16_t)(word(bt,0xfadd+FzeroMachineSlot(b->machine)*2)|(sign<<8));
   a->state|=0x40;b->state|=0x40;
 }
 void FzeroActorContactLateral(FzeroActor *a,FzeroActor *b,FzeroActorTables t,uint8_t geometry,unsigned separation) {
@@ -100,12 +106,13 @@ bool FzeroActorResolveContact(FzeroActor *a,FzeroActor *b,FzeroActorTables t,uin
   uint8_t kind=direct?2:1;
   if (*contact==kind || (!direct && *contact)) return true;
   FzeroActor before_a=*a,before_b=*b;
+  FzeroMachineReader ar,br;FzeroActorTables at=FzeroMachineTables(&ar,t,a->machine),bt=FzeroMachineTables(&br,t,b->machine);
   if (!a->damage_cooldown) {
-    FzeroActorDamageContact(a,&before_b,t,direct);a->damage_cooldown=direct?9:8;
+    FzeroActorDamageContact(a,&before_b,at,direct);a->damage_cooldown=direct?9:8;
     if (direct) { a->black_flash=9;if (!(a->animation&0xe0)) a->animation=0x85; }
   }
   if (!b->damage_cooldown) {
-    FzeroActorDamageContact(b,&before_a,t,direct);b->damage_cooldown=direct?9:8;
+    FzeroActorDamageContact(b,&before_a,bt,direct);b->damage_cooldown=direct?9:8;
     if (direct) { b->black_flash=9;if (!(b->animation&0xe0)) b->animation=0x85; }
   }
   if (direct) {

@@ -3,6 +3,7 @@
  * hardware multiply/divide semantics, on a separate callback bus. It cannot
  * modify a live guest, play sound or write cartridge-derived artifacts. */
 #include "fzero_actor.h"
+#include "fzero_machine.h"
 #include "fzero_versus.h"
 #include "fzero_camera.h"
 #include "fzero_ship.h"
@@ -17,7 +18,8 @@
 
 #define CHECK(e) do { if (!(e)) { fprintf(stderr, "%d: %s\n", __LINE__, #e); exit(1); } } while (0)
 static uint8_t rom[0x80000], ram[0x20000];
-static uint8_t *deluxe_rom;
+static uint8_t *deluxe_rom,*cgp_images[3],*cgp_native;
+static unsigned cgp_boost_entry;
 static uint8_t ram_reads[0x20000], ram_writes[0x20000];
 static bool audit_enabled;
 static uint8_t multiplier, multiplicand;
@@ -31,6 +33,13 @@ static unsigned random_word(void) {
 }
 static uint8_t rom_read(void *context, uint32_t address) {
   (void)context;
+  unsigned group=address>>24;address&=0xffffff;
+  if(group || cgp_native) {
+    const uint8_t *data=group && group<=3?cgp_images[group-1]:cgp_native;
+    CHECK(data && (address&65535)>=0x8000);
+    unsigned offset=((address>>16)&127)*0x8000+(address&0x7fff);CHECK(offset<0x400000);
+    return data[offset];
+  }
   if(deluxe_rom) {
     CHECK((address&0xffff)>=0x8000 && (address>>16)<32);
     return deluxe_rom[(address>>16)*0x8000+(address&0x7fff)];
@@ -160,7 +169,8 @@ static uint16_t reference_until(unsigned pc,unsigned stop) {
   cpu.mem = NULL; cpu.read = read_bus; cpu.write = write_bus;
   cpu.sp = 0x1fd; cpu.pc = (uint16_t)pc; cpu.k = (uint8_t)(pc >> 16);
   cpu.mf = cpu.xf = true; cpu.c = false;
-  if (pc>>16) { cpu.sp=0x1fc;ram[0x1fd]=255; } /* RTL display entries */
+  if (pc>>16 && pc!=cgp_boost_entry) { cpu.sp=0x1fc;ram[0x1fd]=255; } /* RTL display entries */
+  if(pc==cgp_boost_entry)cpu.c=true;
   if (pc==0x980e) cpu.c=true; /* explicit inverse-angle interface */
   if (pc==0xfa1c) cpu.a=ram[0x66];
   if (pc==0xde07) cpu.y=ram[0xd00];
@@ -182,6 +192,7 @@ static uint16_t reference_until(unsigned pc,unsigned stop) {
 static uint16_t reference(unsigned pc) { return reference_until(pc,0); }
 static void call_adapter(unsigned pc, FzeroActor *a, FzeroActorScratch *s, uint8_t phase) {
   FzeroActorTables t = {rom_read, NULL};
+  FzeroMachineReader reader;t=FzeroMachineTables(&reader,t,a->machine);
   switch (pc) {
     case 0x9377: FzeroActorSlide(a); break;
     case 0x91bc: FzeroActorTopSpeed(a,s,t); break;
@@ -1360,6 +1371,172 @@ static void test_native_effect_art(void) {
   puts("native effects: all four machines, all20 spark selections, complete contact/landing sequences and overlapping palette latches match native CPU OAM/CGRAM");
 }
 
+static void test_all_exhaust_art(void) {
+  static FzeroNativeUi ui;static uint32_t actual[256*224],expected[256*224];
+  FzeroActorTables tables={rom_read,NULL};CHECK(FzeroNativeUiInit(&ui,tables));CHECK(FzeroNativeUiLoadMachines(&ui,tables));
+  for(unsigned id=0;id<FZERO_MACHINE_COUNT;++id)for(unsigned pose=0;pose<13;++pose)for(unsigned tilt=0;tilt<2;++tilt) {
+    unsigned group=FzeroMachineGroup(id),slot=FzeroMachineSlot(id);
+    cgp_native=group?cgp_images[group-1]:NULL;
+    FzeroActor a={.machine=(uint8_t)id,.speed=0x800,.exhaust=0x80,
+      .steering_history=(uint8_t)(pose<11?pose:128+pose-11),.animation_scale=(uint8_t)(tilt?128:0)};
+    memset(ram,0,sizeof(ram));ram[0x52]=(uint8_t)slot;ram[0xd1]=(uint8_t)(slot*2);
+    set_word(0xe6,slot?rom_read(NULL,0xbe98+(slot-1)*2)|(unsigned)rom_read(NULL,0xbe99+(slot-1)*2)<<8:0xc68c);
+    for(unsigned tick=0;tick<256;++tick) {
+      FzeroActor native=a;native.machine=(uint8_t)slot;
+      write_fields(&native,actor_fields,COUNT(actor_fields));ram[0xc70]=128;ram[0xc80]=180;
+      reference(0xc507);
+      cgp_native=NULL;FzeroMachineReader reader;FzeroActorExhaust(&a,FzeroMachineTables(&reader,tables,id));
+      memset(actual,0,sizeof(actual));memset(expected,0,sizeof(expected));
+      FzeroUiExhaust(&ui,(FzeroUiCanvas){actual,256,224,1},128,180,&a);
+      cgp_native=group?cgp_images[group-1]:NULL;
+      for(int pipe=3;pipe>=0;--pipe) {
+        unsigned at=0x2f0+(unsigned)pipe*4,attr=ram_word(at+2),high=ram[0x40f]>>(pipe*2);
+        int x=ram[at]-(high&1?256:0),y=ram[at+1];
+        for(unsigned row=0;row<8;++row)for(unsigned col=0;col<8;++col) {
+          int dx=x+(int)col,dy=(y+(int)row)&255;
+          unsigned color=ui.objects[attr&255][row*8+col];
+          if(!color || dx<0 || dx>=256 || dy>=224)continue;
+          unsigned value=color==12?ram_word(0x638):rom_read(NULL,0x0fcd20+color*2)|(unsigned)rom_read(NULL,0x0fcd21+color*2)<<8;
+          unsigned r=value&31,g=(value>>5)&31,b=(value>>10)&31;
+          expected[dy*256+dx]=0xff000000u|(((r<<3)|(r>>2))<<16)|(((g<<3)|(g>>2))<<8)|(b<<3)|(b>>2);
+        }
+      }
+      if(memcmp(expected,actual,sizeof(actual))) {
+        fprintf(stderr,"native exhaust id=%u pose=%u tilt=%u tick=%u E1=%02x frame=%u timer=%u color=%u offset=%u nativeColor=%04x\n",id,pose,tilt,tick,a.exhaust,a.exhaust_frame,a.exhaust_timer,a.exhaust_color,a.exhaust_offset,ram_word(0x638));
+        for(unsigned n=0;n<COUNT(actual);++n)if(actual[n]!=expected[n]) {fprintf(stderr,"pixel%u,%u native=%08x actual=%08x\n",n%256,n/256,expected[n],actual[n]);break;}
+        CHECK(false);
+      }
+    }
+    cgp_native=NULL;
+  }
+  puts("native exhaust: all12 identities,13 steering/shoulder poses, both hover offsets,256-tick ignition/decay/full-color sequences match CPU OAM/CGRAM PASS");
+}
+static void test_cgp_mixed_sessions(void) {
+  FzeroActorTables tables={rom_read,NULL};
+  for(unsigned ma=0;ma<FZERO_MACHINE_COUNT;++ma)for(unsigned mb=0;mb<FZERO_MACHINE_COUNT;++mb) {
+    for(unsigned n=0;n<100;++n) {
+      FzeroActor a,b;FzeroActorScratch scratch;randomize(&a,&scratch,FzeroMachineSlot(ma));randomize(&b,&scratch,FzeroMachineSlot(mb));
+      FzeroActor na=a,nb=b;pair_fields(&na,&nb);ram[0x11]=0;ram[0x12]=2;
+      a.machine=(uint8_t)ma;b.machine=(uint8_t)mb;FzeroActorContactSpeed(&a,&b);
+      unsigned group=FzeroMachineGroup(ma);if(!group)group=FzeroMachineGroup(mb);
+      cgp_native=group?cgp_images[group-1]:NULL;reference(0xbd51);
+      a.machine=na.machine;compare_fields(&a,actor_fields,COUNT(actor_fields),0xbd51,ma*1200+mb*100+n);
+      if(b.speed!=ram_word(0xb22) || b.momentum!=ram_word(0xbe2) || b.no_control!=ram_word(0xd22))
+        fprintf(stderr,"mixed speed pair=%u,%u sample=%u group=%u initialSpeed=%04x/%04x facing=%04x/%04x resultB speed=%04x/%04x momentum=%04x/%04x control=%04x/%04x\n",ma,mb,n,group,na.speed,nb.speed,na.facing,nb.facing,b.speed,ram_word(0xb22),b.momentum,ram_word(0xbe2),b.no_control,ram_word(0xd22));
+      CHECK(b.speed==ram_word(0xb22) && b.momentum==ram_word(0xbe2) && b.no_control==ram_word(0xd22));cgp_native=NULL;
+    }
+    for(unsigned side=0;side<2;++side)for(unsigned direct=0;direct<2;++direct)for(unsigned n=0;n<100;++n) {
+      unsigned own=side?mb:ma,other=side?ma:mb,group=FzeroMachineGroup(own);
+      FzeroActor a,b;FzeroActorScratch scratch;
+      randomize(&a,&scratch,FzeroMachineSlot(own));randomize(&b,&scratch,FzeroMachineSlot(other));
+      a.machine=(uint8_t)own;b.machine=(uint8_t)other;
+      FzeroActor native_a=a,native_b=b;native_a.machine=(uint8_t)FzeroMachineSlot(own);
+      native_b.machine=(uint8_t)FzeroMachineSlot(other);pair_fields(&native_a,&native_b);
+      FzeroMachineReader reader;
+      FzeroActorDamageContact(&a,&b,FzeroMachineTables(&reader,tables,own),direct!=0);
+      cgp_native=group?cgp_images[group-1]:NULL;
+      unsigned entry=direct?0x87a3:0x8808;reference(entry);
+      a.machine=native_a.machine;compare_fields(&a,actor_fields,COUNT(actor_fields),entry,ma*1200+mb*100+n);
+      cgp_native=NULL;
+    }
+    flat_course();FzeroActor spawns[2]={{.x=1000,.y=1000,.facing=0x3000},{.x=1008,.y=1000,.facing=0x3000}};
+    FzeroVersusConfig config={0,{(uint8_t)ma,(uint8_t)mb}};
+    FzeroVersus *s=FzeroVersusCreate(config,ram,spawns,tables),*copy=FzeroVersusCreate(config,ram,spawns,tables);
+    CHECK(s && copy);session_roundtrip(s,copy);
+    FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);session_roundtrip(s,copy);
+    for(unsigned tick=0;tick<900;++tick) {
+      uint16_t held[2]={(uint16_t)(0x8000|(tick%97<20?0x110:0)),(uint16_t)(0x8000|(tick%79<15?0x220:0))};
+      CHECK(FzeroVersusTick(s,held)==FzeroVersusTick(copy,held));
+      if(tick%150==0) {CHECK(FzeroVersusHash(s)==FzeroVersusHash(copy));session_roundtrip(s,copy);}
+    }
+    CHECK(FzeroVersusCompleted(s)->racers[0].actor.machine==ma && FzeroVersusCompleted(s)->racers[1].actor.machine==mb);
+    FzeroVersusEndRace(s);CHECK(FzeroVersusRematch(s));session_roundtrip(s,copy);
+    CHECK(FzeroVersusCompleted(s)->config.machine[0]==ma && FzeroVersusCompleted(s)->config.machine[1]==mb);
+    FzeroVersusDestroy(s);FzeroVersusDestroy(copy);
+  }
+  puts("twelve identities: all144 ordered pairs,57600 native own-profile collision damage and14400 native speed-response fixtures, shared ticks, atomic saves/replay and rematch PASS");
+}
+static void test_cgp_machine_profiles(void) {
+  const char *folder=getenv("FZERO_TEST_CGP_PROFILE_DIR");if(!folder)return;
+  for(unsigned group=0;group<3;++group) {
+    char path[2048];snprintf(path,sizeof(path),"%s/profile%u.sfc",folder,group+1);
+    FILE *f=fopen(path,"rb");CHECK(f);cgp_images[group]=malloc(0x400000);CHECK(cgp_images[group]);
+    CHECK(fread(cgp_images[group],0x400000,1,f)==1 && fgetc(f)==EOF);fclose(f);
+  }
+  const unsigned routines[]={0x91bc,0x9264,0x938d,0x96f2,0xb7cb,0xb881,0x98a4,0xfa1c,0xba70,0xc507};
+  for(unsigned id=4;id<12;++id) {
+    unsigned slot=FzeroMachineSlot(id),group=FzeroMachineGroup(id);cgp_native=cgp_images[group-1];
+    CHECK(FzeroMachineAvailable((FzeroActorTables){rom_read,NULL},id));
+    for(unsigned r=0;r<COUNT(routines);++r)for(unsigned sample=0;sample<2000;++sample) {
+      FzeroActor a;FzeroActorScratch scratch;randomize(&a,&scratch,slot);
+      a.machine=(uint8_t)id;a.speed=(uint16_t)(a.speed%0xe01);scratch.speed=a.speed;
+      a.acceleration_index=rom_read(NULL,0xfa79+slot);a.turning_index=rom_read(NULL,0xfa7d+slot);
+      a.race_state=sample%2;a.steering_history=sample%13;
+      if(routines[r]==0xc507) {
+        static const uint8_t phases[]={0,1,2,3,4,0x80,0x81,0x82,0x83};
+        a.exhaust=phases[sample%COUNT(phases)];a.exhaust_frame=sample%4;
+        a.exhaust_timer=(sample/4)%6;a.exhaust_color=sample%95;
+      }
+      initial_actor=a;initial_scratch=scratch;
+      memset(ram,0,sizeof(ram));FzeroActor native=a;native.machine=(uint8_t)slot;
+      write_fields(&native,actor_fields,COUNT(actor_fields));write_fields(&scratch,scratch_fields,COUNT(scratch_fields));
+      ram[0xd1]=(uint8_t)(slot*2);ram[0x51]=(uint8_t)sample;ram[0xdc8]=1;ram[0xb00]=0x88;ram[0xc60]=0x80;
+      if(routines[r]==0xc507) {ram[0xe6]=0x8c;ram[0xe7]=0xc6;}
+      call_adapter(routines[r],&a,&scratch,a.race_state);reference(routines[r]);
+      a.machine=(uint8_t)slot;compare_fields(&a,actor_fields,COUNT(actor_fields),routines[r],id*2000+sample);
+      if(routines[r]<0xb000)compare_fields(&scratch,scratch_fields,COUNT(scratch_fields),routines[r],id*2000+sample);
+    }
+    unsigned wrapper=cgp_native[0x3f]|(unsigned)cgp_native[0x40]<<8|(unsigned)cgp_native[0x41]<<16;
+    CHECK(rom_read(NULL,wrapper)==0x20);
+    cgp_boost_entry=(wrapper&0xff0000)|rom_read(NULL,wrapper+1)|(unsigned)rom_read(NULL,wrapper+2)<<8;
+    for(unsigned sample=0;sample<3000;++sample) {
+      static const uint16_t health[]={0,1,17,19,20,21,22,23,24,0x1ff,0x200,0x800,0xffff};
+      static const uint8_t timer[]={0,1,8,16,150,255};
+      FzeroActor a={.machine=(uint8_t)id,.health=health[sample%COUNT(health)],.lap=(uint8_t)(1+sample%6),
+        .state=(uint8_t)((sample%4)*8),.boosts=(uint8_t)(sample%4),.boost_award=(uint8_t)(sample%2),
+        .boost_timer=timer[sample%COUNT(timer)],.recovery_active=(uint8_t)(sample%11==0?255:0),
+        .held=(uint16_t)(sample%3==0?0x8000:0),.pressed=(uint16_t)(sample%7==0?0x80:0)};
+      FzeroActor expected=a;expected.machine=(uint8_t)slot;
+      memset(ram,0,sizeof(ram));write_fields(&expected,actor_fields,COUNT(actor_fields));
+      ram[0x54]=2;ram[0x55]=3;ram[0xd1]=(uint8_t)(slot*2);ram[0xf53]=a.lap>1;ram[0xd40]=a.lap-1;
+      FzeroActorEnergyBoost(&a);FzeroMachineReader reader;
+      FzeroActorInputAction(&a,FzeroMachineTables(&reader,(FzeroActorTables){rom_read,NULL},id));
+      reference(cgp_boost_entry);reference(0xb7cb);
+      /* The native helper's lap numbering is zero-based, like $F53; VS's
+       * authored five-lap progression exposes lap1..5 to its HUD instead. */
+      ram[0xd40]=a.lap;a.machine=(uint8_t)slot;
+      compare_fields(&a,actor_fields,COUNT(actor_fields),cgp_boost_entry,id*3000+sample);
+    }
+    cgp_boost_entry=0;
+    printf("CGP identity%u profile%u/slot%u:20000 movement/handling/boost/exhaust and3000 energy/refill/input fixtures PASS\n",id,group,slot);fflush(stdout);
+  }
+  cgp_native=NULL;
+  test_all_exhaust_art();
+  test_cgp_mixed_sessions();
+  for(unsigned group=0;group<3;++group) {
+    cgp_native=cgp_images[group];
+    test_player_display();test_menu_spin();test_native_effect_art();
+    printf("CGP profile%u native human poses, full spin and spark/electricity art PASS\n",group+1);fflush(stdout);
+  }
+  cgp_native=NULL;
+  const char *dump=getenv("FZERO_TEST_EXPANDED_SELECTOR_DUMP");
+  if(dump) {
+    static FzeroNativeUi ui;static uint32_t pixels[256*224];
+    CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
+    CHECK(FzeroNativeUiLoadMachines(&ui,(FzeroActorTables){rom_read,NULL}) && ui.machines_available==4095);
+    for(unsigned id=0;id<FZERO_MACHINE_COUNT;++id) {
+      memset(pixels,0,sizeof(pixels));FzeroUiMachineSelect(&ui,(FzeroUiCanvas){pixels,256,224,1},id,0,0,true,false);
+      char path[2048];snprintf(path,sizeof(path),"%s/expanded%u.ppm",dump,id);
+      FILE *f=fopen(path,"wb");CHECK(f);fprintf(f,"P6\n256 224\n255\n");
+      for(unsigned n=0;n<256*224;++n) {
+        uint8_t rgb[3]={(uint8_t)(pixels[n]>>16),(uint8_t)(pixels[n]>>8),(uint8_t)pixels[n]};CHECK(fwrite(rgb,3,1,f)==1);
+      }
+      CHECK(!fclose(f));
+    }
+  }
+  for(unsigned i=0;i<3;++i) {free(cgp_images[i]);cgp_images[i]=NULL;}
+}
+
 int main(int argc, char **argv) {
   CHECK(argc == 2);
   FILE *f = fopen(argv[1], "rb"); CHECK(f);
@@ -1445,5 +1622,6 @@ int main(int argc, char **argv) {
   test_finish_presentation();
   test_deluxe_course_animation();
   test_native_effect_art();
+  test_cgp_machine_profiles();
   return 0;
 }

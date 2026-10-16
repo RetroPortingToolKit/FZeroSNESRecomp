@@ -1465,3 +1465,77 @@ The optional 12-identity CGP roster remains unavailable in VS. Its additional
 handling, boost and exhaust mechanics need their own authoritative adapters
 and qualification before selection can truthfully expose those identities.
 Current VS remains the four original machines with their validated mechanics.
+
+
+## Twelve-machine follow-up (2026-10-16)
+
+The owner requested the complete existing twelve-car roster in local and online
+VS. This supersedes the initial four-stock-machine limitation above. Stable
+identities retain the existing 1P three-column order: Moon Shadow/Great Star/
+Dragon Bird/Death Anchor; Blue Falcon/Golden Fox/P. Emerald/Black Bull;
+White Cat/Red Gazelle/Wild Goose/Fire Stingray. Each person navigates their own
+selector with the original portraits, rotating car, information frame, numerical
+stats and acceleration graph. Local uses each person's half; online uses each
+person's complete viewport. Up/Down changes rows, Left/Right slides columns;
+Select cycles identities. Readiness waits for the native-duration column slide.
+
+An actor stores its stable identity separately from its four-slot native table
+index. Immutable verified resources bind the original four to retail handling
+and the eight additions to the matching author CGP tuning/energy-boost/exhaust
+profile. No car selection changes the shared live guest cartridge. Each human
+uses their own grip/turning/acceleration, health/damage/spin, pit repair, boost
+refill/drain and exhaust tables, including mixed-cohort contacts. CGP's shared
+low-relative-speed collision response applies when either ship is CGP; all-stock
+contacts retain the existing retail response. Single-player settings and its
+cartridge-selection hooks are unchanged. No ROM or donor-generated art is added
+to Git: resources reuse the existing reviewed art IPS and author ASM writes.
+
+The native exhaust flames now render in each followed human's own viewport,
+using original OBJ tiles/palette, ignition/decay, color ramp, shoulder/hover
+offsets, pipe count/placement and overlap priority. The other racer retains the
+original opponent projection. Existing sparks/electricity remain native art.
+Authored exhaust metadata is shared with the existing 1P adapter and remains
+reproducible through tools/build_cgp_mods.py.
+
+Rules6/FZVS006 and online protocol3 intentionally reject earlier VS states and
+clients. Selector slide/spin state participates in online rollback. Snapshot
+identities are fzero-local-2p-v2 and fzero-online-v3; single-player is unchanged.
+The exact build fingerprint now also covers generated mechanics/exhaust tables
+and verified vehicle manifests/IPS payloads. CPU/backend negotiation remains the
+existing once-per-session validated portable profile with full build checks.
+
+Private tests/validate_machine_profiles.py reconstructs the three immutable
+profiles, runs the native CPU oracle, and captures actual 1P information pages.
+It checks 160,000 added-car handling fixtures,24,000 boost-energy/refill/input
+cases,57,600 native own-profile collision-damage cases across all 144 ordered
+pairs, mixed shared sessions/save/replay/rematch, native steering/shoulder art,
+24-angle rotation, sparks/electricity and exhaust. The twelve exhaust layouts
+cover 13 poses, both hover offsets and 256-tick ignition/full-color sequences.
+All eight added information cards match 1P numerical/graph silhouettes and exact
+frame colors. Captures/private profile images stay untracked.
+
+The separate db8d7c5 change removes Return to Lobby from in-game online pause
+and results menus, as requested. Closing the game retains the shared launcher's
+normal return behavior. Final runtime/collision validation follows below.
+
+Validation before final packaging: all 18 Windows CTests pass 9.75s; actual local
+SDL native/HD2 pass 29.66/30.85s with extra-car selection, shoulder/drift inputs,
+arrival/countdown, five resizes each, custom/late leagues, restart/change and
+single-player return. Added-car imported-course lifecycle checks pass save/load,
+rewind, fresh-process continuation, exact diagnostic replay, divergence detection,
+tamper rejection and namespace isolation. The online matrix covers all 12 cars
+in six pairs across4:3/16:9/21:9, native/HD, loss/jitter and asymmetric resizes,
+plus both five-lap finishes/rematch, crash/survivor result, change race, actual
+state browser/quickload and menu wrap. Every confirmed trace agrees; no desync.
+All 90 stock/imported courses pass 455.18s and all 25 BS courses pass 113.34s with
+the full roster rotated through both seats, native/HD images, arrival/racing/
+results snapshots and rematches. These course runs use the owner's authorized
+teleport fixture and do not qualify natural driving.
+
+A final additional 14,400 native collision-speed fixtures caught CGP's remaining
++32 leading-car impulse at low relative speeds. That impulse is now preserved
+alongside its zero following-car subtraction; the retail response is unchanged.
+All144 ordered-pair damage/speed fixtures, stock CPU parity and the full new-car
+oracle pass after the correction. Final rebuild/handoff evidence is recorded
+in central beads-8uc1 and beads-8wg.5.101. Linux, cross-build compatibility, WAN/
+ICE and physical-controller acceptance are not claimed; owner QA remains open.

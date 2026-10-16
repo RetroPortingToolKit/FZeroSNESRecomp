@@ -1,8 +1,11 @@
 #include "fzero_actor.h"
+#include "fzero_machine.h"
 
 int FzeroActorTick(FzeroActor *a,const uint8_t world[0x20000],FzeroActorTables t,
                    uint8_t tick,FzeroActorMineEvent *mine) {
+  FzeroMachineReader reader;t=FzeroMachineTables(&reader,t,a->machine);
   a->sound_flags=a->sound_flags2=a->sound_port3=a->landing_sound=0;
+  FzeroActorEnergyBoost(a);
   if (!a->recovery_active) {
     a->surface_id=FzeroActorSampleSurface(world,a->x,a->y);
     FzeroActorCourseSurface(a,world);

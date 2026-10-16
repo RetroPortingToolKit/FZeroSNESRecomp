@@ -6,7 +6,8 @@
 /* Portable actor adapters. Values retain the cartridge's integer units and
  * wrap points. Positions have a 16-bit fractional word; angles wrap at $C000.
  * No guest pointers, camera state, sprite allocation or host clock lives here.
- * ROM tables are supplied by a verified stock-cartridge reader. */
+ * ROM tables come from verified immutable stock/profile readers; machine
+ * binding is described by fzero_machine.h. */
 typedef uint8_t (*FzeroActorReadRom)(void *context, uint32_t address);
 typedef struct FzeroActorTables {
   FzeroActorReadRom read;
@@ -91,6 +92,7 @@ void FzeroActorDash(FzeroActor *actor);
 /* SNES auto-joypad bit order (B=$8000, right=$0100, A=$0080, R=$0010).
  * Latch both actors before evaluating either one's movement. */
 void FzeroActorLatch(FzeroActor *actor, uint16_t held);
+void FzeroActorEnergyBoost(FzeroActor *actor);
 void FzeroActorInputAction(FzeroActor *actor, FzeroActorTables tables);
 void FzeroActorTurnStage(FzeroActor *actor);
 void FzeroActorTurnPerformance(FzeroActor *actor, FzeroActorTables tables);

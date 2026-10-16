@@ -60,8 +60,12 @@ int main(void) {
   FzeroVersusConfig config=FzeroLocalControlsConfig(c);CHECK(config.machine[0]==2 && config.machine[1]==1);
   CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
   CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_DPAD_DOWN,true));poll(c,0);
-  CHECK(FzeroLocalControlsConfig(c).machine[0]==1); /* Native order, duplicate cars allowed. */
+  CHECK(FzeroLocalControlsConfig(c).machine[0]==8); /* Full native middle column. */
   CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(c,0);
+  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_DPAD_RIGHT,true));poll(c,0);
+  CHECK(FzeroLocalControlsConfig(c).machine[0]==1); /* Preserve row, duplicate cars allowed. */
+  CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_DPAD_RIGHT,false));
+  for(unsigned i=0;i<16;++i)poll(c,0); /* Native column slide completes before confirmation. */
   for(unsigned i=0;i<2;++i)CHECK(SDL_SetJoystickVirtualButton(pads[i],SDL_GAMEPAD_BUTTON_START,true));
   CHECK(!poll(c,0));CHECK(FzeroLocalControlsPage(c)==FZERO_LOCAL_CUP);
   for(unsigned i=0;i<2;++i)CHECK(SDL_SetJoystickVirtualButton(pads[i],SDL_GAMEPAD_BUTTON_START,false));poll(c,0);

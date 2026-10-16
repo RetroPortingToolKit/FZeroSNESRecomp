@@ -1,4 +1,5 @@
 #include "fzero_online.h"
+#include "fzero_machine.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,6 +47,26 @@ static void choose(void) {
 }
 int main(void) {
   uint8_t initial[FZERO_ONLINE_STATE_SIZE],same[FZERO_ONLINE_STATE_SIZE],saved[FZERO_ONLINE_STATE_SIZE],bad[FZERO_ONLINE_STATE_SIZE];
+  FzeroOnlineBegin(1,0);FzeroOnlineEnterVs();tick(0,0);
+  unsigned seen=1;
+  for(unsigned i=0;i<FZERO_MACHINE_COUNT;++i) {
+    unsigned before=FzeroOnlineCompleted()->config.machine[0];
+    press(4,0);unsigned after=FzeroOnlineCompleted()->config.machine[0];seen|=1u<<after;
+    CHECK(after==FzeroMachineAt(FzeroMachineIndex(before)+1));
+    image(saved);
+    for(unsigned n=0;n<16;++n)tick(0,0);
+    image(initial);CHECK(FzeroOnlineRestore(saved));
+    for(unsigned n=0;n<16;++n)tick(0,0);
+    image(same);CHECK(!memcmp(initial,same,sizeof(same)));
+  }
+  CHECK(seen==4095 && FzeroOnlineCompleted()->config.machine[0]==0);
+  press(64,0);CHECK(FzeroOnlineCompleted()->config.machine[0]==4);
+  image(saved);CHECK(saved[61]==1);
+  for(unsigned n=0;n<16;++n)tick(0,0);
+  press(128,0);CHECK(FzeroOnlineCompleted()->config.machine[0]==0);
+  image(saved);CHECK(saved[61]==2);
+  memcpy(bad,saved,sizeof(bad));bad[61]=3;CHECK(!FzeroOnlineValidate(bad));
+  FzeroOnlineEnd();
   for(unsigned aspect=0;aspect<3;++aspect) {
     FzeroOnlineBegin(aspect,0);image(initial);
     FzeroOnlineBegin(aspect,1);image(same);CHECK(!memcmp(initial,same,sizeof(same)));
@@ -76,7 +97,7 @@ int main(void) {
     CHECK(!FzeroOnlineRestore(bad));image(saved);CHECK(!memcmp(same,saved,sizeof(same)));
     memcpy(bad,same,sizeof(bad));bad[38]=255;CHECK(!FzeroOnlineValidate(bad));
     memcpy(bad,same,sizeof(bad));bad[28]=0xff;bad[29]=0xff;CHECK(!FzeroOnlineValidate(bad));
-    for(unsigned offset=41;offset<96;++offset)if(offset==41 || offset==42 || offset>60) {
+    for(unsigned offset=41;offset<96;++offset)if(offset==41 || offset==42 || offset>62) {
       memcpy(bad,same,sizeof(bad));bad[offset]=1;CHECK(!FzeroOnlineValidate(bad));
     }
     memcpy(bad,same,sizeof(bad));memset(bad+44,255,8);CHECK(!FzeroOnlineValidate(bad));

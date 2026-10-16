@@ -1,4 +1,6 @@
 #include "fzero_local.h"
+#include "fzero_machine.h"
+#include "fzero_vehicles.h"
 #include "fzero_online.h"
 #include "fzero_deluxe.h"
 #include "fzero_gameplay.h"
@@ -26,9 +28,16 @@ static FzeroNativeUi ui;
 static unsigned menu_selection,result_ticks;
 static uint8_t stock_tables[0x80000];
 static bool have_stock_tables;
+static uint8_t *machine_tables[3];
 bool FzeroLocalStockTables(const uint8_t *rom,size_t size) {
   if(!rom || size!=sizeof(stock_tables))return false;
-  memcpy(stock_tables,rom,size);have_stock_tables=true;return true;
+  memcpy(stock_tables,rom,size);have_stock_tables=true;
+  for(unsigned group=1;group<=3;++group) {
+    free(machine_tables[group-1]);char error[192]={0};
+    machine_tables[group-1]=FzeroVehicleVersusImage(rom,size,group,error,sizeof(error));
+    if(!machine_tables[group-1]) {fprintf(stderr,"[versus vehicles] %s\n",error);return false;}
+  }
+  return true;
 }
 unsigned FzeroLocalCupCount(void) {return FzeroTracksRuntimeCount();}
 unsigned FzeroLocalCourseCount(unsigned cup) {
@@ -55,7 +64,9 @@ const char *FzeroLocalCourseName(unsigned id) {
 static unsigned word(unsigned at) {return g_ram[at]|(unsigned)g_ram[at+1]<<8;}
 static uint8_t read_table(void *context,uint32_t address) {
   (void)context;
-  unsigned offset=(address>>16)*0x8000+(address&0x7fff);
+  unsigned group=address>>24;address&=0xffffff;
+  unsigned offset=((address>>16)&127)*0x8000+(address&0x7fff);
+  if(group)return group<=3 && offset<0x400000 && machine_tables[group-1]?machine_tables[group-1][offset]:0;
   if(have_stock_tables)return offset<sizeof(stock_tables)?stock_tables[offset]:0;
   const uint8_t *p=cart_getRomPtr(g_snes->cart,(uint8_t)(address>>16),(uint16_t)address);
   return p?*p:0;
@@ -84,9 +95,10 @@ void FzeroLocalShutdown(void) {
   menu_selection=result_ticks=0;
 }
 bool FzeroLocalConfigure(FzeroVersusConfig c) {
-  if(!FzeroLocalCourseLocation(c.course,NULL,NULL) || c.machine[0]>=4 || c.machine[1]>=4)return false;
+  if(!FzeroLocalCourseLocation(c.course,NULL,NULL) || c.machine[0]>=FZERO_MACHINE_COUNT || c.machine[1]>=FZERO_MACHINE_COUNT)return false;
+  if(!FzeroMachineAvailable(tables(),c.machine[0]) || !FzeroMachineAvailable(tables(),c.machine[1]))return false;
   FzeroLocalShutdown();config=c;enabled=fast_setup=true;++epoch;
-  if(!FzeroNativeUiInit(&ui,tables())) {FzeroLocalShutdown();return false;}
+  if(!FzeroNativeUiInit(&ui,tables()) || !FzeroNativeUiLoadMachines(&ui,tables())) {FzeroLocalShutdown();return false;}
   /* Resource loader hooks are interpreted-opcode hooks. Keep native setup
    * on the byte interpreter so a compiled call cannot bypass configuration.
    * Gameplay never executes this CPU after the authoritative handoff. */
@@ -137,7 +149,7 @@ void FzeroLocalPrepareCourse(void) {
   unsigned cup,order;if(!FzeroLocalCourseLocation(config.course,&cup,&order))return;
   const CpPack *pack=NULL;const CpCup *selected=FzeroTracksRuntimeCup(cup,&pack);
   FzeroTracksRuntimeSelect(cup);
-  g_ram[0x52]=config.machine[0];g_ram[0xd1]=config.machine[0]*2;
+  g_ram[0x52]=(uint8_t)FzeroMachineSlot(config.machine[0]);g_ram[0xd1]=g_ram[0x52]*2;
   g_ram[0x53]=(uint8_t)order;
   g_ram[0x90]=(uint8_t)(!strcmp(pack->adapter,"fzero-course-v1")?0:selected->slot);
   setup_started=true;
@@ -220,7 +232,7 @@ static bool decode(const void *input,size_t size,FzeroVersus **candidate,FzeroVe
   const uint8_t *p=input;uint8_t identity[32];content_identity(identity);
   unsigned id=p[24]|(unsigned)p[25]<<8;
   if(memcmp(p,"FZLOCAL2",8) || get32(p+8)!=4 || get32(p+12)!=FZERO_VERSUS_RULES ||
-      get32(p+16)!=size || !FzeroLocalCourseLocation(id,NULL,NULL) || p[26]>=4 || p[27]>=4 ||
+      get32(p+16)!=size || !FzeroLocalCourseLocation(id,NULL,NULL) || p[26]>=FZERO_MACHINE_COUNT || p[27]>=FZERO_MACHINE_COUNT ||
       p[28]>3 || p[29]>1 || (p[29] && !(p[28]&1)) || (p[30]&0x70) || p[31]>12 ||
       (p[32]&15)>8 || (p[32]>>4)>3 || memcmp(p+48,identity,32))return false;
   for(unsigned i=33;i<48;++i)if(p[i])return false;

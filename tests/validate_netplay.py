@@ -22,6 +22,7 @@ def main():
     for name in ('build', 'runtime', 'rom', 'packs', 'settings', 'video', 'out'):
         p.add_argument('--' + name, type=Path, required=True)
     p.add_argument('--scenario', choices=('selection', 'titleback', 'titlestate', 'driving', 'finish', 'crash', 'state', 'reject', 'menuwrap', 'change'), default='driving')
+    p.add_argument('--machines', default='2,3', help='Two stable vehicle IDs (0..11), selected through real menu controls')
     p.add_argument('--cup', type=int, default=0, help='Select this enabled league through synchronized menu inputs')
     p.add_argument('--aspect', choices=(0, 1, 2), type=int, default=1)
     p.add_argument('--loss', action='store_true')
@@ -30,6 +31,11 @@ def main():
     p.add_argument('--port', type=int, default=18770)
     p.add_argument('--peers-dir', type=Path, help='Persistent QA installation (default: BUILD/qa-peers); reuse for every case')
     a = p.parse_args()
+    try:
+        a.machines = [int(n) for n in a.machines.split(',')]
+        assert len(a.machines) == 2 and all(0 <= n < 12 for n in a.machines)
+    except (ValueError, AssertionError):
+        p.error('--machines needs two IDs in0..11')
     for name in ('build', 'runtime', 'rom', 'packs', 'settings', 'video', 'out'):
         setattr(a, name, getattr(a, name).resolve())
     a.peers_dir = (a.peers_dir or a.build / 'qa-peers').resolve()
@@ -51,7 +57,7 @@ def main():
     os.close(lock_fd)
     frames = dict(selection=550, titleback=600, titlestate=1000, driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, menuwrap=1000, change=1300)[a.scenario]
     if a.scenario != 'selection':
-        frames += 400  # Real native boot/title and the synchronized VS action.
+        frames += 460  # Real native boot/title and the synchronized VS action.
     processes, logs = [], []
     started = time.monotonic()
     try:
@@ -87,7 +93,7 @@ def main():
                        SNESRECOMP_FRAME_BMP=str(folder / 'final.bmp'),
                        FZERO_VIEWPORT_SCRIPT=('450:4:3@600x800,550:16:9@1342x1378,650:Fit@1280x720,750:32:9@1600x600,850:21:9@768x576' if slot == 0 else
                                               '450:Fit@1600x600,550:32:9@600x800,650:4:3@1342x1378,750:16:9@1280x720,850:Fit@768x576'))
-            inputs = '10-12:32,60-62:1' if a.scenario == 'titleback' else '10-12:32' if a.scenario == 'selection' else '10-12:32,20-22:8'
+            inputs = '60-62:1' if a.scenario == 'titleback' else '' if a.scenario == 'selection' else '20-22:8'
             if slot == 0 and a.scenario not in ('selection', 'titleback'):
                 for cup in range(a.cup):
                     inputs += ',%d-%d:32' % (40 + cup * 10, 42 + cup * 10)
@@ -100,11 +106,11 @@ def main():
             elif a.scenario == 'crash':
                 env['FZERO_TEST_ONLINE_FIXTURE'] = 'crash'
             elif frames > 400 and a.scenario not in ('selection', 'titleback'):
-                inputs += ',400-%d:1' % (frames - 401)
+                inputs += ',400-%d:1' % (frames - 461)
             if a.scenario == 'titlestate' and slot == 0:
                 env.update(FZERO_STATE_SAVE_AT='335:4', FZERO_STATE_LOAD_AT='350:4')
             if a.scenario == 'state' and slot == 0:
-                env.update(FZERO_STATE_SAVE_AT='900:4', FZERO_STATE_LOAD_AT='1300:4', FZERO_TEST_ONLINE_MENU='1')
+                env.update(FZERO_STATE_SAVE_AT='960:4', FZERO_STATE_LOAD_AT='1360:4', FZERO_TEST_ONLINE_MENU='1')
             if a.scenario == 'menuwrap' and slot == 0:
                 inputs += ',600-602:8,620-622:32,640-642:32,660-662:32,680-682:8'
             if a.scenario == 'change':
@@ -119,12 +125,21 @@ def main():
             # Every case enters the actual native menu. An extra Down is harmless
             # when Records is locked, since VS is the final row in either layout.
             shifted = []
-            for part in inputs.split(','):
+            for part in filter(None, inputs.split(',')):
                 span, button = part.split(':')
                 first, last = map(int, span.split('-'))
-                shifted.append('%d-%d:%s' % (first+400,last+400,button))
+                shifted.append('%d-%d:%s' % (first+460,last+460,button))
             boot = '300-302:32,330-332:32,360-362:32,390-392:8,' if slot == 0 else ''
-            env['SNESRECOMP_INPUT_SCRIPT'] = boot + ','.join(shifted)
+            roster = [4,6,5,7,0,2,8,9,10,11,1,3]
+            before, after = roster.index((0,1)[slot]), roster.index(a.machines[slot])
+            moves = []
+            delta = (after//4 - before//4) % 3
+            if delta:
+                moves.append(128 if delta == 1 else 64)
+            row_delta = (after%4 - before%4) % 4
+            moves += [16] if row_delta == 3 else [32] * row_delta
+            navigation = ['%d-%d:%d' % (410+n*16,412+n*16,button) for n,button in enumerate(moves)]
+            env['SNESRECOMP_INPUT_SCRIPT'] = (boot + ','.join(navigation + shifted)).rstrip(',')
             log = (folder / 'game.log').open('w')
             logs.append(log)
             processes.append(subprocess.Popen([str(install / 'FZeroSNESRecomp.exe'), str(a.rom)],
@@ -149,7 +164,7 @@ def main():
         finally:
             lock.unlink()
     text = [(a.out / ('peer%d/game.log' % i)).read_text(errors='replace') for i in range(2)]
-    report = dict(scenario=a.scenario, aspect=a.aspect, loss=a.loss, hd_peer=a.hd_peer,
+    report = dict(scenario=a.scenario, machines=a.machines, aspect=a.aspect, loss=a.loss, hd_peer=a.hd_peer,
                   peer_installation=str(a.peers_dir),
                   executable_sha256=hashlib.sha256((a.build / 'FZeroSNESRecomp.exe').read_bytes()).hexdigest(),
                   seconds=round(time.monotonic() - started, 3), exits=[proc.returncode for proc in processes])
@@ -198,9 +213,10 @@ def main():
             assert shared[-1]['phase'] == '0', 'Back did not restore title'
         elif a.scenario == 'selection':
             assert shared[-1]['phase'] == '1', 'did not remain in independent selection'
-            assert shared[-1]['p1'] == '2' and shared[-1]['p2'] == '3', 'independent choices missing'
+            assert [int(shared[-1]['p1']), int(shared[-1]['p2'])] == a.machines, 'independent choices missing'
         else:
             assert any(row['phase'] == '5' for row in shared), 'did not enter race'
+            assert all([int(row['p1']), int(row['p2'])] == a.machines for row in shared if row['phase'] == '5'), 'race machine identities differ'
         if a.scenario == 'finish':
             results = [row for row in shared if row['stage'] == '3']
             assert results and all(row['lap1'] == row['lap2'] == '5' for row in results), 'two real five-lap finishes missing'

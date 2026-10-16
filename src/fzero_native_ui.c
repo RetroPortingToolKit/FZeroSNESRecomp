@@ -1,5 +1,6 @@
 #include "fzero_native_ui.h"
 #include "fzero_ship.h"
+#include "fzero_exhaust_layouts.inc"
 #include <ctype.h>
 #include <string.h>
 
@@ -9,10 +10,7 @@ const char *FzeroUiCourseName(unsigned course) {
     "MUTE CITY III","DEATH WIND II","PORT TOWN II","RED CANYON II","FIRE FIELD"};
   return course<15?names[course]:"";
 }
-const char *FzeroUiMachineName(unsigned machine) {
-  static const char *names[]={"BLUE FALCON","WILD GOOSE","GOLDEN FOX","FIRE STINGRAY"};
-  return machine<4?names[machine]:"";
-}
+const char *FzeroUiMachineName(unsigned machine) {return FzeroMachineName(machine);}
 
 static uint32_t rgb(unsigned w) {
   unsigned r=w&31,g=(w>>5)&31,b=(w>>10)&31;
@@ -45,6 +43,7 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
     ui->hud_palette[p][i]=rgb(word(t,0x0edde0+p*8+i*2));
   for(unsigned p=0;p<3;++p)for(unsigned i=0;i<16;++i)
     ui->boost_palette[p][i]=rgb(word(t,0x0fcd00+p*32+i*2));
+  for(unsigned m=0;m<4;++m)memcpy(ui->exhaust_palette[m],ui->boost_palette[1],sizeof(ui->boost_palette[1]));
   /* AA06's ordinary/low-power fixed-color HDMA records. Palette zero's
    * red is subsequently set to $18 by the native HUD setup. */
   ui->hud_palette[0][3]=rgb(0x18);
@@ -205,7 +204,37 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
     memcpy(ui->information_palette[m],ui->palette[0],sizeof(ui->palette[0]));
     for(unsigned i=0;i<3;++i)ui->information_palette[m][3+i]=rgb(word(t,0x038901+m*6+i*2));
   }
-  ui->tables=t;ui->valid=true;return true;
+  ui->machines_available=15;ui->tables=t;ui->valid=true;return true;
+}
+bool FzeroNativeUiLoadMachines(FzeroNativeUi *ui,FzeroActorTables base) {
+  if(!ui || !ui->valid)return false;
+  static const int layout[]={-1,0,1,2,3,7,8,9,10,11,4,5,6,12,13};
+  for(unsigned id=4;id<FZERO_MACHINE_COUNT;++id) {
+    if(!FzeroMachineAvailable(base,id))return false;
+    FzeroMachineReader reader;FzeroActorTables t=FzeroMachineTables(&reader,base,id);
+    unsigned slot=FzeroMachineSlot(id);
+    for(unsigned n=0;n<15;++n) {
+      uint8_t pixels[64];decode(pixels,t,((8+slot)<<16)|(0xd600+layout[n]*32),4);
+      for(unsigned y=0;y<8;++y)for(unsigned x=0;x<8;++x)
+        ui->menu_machines[id][(n/5*8+y)*40+n%5*8+x]=pixels[y*8+x];
+    }
+    for(unsigned n=0;n<6;++n) {
+      uint8_t pixels[64];decode(pixels,t,((8+slot)<<16)|(0xe860+n*32),4);
+      for(unsigned y=0;y<8;++y)for(unsigned x=0;x<8;++x)
+        ui->machines[id][(n/3*8+y)*24+n%3*8+x]=pixels[y*8+x];
+    }
+    for(unsigned i=0;i<16;++i) {
+      ui->machine_palette[0][id][i]=rgb(word(t,0x0ee180+slot*32+i*2));
+      ui->machine_palette[1][id][i]=rgb(word(t,0x0fcd80+slot*32+i*2));
+      ui->exhaust_palette[id][i]=rgb(word(t,0x0fcd20+i*2));
+    }
+    unsigned card=0x108008+slot*(0x580+6);
+    for(unsigned n=0;n<44;++n)decode(ui->cards[id-4][n],t,card+n*32,4);
+    memcpy(ui->information_palette[id],ui->palette[0],sizeof(ui->palette[0]));
+    for(unsigned i=0;i<3;++i)ui->information_palette[id][3+i]=rgb(word(t,card+0x580+i*2));
+    ui->machines_available|=(uint16_t)(1u<<id);
+  }
+  return true;
 }
 void FzeroUiRect(FzeroUiCanvas c,int x,int y,int w,int h,uint32_t color) {
   if(!c.pixels || !c.scale || c.scale>10 || w<=0 || h<=0)return;
@@ -288,14 +317,14 @@ void FzeroUiFrame(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,int w,int 
   FzeroUiTile(ui,c,x+w-8,y+h-8,0x3e,FZERO_UI_BLUE,true,false);
 }
 void FzeroUiMachine(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned m,bool selected) {
-  if(!ui || !ui->valid || m>=4)return;
+  if(!ui || !ui->valid || m>=FZERO_MACHINE_COUNT)return;
   for(unsigned row=0;row<16;++row)for(unsigned col=0;col<24;++col) {
     unsigned color=ui->machines[m][row*24+col];
     if(color)FzeroUiRect(c,x+(int)col,y+(int)row,1,1,ui->machine_palette[selected?1:0][m][color]);
   }
 }
 void FzeroUiMenuMachine(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned m,bool selected) {
-  if(!ui || !ui->valid || m>=4)return;
+  if(!ui || !ui->valid || m>=FZERO_MACHINE_COUNT)return;
   for(unsigned row=0;row<24;++row)for(unsigned col=0;col<40;++col) {
     unsigned color=ui->menu_machines[m][row*40+col];
     if(color)FzeroUiRect(c,x+(int)col,y+(int)row,1,1,ui->machine_palette[selected?1:0][m][color]);
@@ -390,6 +419,39 @@ void FzeroUiContact(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned
       FzeroUiRect(c,x+dx*(int)zoom/16,y+dy*(int)zoom/16,1,1,ui->effect_palette[color]);
     }
   }
+}
+void FzeroUiExhaust(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const FzeroActor *a) {
+  if(!ui || !ui->valid || !a || a->machine>=FZERO_MACHINE_COUNT || !a->exhaust ||
+      a->race_state || (!(a->exhaust&128) && a->exhaust_frame==3))return;
+  unsigned pose=a->steering_history<128?a->steering_history:(a->steering_history&127)+11;
+  if(pose>12)return;
+  unsigned group=FzeroMachineGroup(a->machine),slot=FzeroMachineSlot(a->machine);
+  FzeroMachineReader reader;FzeroActorTables t=FzeroMachineTables(&reader,ui->tables,a->machine);
+  unsigned count=group?exhaust_counts[group-1][slot]:slot==1?3:slot==3?2:4;
+  unsigned frame=a->exhaust&128?(a->exhaust==0x81?2:a->exhaust==0x82?1:0):a->exhaust_frame;
+  if(frame>2)return;
+  unsigned id=byte(t,0xc77f+frame);
+  uint32_t colors[16];memcpy(colors,ui->exhaust_palette[a->machine],sizeof(colors));
+  unsigned level=a->exhaust_color,color=level<32?level:level<63?31|((level-31)<<5):0x3ff|((level-62)<<10);
+  colors[12]=(a->exhaust&128) || (a->exhaust==4 && !a->exhaust_color && !a->exhaust_frame)?rgb(0x7fff):rgb(color);
+  /* C64F..C77B's packed XY additions deliberately carry between bytes and
+   * successive pipes. Shoulder poses and hover offsets are native inputs. */
+  unsigned origin=104|(unsigned)(uint8_t)(y-32+a->exhaust_offset+(a->animation_scale&128?2:0))<<8,carry=0;
+  int pipe_x[4],pipe_y[4];
+  for(unsigned pipe=0;pipe<count;++pipe) {
+    unsigned position;
+    if(group)position=exhaust_positions[group-1][slot][pose][pipe*2]|(unsigned)exhaust_positions[group-1][slot][pose][pipe*2+1]<<8;
+    else {
+      static const unsigned bases[]={0x02c630,0x02c658,0x02c682,0x02c6aa};
+      unsigned offset=byte(t,(slot==1?0xc762:0xc755)+pose);
+      if(slot==3)offset>>=1;
+      position=word(t,bases[slot]+offset+pipe*2);
+      if(slot==1 && !pipe)position+=byte(t,0xc76f+pose);
+    }
+    unsigned sum=origin+position+carry;carry=sum>65535;
+    pipe_x[pipe]=(int)(sum&255)+x-128;pipe_y[pipe]=(int)((sum>>8)&255);
+  }
+  for(int pipe=(int)count-1;pipe>=0;--pipe)tile(ui->objects[id],colors,c,pipe_x[pipe],pipe_y[pipe],false,false);
 }
 void FzeroUiPlayerTag(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned player,FzeroUiInk ink) {
   if(!ui || !ui->valid || player>=9 || (unsigned)ink>=4)return;
@@ -498,34 +560,69 @@ void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const 
 
 void FzeroUiMachineSelect(const FzeroNativeUi *ui,FzeroUiCanvas c,unsigned machine,
     uint64_t age,unsigned player,bool joined,bool ready) {
-  if(!ui || !ui->valid || !ui->information_valid || machine>=4 || !c.scale)return;
+  FzeroUiMachineSelectScroll(ui,c,machine,age,player,joined,ready,0);
+}
+void FzeroUiMachineSelectScroll(const FzeroNativeUi *ui,FzeroUiCanvas c,unsigned machine,
+    uint64_t age,unsigned player,bool joined,bool ready,int slide) {
+  if(!ui || !ui->valid || !ui->information_valid || machine>=FZERO_MACHINE_COUNT ||
+      !(ui->machines_available&(1u<<machine)) || !c.scale)return;
   int left=(c.width/(int)c.scale-256)/2;
-  static const unsigned order[]={0,2,1,3};unsigned selected=0;
-  while(order[selected]!=machine)++selected;
+  bool expanded=ui->machines_available==4095;
+  unsigned slot=FzeroMachineSlot(machine),native_row=slot==1?2:slot==2?1:slot;
+  unsigned selected=expanded?FzeroMachineIndex(machine)%4:native_row;
   FzeroUiPlayerTag(ui,c,left+120,8,player,player?FZERO_UI_YELLOW:FZERO_UI_CYAN);
-  for(unsigned row=0;row<4;++row) {
-    if(!joined || row!=selected)FzeroUiMenuMachine(ui,c,left+32,47+(int)row*40,order[row],false);
+  /* A 104px native car pane exposes neighboring columns, like the 1P
+   * carousel. Its clip is independent of split/full view and player count. */
+  uint32_t car_pixels[104*224]={0};FzeroUiCanvas car={car_pixels,104,224,1};
+  int offset=expanded && age<12?slide*(56-(int)age*56/12):0;
+  for(int relative=expanded?-1:0;relative<=(expanded?1:0);++relative)for(unsigned row=0;row<4;++row) {
+    static const unsigned stock_order[]={0,2,1,3};
+    unsigned column=(FzeroMachineIndex(machine)/4+3+relative)%3;
+    unsigned id=expanded?FzeroMachineAt(column*4+row):stock_order[row];
+    if(joined && !relative && row==selected)continue;
+    FzeroUiMenuMachine(ui,car,32+relative*56+offset,47+(int)row*40,id,false);
   }
-  /* The original map's YES/NO row belongs to GP confirmation. VS readiness
-   * replaces just that row, keeping the information artwork unchanged. */
+  if(joined) {
+    FzeroShip spin;
+    if(FzeroShipMenu(&spin,machine,age,ui->tables)) {
+      int origin=byte(ui->tables,0x038b0a+selected);
+      for(unsigned y=0;y<64;++y)for(unsigned x=0;x<64;++x) {
+        uint32_t color=spin.pixels[y*64+x];
+        if(color)FzeroUiRect(car,52+spin.x+(int)x+offset,origin+spin.y+(int)y-1,1,1,color);
+      }
+    }
+    FzeroUiTile(ui,car,16,55+(int)selected*40,0x2f,FZERO_UI_CYAN,true,false);
+  }
+  for(unsigned y=0;y<224;++y)for(unsigned x=0;x<104;++x)if(car_pixels[y*104+x])
+    FzeroUiRect(c,left+(int)x,(int)y,1,1,car_pixels[y*104+x]);
+  /* Native information maps and the author's original card tiles. GP's
+   * YES/NO row becomes an uninterrupted original frame border for readiness. */
   for(unsigned y=4;y<24;++y)for(unsigned x=13;x<30;++x) {
-    unsigned entry=ui->information[selected][y*32+(y==23 && x>13 && x<29?14:x)];
+    unsigned entry=ui->information[native_row][y*32+(y==23 && x>13 && x<29?14:x)];
     unsigned id=entry&1023,pal=(entry>>10)&7;
     if(id>=256 || pal>1)continue;
     tile(ui->tiles[id],pal?ui->palette[1]:ui->information_palette[machine],c,
         left+(int)x*8,(int)y*8-1,(entry&0x4000)!=0,(entry&0x8000)!=0);
   }
-  if(joined) {
-    FzeroShip spin;
-    if(FzeroShipMenu(&spin,machine,age,ui->tables)) {
-      /* Original $03:8B0A row origins, with native $34 horizontal center. */
-      int origin=byte(ui->tables,0x038b0a+selected);
-      for(unsigned y=0;y<64;++y)for(unsigned x=0;x<64;++x) {
-        uint32_t color=spin.pixels[y*64+x];
-        if(color)FzeroUiRect(c,left+52+spin.x+(int)x,origin+spin.y+(int)y-1,1,1,color);
-      }
+  if(machine>=4) {
+    /* Same 44 data-only slots used by the existing 1P card adapter. */
+    static const unsigned spans[][3]={{22,29,7},{22,25,9},{22,24,11},{22,25,13},
+      {17,28,17},{16,24,18},{15,21,19},{15,18,20},{15,16,21}};
+    uint32_t colors[16]={0};colors[13]=ui->palette[0][2];colors[15]=ui->palette[0][7];unsigned n=0;
+    for(unsigned span=0;span<9;++span)for(unsigned x=spans[span][0];x<spans[span][1];++x) {
+      int y=(int)spans[span][2]*8-1;FzeroUiRect(c,left+(int)x*8,y,8,8,0xff000000);
+      tile(ui->cards[machine-4][n++],colors,c,left+(int)x*8,y,false,false);
     }
-    FzeroUiTile(ui,c,left+16,55+(int)selected*40,0x2f,FZERO_UI_CYAN,true,false);
+    FzeroUiRect(c,left+112,30,120,18,0xff000000);
+    const char *name=FzeroMachineName(machine);int x=left+172-(int)strlen(name)*4;
+    for(;*name;++name,x+=8)if(*name>='A' && *name<='Z') {
+      unsigned n=(unsigned)(*name-'A'),id=n/16*32+n%16;
+      tile(ui->tiles[id],ui->information_palette[machine],c,x,31,false,false);
+      tile(ui->tiles[id+16],ui->information_palette[machine],c,x,39,false,false);
+    } else if(*name=='.') {
+      uint32_t colors[16]={0};colors[2]=colors[3]=ui->information_palette[machine][2];
+      tile(ui->objects[0xa8],colors,c,x,31,false,false);
+    }
   }
   const char *status=!joined?"PRESS START":ready?"READY":NULL;
   if(status)FzeroUiText(ui,c,left+144,192,status,FZERO_UI_MENU,ready?FZERO_UI_YELLOW:FZERO_UI_CYAN);

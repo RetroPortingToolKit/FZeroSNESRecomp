@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import time
 
@@ -25,12 +26,14 @@ def main():
     parser.add_argument('--frames', type=int, default=800000)
     parser.add_argument('--timeout', type=int, default=1800)
     parser.add_argument('--finish-images', action='store_true', help='Capture coasting/fading and the complete results screen')
+    parser.add_argument('--all-machines', action='store_true', help='Rotate the full twelve-identity field across courses')
     args = parser.parse_args()
     if args.first < 0 or (args.count is not None and args.count < 1):
         parser.error('first must be nonnegative and count must be positive')
     args.headless, args.rom, args.packs, args.out = (
         p.resolve() for p in (args.headless, args.rom, args.packs, args.out))
     args.out.mkdir(parents=True, exist_ok=False)
+    shutil.copytree(Path(__file__).resolve().parents[1] / 'assets/vehicle-packs', args.out / 'assets/vehicle-packs')
     (args.out / 'settings').mkdir()
     env = {k: v for k, v in os.environ.items()
            if not k.startswith(('FZERO_', 'SNESRECOMP_', 'SDL_', 'LNG_'))}
@@ -45,6 +48,8 @@ def main():
         env['FZERO_TEST_LOCAL_CATALOG_COUNT'] = str(args.count)
     if args.finish_images:
         env['FZERO_TEST_LOCAL_FINISH_IMAGES'] = '1'
+    if args.all_machines:
+        env['FZERO_TEST_LOCAL_CATALOG_ALL_MACHINES'] = '1'
     started = time.monotonic()
     with (args.out / 'run.log').open('w') as log:
         run = subprocess.run([str(args.headless), str(args.rom), str(args.frames),

@@ -1,4 +1,5 @@
 #include "fzero_versus.h"
+#include "fzero_machine.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stddef.h>
@@ -9,7 +10,7 @@ struct FzeroVersus {
   uint8_t world[0x20000], initial_world[0x20000];
   FzeroActorTables tables;
 };
-static bool config_valid(FzeroVersusConfig c) { return c.course<UINT16_MAX && c.machine[0]<4 && c.machine[1]<4; }
+static bool config_valid(FzeroVersusConfig c) { return c.course<UINT16_MAX && c.machine[0]<FZERO_MACHINE_COUNT && c.machine[1]<FZERO_MACHINE_COUNT; }
 static bool same_config(FzeroVersusConfig a,FzeroVersusConfig b) {
   return a.course==b.course && a.machine[0]==b.machine[0] && a.machine[1]==b.machine[1];
 }
@@ -25,6 +26,7 @@ static void reset(FzeroVersus *s) {
 FzeroVersus *FzeroVersusCreate(FzeroVersusConfig c,const uint8_t world[0x20000],
                               const FzeroActor spawns[2],FzeroActorTables tables) {
   if (!config_valid(c) || !world || !spawns || !tables.read ||
+      !FzeroMachineAvailable(tables,c.machine[0]) || !FzeroMachineAvailable(tables,c.machine[1]) ||
       spawns[0].x>8191 || spawns[1].x>8191 || spawns[0].y>4095 || spawns[1].y>4095 ||
       spawns[0].facing>=0xc000 || spawns[1].facing>=0xc000 ||
       spawns[0].checkpoint>world[0xad] || spawns[1].checkpoint>world[0xad] ||
@@ -38,8 +40,10 @@ FzeroVersus *FzeroVersusCreate(FzeroVersusConfig c,const uint8_t world[0x20000],
     a->x=spawns[i].x;a->y=spawns[i].y;a->facing=spawns[i].facing;a->momentum=a->facing;
     a->checkpoint=spawns[i].checkpoint;a->branch=spawns[i].branch;
     a->machine=c.machine[i];a->health=0x800;
-    a->acceleration_index=tables.read(tables.context,0xfa79+a->machine);
-    a->turning_index=tables.read(tables.context,0xfa7d+a->machine);
+    FzeroMachineReader reader;FzeroActorTables t=FzeroMachineTables(&reader,tables,a->machine);
+    unsigned slot=FzeroMachineSlot(a->machine);
+    a->acceleration_index=t.read(t.context,0xfa79+slot);
+    a->turning_index=t.read(t.context,0xfa7d+slot);
     FzeroActorCheckpointInitialize(a,s->world);
   }
   reset(s);return s;
@@ -243,7 +247,7 @@ static size_t codec(Stream *x,const FzeroVersus *source,FzeroVersus *target) {
 size_t FzeroVersusSaveSize(void) { Stream x={0};return 32+codec(&x,NULL,NULL); }
 static void put32(uint8_t *p,uint32_t v) { for (unsigned i=0;i<4;++i) p[i]=(uint8_t)(v>>(i*8)); }
 static uint32_t get32(const uint8_t *p) { return p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
-static const uint8_t magic[8]={'F','Z','V','S','0','0','5',0};
+static const uint8_t magic[8]={'F','Z','V','S','0','0','6',0};
 static uint64_t integrity(const uint8_t *data,size_t size) {
   uint64_t hash=hash_bytes(UINT64_C(14695981039346656037),data,24);
   return hash_bytes(hash,data+32,size-32);
@@ -256,14 +260,17 @@ bool FzeroVersusSave(const FzeroVersus *s,void *output,size_t size) {
   return true;
 }
 static bool actor_valid(const FzeroActor *a,const FzeroVersus *s,unsigned player) {
+  FzeroMachineReader reader;FzeroActorTables t=FzeroMachineTables(&reader,s->tables,a->machine);
+  unsigned slot=FzeroMachineSlot(a->machine);
   return a->machine==s->state.config.machine[player] && a->x<8192 && a->y<4096 &&
          a->facing<0xc000 && a->momentum<0xc000 && a->checkpoint<=s->world[0xad] &&
-         a->acceleration_index==s->tables.read(s->tables.context,0xfa79+a->machine) &&
-         a->turning_index==s->tables.read(s->tables.context,0xfa7d+a->machine);
+         a->acceleration_index==t.read(t.context,0xfa79+slot) &&
+         a->turning_index==t.read(t.context,0xfa7d+slot);
 }
 static bool valid(const FzeroVersus *s) {
   const FzeroVersusSnapshot *v=&s->state;
-  if (!config_valid(v->config) || v->phase>FZERO_VS_RESULTS || v->pause>15 || v->ready>3 ||
+  if (!config_valid(v->config) || !FzeroMachineAvailable(s->tables,v->config.machine[0]) ||
+      !FzeroMachineAvailable(s->tables,v->config.machine[1]) || v->phase>FZERO_VS_RESULTS || v->pause>15 || v->ready>3 ||
       v->contact>2 || v->winner>FZERO_VS_TIE || v->countdown>FZERO_VERSUS_COUNTDOWN || v->race_tick>v->tick) return false;
   if (v->phase==FZERO_VS_READY && (v->ready==3 || v->countdown!=FZERO_VERSUS_COUNTDOWN || v->tick)) return false;
   if (v->phase==FZERO_VS_COUNTDOWN && (v->ready!=3 || !v->countdown || v->race_tick)) return false;

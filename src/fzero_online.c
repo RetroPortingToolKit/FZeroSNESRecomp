@@ -64,15 +64,14 @@ bool FzeroOnlineTick(uint32_t *packed) {
     return state.phase!=FZERO_ONLINE_RACE;
   }
   if(state.phase==FZERO_ONLINE_MACHINES) {
-    static const unsigned order[4]={0,2,1,3};
     for(unsigned i=0;i<2;++i) {
       if(pressed[i]&1) {if(state.ready&(1u<<i))state.ready&=~(1u<<i);else if(!i) {state.phase=FZERO_ONLINE_TITLE;state.release=3;}}
-      if(!(state.ready&(1u<<i)) && (pressed[i]&0x30)) {
-        unsigned row=0;while(order[row]!=state.config.machine[i])++row;
-        state.config.machine[i]=(uint8_t)order[(row+((pressed[i]&0x10)?3:1))%4];
-        state.selection_tick[i]=state.tick;
+      bool sliding=state.slide[i] && state.tick-state.selection_tick[i]<12;
+      if(!(state.ready&(1u<<i)) && !sliding && (pressed[i]&0xf4)) {
+        int slide;state.config.machine[i]=(uint8_t)FzeroMachineMove(state.config.machine[i],pressed[i],&slide);
+        state.slide[i]=(uint8_t)(slide<0?1:slide>0?2:0);state.selection_tick[i]=state.tick;
       }
-      if(pressed[i]&0x108)state.ready|=1u<<i;
+      if(!sliding && (pressed[i]&0x108))state.ready|=1u<<i;
     }
     if(state.ready==3)state.phase=FZERO_ONLINE_CUP;
   } else {
@@ -108,16 +107,17 @@ void FzeroOnlineSave(uint8_t out[FZERO_ONLINE_STATE_SIZE]) {
   put(out+32,state.previous[0],2);put(out+34,state.previous[1],2);put(out+36,state.cup,2);
   out[38]=state.phase;out[39]=state.ready;out[40]=state.aspect;
   out[43]=state.failed;out[60]=state.release;
-  for(unsigned i=0;i<2;++i)put(out+44+i*8,state.selection_tick[i],8);
+  for(unsigned i=0;i<2;++i) {put(out+44+i*8,state.selection_tick[i],8);out[61+i]=state.slide[i];}
 }
 bool FzeroOnlineValidate(const uint8_t in[FZERO_ONLINE_STATE_SIZE]) {
   if(memcmp(in,"FZONLINE",8) || get(in+8,4)!=FZERO_ONLINE_PROTOCOL ||
-      !FzeroLocalCourseLocation((unsigned)get(in+28,2),NULL,NULL) || in[30]>=4 || in[31]>=4 ||
+      !FzeroLocalCourseLocation((unsigned)get(in+28,2),NULL,NULL) || in[30]>=FZERO_MACHINE_COUNT || in[31]>=FZERO_MACHINE_COUNT ||
       get(in+32,2)>4095 || get(in+34,2)>4095 || get(in+36,2)>=FzeroLocalCupCount() ||
       in[38]>FZERO_ONLINE_EXIT || in[39]>3 || in[40]>2 || in[43]>1 || get(in+20,8)>get(in+12,8))return false;
   if(in[41] || in[42] || in[60]>3)return false;
   for(unsigned i=0;i<2;++i)if(get(in+44+i*8,8)>get(in+12,8))return false;
-  for(unsigned i=61;i<FZERO_ONLINE_STATE_SIZE;++i)if(in[i])return false;
+  if(in[61]>2 || in[62]>2)return false;
+  for(unsigned i=63;i<FZERO_ONLINE_STATE_SIZE;++i)if(in[i])return false;
   return true;
 }
 bool FzeroOnlineRestore(const uint8_t in[FZERO_ONLINE_STATE_SIZE]) {
@@ -126,7 +126,7 @@ bool FzeroOnlineRestore(const uint8_t in[FZERO_ONLINE_STATE_SIZE]) {
   state.config.machine[0]=in[30];state.config.machine[1]=in[31];
   state.previous[0]=(uint16_t)get(in+32,2);state.previous[1]=(uint16_t)get(in+34,2);state.cup=(uint16_t)get(in+36,2);
   state.phase=in[38];state.ready=in[39];state.failed=in[43];state.release=in[60];
-  for(unsigned i=0;i<2;++i)state.selection_tick[i]=get(in+44+i*8,8);
+  for(unsigned i=0;i<2;++i) {state.selection_tick[i]=get(in+44+i*8,8);state.slide[i]=in[61+i];}
   return true;
 }
 void FzeroOnlineDraw(uint32_t *pixels,FzeroViewport viewport,unsigned scale) {
@@ -142,7 +142,8 @@ void FzeroOnlineDraw(uint32_t *pixels,FzeroViewport viewport,unsigned scale) {
   }
   if(state.phase==FZERO_ONLINE_MACHINES) {
     unsigned p=view;
-    FzeroUiMachineSelect(ui,c,state.config.machine[p],state.tick-state.selection_tick[p],p,true,(state.ready&(1u<<p))!=0);
+    FzeroUiMachineSelectScroll(ui,c,state.config.machine[p],state.tick-state.selection_tick[p],p,true,(state.ready&(1u<<p))!=0,
+        state.slide[p]==1?-1:state.slide[p]==2?1:0);
     unsigned other=1-p;
     FzeroUiPlayerTag(ui,c,left+8,208,other,other?FZERO_UI_YELLOW:FZERO_UI_CYAN);
     FzeroUiMachine(ui,c,left+32,208,state.config.machine[other],true);

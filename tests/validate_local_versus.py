@@ -19,9 +19,12 @@ def main():
     p.add_argument('--out', type=Path, required=True)
     p.add_argument('--packs', type=Path, help='Use this installed/custom course catalog')
     p.add_argument('--course', type=int, default=0, help='Live catalog course ID for state/replay checks')
+    p.add_argument('--machines', default='0,1', help='Two roster identities,0..11')
     p.add_argument('--bs', action='store_true', help='Enable the native BS track profile')
     p.add_argument('--all-courses', action='store_true', help='Check native setup of all 15 courses, not full races')
     a = p.parse_args()
+    a.machines = tuple(map(int, a.machines.split(',')))
+    if len(a.machines)!=2 or any(m<0 or m>=12 for m in a.machines): p.error('machines must be two IDs,0..11')
     build, stock, out = (v.resolve() for v in (a.build, a.stock, a.out))
     out.mkdir(parents=True, exist_ok=False)
     (out/'packs').mkdir()
@@ -43,10 +46,10 @@ def main():
     route = '1810-2299:4097,1950-1980:524288,2100-2130:64'
     results = {}
 
-    def run(label, frames, extra=None, course=None, machines=(0, 1), expected=0, versus=True):
+    def run(label, frames, extra=None, course=None, machines=None, expected=0, versus=True):
         print(label, flush=True)
         args = [str(exe), str(stock), str(frames)]
-        if versus: args += ['--versus', str(a.course if course is None else course), *(str(v) for v in machines)]
+        if versus: args += ['--versus', str(a.course if course is None else course), *(str(v) for v in (a.machines if machines is None else machines))]
         with (out/f'{label}.log').open('w', encoding='utf-8') as log:
             r = subprocess.run(args, cwd=build, env=dict(env, **(extra or {})), stdout=log, stderr=log, timeout=300)
         log = (out/f'{label}.log').read_text(encoding='utf-8', errors='replace')

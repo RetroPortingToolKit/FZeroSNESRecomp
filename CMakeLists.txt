@@ -10,7 +10,7 @@ find_path(RAPIDJSON_INCLUDE_DIR rapidjson/document.h REQUIRED)
 
 include(CTest)
 set(SNESRECOMP_ROOT "${CMAKE_SOURCE_DIR}/snesrecomp" CACHE PATH "Framework checkout")
-add_library(fzero_actor STATIC src/fzero_actor.c src/fzero_actor_progress.c src/fzero_actor_contact.c src/fzero_actor_tick.c src/fzero_versus.c src/fzero_sound.c)
+add_library(fzero_actor STATIC src/fzero_machine.c src/fzero_actor.c src/fzero_actor_progress.c src/fzero_actor_contact.c src/fzero_actor_tick.c src/fzero_versus.c src/fzero_sound.c)
 target_include_directories(fzero_actor PUBLIC "${CMAKE_SOURCE_DIR}/src")
 add_library(fzero_camera STATIC src/fzero_camera.c src/fzero_ship.c src/fzero_native_ui.c)
 target_link_libraries(fzero_camera PUBLIC fzero_actor)
@@ -345,7 +345,8 @@ fzero_revision("${CMAKE_CURRENT_SOURCE_DIR}" FZERO_SOURCE_REVISION)
 fzero_revision("${SNESRECOMP_ROOT}" FZERO_FRAMEWORK_REVISION)
 fzero_revision("${RECOMP_UI_ROOT}" FZERO_UI_REVISION)
 # Dirty builds need more than an unchanged Git commit stamp for safe replay.
-file(GLOB FZERO_BUILD_INPUTS CONFIGURE_DEPENDS src/*.c src/*.cpp src/*.h)
+file(GLOB FZERO_BUILD_INPUTS CONFIGURE_DEPENDS src/*.c src/*.cpp src/*.h src/*.inc
+    assets/vehicle-packs/*.ini assets/vehicle-packs/*.ips)
 list(APPEND FZERO_BUILD_INPUTS "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fzero_local_ui_driver.h"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/fzero_local_driver.h")

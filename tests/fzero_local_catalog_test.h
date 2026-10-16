@@ -95,6 +95,7 @@ static int catalog_step(void) {
     fprintf(stderr,"catalog-test: ALL %u COURSES PASS\n",catalog_passed);fclose(catalog_report);catalog_report=NULL;return 1;
   }
   FzeroLocalShutdown();RtlReset(1);FzeroGameInfo()->session_reset();
-  if(!FzeroLocalConfigure((FzeroVersusConfig){(uint16_t)catalog_course,{(uint8_t)(catalog_course%4),(uint8_t)((catalog_course+1)%4)}}))return -1;
+  unsigned machines=getenv("FZERO_TEST_LOCAL_CATALOG_ALL_MACHINES")?12:4;
+  if(!FzeroLocalConfigure((FzeroVersusConfig){(uint16_t)catalog_course,{(uint8_t)(catalog_course%machines),(uint8_t)((catalog_course+1)%machines)}}))return -1;
   catalog_checked=catalog_finish_shots=0;return 0;
 }

@@ -70,7 +70,7 @@ void FzeroNetplayLauncher(RecompLauncherCGameInfo *info) {
     static const RecompNetplaySessionVariant variants[]={{0,"4:3"},{1,"16:9"},{2,"21:9"}};
     /* LAN room versions have a 32-byte wire field. Keep this discovery tag
      * within it; the full build/catalog identity is checked before frame 0. */
-    snprintf(lobby_version,sizeof(lobby_version),"fzero-vs5-%.20s",FZERO_REPLAY_BUILD_ID);
+    snprintf(lobby_version,sizeof(lobby_version),"fzero-vs6-%.20s",FZERO_REPLAY_BUILD_ID);
     RecompNetplayHostHooks h={0};h.game_name="F-Zero";h.game_version=lobby_version;
     h.platform="snes";h.legacy_env_prefix="SNES_NET_";h.default_lobby_name="F-Zero VS";
     h.lan_registry_path="fzero-netplay-lan.txt";h.max_players=2;h.netplay_max_players=2;
@@ -154,7 +154,7 @@ bool FzeroNetplayStart(const RecompLauncherCSettings *settings) {
   FzeroOnlineBegin(aspect,(unsigned)cfg.local_slot);
   uint8_t content[32]={0};if(FzeroTracksStateActive())memcpy(content,FzeroTracksActiveHash(),32);
   char hex[65];for(unsigned i=0;i<32;++i)snprintf(hex+i*2,3,"%02x",content[i]);
-  snprintf(base_identity,sizeof(base_identity),"fzero-vs5;build=%s;catalog=%s;portable-scalar-v1;aspect=%u",
+  snprintf(base_identity,sizeof(base_identity),"fzero-vs6;build=%s;catalog=%s;portable-scalar-v1;aspect=%u",
       FZERO_REPLAY_BUILD_ID,hex,aspect);
   const char *fixture=getenv("FZERO_TEST_ONLINE_FIXTURE");
   if(fixture && *fixture) {
@@ -174,7 +174,7 @@ bool FzeroNetplayStart(const RecompLauncherCSettings *settings) {
 #endif
   /* No direct assembly/SIMD race backend is enabled. Renderer capabilities
    * are presentation-only; CPU features above are actual runtime queries. */
-  snes_netplay_set_profile_caps(0xf2050001u,cpu,1,1,architecture,profile_settled);
+  snes_netplay_set_profile_caps(0xf2060001u,cpu,1,1,architecture,profile_settled);
   snes_state_digest_set_extra(game_digest);snes_netplay_rb_set_replay_frame(replay);
   if(snes_netplay_start(&cfg)!=0) {FzeroOnlineEnd();snes_state_digest_set_extra(NULL);return false;}
   const char *stem=getenv("FZERO_TEST_NET_TRACE");

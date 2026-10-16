@@ -1064,3 +1064,17 @@ void FzeroVehiclesInstallHooks(void) {
   for (unsigned i = 0; i < sizeof(sites) / sizeof(*sites); ++i)
     interp_bridge_set_pre_opcode_hook(sites[i], menu_hook);
 }
+
+uint8_t *FzeroVehicleVersusImage(const uint8_t *stock,size_t size,unsigned group,char *error,size_t cap) {
+  if(!stock || size!=0x80000 || group<1 || group>3)return NULL;
+  CpPack pack;char path[96];size_t length=0;uint8_t *source=NULL;
+  snprintf(path,sizeof(path),"assets/vehicle-packs/cgp-p%u.ips",group);
+  if(!manifest(group,&pack,error,cap) || !cp_pack_apply(&pack,stock,size,path,&source,&length,error,cap))return NULL;
+  if(length!=size+8+4*INFO_ENTRY_SIZE || memcmp(source+size,"FZCARD1\0",8) ||
+      memcmp(source+0x5ec00,stock+0x5ec00,0x400) || memcmp(source+0x46f80,stock+0x46f80,0x80)) {
+    snprintf(error,cap,"Invalid CGP P%u VS resources",group);free(source);return NULL;
+  }
+  uint8_t *image=calloc(1,IMAGE_SIZE);
+  if(!image) {free(source);snprintf(error,cap,"Cannot allocate vehicle profile");return NULL;}
+  memcpy(image,source,length);free(source);FzeroGameplayBuildVehicleProfile(image,group);return image;
+}

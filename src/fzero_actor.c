@@ -1,4 +1,5 @@
 #include "fzero_actor.h"
+#include "fzero_machine.h"
 #include "fzero_course.h"
 #include <string.h>
 
@@ -55,17 +56,18 @@ void FzeroActorSlide(FzeroActor *a) {
 
 /* $91BC..$925F, human branch. DB=0/D=0; table indices are bytes. */
 void FzeroActorTopSpeed(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t) {
+  bool cgp=FzeroMachineGroup(a->machine)!=0;
   if ((a->no_control & 255) != 0) a->action &= 0x5c;
-  s->off_gas = (s->off_gas & 0xff00) | table8(t, 0xfaa9 + a->machine);
-  s->over_speed = (s->over_speed & 0xff00) | table8(t, 0xfaad + a->machine);
+  s->off_gas = (s->off_gas & 0xff00) | table8(t, 0xfaa9 + FzeroMachineSlot(a->machine));
+  s->over_speed = (s->over_speed & 0xff00) | table8(t, 0xfaad + FzeroMachineSlot(a->machine));
   s->gravity = (s->gravity & 0xff00) | table8(t, 0x9260 + ((a->action & 12) >> 2));
   if (a->action & 0x40) s->top_speed = 0x0e00;
-  else if (a->state & 0x80) s->top_speed = 0x0900;
-  else if (a->surface & 0x80) s->top_speed = (a->state & 8) ? 0x0600 : 0x0300;
-  else if (a->state & 0x40) s->top_speed = 0x0780;
-  else if (a->state & 8) s->top_speed = 0x0900;
+  else if (a->state & 0x80) s->top_speed = cgp?0x0a00:0x0900;
+  else if (a->surface & 0x80) s->top_speed = (a->state & 8) ? 0x0600 : cgp?0x0400:0x0300;
+  else if (a->state & 0x40) s->top_speed = cgp?0x0980:0x0780;
+  else if (a->state & 8) s->top_speed = cgp?0x0a00:0x0900;
   else {
-    unsigned index = a->machine * 2;
+    unsigned index = FzeroMachineSlot(a->machine) * 2;
     s->top_speed = table16(t, 0xfa91 + index);
     if (a->health < 0x200) {
       unsigned loss = ((0x200 - a->health) >> 3) * (table16(t, 0xfad5 + index) & 255);
@@ -76,20 +78,20 @@ void FzeroActorTopSpeed(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t)
 
 /* $9264..$930C. Sound flags are actor output events, never APU writes. */
 void FzeroActorGrip(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t) {
-  unsigned tolerance = table8(t, 0xfa81 + a->machine);
+  unsigned tolerance = table8(t, 0xfa81 + FzeroMachineSlot(a->machine));
   if (a->slide) {
     if ((a->speed >> 8) >= 5) a->sound_flags |= a->slide < tolerance ? 0x20 : 0x40;
     if (a->slide >= 0x28) {
-      s->grip = (uint16_t)table8(t, 0xfa85 + a->machine) << 8;
+      s->grip = (uint16_t)table8(t, 0xfa85 + FzeroMachineSlot(a->machine)) << 8;
       return;
     }
   } else a->instant_grip = 0;
   if (a->slide < tolerance && !(a->action & 0x80)) s->grip = 0x180;
-  else if (a->instant_grip & 1) s->grip = (uint16_t)table8(t, 0xfa85 + a->machine) << 8;
+  else if (a->instant_grip & 1) s->grip = (uint16_t)table8(t, 0xfa85 + FzeroMachineSlot(a->machine)) << 8;
   else if (a->state & 0x80) s->grip = 0xa0;
   else if ((a->surface_flags & 0x80) && a->slide >= 8) s->grip = 0x20;
-  else if (a->speed < table16(t, 0xfa99 + a->machine * 2)) s->grip = 0x280;
-  else s->grip = (uint16_t)table8(t, (a->slide < tolerance ? 0xfa89 : 0xfa8d) + a->machine) * 8;
+  else if (a->speed < table16(t, 0xfa99 + FzeroMachineSlot(a->machine) * 2)) s->grip = 0x280;
+  else s->grip = (uint16_t)table8(t, (a->slide < tolerance ? 0xfa89 : 0xfa8d) + FzeroMachineSlot(a->machine)) * 8;
 }
 
 /* $930D..$9376. The stock high-byte spin test is deliberately preserved:
@@ -121,12 +123,14 @@ static uint32_t acceleration(FzeroActor *a, FzeroActorTables t) {
     if (a->jump_timer < 20) { ++a->jump_timer; jump_initial = true; }
   } else {
     /* M16 LDA $15 spans gravity's high byte and the action copy at $16. */
-    if ((a->action & 0x40) || (a->state & 8)) return 0x10000;
+    if ((a->action & 0x40) || (a->state & 8)) return FzeroMachineGroup(a->machine)?0x9c40:0x10000;
     if ((a->action & 3) && a->speed >= 0x600 && a->slide >= 5) return 0xffff00;
   }
   unsigned index = jump_initial ? 0 : ((a->speed >> 7) & 255);
   unsigned carry = !jump_initial && (a->speed & 0x8000) ? 1 : 0;
-  unsigned value = table8(t, 0x02ca37 + ((index + a->acceleration_index + carry) & 255));
+  unsigned value = FzeroMachineGroup(a->machine)?
+      table8(t,0x02ca42+FzeroMachineSlot(a->machine)*29+(index<29?index:28)):
+      table8(t, 0x02ca37 + ((index + a->acceleration_index + carry) & 255));
   bool backward = table8(t, 0x08ed20 + a->slide) != 0;
   if (backward) value = 0x10;
   unsigned result = value * table8(t, 0x08ec30 + a->slide) / 2;
@@ -150,7 +154,7 @@ void FzeroActorSpeed(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t, ui
     if (a->speed & 0x8000) { a->momentum = a->facing; a->speed_fraction = 0; a->speed = 0; }
   } else if (a->action & 0x20) {
     /* M16 ASL/XBA, X8 TAX: the table receives just the quotient byte. */
-    a->speed = subtract_floor(a->speed, table8(t, 0x02ca96 + ((a->speed >> 7) & 255)));
+    a->speed = subtract_floor(a->speed, table8(t, (FzeroMachineGroup(a->machine)?0x02cab6:0x02ca96) + ((a->speed >> 7) & 255)));
   } else if (a->action & 0x10) {
     a->speed = subtract_floor(a->speed, 0x20);
     force_no_turn = race_state != 0;
@@ -224,11 +228,12 @@ void FzeroActorWind(const FzeroActor *a, FzeroActorScratch *s, FzeroActorTables 
   s->vy = (uint16_t)(y >> 16); s->vy_fraction = (uint16_t)y;
 }
 void FzeroActorStoreVelocity(FzeroActor *a, FzeroActorScratch *s) {
-  if (!(a->state & 0x28)) {
-    if (!(s->vx & 0x8000) && s->vx >= 9) { s->vx = 9; s->vx_fraction = 0; }
-    else if ((s->vx & 0x8000) && s->vx < 0xfff7) { s->vx = 0xfff7; s->vx_fraction = 0; }
-    if (!(s->vy & 0x8000) && s->vy >= 9) { s->vy = 9; s->vy_fraction = 0; }
-    else if ((s->vy & 0x8000) && s->vy < 0xfff7) { s->vy = 0xfff7; s->vy_fraction = 0; }
+  if (!FzeroMachineGroup(a->machine) && !(a->state & 0x28)) {
+    unsigned limit=9;
+    if (!(s->vx & 0x8000) && s->vx >= limit) { s->vx = (uint16_t)limit; s->vx_fraction = 0; }
+    else if ((s->vx & 0x8000) && s->vx < 65536-limit) { s->vx = (uint16_t)(65536-limit); s->vx_fraction = 0; }
+    if (!(s->vy & 0x8000) && s->vy >= limit) { s->vy = (uint16_t)limit; s->vy_fraction = 0; }
+    else if ((s->vy & 0x8000) && s->vy < 65536-limit) { s->vy = (uint16_t)(65536-limit); s->vy_fraction = 0; }
   }
   a->vx = s->vx; a->vx_fraction = s->vx_fraction;
   a->vy = s->vy; a->vy_fraction = s->vy_fraction;
@@ -272,6 +277,23 @@ void FzeroActorLatch(FzeroActor *a, uint16_t held) {
   a->held = held;
 }
 
+/* CGP/{1,2,3}/CGP_Boost.asm, independent energy boost per human.
+ * Native autogas's temporary action flag is overwritten by B7CB before
+ * physics; retain its actual refill/drain behavior, not an invented assist. */
+void FzeroActorEnergyBoost(FzeroActor *a) {
+  unsigned group=FzeroMachineGroup(a->machine);if(!group)return;
+  if(a->lap>1 && (group==2 || !(a->state&8))) {
+    if(!a->health || (a->health&0x8000))a->boosts=0;
+    else if(a->boosts!=3 && !a->boost_award)a->boost_award=1;
+  }
+  if((a->state&0x38)!=8 || a->lap>5 || a->race_state || (a->recovery_active&128) || (a->boost_timer&7))return;
+  static const uint8_t drain[3][4]={{23,21,19,23},{22,21,23,20},{22,17,22,21}};
+  unsigned amount=drain[group-1][FzeroMachineSlot(a->machine)];
+  unsigned old=a->health;
+  if(old<amount || (old&0x8000)) {a->health=0;a->boost_timer=1;}
+  else a->health=(uint16_t)(old-amount);
+}
+
 /* $B7CB..$B880. OAM icon writes are presentation outputs, deliberately not
  * part of actor state; boost count/timer/award contain their source state. */
 void FzeroActorInputAction(FzeroActor *a, FzeroActorTables t) {
@@ -287,7 +309,7 @@ void FzeroActorInputAction(FzeroActor *a, FzeroActorTables t) {
     }
     if ((a->pressed & 0x80) && a->boosts) {
       a->state |= 8;
-      a->boost_timer = 0;
+      a->boost_timer = FzeroMachineGroup(a->machine)?150:0;
       --a->boosts;
     } else if ((a->pressed & 0x80) && !a->boost_beep_guard) a->boost_beep = 0x10;
   }
@@ -298,7 +320,7 @@ void FzeroActorInputAction(FzeroActor *a, FzeroActorTables t) {
     a->action |= 0x80;
     if (!a->exhaust) {
       a->exhaust = 0x80;
-      if (!(a->state & 0x80) && a->speed <= table16(t, 0xfaa1 + a->machine * 2)) a->instant_grip = 1;
+      if (!(a->state & 0x80) && a->speed <= table16(t, 0xfaa1 + FzeroMachineSlot(a->machine) * 2)) a->instant_grip = 1;
     }
   } else a->exhaust = 0;
 }
@@ -360,7 +382,8 @@ static void turn_performance(FzeroActor *a,FzeroActorTables t,bool magnet) {
   if (high) {
     bool left = (high & 0x80) != 0;
     unsigned magnitude = left ? ((0u - high) & 255) : high;
-    unsigned factor = magnet?0x38:index < 0x12 ? table8(t, 0x02c9ab + ((index + a->turning_index) & 255))
+    unsigned factor = magnet?0x38:FzeroMachineGroup(a->machine)?
+        table8(t,0x02c9ab+FzeroMachineSlot(a->machine)*30+(index<30?index:29)):index < 0x12 ? table8(t, 0x02c9ab + ((index + a->turning_index) & 255))
                                   : table8(t, 0x02c9f7 + index);
     a->turning = (uint16_t)(magnitude * factor / 2);
     a->action |= left ? 2 : 1;
@@ -371,7 +394,7 @@ static void turn_performance(FzeroActor *a,FzeroActorTables t,bool magnet) {
   unsigned shoulder = a->held & 0x30;
   if (!shoulder || shoulder == 0x30) return;
   unsigned difference = ((a->momentum >> 8) + 192 - (a->facing >> 8)) % 192;
-  unsigned amount = (magnet?0x50:table8(t, 0x02ca18 + index)) * 16;
+  unsigned amount = (magnet?0x50:table8(t, (FzeroMachineGroup(a->machine)?0x02ca23:0x02ca18) + index)) * 16;
   if (shoulder & 0x10) {
     if (difference >= 96 || difference < 6) {
       a->momentum = angle_add(a->momentum, (uint16_t)amount); a->instant_grip = 2;
@@ -414,9 +437,9 @@ void FzeroActorDamageContact(FzeroActor *a,const FzeroActor *b,FzeroActorTables 
     unsigned relative=table8(t,0x08ed20+index)?((own+projected)&255)
         :(own>projected?own-projected:projected-own);
     if (relative>=127) relative=127;
-    damage=(relative*table8(t,0xfab1+a->machine))>>8;
+    damage=(relative*table8(t,0xfab1+FzeroMachineSlot(a->machine)))>>8;
     a->sound_port3|=3;
-  } else { damage=table8(t,0xfab5+a->machine);a->sound_port3|=1; }
+  } else { damage=table8(t,0xfab5+FzeroMachineSlot(a->machine));a->sound_port3|=1; }
   actor_damage(a,damage);
 }
 
@@ -426,20 +449,20 @@ void FzeroActorDamageSurface(FzeroActor *a, FzeroActorTables t) {
   if (a->race_state || !(flags & 0xfc)) return;
   if (!(flags & 0x1c)) {
     if (!a->track_flash) a->track_flash = 9;
-    a->no_control = table8(t, 0xfaed + a->machine);
+    a->no_control = table8(t, 0xfaed + FzeroMachineSlot(a->machine));
     a->sound_flags2 |= 0x40;
     if (!a->damage_cooldown) {
       a->damage_cooldown = 9;
-      actor_damage(a, table8(t, 0xfabd + a->machine));
+      actor_damage(a, table8(t, 0xfabd + FzeroMachineSlot(a->machine)));
     }
   } else {
     if ((flags & 0x10) && !a->electric_flash) a->electric_flash = 8;
     if (!a->damage_cooldown) {
       a->damage_cooldown = 2;
-      actor_damage(a, table8(t, 0xfab9 + a->machine));
+      actor_damage(a, table8(t, 0xfab9 + FzeroMachineSlot(a->machine)));
     }
   }
-  if (a->speed >= table16(t, 0xfacd + a->machine * 2)) a->speed -= 16;
+  if (a->speed >= table16(t, 0xfacd + FzeroMachineSlot(a->machine) * 2)) a->speed -= 16;
   if (!(a->animation & 0xe0)) a->animation = 0x89;
   if (!(a->health & 0x8000) && !(a->effect_timer & 0x80)) a->effect_timer = 0x8b;
 }
@@ -642,7 +665,7 @@ void FzeroActorMine(FzeroActor *a, FzeroActorTables t, FzeroActorMineEvent *even
   *event = (FzeroActorMineEvent){true,a->x,a->y,a->surface_id};
   a->no_control = (a->no_control & 0xff00) | 0x20;
   a->black_flash = 0x85;
-  actor_damage(a, table8(t, 0xfac1 + a->machine));
+  actor_damage(a, table8(t, 0xfac1 + FzeroMachineSlot(a->machine)));
   a->state |= 0x81; a->height_velocity = 0x100;
   unsigned angle = ((a->momentum >> 8) + 192 - 24) % 192;
   unsigned index = ((angle / 12) & 0xfc) | ((a->surface_id - 0xc8) & 255);
@@ -684,10 +707,11 @@ void FzeroActorCommitMine(uint8_t world[0x20000],const FzeroActorMineEvent *even
 
 /* $FA1C..$FA65 is called twice per native countdown tick. */
 void FzeroActorPreRace(FzeroActor *a, FzeroActorTables t) {
+  FzeroMachineReader reader;t=FzeroMachineTables(&reader,t,a->machine);
   if ((a->held & 0xc000) == 0x8000) {
     unsigned index = ((a->speed >> 7) & 255) + ((a->speed & 0x8000) ? 1 : 0);
-    index = (index + table8(t,0xfa79+a->machine)) & 255;
-    unsigned speed = (a->speed + table8(t,0x02ca37+index)) & 65535;
+    index = (index + table8(t,0xfa79+FzeroMachineSlot(a->machine))) & 255;
+    unsigned speed = (a->speed + table8(t,(FzeroMachineGroup(a->machine)?0x02ca42:0x02ca37)+index)) & 65535;
     a->speed = speed < 0x7ff ? (uint16_t)speed : 0x7ff;
   } else {
     a->speed = (uint16_t)(a->speed - 40);
@@ -898,7 +922,7 @@ void FzeroActorPit(FzeroActor *a, FzeroActorTables t) {
         a->sound_port3 |= 0x40;
         if (a->health & 0x8000) a->health = 0;
         else {
-          unsigned health = (a->health + table16(t,0xfac5+a->machine*2)) & 65535;
+          unsigned health = (a->health + table16(t,0xfac5+FzeroMachineSlot(a->machine)*2)) & 65535;
           a->health = health < 0x800 ? (uint16_t)health : 0x800;
         }
       }

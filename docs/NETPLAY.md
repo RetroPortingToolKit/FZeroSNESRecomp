@@ -27,7 +27,11 @@ course catalog as single-player is available, including custom imports. Both
 participants need the same build and enabled course packs. Automatic transfer
 of F-Zero imports is not implemented; an exact catalog mismatch refuses the
 match before its first simulation tick. Personal single-player modifications
-are retained; VS uses the existing stock four-machine handling profile.
+are retained. VS offers all twelve existing machine identities in the original
+three-column selector. The four original cars retain retail handling; the
+eight added ships use their authored CGP handling, energy boost and exhaust.
+Each actor binds its own immutable profile, including mixed-cohort collisions;
+selecting another ship never swaps the shared guest cartridge.
 
 Either participant can pause. The host navigates the shared pause/results menu:
 continue, restart/rematch, or change race. The in-game menus have no lobby
@@ -66,11 +70,29 @@ The launcher uses a short discovery version within the shared 32-byte LAN field.
 This does not replace the full pre-race identity check. New UI is either existing
 recomp-ui lobby UI or the same native F-Zero assets used by local VS.
 
+Rules6 (`FZVS006`) and online protocol3 carry stable twelve-car identities and
+independent selector slide/spin state. The snapshot namespaces are
+`fzero-local-2p-v2` and `fzero-online-v3`; earlier VS snapshots are intentionally
+incompatible. Build identity includes the reviewed generated mechanics/exhaust
+tables and verified vehicle art manifests/payloads, alongside the existing
+source/dependency fingerprint. This does not relax exact-build admission.
+
 ## Validation
 
 `tests/validate_selector.py` compares all four VS information panels and
 unselected previews pixel for pixel with real single-player screens. The stock
 CPU oracle also verifies all 24 spin angles and their six-tick timing.
+
+`tests/validate_machine_profiles.py --help` builds private fixtures from the
+shipped art IPS and independently assembled author routines, then checks the
+eight added ships' handling/energy boosts against native CPU execution. It
+also covers all 144 ordered machine pairs, own-profile collision damage and
+speed response, atomic save/replay/rematch, native body poses, complete spin,
+sparks/electricity and exhaust. All twelve exhaust layouts,13 steering/shoulder
+poses, both hover offsets and the full ignition/color sequence are compared
+against native OAM/CGRAM. Added-car information values, acceleration graph
+silhouettes and frame colors are compared with actual single-player screens.
+Private ROMs, profile images and captured artwork remain outside Git.
 
 Run `tests/validate_netplay.py --help` for explicit private ROM, runtime DLL,
 installed pack, settings, video configuration and fresh output paths. It launches

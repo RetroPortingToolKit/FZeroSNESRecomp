@@ -37,6 +37,8 @@ bool FzeroVersusVideoCapture(FzeroVersusVideo *v,const FzeroRenderView *assets,
   if(!v || !session || !tables.read)return false;
   if(!v->ui.valid && !FzeroNativeUiInit(&v->ui,tables))return false;
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(session);
+  if((s->config.machine[0]>=4 || s->config.machine[1]>=4) && v->ui.machines_available!=4095 &&
+      !FzeroNativeUiLoadMachines(&v->ui,tables))return false;
   v->interpolate=v->valid && s->tick==v->state.tick+1 &&
       !memcmp(&s->config,&v->state.config,sizeof(s->config)) && s->phase==v->state.phase;
   v->previous=v->state;memcpy(v->old_ships,v->ships,sizeof(v->ships));v->state=*s;
@@ -133,8 +135,8 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
        abs(old->x-x)<64 && abs(old->y-y)<32) {
       x=(int)round(old->x+alpha*(x-old->x));y=(int)round(old->y+alpha*(y-old->y));
     }
-    /* Contact flashes and boost exhaust belong to the actor in BOTH views.
-     * These host effects use only the completed actor state and race tick. */
+    /* Native human body/exhaust in its own view; the other racer uses the
+     * native opponent projection. Presentation never advances actor state. */
     int shadow_w=24-(int)ship->size*2;if(shadow_w<2)shadow_w=2;
     if(ship->ground_y>=0 && ship->ground_y<224)
       fade_rect(p,viewport,scale,ship->ground_x+viewport.extra-shadow_w/2,ship->ground_y-2,shadow_w,2,0xff202028,opacity);
@@ -144,6 +146,8 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
       if(dy<0 || dy>=224 || dx<0 || dx>=viewport.width)continue;
       fade_rect(p,viewport,scale,dx,dy,1,1,pixel,opacity);
     }
+    if(i==pane && s->racers[i].status==FZERO_VS_ACTIVE)
+      FzeroUiExhaust(ui,canvas,ship->ground_x+viewport.extra,y+48,&s->racers[i].actor);
     if(s->racers[i].status!=FZERO_VS_FINISHED && s->racers[i].actor.speed>=0x400 && !(s->racers[i].actor.state&0x80))
       FzeroUiSpark(ui,canvas,ship->ground_x+viewport.extra,y+48,ship->size,s->racers[i].actor.animation_transition);
     if(s->racers[i].status!=FZERO_VS_FINISHED)FzeroUiContact(ui,canvas,ship->ground_x+viewport.extra,y+48,ship->size,s->racers[i].actor.effect_timer);

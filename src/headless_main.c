@@ -375,7 +375,7 @@ int main(int argc, char **argv) {
     unsigned values[3];
     for(unsigned i=0;i<3;++i) {
       char *end;unsigned long value=strtoul(argv[4+i],&end,10);
-      if(!argv[4+i][0] || *end || value>=(i?4u:UINT16_MAX)) {fputs("Invalid versus configuration\n",stderr);return 2;}
+      if(!argv[4+i][0] || *end || value>=(i?12u:UINT16_MAX)) {fputs("Invalid versus configuration\n",stderr);return 2;}
       values[i]=(unsigned)value;
     }
     versus_config=(FzeroVersusConfig){(uint16_t)values[0],{(uint8_t)values[1],(uint8_t)values[2]}};

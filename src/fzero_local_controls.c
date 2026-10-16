@@ -15,6 +15,7 @@ struct FzeroLocalControls {
   unsigned menu_tag;
   FzeroLocalPage page;
   unsigned cup,menu_ticks,selection_tick[2];
+  int slide[2];
 };
 FzeroLocalControls *FzeroLocalControlsCreate(FzeroVersusConfig config,bool scripted) {
   FzeroLocalControls *c=calloc(1,sizeof(*c));if(!c)return NULL;
@@ -156,13 +157,12 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
           if(c->ready[p])c->ready[p]=false;
           else return setup_back(c);
         }
-        static const unsigned order[4]={0,2,1,3};
-        if(!c->ready[p] && (pressed&0x30)) {
-          unsigned row=0;while(order[row]!=c->config.machine[p])++row;
-          c->config.machine[p]=(uint8_t)order[(row+((pressed&0x10)?3:1))%4];
+        bool sliding=c->slide[p] && c->menu_ticks-c->selection_tick[p]<12;
+        if(!c->ready[p] && !sliding && (pressed&0xf4)) {
+          c->config.machine[p]=(uint8_t)FzeroMachineMove(c->config.machine[p],(uint16_t)pressed,&c->slide[p]);
           c->selection_tick[p]=c->menu_ticks;
         }
-        if(pressed&0x108)c->ready[p]=true;
+        if(!sliding && (pressed&0x108))c->ready[p]=true;
       } else {
         if(pressed&1)return setup_back(c);
         if(pressed&0x30) {
@@ -232,8 +232,8 @@ void FzeroLocalControlsDraw(const FzeroLocalControls *c,uint32_t *pixels,int wid
   if(c->page==FZERO_LOCAL_MACHINES) {
     for(unsigned p=0;p<2;++p) {
       FzeroUiCanvas pane={pixels+(size_t)p*224*width,width,224,1};
-      FzeroUiMachineSelect(ui,pane,c->config.machine[p],c->menu_ticks-c->selection_tick[p],p,
-          c->seat[p]!=NO_DEVICE,c->ready[p]);
+      FzeroUiMachineSelectScroll(ui,pane,c->config.machine[p],c->menu_ticks-c->selection_tick[p],p,
+          c->seat[p]!=NO_DEVICE,c->ready[p],c->slide[p]);
     }
     return;
   }

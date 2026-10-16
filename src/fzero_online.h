@@ -5,13 +5,13 @@
  * device handles, transport, wall clocks and the local camera stay outside. */
 enum {FZERO_ONLINE_TITLE,FZERO_ONLINE_MACHINES,FZERO_ONLINE_CUP,
       FZERO_ONLINE_COURSE,FZERO_ONLINE_LOADING,FZERO_ONLINE_RACE,FZERO_ONLINE_EXIT};
-enum {FZERO_ONLINE_STATE_SIZE=96,FZERO_ONLINE_PROTOCOL=2};
+enum {FZERO_ONLINE_STATE_SIZE=96,FZERO_ONLINE_PROTOCOL=3};
 typedef struct FzeroOnlineState {
   uint64_t tick,exit_tick;
   uint64_t selection_tick[2];
   FzeroVersusConfig config;
   uint16_t previous[2],cup;
-  uint8_t phase,ready,aspect,failed,release;
+  uint8_t phase,ready,aspect,failed,release,slide[2];
 } FzeroOnlineState;
 void FzeroOnlineBegin(unsigned aspect,unsigned local_slot);
 void FzeroOnlineEnd(void);

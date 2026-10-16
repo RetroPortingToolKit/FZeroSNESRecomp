@@ -1,4 +1,5 @@
 #include "fzero_ship.h"
+#include "fzero_machine.h"
 #include <string.h>
 
 static unsigned byte(FzeroActorTables t,unsigned address) { return t.read(t.context,address); }
@@ -193,7 +194,11 @@ static bool projected_build(FzeroShip *s,unsigned machine,FzeroActorProjection p
 }
 
 bool FzeroShipBuild(FzeroShip *s,const FzeroActor *camera,const FzeroActor *a,FzeroActorTables t) {
-  if (!s || !camera || !a || !t.read || a->machine>=4) return false;
+  if (!s || !camera || !a || !t.read || a->machine>=FZERO_MACHINE_COUNT) return false;
+  FzeroMachineReader reader;t=FzeroMachineTables(&reader,t,a->machine);
+  FzeroActor native=*a;native.machine=(uint8_t)FzeroMachineSlot(a->machine);
+  if(camera==a)camera=&native;
+  a=&native;
   memset(s,0,sizeof(*s));
   FzeroActorProjection p=FzeroActorProject(camera,a,t);
   if (!p.projectable) return true;
@@ -214,7 +219,8 @@ bool FzeroShipBuild(FzeroShip *s,const FzeroActor *camera,const FzeroActor *a,Fz
 }
 
 bool FzeroShipMenu(FzeroShip *s,unsigned machine,uint64_t age,FzeroActorTables t) {
-  if(!s || machine>=4 || !t.read)return false;
+  if(!s || machine>=FZERO_MACHINE_COUNT || !t.read)return false;
+  FzeroMachineReader reader;t=FzeroMachineTables(&reader,t,machine);machine=FzeroMachineSlot(machine);
   memset(s,0,sizeof(*s));
   /* $03:8AD9 decreases CE every six frames, from 8 through -12, wrapping
    * to 11. $00:ECC5 sends its magnitude straight to the distance-zero
