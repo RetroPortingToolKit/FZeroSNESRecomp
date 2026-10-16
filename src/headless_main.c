@@ -522,7 +522,9 @@ int main(int argc, char **argv) {
   long next_completed_result = 1450;
   const char *save_frame_text = getenv("FZERO_TEST_SAVE_FRAME");
   long save_frame = save_frame_text ? strtol(save_frame_text, NULL, 10) : 1500;
-  bool local_driver=versus && getenv("FZERO_TEST_LOCAL_DRIVER")!=NULL;
+  bool teleport_fixture=versus && getenv("FZERO_TEST_LOCAL_TELEPORT")!=NULL;
+  bool local_driver=versus && (getenv("FZERO_TEST_LOCAL_DRIVER")!=NULL || teleport_fixture);
+  if(teleport_fixture)fputs("qa-teleport: lifecycle fixture; forced poses/health, real gates/laps/finish/results; NOT natural driving validation\n",stderr);
   bool driver_lifecycle=local_driver && getenv("FZERO_LOCAL_DRIVER_LIFECYCLE")!=NULL;
   unsigned driver_checked=0,driver_laps[2]={0,0},driver_status[2]={0,0};
   if(driver_lifecycle)lifecycle="1";
@@ -755,7 +757,8 @@ int main(int argc, char **argv) {
       fprintf(stderr, "[fzero-viewport] frame=%ld width=%d\n", frame, frame_width);
     }
     uint32_t frame_input = scripted_input(input_spans, input_span_count, frame);
-    if(local_driver)frame_input=FzeroLocalDriverInput(FzeroLocalSession());
+    if(teleport_fixture)frame_input=FzeroLocalTeleportFixture(FzeroLocalSession());
+    else if(local_driver)frame_input=FzeroLocalDriverInput(FzeroLocalSession());
     if (records_racing) frame_input |= 1;
     if (records_test && g_ram[0x54] == 3 && g_ram[0x55] == 1 &&
         g_ram[0x56] == 3 && !(frame & 15))
@@ -915,6 +918,21 @@ int main(int argc, char **argv) {
         (unsigned long long)v->tick,v->phase,(unsigned long long)v->race_tick,
         (unsigned long long)FzeroVersusHash(FzeroLocalSession()),v->racers[0].actor.x,v->racers[0].actor.y,
         v->racers[0].status,v->racers[1].actor.x,v->racers[1].actor.y,v->racers[1].status);
+    if(teleport_fixture && qualified) {
+      FzeroVersus *race=FzeroLocalSession();uint64_t result_hash=FzeroVersusHash(race);
+      size_t size=RtlSaveSnapshotToMemory(NULL,0);uint8_t *result=size?malloc(size):NULL;
+      bool ok=result && RtlSaveSnapshotToMemory(result,size)==size && FzeroVersusRematch(race);
+      const FzeroVersusSnapshot *fresh=FzeroVersusCompleted(race);
+      ok=ok && fresh->phase==FZERO_VS_READY && !fresh->tick && !fresh->race_tick &&
+          !fresh->racers[0].completed_laps && !fresh->racers[1].completed_laps &&
+          fresh->racers[0].status==FZERO_VS_ACTIVE && fresh->racers[1].status==FZERO_VS_ACTIVE;
+      FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
+      for(unsigned tick=0;ok && tick<FZERO_VERSUS_COUNTDOWN;++tick)ok=FzeroVersusTick(race,(uint16_t[2]){0,0});
+      ok=ok && fresh->phase==FZERO_VS_RACING && !fresh->race_tick &&
+          RtlLoadSnapshotFromMemory(result,size) && FzeroVersusHash(FzeroLocalSession())==result_hash;
+      free(result);qualified=qualified && ok;
+      fprintf(stderr,"qa-teleport: rematch countdown and full results restore %s\n",ok?"PASS":"FAIL");
+    }
   }
 
   fprintf(stderr,

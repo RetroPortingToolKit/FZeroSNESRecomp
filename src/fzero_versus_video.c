@@ -116,8 +116,8 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     char label[4];snprintf(label,sizeof(label),"P%u",i+1);
     FzeroUiText(ui,canvas,ship->ground_x+viewport.extra-8,y+10,label,FZERO_UI_SMALL,ink[i]);
   }
-  /* Native instruments overlay each complete scenery view. Their cartridge
-   * outline pixels preserve contrast without reserving a black HUD band. */
+  /* Native instruments overlay each complete scenery view, with transparent
+   * font backing rather than a reserved HUD band. */
   char line[64],timer[32];
   unsigned lap=r->completed_laps+1;if(lap>5)lap=5;
   snprintf(line,sizeof(line),"P%u  LAP %u",pane+1,lap);

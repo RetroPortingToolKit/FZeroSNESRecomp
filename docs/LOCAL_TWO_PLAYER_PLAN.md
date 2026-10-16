@@ -1107,3 +1107,52 @@ not yet been requalified on rules 2. Physical two-human play, remaining native
 air/recovery/effect paths, sustained performance and original acceptance gaps
 remain open in beads-8uc1. Windows only per owner; no Linux build was run.
 Dependency pins/private references are unchanged; the absent gitlink is unstaged.
+
+
+### Owner-authorized final QA handoff and teleport fixtures (2026-10-15)
+
+Core handling/HUD/results fixes landed in bf8c8b0. Owner then explicitly waived
+requiring the natural-input course bots to pass and authorized teleport-based
+flow validation followed by owner final playtesting. That supersedes the bot
+pass requirement for this handoff; their failed runs remain recorded above and
+are not reclassified as successful natural driving.
+
+The headless-only FZERO_TEST_LOCAL_TELEPORT fixture forces authored checkpoint
+and finish-strip poses, neutral motion and replenished health. It does NOT
+write gate balances, laps, times, finish statuses or winner. The real shared
+session awards each of five laps and each finish. Participants run sequentially
+so the fixture also observes one-finished continuation. The explicitly labeled
+--teleport-fixture validator checks countdown, racing, one finished, results,
+actual snapshot/rewind continuation and quick-slot namespace restoration. It
+then exercises the real Rematch/Ready/countdown path and restores the complete
+results snapshot. These fixtures do not qualify natural driving or handling.
+
+All 15 stock courses PASS this fixture, including all four selected machine
+IDs and duplicate-machine pairs (70.937 seconds total). Evidence is private at
+captures/l2p-teleport-flow-04. Initial fixture attempts looped on four finish
+approaches and on Death Wind II's windy checkpoint: preserving the complete
+finish-strip approach and teleporting back to exact previous-gate equality for
+the alternate backwards sample corrected the fixture. No gameplay/progress
+rules were changed to force these passes.
+
+The preceding committed Windows build passes eight focused CTests (103.79 s
+under system load). The full host lifecycle/replay validator and all 15 course
+bootstraps pass in captures/l2p-final-state-rules2. Single-player with VS
+availability off/on reaches race scene 02/03 with byte-identical 128 KiB RAM,
+SHA-256 3770cf26a41ace480ebc906c069792835a0bdaafc02be35b128d5721990045f9.
+An initial no-throttle route stayed at the introduction; the counted run uses
+ordinary B input to enter racing.
+
+Owner-authorized Astra xhigh read-only review of the new HUD, all-four drift
+and crash/results screenshots finds no visible defect: transparent backing,
+complete ship silhouettes, sparks, native CRASHED OUT styling and clear dashed
+incomplete times. It qualifies screenshots only. A no-readback desktop smoke
+also passes all driven menu transitions (21.38 s; 879 simulation ticks, 873
+presentations, five missed presentation slots at target 60 Hz). That short run
+is not a sustained-cadence certification.
+
+Final physical two-human handling/course/effect validation is handed to the
+owner as requested. Air/recovery/exhaust-palette coverage and extended cadence
+remain unqualified; no all-interactions or release-acceptance claim is made.
+The issue stays in progress for owner QA. Windows only; pins/private references
+and the unstaged absent gitlink remain preserved.
