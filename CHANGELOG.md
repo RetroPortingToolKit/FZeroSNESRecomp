@@ -1,6 +1,16 @@
 ﻿# Changelog
 
-## 1.9.0 - Windows multiplayer playtest
+## 0.10.1 - Private multiplayer playtest
+
+- Enable the existing MSU-1 setting in local and online VS. Reuse per-course
+  recordings and menu music selections, with native SNES fallback for missing
+  songs. Keep native engine, drift, collision and explosion effects and echo.
+- Treat replacement audio as local presentation: peers can use different
+  soundtracks or SNES music while retaining identical simulated SPC state.
+  Preserve playback across pause and rollback; restart restored race music on
+  load/rewind, as single-player does.
+- Windows private playtest packages only. Custom course catalogs still must
+  match; course imports are not transferred automatically.
 
 - Add native-style VS MODE with local top/bottom split-screen and online
   two-player racing through recomp-ui/recomp-net. Online players use independent
@@ -17,8 +27,7 @@
   checks. Add Collect diagnostics.cmd to make a report ZIP after any problem.
 - Windows playtest: physical handling, sustained performance and remote
   Internet/ICE still need human validation. Online rewind and automatic custom
-  pack transfer are unavailable. VS uses native SNES music; MSU/PCM replacements
-  remain single-player features. Linux/cross-platform netplay is unqualified.
+  pack transfer are unavailable. Linux/cross-platform netplay is unqualified.
 
 ## 0.10.0 - Crash capture and replay
 

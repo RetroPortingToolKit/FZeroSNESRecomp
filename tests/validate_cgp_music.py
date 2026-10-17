@@ -45,6 +45,14 @@ def main():
     pack, empty, legacy = out / "synthetic", out / "empty", out / "legacy"
     make_tracks(pack, "cgp", list(range(1, 6)) + [7] + list(range(10, 65)))
     make_tracks(pack, "F-ZERO Astra Front", range(10,19), bias=100)
+    # Owner installations can already contain real recordings. Keep those
+    # from masking synthetic signatures and deliberate missing-file cases.
+    catalog = out / 'catalog'
+    shutil.copytree(args.packs.resolve(), catalog, ignore=shutil.ignore_patterns('*.pcm', '*.msu'))
+    menu = catalog / 'cgp/music'
+    menu.mkdir(exist_ok=True)
+    for number in (1, 2, 3, 4, 5, 7):
+        shutil.copy2(pack / f'cgp-{number}.pcm', menu / f'cgp-{number}.pcm')
     empty.mkdir()
     clean = {k: v for k, v in os.environ.items()
              if not k.startswith(("FZERO_", "SNESRECOMP_", "SDL_", "LNG_"))}
@@ -102,7 +110,7 @@ def main():
         installed_root = None
         if case.get("installed"):
             installed_root=folder/'mods/packs'
-            shutil.copytree(args.packs,installed_root)
+            shutil.copytree(catalog,installed_root)
             shutil.copytree(pack,installed_root/'audio')
             audio=installed_root/'audio'
             music=audio/'music';music.mkdir()
@@ -111,7 +119,7 @@ def main():
                                   soundtracks=[dict(id="cgp",prefix="cgp",directory="music")]))
         if case.get("course_files"):
             installed_root=folder/'mods/packs'
-            shutil.copytree(args.packs,installed_root)
+            shutil.copytree(catalog,installed_root)
             # Keep the existing shared menu cues. Race songs have no prefix or
             # new JSON map, including Bower which has no MSU metadata at all.
             menu=installed_root/'cgp/music';menu.mkdir(exist_ok=True)
@@ -143,7 +151,7 @@ def main():
                    FZERO_BS_TRACKS=str(int(bs)), FZERO_CGP_CARS=str(packs),
                    FZERO_CGP_REBALANCE="15" if packs else "0",
                    FZERO_RULES="" if case.get("legacy") else "all,cgp-msu,cgp-credits",
-                   FZERO_TRACK_PACKS="packs", FZERO_PACKS_DIR=str(installed_root or args.packs.resolve()),
+                   FZERO_TRACK_PACKS="packs", FZERO_PACKS_DIR=str(installed_root or catalog),
                    FZERO_PACK_LOADER="0" if bs else "1", FZERO_TEST_COURSE=str(case.get("ordinal",0)), SNESRECOMP_SAVE_ROOT="s",
                    SNESRECOMP_INPUT_SCRIPT=inputs, SNESRECOMP_WAV=str(folder / "audio.wav"),
                    SNESRECOMP_WRAM_DUMP=str(folder / "ram.bin"),

@@ -44,7 +44,8 @@ static bool profile(bool local) {
   FzeroTrackLoaderEnable(loader);FzeroTracksEnableTitle(local?false:title);
   FzeroGameplaySettings active=local?(FzeroGameplaySettings){0}:rules;
   FzeroGameplayConfigure(&active,local?false:cars,tracks);
-  bool ok=FzeroMsuConfigure(local?"":music_name,local?false:cgp_music,rom_name) &&
+  bool ok=(local?FzeroMsuConfigureVersus(music_name,cgp_music,rom_name):
+      FzeroMsuConfigure(music_name,cgp_music,rom_name)) &&
       FzeroTracksPrepare(&rom,&size,local?false:cars,deluxe_name);
   if(ok) {
     snes_free(g_snes);g_snes=NULL;

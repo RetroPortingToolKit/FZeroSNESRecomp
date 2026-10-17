@@ -5,11 +5,16 @@
 #include "fzero_packs.h"
 #include "fzero_menu_music.h"
 #include "fzero_course_runtime.h"
+#include "fzero_local.h"
+#include "fzero_online.h"
 #include "common_rtl.h"
 #include "cpu_state.h"
 #include "sha256.h"
 #include "snes/interp_bridge.h"
 #include "snes/msu1.h"
+#include "snes/snes.h"
+#include "snes/apu.h"
+#include "snes/dsp.h"
 
 #include <stdio.h>
 #include <ctype.h>
@@ -18,11 +23,17 @@
 #include <sys/stat.h>
 
 static bool active;
+static bool versus_music, versus_pcm, versus_loop;
+static unsigned versus_command=~0u, versus_course=~0u;
+static uint64_t versus_master;
+static uint64_t versus_generation;
+extern Snes *g_snes;
 static char legacy_pack[1024], source_rom[1024];
 static char error[256];
 static FzeroMusicSources music_sources;
 static char selected_source[96], resolved_directory[1024];
 static bool selected_supported = true, selected_race, directory_loaded, directory_valid;
+static bool versus_voices(uint8_t voices);
 
 void FzeroMsuSelectTrackSource(const char *source, bool race) {
   selected_supported = source != NULL;
@@ -108,6 +119,9 @@ bool FzeroMsuHasLegacyPatch(const char *pack) {
   return stat(path,&st)==0;
 }
 bool FzeroMsuConfigure(const char *pack, bool cgp, const char *rom_path) {
+  /* A cold return to single-player must restore all native voices too. */
+  (void)versus_voices(0xff);
+  versus_music=versus_pcm=false;versus_command=versus_course=~0u;versus_master=0;
   active=false; legacy_pack[0]=0; error[0]=0;
   FzeroMsuSelectTrackSource("", false);
   directory_loaded = false;
@@ -127,6 +141,74 @@ bool FzeroMsuConfigure(const char *pack, bool cgp, const char *rom_path) {
   snprintf(legacy_pack,sizeof(legacy_pack),"%s",requested);
   snprintf(source_rom,sizeof(source_rom),"%s",rom_path?rom_path:"");
   return true;
+}
+bool FzeroMsuConfigureVersus(const char *pack, bool cgp, const char *rom_path) {
+  /* Arm the existing PCM core/resolver without importing any guest patch.
+   * A peer's music choice or missing files must not alter simulation state. */
+  if(!FzeroMsuConfigure(pack,true,rom_path))return false;
+  if(!cgp)msu1_set_track_resolver(NULL,NULL);
+  const char *configured=getenv("SNESRECOMP_MSU1");
+  char base[1024];snprintf(base,sizeof(base),"%s",configured?configured:"");
+  if(!strcmp(base,"off") || !strcmp(base,"0"))base[0]=0;
+  if(!strcmp(base,"auto") || !strcmp(base,"on") || !strcmp(base,"1")) {
+    if(snprintf(base,sizeof(base),"%s",rom_path?rom_path:"fzero.sfc")>=(int)sizeof(base)) {
+      snprintf(error,sizeof(error),"Music path is too long");set_pack("");return false;
+    }
+    char *dot=strrchr(base,'.'),*slash=strrchr(base,'/'),*back=strrchr(base,'\\');
+    if(!slash || (back && back>slash))slash=back;
+    if(dot && (!slash || dot>slash))*dot=0;
+  }
+  set_pack(base);versus_music=*base!=0;
+  return true;
+}
+static bool versus_voices(uint8_t voices) {
+  if(!g_snes || !g_snes->apu)return false;
+  RtlApuLock();
+  bool ok=dsp_set_output_voices(g_snes->apu->dsp,voices);
+  RtlApuUnlock();return ok;
+}
+void FzeroMsuUpdateVersus(void) {
+  if(!versus_music || !FzeroLocalEnabled() || !g_snes)return;
+  const FzeroVersusSnapshot *race=FzeroVersusCompleted(FzeroLocalSession());
+  unsigned command=FzeroLocalMusicCommand();
+  const FzeroOnlineState *online=FzeroOnlineCompleted();
+  if(FzeroOnlineEnabled() && online->phase>=FZERO_ONLINE_MACHINES && online->phase<=FZERO_ONLINE_COURSE)
+    command=5;
+  unsigned course=FzeroLocalConfig().course;
+  unsigned song=command&7;
+  bool changed=versus_command==~0u || song!=(versus_command&7) ||
+      (song==6 && course!=versus_course) || g_cpu.master_cycles<versus_master ||
+      versus_generation!=RtlStateGeneration();
+  versus_master=g_cpu.master_cycles;
+  versus_generation=RtlStateGeneration();
+  if(changed) {
+    versus_command=song;versus_course=course;versus_pcm=false;
+    msu1_write(0x2007,0);(void)versus_voices(0xff);
+    if(song && msu1_enabled()) {
+      unsigned track=FzeroGameplayMusicTrack(song);
+      msu1_write(0x2004,(uint8_t)track);msu1_write(0x2005,(uint8_t)(track>>8));
+      if(!(msu1_read(0x2000)&8) && versus_voices(0xc0)) {
+        versus_pcm=true;versus_loop=song>3;
+        msu1_write(0x2006,255);msu1_write(0x2007,versus_loop?3:1);
+      }
+      fprintf(stderr,"[versus-msu] command=%u course=%u track=%u output=%s\n",song,course,track,versus_pcm?"PCM":"SPC");
+    }
+  }
+  if(!versus_pcm)return;
+  /* A broken/empty looping file must restore native audio, not a silent race.
+   * One-shot event songs are allowed to end normally. */
+  if(versus_loop && !(msu1_read(0x2000)&0x10)) {
+    versus_pcm=false;msu1_write(0x2007,0);(void)versus_voices(0xff);
+    fprintf(stderr,"[versus-msu] Playback stopped unexpectedly; using SPC\n");return;
+  }
+  unsigned volume=255;
+  if(race && (command&0x80)) {
+    /* Follow the native SPC's result fade without changing its master or
+     * stopping native engine, collision, drift and explosion channels. */
+    RtlApuLock();int master=g_snes->apu->dsp->masterVolumeL;RtlApuUnlock();
+    volume=master<=0?0:master>=0x54?255:(unsigned)master*255/0x54;
+  }
+  msu1_write(0x2006,(uint8_t)volume);
 }
 bool FzeroMsuApplyConfigured(uint8_t **rom, size_t *size) {
   return !*legacy_pack || FzeroMsuPrepare(rom,size,legacy_pack,source_rom);
@@ -229,6 +311,13 @@ bool FzeroMsuSelectSaveRoot(void) {
 }
 
 void FzeroMsuRestoreAudio(const uint8_t *ram) {
+  if(versus_music && FzeroLocalEnabled()) {
+    /* Rollback restores are speculative: keep live audio playing. Actual
+     * online loads change RtlStateGeneration and restart at presentation. */
+    if(FzeroOnlineEnabled())return;
+    msu1_write(0x2007,0);(void)versus_voices(0xff);
+    versus_pcm=false;versus_command=versus_course=~0u;versus_master=0;return;
+  }
   if (FzeroRuleEnabled(FZERO_RULE_MSU) && msu1_enabled()) {
     msu1_write(0x2007,0);
     unsigned command=ram[0x181] ? ram[0x46]&7 : ram[0x180];

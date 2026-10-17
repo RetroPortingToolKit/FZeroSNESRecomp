@@ -428,7 +428,14 @@ int main(int argc, char **argv) {
     capture_video.gameplay=*FzeroGameplaySettingsCurrent();
     capture_video.bs_deluxe=FzeroBsCars(); capture_video.bs_tracks=FzeroBsTracks();
   }
-  if (!FzeroMsuConfigure(getenv("SNESRECOMP_MSU1"), FzeroRuleEnabled(FZERO_RULE_MSU), argv[1])) {
+  const char *music=getenv("SNESRECOMP_MSU1");
+  bool music_requested=music && *music && strcmp(music,"off") && strcmp(music,"0");
+  bool configured_music=versus?FzeroMsuConfigureVersus(music,
+      !FzeroMsuHasLegacyPatch(music),argv[1]):
+      FzeroMsuConfigure(music,FzeroRuleEnabled(FZERO_RULE_MSU),argv[1]);
+  if(versus && music_requested)
+    capture_video.gameplay.enabled|=1u<<FZERO_RULE_MSU;
+  if (!configured_music) {
     fprintf(stderr,"[fzero-msu1] %s\n",FzeroMsuError());free(rom);return 2;
   }
   bool mode_test=getenv("FZERO_TEST_VS_FLOW")!=NULL;
@@ -561,6 +568,9 @@ int main(int argc, char **argv) {
     if(catalog_result<0) {fprintf(stderr,"catalog-test: FAIL course=%u\n",catalog_course);return 12;}
     if(catalog_result>0) {frame_limit=frame;break;}
     if(mode_test && !mode_stage && FzeroVsMenuRequested()) {
+      /* Start from current vehicle metadata. A virgin Practice workspace
+       * otherwise exercises legacy rival-sentinel migration on load too. */
+      FzeroVehiclesLoaded();
       memcpy(menu_ram,g_ram,sizeof(menu_ram));snprintf(menu_root,sizeof(menu_root),"%s",RtlSaveRoot());
       menu_rules=*FzeroGameplaySettingsCurrent();
       if(!FzeroLocalModeEnter((FzeroVersusConfig){0,{0,1}}))return 12;
@@ -575,7 +585,10 @@ int main(int argc, char **argv) {
       } else {
         if(!FzeroLocalModeReturn() || memcmp(menu_ram,g_ram,sizeof(menu_ram)) || strcmp(menu_root,RtlSaveRoot()) ||
             memcmp(&menu_rules,FzeroGameplaySettingsCurrent(),sizeof(menu_rules)) || FzeroLocalEnabled()) {
-          fputs("mode-flow: return context mismatch\n",stderr);return 12;
+          size_t at=0;while(at<sizeof(menu_ram) && menu_ram[at]==g_ram[at])++at;
+          fprintf(stderr,"mode-flow: return context mismatch at=%zx expected=%02x actual=%02x root=%s expected-root=%s rules=%x expected-rules=%x enabled=%u\n",
+              at,at<sizeof(menu_ram)?menu_ram[at]:0,at<sizeof(menu_ram)?g_ram[at]:0,
+              RtlSaveRoot(),menu_root,FzeroGameplaySettingsCurrent()->enabled,menu_rules.enabled,FzeroLocalEnabled());return 12;
         }
         mode_stage=3;FzeroSetViewport(FzeroCalculateViewport(&replay_video,768,576));
         frame_width=FzeroFrameWidth();FzeroBeginDrawing(pixels,(size_t)frame_width*4);
@@ -826,6 +839,7 @@ int main(int argc, char **argv) {
     FzeroDrawPpuFrame();
     if(mode_test || getenv("FZERO_TEST_VS_MENU"))FzeroPresent(1);
     if(versus && present_every>1 && frame%present_every==0)FzeroPresent(1);
+    FzeroMsuUpdateVersus();
     FzeroCaptureAfter();
     if(FzeroCaptureReplayFailed())return 11;
     /* Private UI regressions need the final composed frame, including host

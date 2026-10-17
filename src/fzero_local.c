@@ -123,6 +123,7 @@ bool FzeroLocalTick(uint32_t packed) {
   for(unsigned port=0;port<4;++port)snes_writeBBus(g_snes,(uint8_t)(0x40+port),commands.ports[port]);
   return true;
 }
+uint8_t FzeroLocalMusicCommand(void) {return session?sound.music:g_ram[0x46];}
 uint16_t FzeroLocalSetupInput(void) {
   if(!enabled)return 0;
   if(fast_setup) {

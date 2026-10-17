@@ -14,6 +14,7 @@ def main():
         p.add_argument('--' + key, type=Path, required=True)
     p.add_argument('--capture', type=Path, help='Validate an existing capture, including either online seat')
     p.add_argument('--single', action='store_true', help='Capture ordinary native single-player instead of local VS')
+    p.add_argument('--music', default='off', help='Peer-local MSU prefix/directory for the original recording')
     a = p.parse_args()
     root = Path(__file__).resolve().parents[1]
     build, rom, packs, out = (getattr(a, key).resolve() for key in ('build', 'rom', 'packs', 'out'))
@@ -31,6 +32,7 @@ def main():
                    FZERO_PACKS_DIR=str(packs), FZERO_TRACK_PACKS=str(out / 'settings'),
                    FZERO_CAPTURE_DIR=str(out / 'diagnostics'), SNESRECOMP_SAVE_ROOT='s',
                    SNESRECOMP_WRAM_DUMP=str(out / 'original.ram'),
+                   SNESRECOMP_MSU1=a.music,
                    SNESRECOMP_INPUT_SCRIPT='1000-1249:4097')
         command = [str(build / 'FZeroSNESRecompHeadless.exe'), str(rom), '1550' if a.single else '1250']
         if a.single:

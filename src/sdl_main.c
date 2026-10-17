@@ -1762,20 +1762,16 @@ static int run_game(int argc, char **argv) {
    * session. The user's settings file is left alone, so fixing the build or
    * removing the override brings Deluxe back without touching it. */
   const char *msu_override = getenv("SNESRECOMP_MSU1");
-  if(local_two_player) {
-    /* Session-local profile: saved single-player settings remain available. */
-    msu_override="off";
-  }
   bool bundled_music = (!msu_override || !*msu_override) && launcher_settings.msu1_enabled;
   const char *msu_pack = msu_override && *msu_override ? msu_override :
       !launcher_settings.msu1_enabled ? "" : "mods/packs/installed-music";
-  if(local_two_player)msu_pack="";
   bool use_cgp_music = *msu_pack && strcmp(msu_pack,"off") && strcmp(msu_pack,"0") &&
                       (bundled_music || !FzeroMsuHasLegacyPatch(msu_pack));
   g_video.gameplay.enabled &= ~(1u << FZERO_RULE_MSU);
   if (use_cgp_music) g_video.gameplay.enabled |= 1u << FZERO_RULE_MSU;
   char session_msu_pack[1024];snprintf(session_msu_pack,sizeof(session_msu_pack),"%s",msu_pack);
-  if (!FzeroMsuConfigure(session_msu_pack,use_cgp_music,rom_path)) {
+  if (!(local_two_player?FzeroMsuConfigureVersus(session_msu_pack,use_cgp_music,rom_path):
+        FzeroMsuConfigure(session_msu_pack,use_cgp_music,rom_path))) {
     fprintf(stderr,"[fzero-msu1] %s Starting with SNES music.\n",FzeroMsuError());
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING,"Music pack not loaded",FzeroMsuError(),NULL);
     FzeroMsuConfigure("",false,rom_path);session_msu_pack[0]=0;use_cgp_music=false;
@@ -2457,6 +2453,7 @@ static int run_game(int argc, char **argv) {
       diagnostic_start = FzeroDiagnosticsBegin();
       FzeroDrawPpuFrame();
       if(online)FzeroNetplayFinish();
+      FzeroMsuUpdateVersus();
       FzeroDiagnosticsEnd(FZERO_DIAG_PPU, diagnostic_start);
       FzeroCaptureAfter();
       if(FzeroCaptureReplayFailed()) {g_selftest_failed=1;running=0;break;}

@@ -1590,3 +1590,30 @@ physical handling/controller acceptance, sustained performance and real remote
 Internet/ICE remain manual checks. Current validation is Windows same-build;
 Linux and cross-platform netplay are not qualified. Natural full-course driving
 is not claimed from the owner-authorized teleport lifecycle fixtures.
+
+## Private 0.10.1 versus MSU patch (2026-10-16)
+
+The owner requested MSU in local/online VS and explicitly requires a local,
+private release numbered 0.10.1 for the f-zero-forever branch. Do not publish a
+GitHub release, tag or source branch for this patch. Central tracking is
+beads-8wg.5.103, with shared DSP work under beads-8wg.2.129.
+
+VS now reuses the existing MSU PCM core and per-course/menu music resolver at
+presentation. It does not install a music ROM patch, change gameplay rules or
+modify the canonical SPC voices. Engine commit 10ff8d5 adds output-only voice
+routing with separate native FIR echo history, outside DSP serialization and
+the shared digest. Native engine, drift, collision and explosion channels keep
+their echo. Rollback preserves the presentation timeline; actual loads/rewinds
+restart the restored song, matching the existing single-player convention.
+Missing/empty recordings restore native SNES music. Legacy numeric prefixes and
+the ROM-adjacent auto shortcut also work without applying a guest patch in VS.
+
+Validation uses synthetic stereo signatures at the actual mixer, full APU/RAM
+comparison, four portable DSP test variants, single-player regressions, exact
+diagnostic replay and actual SDL peers with differing audio preferences. The
+peer harness reuses its two fixed installations to avoid new firewall prompts.
+Final source commits, individual passing and failed runs, archive checks and
+remaining manual gates are recorded in the central issues. Private intermediate
+evidence remains in captures/private191 despite the final version correction.
+Custom imports are not transferred: the existing catalog check includes IDs,
+cup/course names and order, in addition to course resource hashes.

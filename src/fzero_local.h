@@ -15,6 +15,8 @@ void FzeroLocalShutdown(void);
 bool FzeroLocalEnabled(void);
 FzeroVersus *FzeroLocalSession(void);
 bool FzeroLocalTick(uint32_t packed_runner_inputs);
+/* Logical native command, independent of the local PCM output preference. */
+uint8_t FzeroLocalMusicCommand(void);
 uint16_t FzeroLocalSetupInput(void);
 void FzeroLocalSetupTick(unsigned host_frame);
 void FzeroLocalPrepareCourse(void);

@@ -30,7 +30,11 @@ After both are ready, the host chooses league and course. The same enabled
 course catalog as single-player is available, including custom imports. Both
 participants need the same build and enabled course packs. Automatic transfer
 of F-Zero imports is not implemented; an exact catalog mismatch refuses the
-match before its first simulation tick. Personal single-player modifications
+match before its first simulation tick. The catalog identity includes stable
+IDs, cup/course names and order as well as decoded track data: independently
+renamed imports can therefore be rejected even when their layouts match.
+Renaming only an enclosing installation folder does not change the identity.
+Personal single-player modifications
 are retained. VS offers all twelve existing machine identities in the original
 three-column selector. The four original cars retain retail handling; the
 eight added ships use their authored CGP handling, energy boost and exhaust.
@@ -63,6 +67,17 @@ As in single-player, pause keeps the song playing and clears vehicle effects;
 it never sends the native crash command. Engine noise or a crash tail alone
 does not pass the check. The actual-peer `pause` scenario exercises pausing
 from both seats and verifies music after the host resumes.
+
+MSU-1 also works in local and online VS through the existing Audio setting.
+The existing course-file and menu/event music resolver is reused; missing or
+empty recordings restore SNES music. Audio files and the music preference are
+local to each computer and do not have to match. The complete native SPC/DSP
+simulation still runs identically; only the output mixer replaces music voices,
+retaining native engine/effect voices and their original FIR echo. Rollback
+does not restart the soundtrack or advance its presentation echo. Pause keeps
+music playing, and actual loads/rewinds restart the restored song rather than
+restoring an exact PCM sample position, matching single-player's behavior.
+This does not relax build or course-catalog checks or transfer any files.
 
 ## State and compatibility
 

@@ -21,7 +21,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     for name in ('build', 'runtime', 'rom', 'packs', 'settings', 'video', 'out'):
         p.add_argument('--' + name, type=Path, required=True)
-    p.add_argument('--scenario', choices=('selection', 'devices', 'titleback', 'titlestate', 'driving', 'finish', 'crash', 'state', 'reject', 'menuwrap', 'pause', 'change'), default='driving')
+    p.add_argument('--scenario', choices=('selection', 'devices', 'titleback', 'titlestate', 'driving', 'finish', 'crash', 'state', 'reject', 'reject-catalog', 'menuwrap', 'pause', 'change'), default='driving')
     p.add_argument('--machines', default='2,3', help='Two stable vehicle IDs (0..11), selected through real menu controls')
     p.add_argument('--cup', type=int, default=0, help='Select this enabled league through synchronized menu inputs')
     p.add_argument('--course-order', type=int, default=1, help='Zero-based course within the selected league')
@@ -30,6 +30,10 @@ def main():
     p.add_argument('--hd-peer', action='store_true')
     p.add_argument('--rematch', action='store_true', help='Start another race after the finish fixture results')
     p.add_argument('--port', type=int, default=18770)
+    p.add_argument('--music0', default='off', help='Peer-local MSU prefix/directory for seat 1')
+    p.add_argument('--music1', default='off', help='Peer-local MSU prefix/directory for seat 2')
+    p.add_argument('--packs1', type=Path, help='Guest catalog override, including mismatch refusal checks')
+    p.add_argument('--force-mispredict', type=int, default=0, help='Shared driver rollback fixture: correct every Nth remote row')
     p.add_argument('--peers-dir', type=Path, help='Persistent QA installation (default: BUILD/qa-peers); reuse for every case')
     a = p.parse_args()
     if a.course_order < 0:
@@ -58,7 +62,7 @@ def main():
     lock_fd = os.open(lock, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     os.write(lock_fd, ('%d %s\n' % (os.getpid(), a.out)).encode())
     os.close(lock_fd)
-    frames = dict(selection=550, devices=700, titleback=600, titlestate=1000, driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, menuwrap=1000, pause=1000, change=1300)[a.scenario]
+    frames = dict(selection=550, devices=700, titleback=600, titlestate=1000, driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, **{'reject-catalog':300}, menuwrap=1000, pause=1000, change=1300)[a.scenario]
     if a.scenario != 'selection':
         frames += 460  # Real native boot/title and the synchronized VS action.
     processes, logs, launches = [], [], []
@@ -92,8 +96,8 @@ def main():
             env = {k: v for k, v in os.environ.items() if not k.startswith(
                 ('FZERO_', 'SNESRECOMP_', 'SDL_', 'SNES_NET_', 'SNES_RB', 'RNET_', 'LNG_'))}
             env.update(SDL_AUDIODRIVER='dummy', FZERO_TEST_LOCAL_UI_HIDDEN='1',
-                       FZERO_VIDEO_CONFIG=str(folder / 'video.ini'), FZERO_PACKS_DIR=str(a.packs),
-                       FZERO_TRACK_PACKS=str(a.settings), FZERO_PACK_LOADER='1', SNESRECOMP_MSU1='off',
+                       FZERO_VIDEO_CONFIG=str(folder / 'video.ini'), FZERO_PACKS_DIR=str(a.packs1.resolve() if slot == 1 and a.packs1 else a.packs),
+                       FZERO_TRACK_PACKS=str(a.settings), FZERO_PACK_LOADER='1', SNESRECOMP_MSU1=(a.music0, a.music1)[slot],
                        SNES_NET_ENABLE='1', SNES_NET_SLOT=str(slot), SNES_NET_MODE='rollback',
                        SNES_NET_BIND='127.0.0.1:%d' % (a.port + slot),
                        SNES_NET_PEER='127.0.0.1:%d' % (a.port + 1 - slot),
@@ -140,6 +144,8 @@ def main():
                 env['FZERO_NET_ASPECT'] = str((a.aspect + 1) % 3)
             if a.loss:
                 env.update(RNET_SIM_LATENCY_MS='30', RNET_SIM_JITTER_MS='15', RNET_SIM_LOSS_PCT='10', RNET_SIM_SEED=str(42 + slot))
+            if a.force_mispredict:
+                env['RNET_RB_FORCE_MISPREDICT'] = str(a.force_mispredict)
             # Every case enters the actual native menu. An extra Down is harmless
             # when Records is locked, since VS is the final row in either layout.
             shifted = []
@@ -167,7 +173,9 @@ def main():
         for command, options in launches:
             processes.append(subprocess.Popen(command, **options))
             time.sleep(.2)
-        deadline = time.monotonic() + 100
+        # Lifecycle runs can be much longer than selection. This is a logic
+        # gate, not a sustained-performance qualification on a busy desktop.
+        deadline = time.monotonic() + max(100, frames / 15 + 30)
         while any(proc.poll() is None for proc in processes) and time.monotonic() < deadline:
             time.sleep(.25)
         assert all(proc.poll() is not None for proc in processes), 'peer timeout'
@@ -187,17 +195,21 @@ def main():
             lock.unlink()
     text = [(a.out / ('peer%d/game.log' % i)).read_text(errors='replace') for i in range(2)]
     report = dict(scenario=a.scenario, machines=a.machines, cup=a.cup, course_order=a.course_order,
+                  music=[a.music0, a.music1],
                   aspect=a.aspect, loss=a.loss, hd_peer=a.hd_peer,
+                  force_mispredict=a.force_mispredict,
                   peer_installation=str(a.peers_dir),
                   executable_sha256=hashlib.sha256((a.build / 'FZeroSNESRecomp.exe').read_bytes()).hexdigest(),
                   seconds=round(time.monotonic() - started, 3), exits=[proc.returncode for proc in processes])
-    if a.scenario == 'reject':
+    if a.scenario in ('reject', 'reject-catalog'):
         assert all('mod_set_mismatch' in s for s in text), 'expected exact identity refusal'
         assert all('simulation=0' in s for s in text), 'incompatible peer admitted a simulation frame'
     else:
         assert report['exits'] == [0, 0], report
         assert all('desync=0' in s for s in text), 'desync or missing final report'
         assert all('starting UNVERIFIED' not in s for s in text), 'startup state verification timed out'
+        if a.force_mispredict:
+            assert all(re.search(r'final tick=\d+ confirmed=\d+ episodes=[1-9]\d* resim=[1-9]\d*', s) for s in text), 'rollback fixture did not replay ticks'
         rows, last_ticks = [], []
         for i in range(2):
             found = sorted((a.out / ('peer%d' % i)).glob('sim*.csv'))
