@@ -125,7 +125,7 @@ def main():
                     inputs += ',2400-2402:8'
             elif a.scenario == 'crash':
                 env['FZERO_TEST_ONLINE_FIXTURE'] = 'crash'
-            elif frames > 400 and a.scenario not in ('selection', 'titleback', 'pause'):
+            elif frames > 860 and a.scenario not in ('selection', 'titleback', 'pause'):
                 inputs += ',400-%d:1' % (frames - 461)
             if a.scenario == 'titlestate' and slot == 0:
                 env.update(FZERO_STATE_SAVE_AT='335:4', FZERO_STATE_LOAD_AT='350:4')
@@ -210,6 +210,10 @@ def main():
         assert all('starting UNVERIFIED' not in s for s in text), 'startup state verification timed out'
         if a.force_mispredict:
             assert all(re.search(r'final tick=\d+ confirmed=\d+ episodes=[1-9]\d* resim=[1-9]\d*', s) for s in text), 'rollback fixture did not replay ticks'
+            if a.scenario == 'pause':
+                for slot, music in enumerate((a.music0, a.music1)):
+                    if music != 'off':
+                        assert len(re.findall(r'\[versus-msu\] command=6 ', text[slot])) == 1, 'rollback restarted the live race soundtrack'
         rows, last_ticks = [], []
         for i in range(2):
             found = sorted((a.out / ('peer%d' % i)).glob('sim*.csv'))

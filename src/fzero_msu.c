@@ -177,7 +177,8 @@ void FzeroMsuUpdateVersus(void) {
   unsigned course=FzeroLocalConfig().course;
   unsigned song=command&7;
   bool changed=versus_command==~0u || song!=(versus_command&7) ||
-      (song==6 && course!=versus_course) || g_cpu.master_cycles<versus_master ||
+      (song==6 && course!=versus_course) ||
+      (!FzeroOnlineEnabled() && g_cpu.master_cycles<versus_master) ||
       versus_generation!=RtlStateGeneration();
   versus_master=g_cpu.master_cycles;
   versus_generation=RtlStateGeneration();
