@@ -214,7 +214,8 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.ps1", stage / "Collect diagnostic
 shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostics.cmd")
 (stage/"README.txt").write_text(
     f"F-Zero Forever {release_version} - Windows x64\n\n"
-    "For local two-player, enable Mods > Local 2 Player, then choose VS MODE on the title screen.\n"
+    "Local 2 Player defaults on; choose VS MODE on the title screen for local split-screen.\n"
+    "CGP original-car rebalances default on; conflicting BS vehicles default off. Saved choices are respected.\n"
     "Assign a different keyboard/controller source to each player in Controls before playing.\n"
     "Multiplayer never pauses; rematch and change-race menus appear only after the race.\n"
     "See docs/LOCAL_CONTROLS_AND_MODS.md for Steam Input and which mods apply in each mode.\n"

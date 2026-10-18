@@ -11,14 +11,14 @@
 
 static const char *const aspect_names[] = {"4:3", "16:9", "21:9", "32:9", "Fit"};
 
-/* Existing mods stay on; HD Mode 7 is a separate opt-in. Aspect follows
+/* CGP car rebalances and local VS default on; HD Mode 7 is opt-in. Aspect follows
  * the window, presentation rate follows the display. Hosts that need the
  * stock baseline (headless captures, tools) call FzeroVideoStock(). */
 void FzeroVideoDefaults(FzeroVideoSettings *s) {
   *s = (FzeroVideoSettings){.enhanced = true, .aspect = FZERO_ASPECT_FIT,
-                            .fps = 0, .fps_enabled = true, .bs_deluxe = true,
+                            .fps = 0, .fps_enabled = true, .local_two_player = true,
                             .hd_scale = 2, .diagnostics = false, .crash_replay = true,
-                            .gameplay = {.enabled=FZERO_RULE_DEFAULT_MASK, .tuning=2, .boost=2, .exhaust=2, .always_records=true}};
+                            .gameplay = {.enabled=FZERO_RULE_DEFAULT_MASK, .tuning=2, .boost=2, .exhaust=2, .stock_rebalance=15, .always_records=true}};
 }
 
 void FzeroVideoStock(FzeroVideoSettings *s) {

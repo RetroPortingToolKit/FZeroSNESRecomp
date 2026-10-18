@@ -2,7 +2,7 @@
 
 Choose each player's input source in the launcher's **Controls** page before
 playing: for example, P1 Keyboard and P2 the selected Switch Pro controller.
-Enable **Local 2 Player** in Mods, press Play, and select **VS MODE** on the
+**Local 2 Player** defaults on in Mods. Press Play and select **VS MODE** on the
 title screen. Each device controls only its assigned player's car selection
 and race. Assign different controllers when both players use gamepads.
 
@@ -27,6 +27,10 @@ its normal pause behavior.
 | Single-player vehicle packs and original-car rebalances | Single-player only. Versus always has its own twelve-machine selector; each chosen machine carries its authored handling and boost behavior. |
 | CGP gameplay rules | Single-player only. Versus uses fixed shared rules. Terrain mechanics required by an imported course follow that course in both modes. |
 | MSU-1 and installed music | Single-player and versus; online music choices are local to each peer. Fresh settings default on. Missing songs use SNES music. Explicit saved opt-outs remain off. |
+
+CGP original-car rebalances default on for single-player; conflicting BS
+vehicles default off. Saved settings take precedence. Extra CGP vehicles remain
+a separate choice.
 
 Full-course rendering is always active in races, including 4:3 and both local
 views. It does not depend on widescreen or texture smoothing. The renderer

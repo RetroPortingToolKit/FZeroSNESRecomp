@@ -64,6 +64,16 @@ def main():
     config = configparser.ConfigParser()
     config.read(stage/'config.ini')
     assert config.getint('Sound', 'Msu1Enabled') == 1
+    video = configparser.ConfigParser()
+    video.optionxform = str
+    video.read(stage/'fzero-video.ini')
+    assert video.getint('FZeroVideo', 'LocalTwoPlayer') == 1
+    assert video.getint('FZeroVideo', 'CGPStockRebalance') == 15
+    assert video.getint('FZeroVideo', 'BSVehicles') == 0
+    video['FZeroVideo']['LocalTwoPlayer'] = '0'
+    video['FZeroVideo']['CGPStockRebalance'] = '0'
+    with (stage/'fzero-video.ini').open('w') as f:
+        video.write(f)
     config['Sound']['Msu1Enabled'] = '0'
     with (stage/'config.ini').open('w') as f:
         config.write(f)
@@ -72,8 +82,11 @@ def main():
     assert proc.returncode == 0
     config.read(stage/'config.ini')
     assert config.getint('Sound', 'Msu1Enabled') == 0, 'Explicit opt-out must persist'
+    video.read(stage/'fzero-video.ini')
+    assert video.getint('FZeroVideo', 'LocalTwoPlayer') == 0, 'VS opt-out must persist'
+    assert video.getint('FZeroVideo', 'CGPStockRebalance') == 0, 'Rebalance opt-out must persist'
     (out/'report.json').write_text(json.dumps(results, indent=2))
-    print('PASS: GUI subsystem; raw/headered ROM accepted; corrupt/short/long/empty ROM refused; MSU default and opt-out')
+    print('PASS: GUI subsystem; raw/headered ROM accepted; corrupt/short/long/empty ROM refused; MSU/CGP rebalances/VS defaults and opt-outs')
 
 
 if __name__ == '__main__':

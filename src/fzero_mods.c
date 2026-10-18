@@ -32,7 +32,7 @@ static const FzeroRule menu_rules[] = {
 enum { VEHICLE_COUNT=2, VEHICLE_START=6+sizeof(menu_rules)/sizeof(*menu_rules), TITLE_INDEX=VEHICLE_START+VEHICLE_COUNT,
        RECORDS_INDEX=TITLE_INDEX+1, CRASH_INDEX=RECORDS_INDEX+1, LOCAL_INDEX=CRASH_INDEX+1, TRACK_START=LOCAL_INDEX+1,
        TITLE_KIND=200, RECORDS_KIND=201, CRASH_KIND=202, LOCAL_KIND=203 };
-static const char local_description[]="Add VS MODE to the main menu. Two humans race on one shared course with top/bottom split-screen. Choose from all twelve machines and the installed single-player course catalog. The original four retain stock handling; the eight added ships use their authored CGP handling and energy boosts. Your single-player content settings are retained.";
+static const char local_description[]="Enabled by default. Add VS MODE to the main menu. Two humans race on one shared course with top/bottom split-screen. Choose from all twelve machines and the installed single-player course catalog. The original four retain stock handling; the eight added ships use their authored CGP handling and energy boosts. Your single-player content settings are retained.";
 static const char crash_description[] =
   "Automatically keep recent inputs and checkpoints in diagnostics beside the game. "
   "Enabled by default for testing, including online play and existing installations. "
@@ -54,7 +54,7 @@ static const char *const vehicle_ids[]={"cgp-cars", "cgp-stock-rebalance"};
 static const char *const vehicle_names[]={"CGP vehicles", "CGP original-car rebalances"};
 static const char *const vehicle_descriptions[]={
   "Enable all three CGP car groups together: eight additional ships plus the original four, for twelve identities. Keeps each group in its own selection column and Grand Prix rival set. New ships include their matching artwork, handling, boost and exhaust. Original-car rebalances remain separate. Disables stock BS vehicles.",
-  "Apply CGP's artwork, handling, energy boost and exhaust to all four original cars together: Blue Falcon, Golden Fox, Wild Goose and Fire Stingray. Works on any course; adds no duplicate ships. Independent of CGP vehicles. Disables stock BS vehicles."};
+  "Enabled by default. Apply CGP's artwork, handling, energy boost and exhaust to all four original cars together: Blue Falcon, Golden Fox, Wild Goose and Fire Stingray. Works on any course; adds no duplicate ships. Independent of CGP vehicles. Disables stock BS vehicles."};
 static bool vehicle_enabled(unsigned i) {
   return i==0 ? video->gameplay.vehicle_packs!=0 : video->gameplay.stock_rebalance!=0;
 }

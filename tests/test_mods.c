@@ -291,6 +291,23 @@ int main(void) {
     CHECK(p->preset_apply(NULL,"vanilla",&io) && !io.msu1_enabled);
     CHECK(!strcmp(io.msu1_dir,custom ? "my external CGP music" : ""));
   }
+  /* Fresh defaults must survive provider normalization and reach the actual
+   * launcher toggles; the formerly default-on BS pack cleared rebalances. */
+  FzeroVideoSettings fresh;FzeroVideoDefaults(&fresh);
+  p=FzeroModsProvider(&fresh,"test-mods.ini",false);
+  unsigned defaults_seen=0;
+  for(int i=0;i<p->feature_count(NULL);++i) {
+    CHECK(p->feature_get(NULL,i,&f));
+    if(!strcmp(f.package_id,"cgp-stock-rebalance")) {CHECK(f.enabled);defaults_seen|=1;}
+    if(!strcmp(f.package_id,"fzero-local-2p")) {CHECK(f.enabled);defaults_seen|=2;}
+  }
+  CHECK(defaults_seen==3 && !fresh.bs_deluxe && fresh.gameplay.stock_rebalance==15);
+  CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini"));
+  CHECK(loaded.local_two_player && loaded.gameplay.stock_rebalance==15 && !loaded.bs_deluxe);
+  CHECK(p->feature_enable(NULL,"fzero-local-2p","local-2p",0));
+  CHECK(p->feature_enable(NULL,"cgp-stock-rebalance","vehicles",0));
+  CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini"));
+  CHECK(!loaded.local_two_player && !loaded.gameplay.stock_rebalance);
   remove("test-mods.ini");
   puts("Independent widescreen and presentation FPS plugins passed");
   return 0;

@@ -11,6 +11,9 @@ BS Satellaview Tracks excludes the loader; vehicle options remain independent.
 Optional race music uses the same filename as the course source, in its pack's
 `music/` folder: `courses/example.fzc` or `example.fzm` uses `music/example.pcm`.
 MSU-1 and **Installed pack music** default on for fresh settings; missing songs use the SNES soundtrack. Explicit saved choices are respected.
+**CGP original-car rebalances** and **Local 2 Player** also default on. Choose
+VS MODE on the title menu for local split-screen. BS vehicles are a separate,
+conflicting opt-in; saved choices remain respected.
 
 See [local controls and mod scopes](docs/LOCAL_CONTROLS_AND_MODS.md) for player assignments, unpausable multiplayer and texture smoothing.
 

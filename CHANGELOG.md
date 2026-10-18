@@ -1,5 +1,11 @@
 ﻿# Changelog
 
+## 0.10.2 - Default car rebalances and local VS
+
+- Enable CGP original-car rebalances and Local 2 Player/VS MODE for fresh
+  settings. Default BS vehicles off to avoid disabling the rebalances.
+- Preserve explicitly saved choices and the stock capture/preset behavior.
+
 ## 0.10.1 - Private multiplayer playtest
 
 - Enable the existing MSU-1 setting in local and online VS. Reuse per-course
