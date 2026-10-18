@@ -71,9 +71,9 @@ void FzeroNetplayLauncher(RecompLauncherCGameInfo *info) {
     static const RecompNetplaySessionVariant variants[]={{0,"4:3"},{1,"16:9"},{2,"21:9"}};
     /* LAN room versions have a 32-byte wire field. Keep this discovery tag
      * within it; the full build/catalog identity is checked before frame 0. */
-    snprintf(lobby_version,sizeof(lobby_version),"fzero-vs6-%.20s",FZERO_REPLAY_BUILD_ID);
-    RecompNetplayHostHooks h={0};h.game_name="F-Zero";h.game_version=lobby_version;
-    h.platform="snes";h.legacy_env_prefix="SNES_NET_";h.default_lobby_name="F-Zero VS";
+    snprintf(lobby_version,sizeof(lobby_version),"fzero-vs7-%.20s",FZERO_REPLAY_BUILD_ID);
+    RecompNetplayHostHooks h={0};h.game_name="F-Zero Forever";h.game_version=lobby_version;
+    h.platform="snes";h.legacy_env_prefix="SNES_NET_";h.default_lobby_name="F-Zero Forever VS";
     h.lan_registry_path="fzero-netplay-lan.txt";h.max_players=2;h.netplay_max_players=2;
     h.slot_policy=RECOMP_NETPLAY_SLOTS_HOST_FIRST;h.input_player=RECOMP_NETPLAY_INPUT_AUTO;
     h.exe_dir_path=path;h.name_store=store_name;h.name_load=load_name;
