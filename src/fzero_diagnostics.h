@@ -29,6 +29,9 @@ typedef struct FzeroDiagnosticFrame {
   double target_hz, refresh_hz;
   bool fullscreen, suspended;
   unsigned scene, subscene;
+  int controller_id,controller_x,controller_y;
+  uint32_t controller_buttons;
+  bool controller_attached;
 } FzeroDiagnosticFrame;
 
 /* directory is resolved by the host (beside the executable/AppImage). */

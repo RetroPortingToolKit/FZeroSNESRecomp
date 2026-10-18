@@ -407,6 +407,11 @@ void FzeroTracksMenuReset(void) {
   course = NULL;
 }
 void FzeroTracksMenuTick(uint8_t *ram, uint32_t previous_scene) {
+  if(getenv("FZERO_TRACE_MENUS")) {
+    uint32_t now=ram[0x54]|(uint32_t)ram[0x55]<<8|(uint32_t)ram[0x56]<<16;
+    if(now!=previous_scene)fprintf(stderr,"[menu-scene] %06x -> %06x fade=%02x,%02x,%02x,%02x practice=%u class=%u\n",
+        previous_scene,now,ram[0x5b],ram[0x5c],ram[0x5d],ram[0x62],ram[0x58],ram[0x14c98]);
+  }
   if(FzeroLocalEnabled()) {current_course();return;}
   /* The native Practice league screen starts at Knight independently of the
    * GP selection. Subsequent preview navigation uses this same live catalog. */
@@ -453,14 +458,18 @@ unsigned FzeroTracksMenuIndex(void) {
   return menu_index;
 }
 bool FzeroTracksMenuVisible(void) {
-  return FzeroTracksActive() && g_ram[0x54] == 1 &&
-         (FzeroDeluxeActive() ? (g_ram[0x55] == 1 || (!g_ram[0x58] && g_ram[0x55] == 7)) &&
-                                  g_ram[0x56] == (g_ram[0x58] ? 4 : 2)
-                              : !g_ram[0x58] && g_ram[0x55] >= 5 && g_ram[0x55] <= 7);
+  return FzeroTracksMenuVisibleAt(g_ram);
+}
+bool FzeroTracksMenuVisibleAt(const uint8_t *ram) {
+  return FzeroTracksActive() && ram[0x54]==1 &&
+      (FzeroDeluxeActive() ? (ram[0x55]==1 || ram[0x55]==7) &&
+          (ram[0x58] ? ram[0x56]>=3 && ram[0x56]<=5 : ram[0x56]>=1 && ram[0x56]<=2)
+          : !ram[0x58] && ram[0x55]>=4 && ram[0x55]<=7);
 }
 bool FzeroTracksClassSelected(void) {
-  return FzeroDeluxeActive() ? g_ram[0x14c98] != 0 : g_ram[0x55] >= 6;
+  return FzeroTracksClassSelectedAt(g_ram);
 }
+bool FzeroTracksClassSelectedAt(const uint8_t *ram) {return FzeroDeluxeActive()?ram[0x14c98]!=0:ram[0x55]>=6;}
 void FzeroTracksRefreshCourse(void) {
   current_course();
   if(FzeroLocalEnabled())return;

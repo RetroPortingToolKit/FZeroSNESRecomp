@@ -146,7 +146,7 @@ if(BUILD_TESTING)
     target_include_directories(fzero_content_ui_tests PRIVATE "${CMAKE_SOURCE_DIR}/src" "${RECOMP_UI_ROOT}/src" "${RAPIDJSON_INCLUDE_DIR}")
     snesrecomp_target_data_packs(fzero_content_ui_tests)
     add_test(NAME fzero_content_ui COMMAND fzero_content_ui_tests)
-    add_executable(fzero_mods_tests tests/test_mods.c src/fzero_mods.c src/fzero_tracks_mods.c)
+    add_executable(fzero_mods_tests tests/test_mods.c src/fzero_mods.c src/fzero_tracks_mods.c src/fzero_netplay_mods.c)
     target_include_directories(fzero_mods_tests PRIVATE "${RECOMP_UI_ROOT}/src")
     target_link_libraries(fzero_mods_tests PRIVATE fzero_video fzero_tracks)
     if(NOT MSVC)
@@ -261,6 +261,7 @@ add_executable(FZeroSNESRecomp
     src/fzero_gamepad.c
     src/fzero_local_controls.c
     src/fzero_netplay.c
+    src/fzero_netplay_mods.c
     src/fzero_runtime.c)
 
 # Defaults scoped to this game target: the shared stores and launcher retain

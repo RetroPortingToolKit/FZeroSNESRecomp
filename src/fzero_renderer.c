@@ -376,6 +376,21 @@ static int course_centre(const int16_t matrix[8], int index) {
   return ((int)(matrix[index] & 0x1fff) ^ 0x1000) - 0x1000;
 }
 
+/* The full course does not repeat every 1024 texels. Only the hardware
+ * camera centre does. Unwrap that centre, then interpolate the actual affine
+ * displacement. Wrapping the complete origin can select a different course
+ * block for one presentation during a turn, especially near the horizon. */
+static FzeroMode7Line course_interpolate(FzeroMode7Line a,FzeroMode7Line b,
+    double alpha,double ax,double ay,double bx,double by) {
+  double t=FzeroMode7Blend(&a,&b,alpha);
+  if(t>=1)return b;
+  FzeroMode7Line r=b;
+  r.origin_x=(periodic_blend(ax,bx,t,1024)+(a.origin_x/256-ax)*(1-t)+(b.origin_x/256-bx)*t)*256;
+  r.origin_y=(periodic_blend(ay,by,t,1024)+(a.origin_y/256-ay)*(1-t)+(b.origin_y/256-by)*t)*256;
+  r.step_x=a.step_x+(b.step_x-a.step_x)*t;r.step_y=a.step_y+(b.step_y-a.step_y)*t;
+  return r;
+}
+
 static unsigned course_word(const FzeroCourse *course, unsigned address) {
   return (unsigned)course->bank[address & 0xffff] |
          ((unsigned)course->bank[(address + 1) & 0xffff] << 8);
@@ -630,11 +645,18 @@ static FzeroMode7Line hd_transform(const FzeroSourceFrame *frame, int y) {
 
 static FzeroMode7Line hd_frame_transform(const FzeroSourceFrame *frame,
                                          const FzeroSourceFrame *previous,
-                                         int y, double alpha, bool interpolate) {
+                                         int y, double alpha, bool interpolate,bool complete_course) {
   FzeroMode7Line t = hd_transform(frame, y);
   if (interpolate && alpha < 1 &&
       (previous->lines[y].registers[offsetof(Ppu, bgmode)] & 7) == 7)
-    t = FzeroMode7Interpolate(hd_transform(previous, y), t, alpha);
+    {
+      int16_t before[8],after[8];
+      memcpy(before,previous->lines[y].registers+offsetof(Ppu,m7matrix),sizeof(before));
+      memcpy(after,frame->lines[y].registers+offsetof(Ppu,m7matrix),sizeof(after));
+      t=complete_course?course_interpolate(hd_transform(previous,y),t,alpha,
+          course_centre(before,4),course_centre(before,5),course_centre(after,4),course_centre(after,5)):
+          FzeroMode7Interpolate(hd_transform(previous,y),t,alpha);
+    }
   return t;
 }
 
@@ -672,6 +694,17 @@ static uint32_t smooth_track(const Ppu *p,const FzeroSourceFrame *f,const FzeroM
     for(unsigned c=0;c<3;++c)channels[c]+=(color>>(c*8))&255;
   }
   return ((channels[0]+2)/4)|(((channels[1]+2)/4)<<8)|(((channels[2]+2)/4)<<16);
+}
+
+static uint32_t smooth_texel(const FzeroSourceFrame *f,unsigned control,
+    const FzeroCourse *course,const FzeroCourseLine *reference,int x,int y,const uint32_t colors[256]) {
+  FzeroCourseCache cache=kCourseCacheEmpty;unsigned rb=0,g=0;
+  for(int dy=0;dy<2;++dy)for(int dx=0;dx<2;++dx) {
+    unsigned index=SnesMode7HdFetchInt(control,f->vram,x+dx,y+dy,
+        course_sample_at(course,reference,&cache,x+dx,y+dy));
+    uint32_t c=colors[index];rb+=(c&0xff00ff);g+=c&0xff00;
+  }
+  return (((rb+0x20002)>>2)&0xff00ff)|(((g+0x200)>>2)&0xff00);
 }
 
 typedef struct FzeroRenderBatch {
@@ -739,7 +772,9 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
          * measuring a blended texel against an unblended centre, or the other
          * way round, moves every sample a whole map period. */
         double blend = FzeroMode7Blend(&before, &transform, alpha);
-        transform = FzeroMode7Interpolate(before, transform, alpha);
+        transform = course.valid?course_interpolate(before,transform,alpha,
+            course_centre(old.m7matrix,4),course_centre(old.m7matrix,5),centre_x,centre_y):
+            FzeroMode7Interpolate(before, transform, alpha);
         if (blend < 1) {
           centre_x = periodic_blend(course_centre(old.m7matrix, 4), centre_x, blend, 1024);
           centre_y = periodic_blend(course_centre(old.m7matrix, 5), centre_y, blend, 1024);
@@ -759,6 +794,8 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
     bool hd_line = scale > 1 && (world || result_scenery) && mode == 7 &&
         !((scanout->mosaic & 1) && (scanout->mosaic >> 4)) &&
         !(scanout->setini & 0x49) && !(scanout->cgwsel & 1);
+    uint32_t colors[8][256];
+    unsigned colors_ready=0;
     if (!hd_line || native) {
       for (int sx = 0; sx < viewport.width; ++sx) {
         int x = sx - viewport.extra;
@@ -812,7 +849,16 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
           unsigned flags=in_window(scanout,5,colour_x,0)?4:0;
           for(unsigned sub=0;sub<2;++sub)if((scanout->screenEnabled[sub]&1) &&
               (!(scanout->screenWindowed[sub]&1) || !in_window(scanout,0,x,viewport.extra)))flags|=1u<<sub;
-          row[sx]=smooth_track(scanout,f,&transform,&course,&reference,l->palette,x,flags);
+          FzeroMode7Texel texel=FzeroMode7Locate(&transform,x);
+          if(fabs(texel.x)<1e6 && fabs(texel.y)<1e6) {
+            if(!(colors_ready&(1u<<flags))) {
+              for(unsigned index=0;index<256;++index)colors[flags][index]=colour(scanout,l->palette,
+                  (flags&1) && index?0x5000|index:0x500,
+                  (flags&2) && index?0x5000|index:0x500,(flags&4)!=0);
+              colors_ready|=1u<<flags;
+            }
+            row[sx]=smooth_texel(f,transform.control,&course,&reference,(int)texel.x,(int)texel.y,colors[flags]);
+          } else row[sx]=smooth_track(scanout,f,&transform,&course,&reference,l->palette,x,flags);
         }
       }
       /* Preserve the meter's composed fill, including its fixed-colour HDMA,
@@ -836,8 +882,6 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
      * mapping per scanline/window combination, including transparent zero.
      * Sprite columns retain the full main/subscreen colour calculation. */
     FzeroHdPixelContext contexts[FZERO_MAX_WIDTH];
-    uint32_t colors[8][256];
-    unsigned colors_ready = 0;
     for (int sx = 0; sx < viewport.width; ++sx) {
       int x = sx - viewport.extra;
       FzeroHdPixelContext *c = &contexts[sx];
@@ -864,7 +908,7 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
         c->colors = colors[key];
       }
     }
-    FzeroMode7Line hd = hd_frame_transform(f, previous, y, alpha, interpolate);
+    FzeroMode7Line hd = hd_frame_transform(f, previous, y, alpha, interpolate,course.valid);
     FzeroMode7Line next = hd;
     bool adjacent = false;
     if (y + 1 < 224) {
@@ -877,14 +921,14 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
           next_registers[offsetof(Ppu, setini)] == scanout->setini &&
           next_registers[offsetof(Ppu, mosaic)] == scanout->mosaic &&
           !memcmp(next_registers + offsetof(Ppu, m7matrix) + 8, scanout->m7matrix + 4, 8);
-      if (adjacent) next = hd_frame_transform(f, previous, y + 1, alpha, interpolate);
+      if (adjacent) next = hd_frame_transform(f, previous, y + 1, alpha, interpolate,course.valid);
     }
     SnesMode7HdTransform affine = SnesMode7HdMakeTransform(
         scanout->m7matrix, scanout->m7sel, (unsigned)y + 1);
     for (unsigned sy = 0; sy < scale; ++sy) {
       double fraction = (double)sy / scale;
       FzeroMode7Line subline = hd;
-      if (adjacent) subline = FzeroMode7Interpolate(hd, next, fraction);
+      if (adjacent) subline = course_interpolate(hd,next,fraction,0,0,0,0);
       else {
         subline.origin_x += affine.row_x * fraction * 256;
         subline.origin_y += affine.row_y * fraction * 256;
@@ -894,11 +938,21 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
       FzeroMode7Texel last = {NAN, NAN};
       int last_x = 1000000, last_y = 1000000;
       unsigned index = 0;
+      int smooth_x=1000000,smooth_y=1000000;unsigned smooth_flags=256;uint32_t filtered=0;
       for (int sx = 0; sx < viewport.width; ++sx) {
         int x = sx - viewport.extra;
         const FzeroHdPixelContext *c = &contexts[sx];
         for (unsigned sample = 0; sample < scale; ++sample) {
           double position = x + sample_offset[sample];
+          if(batch->smoothing && c->colors && bounded) {
+            int tx=SnesMode7HdFloorInt((subline.origin_x+position*subline.step_x)/256);
+            int ty=SnesMode7HdFloorInt((subline.origin_y+position*subline.step_y)/256);
+            if(tx!=smooth_x || ty!=smooth_y || smooth_flags!=c->flags) {
+              filtered=smooth_texel(f,subline.control,&course,&reference,tx,ty,c->colors);
+              smooth_x=tx;smooth_y=ty;smooth_flags=c->flags;
+            }
+            destination[sx*scale+sample]=filtered;continue;
+          }
           if(batch->smoothing && !(c->objects[0]|c->objects[1])) {
             destination[sx*scale+sample]=smooth_track(scanout,f,&subline,&course,&reference,l->palette,position,c->flags);
             continue;

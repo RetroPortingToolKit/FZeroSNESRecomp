@@ -23,6 +23,7 @@ void FzeroLocalPrepareCourse(void);
 void FzeroLocalCapture(void);
 void FzeroLocalPublish(void);
 bool FzeroLocalDraw(uint32_t *output,size_t capacity,FzeroViewport viewport,double alpha,unsigned scale);
+bool FzeroLocalDrawCombined(uint32_t *native,uint32_t *hd,size_t capacity,FzeroViewport viewport,double alpha,unsigned scale);
 void FzeroLocalResetViews(void);
 bool FzeroLocalSelectSaveRoot(void);
 FzeroVersusConfig FzeroLocalConfig(void);
@@ -30,6 +31,9 @@ const FzeroNativeUi *FzeroLocalUi(void);
 unsigned FzeroLocalMenuSelection(void);
 /* Results become interactive after both native crash animations finish. */
 bool FzeroLocalMenuReady(void);
+/* 0 = closed; 1/2 = racer operating the live menu. Simulation keeps running. */
+unsigned FzeroLocalMenuOwner(void);
+void FzeroLocalSetMenuOwner(unsigned owner);
 void FzeroLocalSetMenuSelection(unsigned selection);
 /* Fixed-size host bridge image, including native setup before handoff.
  * Validation is read-only; restore replaces the session atomically. Asset

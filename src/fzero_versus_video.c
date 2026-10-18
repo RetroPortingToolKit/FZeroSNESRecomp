@@ -14,8 +14,9 @@ struct FzeroVersusVideo {
   unsigned opacity[2];
   FzeroNativeUi ui;
   bool valid, interpolate;
-  unsigned menu_selection,result_ticks;
+  unsigned menu_selection,result_ticks,menu_owner;
 };
+void FzeroVersusVideoLiveMenu(FzeroVersusVideo *v,unsigned owner) {if(v)v->menu_owner=owner;}
 FzeroVersusVideo *FzeroVersusVideoCreate(void) {
   FzeroVersusVideo *v=calloc(1,sizeof(*v));
   if(!v)return NULL;
@@ -174,6 +175,7 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
   FzeroUiRaceClock(ui,canvas,8,23,timer);
   FzeroUiRaceInstruments(ui,canvas,viewport.width-112,0,r->actor.health,FzeroDisplaySpeed(r->actor.speed),s->tick);
   FzeroUiBoosts(ui,canvas,viewport.width-48,208,r->actor.boosts,(r->actor.state&8)!=0);
+  FzeroUiMachine(ui,canvas,viewport.width-80,204,r->actor.machine,true);
   const char *message=NULL;
   if(s->phase==FZERO_VS_READY)message="READY";
   else if(s->phase==FZERO_VS_COUNTDOWN) {
@@ -192,7 +194,20 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
 }
 static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsigned scale,bool single) {
   const FzeroVersusSnapshot *s=&v->state;
-  if(s->phase!=FZERO_VS_RESULTS)return;
+  if(s->phase!=FZERO_VS_RESULTS) {
+    if(!v->menu_owner)return;
+    FzeroUiCanvas c={out,viewport.width*(int)scale,(single?224:448)*(int)scale,scale};
+    const FzeroNativeUi *ui=&v->ui;int center=viewport.width/2,top=single?20:132;
+    static const char *labels[]={"CONTINUE","RESTART RACE","CHANGE RACE","MAIN MENU"};
+    FzeroUiFrame(ui,c,center-112,top,224,184);
+    FzeroUiCenter(ui,c,top+12,"RACE CONTINUES",FZERO_UI_MENU,FZERO_UI_YELLOW);
+    for(unsigned i=0;i<4;++i) {
+      int y=top+52+(int)i*28;bool selected=i==v->menu_selection;
+      if(selected)FzeroUiTile(ui,c,center-96,y+4,0x2f,FZERO_UI_YELLOW,true,false);
+      FzeroUiText(ui,c,center-80,y,labels[i],FZERO_UI_MENU,selected?FZERO_UI_YELLOW:FZERO_UI_CYAN);
+    }
+    return;
+  }
   if(!s->pause && !FzeroVersusVideoResultsReady(s,v->result_ticks))return;
   FzeroUiCanvas c={out,viewport.width*(int)scale,(single?224:448)*(int)scale,scale};
   const FzeroNativeUi *ui=&v->ui;int center=viewport.width/2;
@@ -251,4 +266,26 @@ bool FzeroVersusVideoDrawPlayer(FzeroVersusVideo *v,uint32_t *out,size_t capacit
       FzeroRenderViewDrawPresentation(v->views[player],NULL,out,count,viewport,alpha,scale);
   if(!ok)return false;
   overlay(v,out,viewport,player,alpha,scale);menu(v,out,viewport,scale,true);return true;
+}
+
+bool FzeroVersusVideoDrawCombined(FzeroVersusVideo *v,uint32_t *native,uint32_t *hd,size_t capacity,
+    FzeroViewport viewport,double alpha,unsigned scale,int player) {
+  bool single=player>=0;unsigned panes=single?1:2;
+  if(!v || !v->valid || !hd || player>1 || player< -1 || !FzeroValidHdScale(scale) ||
+      viewport.width<256 || viewport.width>FZERO_MAX_WIDTH)return false;
+  size_t count=(size_t)viewport.width*224,hd_count=count*scale*scale;
+  if(capacity<hd_count*panes)return false;
+  if(!isfinite(alpha) || alpha>1)alpha=1;if(alpha<0)alpha=0;if(!v->interpolate)alpha=1;
+  for(unsigned pane=0;pane<panes;++pane) {
+    unsigned camera=single?(unsigned)player:pane;
+    uint32_t *small=native?native+pane*count:NULL,*large=hd+pane*hd_count;
+    if(!FzeroRenderViewDrawPresentation(v->views[camera],small,large,hd_count,viewport,alpha,scale))return false;
+    overlay(v,large,viewport,camera,alpha,scale);
+    if(small)overlay(v,small,viewport,camera,alpha,1);
+  }
+  if(!single) {
+    FzeroUiRect((FzeroUiCanvas){hd,viewport.width*(int)scale,448*(int)scale,scale},0,223,viewport.width,1,0xff000000);
+    if(native)FzeroUiRect((FzeroUiCanvas){native,viewport.width,448,1},0,223,viewport.width,1,0xff000000);
+  }
+  menu(v,hd,viewport,scale,single);if(native)menu(v,native,viewport,1,single);return true;
 }

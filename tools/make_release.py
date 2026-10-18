@@ -217,7 +217,7 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "Local 2 Player defaults on; choose VS MODE on the title screen for local split-screen.\n"
     "CGP original-car rebalances default on; conflicting BS vehicles default off. Saved choices are respected.\n"
     "Assign a different keyboard/controller source to each player in Controls before playing.\n"
-    "Multiplayer never pauses; rematch and change-race menus appear only after the race.\n"
+    "Multiplayer never pauses. Start opens a live menu to continue, restart, change race or exit.\n"
     "See docs/LOCAL_CONTROLS_AND_MODS.md for Steam Input and which mods apply in each mode.\n"
     "Recomp-ui Netplay starts online play and includes VS MODE automatically.\n"
     "Online players get independent full screens; host chooses 4:3, 16:9 or 21:9.\n"

@@ -76,7 +76,7 @@ static uint32_t s_resume_pc;
 static uint64_t s_next_frame_master;
 static unsigned s_host_frames;
 static bool s_restoring_local_assets;
-static bool s_online_bootstrap;
+static bool s_online_bootstrap,s_online_menu_bootstrap;
 static int s_last_lle_result = 1;
 static uint8_t s_frame_hdmaen;
 static bool s_loaded_runtime_state;
@@ -234,7 +234,8 @@ static void run_one_frame(void) {
     bool click=menu->phase!=menu_before.phase || menu->ready!=menu_before.ready ||
         menu->cup!=menu_before.cup || menu->config.course!=menu_before.config.course ||
         memcmp(menu->config.machine,menu_before.config.machine,sizeof(menu->config.machine));
-    snes_writeBBus(g_snes,0x40,g_ram[0x46]);
+    bool selector=menu->phase>=FZERO_ONLINE_MACHINES && menu->phase<=FZERO_ONLINE_COURSE;
+    snes_writeBBus(g_snes,0x40,selector && (g_ram[0x46]&7)!=5?0:g_ram[0x46]);
     snes_writeBBus(g_snes,0x41,click?0x40:0);
     snes_writeBBus(g_snes,0x42,0);snes_writeBBus(g_snes,0x43,0);
     g_cpu.master_cycles+=kMasterClocksPerFrame;synchronize_hardware();
@@ -257,7 +258,7 @@ static void run_one_frame(void) {
    * must not also consume its tables while the CPU runs ahead of that frame. */
   snes_set_hdma_beam_enabled(g_snes, false);
   bool online_title=FzeroOnlineEnabled() && FzeroOnlineCompleted()->phase==FZERO_ONLINE_TITLE;
-  RtlSetPadState(0,FzeroLocalEnabled() && !online_title?FzeroLocalSetupInput():
+  RtlSetPadState(0,s_online_menu_bootstrap?0:FzeroLocalEnabled() && !online_title?FzeroLocalSetupInput():
       FzeroVsMenuInput(FzeroTracksMenuInput(FzeroGameplayMenuInput(g_snes->input1_currentState,g_ram),g_ram),g_ram));
   /* A consumed host menu confirmation must not execute the native handler
    * later in this frame. Its delayed joypad sample could otherwise select GP
@@ -442,8 +443,8 @@ void FzeroPresent(double alpha) {
   }
   if(FzeroLocalSession()) {
     s_hd_ready=s_hd_scale && s_hd_pixels &&
-        FzeroLocalDraw(s_hd_pixels,s_hd_capacity,s_viewport,alpha,s_hd_scale);
-    if(s_output_pixels)FzeroLocalDraw((uint32_t *)s_output_pixels,(size_t)s_viewport.width*FzeroFrameHeight(),s_viewport,alpha,1);
+        FzeroLocalDrawCombined((uint32_t *)s_output_pixels,s_hd_pixels,s_hd_capacity,s_viewport,alpha,s_hd_scale);
+    if(!s_hd_ready && s_output_pixels)FzeroLocalDraw((uint32_t *)s_output_pixels,(size_t)s_viewport.width*FzeroFrameHeight(),s_viewport,alpha,1);
     return;
   }
   s_hd_ready = s_hd_scale && s_hd_pixels &&
@@ -451,10 +452,10 @@ void FzeroPresent(double alpha) {
           s_hd_pixels, s_hd_capacity, s_viewport, alpha, s_hd_scale);
   if (!s_hd_ready && s_output_pixels)
     FzeroRendererDraw((uint32_t *)s_output_pixels, s_viewport, alpha);
-  if(s_hd_ready)FzeroTracksOverlay(s_hd_pixels,s_viewport.width*s_hd_scale,224*s_hd_scale,s_viewport.width*s_hd_scale*4);
-  else if(s_output_pixels)FzeroTracksOverlay((uint32_t *)s_output_pixels,s_viewport.width,224,s_output_pitch);
-  if(s_hd_ready)FzeroVsMenuDraw((FzeroUiCanvas){s_hd_pixels,s_viewport.width*(int)s_hd_scale,224*(int)s_hd_scale,s_hd_scale},s_viewport.extra,g_ram);
-  else if(s_output_pixels)FzeroVsMenuDraw((FzeroUiCanvas){(uint32_t *)s_output_pixels,s_viewport.width,224,1},s_viewport.extra,g_ram);
+  if(s_hd_ready)FzeroTracksOverlay(s_hd_pixels,s_viewport.width*s_hd_scale,224*s_hd_scale,s_viewport.width*s_hd_scale*4,s_published_ram);
+  else if(s_output_pixels)FzeroTracksOverlay((uint32_t *)s_output_pixels,s_viewport.width,224,s_output_pitch,s_published_ram);
+  if(s_hd_ready)FzeroVsMenuDraw((FzeroUiCanvas){s_hd_pixels,s_viewport.width*(int)s_hd_scale,224*(int)s_hd_scale,s_hd_scale},s_viewport.extra,s_published_ram);
+  else if(s_output_pixels)FzeroVsMenuDraw((FzeroUiCanvas){(uint32_t *)s_output_pixels,s_viewport.width,224,1},s_viewport.extra,s_published_ram);
 }
 void FzeroSetDeferredPresentation(bool deferred) { s_deferred_presentation = deferred; }
 void FzeroSetTextureSmoothing(bool enabled) {FzeroRendererSetTextureSmoothing(enabled);}
@@ -582,6 +583,7 @@ void FzeroDrawPpuFrame(void) {
   }
 
   FzeroVehiclesBeginFrame(g_ppu, s_published_ram);
+  FzeroTracksIntroFrame(g_ppu,s_published_ram,true);
   for (int line = 0; line <= 224; line++) {
     for (uint8_t index = 0; index < s_irq_event_count; index++) {
       const FzeroIrqEvent *event = &s_irq_events[index];
@@ -629,8 +631,9 @@ void FzeroDrawPpuFrame(void) {
     if(s_output_pixels)PpuBeginDrawing(g_ppu, s_output_pixels, s_output_pitch, kPpuRenderFlags_NewRenderer);
   }
   if(!s_restoring_local_assets && s_output_pixels && !s_viewport.enhanced)
-    FzeroTracksOverlay((uint32_t *)s_output_pixels,256,224,s_output_pitch);
+    FzeroTracksOverlay((uint32_t *)s_output_pixels,256,224,s_output_pitch,s_published_ram);
   FzeroVehiclesEndFrame(g_ppu);
+  FzeroTracksIntroFrame(g_ppu,s_published_ram,false);
 
   /* Window bounds are hardware latches, including when the next scene turns
    * their HDMA channel off. Carry the last scanline forward unless the CPU
@@ -690,19 +693,40 @@ bool FzeroOnlineLoadCourse(FzeroVersusConfig config) {
 }
 static bool online_frame_begin(uint32_t *inputs) {
   (void)inputs;
-  if(!FzeroOnlineEnabled() || s_online_bootstrap ||
-      FzeroOnlineCompleted()->phase!=FZERO_ONLINE_LOADING)return true;
+  if(!FzeroOnlineEnabled() || s_online_bootstrap)return true;
+  unsigned phase=FzeroOnlineCompleted()->phase;
+  bool loading=phase==FZERO_ONLINE_LOADING;
+  bool menu=phase>=FZERO_ONLINE_MACHINES && phase<=FZERO_ONLINE_COURSE;
+  if(!loading && (!menu || (g_ram[0x46]&7)==5))return true;
+  /* The independent VS picker used to park whichever SPC program happened
+   * to precede it (title, countdown or the last course). Enter the native
+   * common title/selection bank once, then select menu program 5 for both
+   * SPC and optional MSU. The native title boots with neutral pad input.
+   * This also releases sustained race voices on Change Race. All loading is
+   * deterministic and is captured with the ordinary machine rollback image. */
+  if(menu && !FzeroOnlineLoadCourse(FzeroOnlineCompleted()->config))return false;
   /* Resource loading is one deterministic network transition, not hundreds
    * of wall-clock racing ticks. Enter before RtlRunFrame establishes its
    * frame clock/watchdog; each inner native frame has its own complete clock.
    * Capture the real loader/grid and stop before advancing either racer.
    * Rollback repeats exactly this work; no devices, transport or time queried. */
   s_online_bootstrap=true;
-  for(unsigned n=0;n<2400 && !FzeroLocalSession() && s_last_lle_result && !g_fail;++n) {
+  s_online_menu_bootstrap=menu;bool ready=false;
+  for(unsigned n=0;n<2400 && s_last_lle_result && !g_fail;++n) {
+    ready=loading?FzeroLocalSession()!=NULL:
+        !g_ram[0x54] && g_ram[0x55]==1 && g_ram[0x5d]==15 && !g_ram[0xc3];
+    if(ready)break;
     (void)RtlRunFrame(0);FzeroDrawPpuFrame();
   }
-  s_online_bootstrap=false;
-  if(!FzeroLocalSession()) {s_last_lle_result=0;return false;}
+  s_online_bootstrap=s_online_menu_bootstrap=false;
+  ready=loading?FzeroLocalSession()!=NULL:
+      !g_ram[0x54] && g_ram[0x55]==1 && g_ram[0x5d]==15 && !g_ram[0xc3];
+  if(!ready) {s_last_lle_result=0;return false;}
+  if(menu) {
+    /* $46 is the native logical music command, saved with the parked CPU.
+     * Keeping the choice there makes selector save/load and rollback agree. */
+    g_ram[0x46]=5;snes_writeBBus(g_snes,0x40,5);
+  }
   return true;
 }
 

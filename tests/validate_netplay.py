@@ -125,7 +125,7 @@ def main():
                     inputs += ',2400-2402:8'
             elif a.scenario == 'crash':
                 env['FZERO_TEST_ONLINE_FIXTURE'] = 'crash'
-            elif frames > 860 and a.scenario not in ('selection', 'titleback', 'pause'):
+            elif frames > 860 and a.scenario not in ('selection', 'titleback', 'pause', 'change'):
                 inputs += ',400-%d:1' % (frames - 461)
             if a.scenario == 'titlestate' and slot == 0:
                 env.update(FZERO_STATE_SAVE_AT='335:4', FZERO_STATE_LOAD_AT='350:4')
@@ -136,6 +136,10 @@ def main():
             if a.scenario == 'pause':
                 inputs += ',600-602:8,680-682:8,780-782:8' if slot == 0 else ',700-702:8'
             if a.scenario == 'change':
+                # Release acceleration before the live menu and selector.
+                # The selector intentionally waits for all held race inputs
+                # to be released before accepting either player's next ready.
+                inputs += ',400-598:1,800-%d:1' % (frames - 461)
                 if slot == 0:
                     inputs += ',600-602:8,620-622:32,640-642:32,660-662:8,720-722:8,740-742:8,760-762:8'
                 else:
@@ -224,6 +228,7 @@ def main():
                     for row in csv.DictReader(f):
                         data[int(row['tick'])] = row
                         last_tick = int(row['tick'])
+            assert data, 'match admitted no simulation frames: ' + text[i][-2500:]
             rows.append(data)
             last_ticks.append(last_tick)
         # After a synchronized load the online tick returns to the saved
@@ -274,6 +279,7 @@ def main():
         if a.scenario == 'pause':
             pauses = [row for row in shared if row['pause'] != '0']
             assert not pauses, 'Start must never pause multiplayer'
+            assert any(row['menu'] != '0' for row in shared), 'live Start menu was never opened'
             assert shared[-1]['stage'] == '2', 'race did not continue through Start inputs'
             for slot in range(2):
                 dsp = (a.out / ('peer%d/dsp.bin' % slot)).read_bytes()

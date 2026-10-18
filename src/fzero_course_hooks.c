@@ -52,6 +52,27 @@ static void restore_intro_tiles(const FzeroCourse *c) {
       }
     }
 }
+/* The main CPU can retire intro tiles before the deferred visible frame has
+ * consumed its OAM. Reapply letters only to that published intro, then restore
+ * the CPU's atlas. Loading a state needs no pending host-only flag. */
+void FzeroTracksIntroFrame(Ppu *ppu,const uint8_t *ram,bool begin) {
+  static uint16_t backup[28][2][16];static const FzeroCourse *active;
+  if(!begin) {
+    if(active)for(unsigned i=0;i<active->intro_glyph_count;++i)for(unsigned half=0;half<2;++half)
+      memcpy(ppu->vram+0x5000+(active->intro_glyphs[i].code+half*16)*16,backup[i][half],32);
+    active=NULL;return;
+  }
+  active=FzeroTracksCurrentCourse();
+  if(!active || ram[0x54]!=2 || ram[0x55]>2) {active=NULL;return;}
+  for(unsigned i=0;i<active->intro_glyph_count;++i)for(unsigned half=0;half<2;++half) {
+    unsigned word=0x5000+(active->intro_glyphs[i].code+half*16)*16;
+    memcpy(backup[i][half],ppu->vram+word,32);
+    for(unsigned y=0;y<8;++y) {
+      const uint8_t *pixels=active->intro_glyphs[i].pixels+half*16+y*2;
+      ppu->vram[word+y]=pixels[0]|(uint16_t)pixels[1]<<8;ppu->vram[word+y+8]=0;
+    }
+  }
+}
 static void terrain(CpuState *cpu, const FzeroCourse *c) {
   unsigned x = cpu->X & 255, tile = g_ram[0xcd0 + x];
   g_ram[0xd70 + x] = c->terrain[tile];

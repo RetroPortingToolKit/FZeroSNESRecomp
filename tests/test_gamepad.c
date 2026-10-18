@@ -104,6 +104,19 @@ int main(void) {
   pump(&pad);
   CHECK(pad && SDL_GetGamepadID(pad) == selected); /* other device removal */
   SDL_CloseJoystick(joy);
+  /* Long unchanged steering is valid input; release and new buttons must
+   * remain responsive after more than seven minutes' worth of reads. */
+  CHECK(SDL_SetJoystickVirtualAxis(joy,SDL_GAMEPAD_AXIS_LEFTX,32767));pump(&pad);
+  for(unsigned frame=0;frame<8*60*60;++frame)CHECK(FzeroGamepadRead(pad)&0x80);
+  CHECK(SDL_SetJoystickVirtualAxis(joy,SDL_GAMEPAD_AXIS_LEFTX,0));pump(&pad);
+  CHECK(!(FzeroGamepadRead(pad)&0xc0));
+  FILE *remap=fopen("gamepad-test.ini","a");CHECK(remap);
+  fputs("\n[Local2P.P1]\nControls=DpadUp,DpadDown,DpadLeft,DpadRight,Back,Start,B,X,Y,A,Lb,Rb\n",remap);fclose(remap);
+  SDL_Event remapped={0};remapped.type=SDL_EVENT_GAMEPAD_REMAPPED;remapped.gdevice.which=selected;
+  FzeroGamepadEvent(&pad,&remapped);
+  CHECK(SDL_SetJoystickVirtualButton(joy,SDL_GAMEPAD_BUTTON_WEST,true));pump(&pad);
+  CHECK(FzeroGamepadReadPlayer(pad,0)&1);
+  CHECK(SDL_SetJoystickVirtualButton(joy,SDL_GAMEPAD_BUTTON_WEST,false));pump(&pad);
   CHECK(SDL_DetachVirtualJoystick(selected));
   pump(&pad);
   CHECK(!pad && FzeroGamepadRead(pad) == 0);

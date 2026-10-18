@@ -9,6 +9,7 @@
  */
 
 #include "fzero_runtime.h"
+#include "fzero_online.h"
 #include "fzero_deluxe.h"
 #include "fzero_gameplay.h"
 #include "fzero_vehicles.h"
@@ -367,6 +368,7 @@ int main(int argc, char **argv) {
   setvbuf(stderr, NULL, _IONBF, 0);
   headless_install_exception_filter();
   bool versus=argc==7 && !strcmp(argv[3],"--versus");
+  bool online_menu_test=getenv("FZERO_TEST_ONLINE_MENU")!=NULL;
   if (argc < 2 || (argc > 3 && !versus)) {
     fprintf(stderr, "usage: FZeroSNESRecompHeadless <fzero.sfc> [frames [--versus COURSE P1 P2]]\n");
     return 2;
@@ -472,6 +474,10 @@ int main(int argc, char **argv) {
   }
   RtlReadSram();
   FzeroVsMenuConfigure(capture_video.local_two_player || mode_test || getenv("FZERO_TEST_VS_MENU")!=NULL);
+  if(online_menu_test) {
+    if(!versus)return 2;
+    FzeroOnlineBegin(1,0);FzeroOnlineEnterVs();
+  }
   if (!FzeroCaptureReplayLoad()) return 11;
   const char *capture_directory=getenv("FZERO_CAPTURE_DIR");
   if (capture_directory && !FzeroCaptureStart(true,capture_directory,&capture_video)) return 11;
@@ -841,12 +847,22 @@ int main(int argc, char **argv) {
     if(mode_test || getenv("FZERO_TEST_VS_MENU"))FzeroPresent(1);
     if(versus && present_every>1 && frame%present_every==0)FzeroPresent(1);
     FzeroMsuUpdateVersus();
+    if(online_menu_test) {
+      static unsigned last_phase=255,last_owner=255;
+      unsigned phase=FzeroOnlineCompleted()->phase,owner=FzeroLocalMenuOwner();
+      if(phase!=last_phase || owner!=last_owner)fprintf(stderr,"online-menu-state frame=%ld phase=%u owner=%u command=%u\n",
+          frame,phase,owner,g_ram[0x46]);
+      last_phase=phase;last_owner=owner;
+    }
     FzeroCaptureAfter();
     if(FzeroCaptureReplayFailed())return 11;
     /* Private UI regressions need the final composed frame, including host
      * course/records labels which are absent from the raw PPU captures. */
     const char *frame_dir = getenv("FZERO_TEST_FRAME_DIR");
-    if (frame_dir && *frame_dir) {
+    const char *frame_range=getenv("FZERO_TEST_FRAME_RANGE");
+    long first=0,last=frame_limit,step=1;
+    if(frame_range && (sscanf(frame_range,"%ld:%ld:%ld",&first,&last,&step)!=3 || first<0 || last<first || step<1))return 10;
+    if (frame_dir && *frame_dir && frame>=first && frame<=last && (frame-first)%step==0) {
       char path[1024];
       if (snprintf(path, sizeof(path), "%s/%06ld.ppm", frame_dir, frame) >= (int)sizeof(path) ||
           !write_ppm(path, pixels, frame_width)) return 10;
@@ -959,9 +975,12 @@ int main(int argc, char **argv) {
        stats.audio_active_frames >= (uint64_t)(frame_limit / 10) &&
        stats.audio_peak > 0 && audio_samples > 0);
   qualified = qualified && FzeroActorLiveFinish();
+  if(online_menu_test)qualified=FzeroOnlineCompleted()->phase==FZERO_ONLINE_MACHINES &&
+      FzeroOnlineCompleted()->tick==(uint64_t)frame_limit && g_ram[0x46]==5 && !FzeroLocalSession() &&
+      stats.audio_active_frames>15 && stats.audio_peak>0;
   if(versus) {
     const FzeroVersusSnapshot *v=FzeroVersusCompleted(FzeroLocalSession());
-    qualified=qualified && (v!=NULL || (FzeroOnlineEnabled() && FzeroCaptureReplayActive()));
+    qualified=qualified && (v!=NULL || online_menu_test || (FzeroOnlineEnabled() && FzeroCaptureReplayActive()));
     if(local_driver)qualified=qualified && v && v->phase==FZERO_VS_RESULTS &&
         v->racers[0].status==FZERO_VS_FINISHED && v->racers[1].status==FZERO_VS_FINISHED;
     if(v)fprintf(stderr,"local-versus: tick=%llu phase=%u race=%llu hash=%016llx p1=%u,%u status=%u p2=%u,%u status=%u pause=%u\n",

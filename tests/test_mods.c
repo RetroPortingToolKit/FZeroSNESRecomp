@@ -1,4 +1,5 @@
 #include "fzero_mods.h"
+#include "fzero_netplay_mods.h"
 #include "fzero_tracks.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -308,6 +309,21 @@ int main(void) {
   CHECK(p->feature_enable(NULL,"cgp-stock-rebalance","vehicles",0));
   CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini"));
   CHECK(!loaded.local_two_player && !loaded.gameplay.stock_rebalance);
+  const RecompLauncherCModProvider *net=FzeroNetplayMods(p);
+  RecompLauncherCModPackage pkg;
+  FzeroNetplayModsMode(true);
+  CHECK(net->feature_count(NULL)==3 && net->package_count(NULL)==3 && !net->preset_count(NULL));
+  for(int i=0;i<3;++i) {
+    CHECK(net->feature_get(NULL,i,&f) && *f.name && !f.hidden && !f.option_count);
+    CHECK(net->package_get(NULL,i,&pkg) && !strcmp(pkg.id,f.package_id));
+    CHECK(!net->feature_enable(NULL,f.package_id,f.id,!f.enabled));
+    CHECK(*net->last_error(NULL));
+  }
+  CHECK(net->commit_netplay(NULL,NULL));
+  CHECK(!fresh.local_two_player && !fresh.gameplay.stock_rebalance);
+  FzeroNetplayModsMode(false);
+  CHECK(net->feature_count(NULL)==p->feature_count(NULL));
+  CHECK(net->feature_enable(NULL,"fzero-local-2p","local-2p",1));
   remove("test-mods.ini");
   puts("Independent widescreen and presentation FPS plugins passed");
   return 0;

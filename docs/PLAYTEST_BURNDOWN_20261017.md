@@ -10,7 +10,7 @@ image showing horizontal track shading and the GIVE UP prompt.
 | B02 | Enable MSU-1 for fresh settings; preserve explicit user choice and stock fallback. | Done |
 | B03 | Production Windows builds use the GUI subsystem and show errors without a console. | Done |
 | B04 | Validate exact USA ROM, including copier-header normalization, at all entry paths. | Done |
-| B05 | Remove multiplayer pause and in-race menus; results menu only; eliminate resume input lag. | Done |
+| B05 | Remove multiplayer pause and resume input lag. The results-only menu requirement was superseded by N06 on 2026-10-18: Start opens a menu while the race continues. | Superseded; see the 2026-10-18 burndown |
 | B06 | Respect separate launcher keyboard/controller seats, including Steam virtual-controller cases. | Fixed; physical Steam QA remains |
 | B07 | Explain which mods apply to single-player, versus, courses, and machines. | Done |
 | B08 | Maximum correct full-course draw distance in single-player and both versus views; investigate border glitches and banding. | Done |

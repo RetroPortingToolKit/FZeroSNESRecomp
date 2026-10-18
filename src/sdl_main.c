@@ -1706,6 +1706,7 @@ static int run_game(int argc, char **argv) {
   }
 #endif
   const char *track_root = getenv("FZERO_TRACK_PACKS");
+  host_report_breadcrumb("Loading installed course catalog");
   if (!FzeroTracksInit(track_root ? track_root : "mods/track-packs",
 #ifdef FZERO_HAS_DELUXE
                        true
@@ -1713,6 +1714,7 @@ static int run_game(int argc, char **argv) {
                        false
 #endif
                        )) { fprintf(stderr, "%s\n", FzeroTracksError()); return 2; }
+  host_report_breadcrumb("Installed course catalog loaded");
   /* Exe-anchored, like fzero-video.ini: config.ini belongs next to the
    * executable so a launch from any working directory finds the same
    * settings and the same key bindings. */
@@ -2099,6 +2101,14 @@ static int run_game(int argc, char **argv) {
         .fullscreen = (SDL_GetWindowFlags(window) & SNESRECOMP_SDL_WINDOW_FULLSCREEN_DESKTOP) != 0,
         .suspended = suspended, .scene = g_ram[0x54], .subscene = g_ram[0x55]
       };
+      diagnostic_frame.controller_attached=pad && SDL_GameControllerGetAttached(pad);
+      if(diagnostic_frame.controller_attached) {
+        diagnostic_frame.controller_id=(int)SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad));
+        diagnostic_frame.controller_x=SDL_GameControllerGetAxis(pad,SDL_CONTROLLER_AXIS_LEFTX);
+        diagnostic_frame.controller_y=SDL_GameControllerGetAxis(pad,SDL_CONTROLLER_AXIS_LEFTY);
+        for(unsigned b=0;b<SDL_CONTROLLER_BUTTON_MAX && b<32;++b)
+          if(SDL_GameControllerGetButton(pad,(SDL_GameControllerButton)b))diagnostic_frame.controller_buttons|=1u<<b;
+      }
       FzeroDiagnosticsSample(&diagnostic_frame, false);
     }
     online_menu_test(frames);
@@ -2107,6 +2117,9 @@ static int run_game(int argc, char **argv) {
     int panel = 0; /* 0 none, 1 save-state browser, 2 rewind filmstrip */
     while (SDL_PollEvent(&event)) {
       if (event.type == SDL_QUIT) running = 0;
+      if(event.type==SDL_CONTROLLERDEVICEADDED || event.type==SDL_CONTROLLERDEVICEREMOVED || event.type==SDL_CONTROLLERDEVICEREMAPPED)
+        FzeroDiagnosticsEvent(event.type==SDL_CONTROLLERDEVICEADDED?"controller_added":
+            event.type==SDL_CONTROLLERDEVICEREMOVED?"controller_removed":"controller_remapped",(int)SNESRECOMP_SDL_EVENT_DEVICE(event));
       if(g_gameplay_gamepad)FzeroGamepadEvent(&pad, &event);
       if(!FzeroCaptureReplayActive())FzeroLocalControlsEvent(local_controls,&event);
       if(online && snes_savestate_menu_is_open() && event.type==SDL_KEYDOWN) {

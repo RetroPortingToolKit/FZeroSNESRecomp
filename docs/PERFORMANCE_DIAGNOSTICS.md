@@ -14,6 +14,10 @@ is enabled, start the executable with `--launcher` to reach the toggle.
 Logs stay local and are never uploaded automatically. They include build and
 dependency versions, CPU/OS/RAM, graphics backend and available adapter/driver
 information, shader preset name, active settings and periodic timing summaries.
+Controller samples include connection status, instance ID, raw left-stick
+coordinates and buttons; device add/remove/remap events are recorded too.
+For an input lockup, keep Diagnostics enabled until after it occurs so these
+samples can be compared with the input replay.
 They do not include ROM contents, saves, personal file paths, or player names.
 An unwritable diagnostics folder does not stop the game.
 

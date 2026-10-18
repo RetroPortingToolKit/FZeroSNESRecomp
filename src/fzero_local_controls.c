@@ -109,7 +109,7 @@ static void join(FzeroLocalControls *c,int device) {
 }
 static unsigned menu_tag(void) {
   const FzeroVersusSnapshot *s=FzeroLocalSession()?FzeroVersusCompleted(FzeroLocalSession()):NULL;
-  return s && s->phase==FZERO_VS_RESULTS?2:0;
+  return s && s->phase==FZERO_VS_RESULTS?2:FzeroLocalMenuOwner()?1:0;
 }
 static void release_inputs(FzeroLocalControls *c) {
   c->release[0]=c->release[1]=true;
@@ -117,8 +117,19 @@ static void release_inputs(FzeroLocalControls *c) {
 }
 static unsigned activate(FzeroLocalControls *c,unsigned choice) {
   FzeroVersus *race=FzeroLocalSession();
+  unsigned owner=FzeroLocalMenuOwner();
+  bool live=FzeroVersusCompleted(race)->phase!=FZERO_VS_RESULTS;
+  FzeroLocalSetMenuOwner(0);
+  if(live) {
+    if(choice==0) {
+      if(owner && owner<=2) {c->release[owner-1]=true;c->input[owner-1]=0;}
+      return 0;
+    }
+    --choice;
+  }
   if(choice==0) {
-    FzeroVersusRematch(race);FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
+    if(live)FzeroVersusRestart(race);else FzeroVersusRematch(race);
+    FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
   } else if(choice==1) {
     c->setup=true;c->page=FZERO_LOCAL_MACHINES;FzeroLocalCourseLocation(c->config.course,&c->cup,NULL);c->ready[0]=c->ready[1]=false;
     release_inputs(c);return FZERO_LOCAL_CHANGE;
@@ -150,6 +161,7 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
     c->back=false;
     if(c->setup)return setup_back(c);
     if(tag==2) {release_inputs(c);return FZERO_LOCAL_MAIN;}
+    if(FzeroLocalSession())FzeroLocalSetMenuOwner(tag?0:FzeroLocalControlsKeyboardPlayer(c)+1);
     return 0;
   }
   for(unsigned p=0;p<2;++p) {
@@ -192,8 +204,16 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
         /* One shared cursor move per frame even if both pads press. */
         if(pressed)return 0;
       }
-    } else if(FzeroLocalSession() && tag && FzeroLocalMenuReady()) {
-      unsigned count=3,choice=FzeroLocalMenuSelection();
+    } else if(FzeroLocalSession()) {
+      bool results=FzeroVersusCompleted(FzeroLocalSession())->phase==FZERO_VS_RESULTS;
+      unsigned owner=FzeroLocalMenuOwner();
+      if(!results && (pressed&8) && !owner) {
+        FzeroLocalSetMenuOwner(p+1);c->input[p]=0;continue;
+      }
+      if(!results && owner==p+1)c->input[p]=0;
+      if((!results && owner!=p+1) || !FzeroLocalMenuReady())continue;
+      if(!results && (pressed&1)) {FzeroLocalSetMenuOwner(0);continue;}
+      unsigned count=results?3:4,choice=FzeroLocalMenuSelection();
       if(choice>=count)choice=0;
       if(pressed&0x30) {choice=(choice+((pressed&0x10)?count-1:1))%count;FzeroLocalSetMenuSelection(choice);}
       if(pressed&0x109)return activate(c,choice);

@@ -702,7 +702,31 @@ static unsigned pane_id(const uint8_t *ram, int relative, unsigned row) {
   unsigned index = neighbor * 4 + row;
   return index < count ? roster[index] : 99;
 }
+static bool life_icon_active;
+static unsigned life_icon_base;
+static uint16_t life_icon_backup[4][16];
 void FzeroVehiclesBeginFrame(Ppu *ppu, const uint8_t *ram) {
+  /* The GP spare-machine symbol is a dedicated 16x16 OBJ reservation.
+   * Use the selected identity's icon, including custom/rebalanced artwork,
+   * while retaining the native count, position, palette and fade. */
+  life_icon_active=false;
+  unsigned life_id=FzeroVehicleSelected();
+  if(count && life_id<12 && ram[0x54]==2 && !ram[0x58]) {
+    const unsigned slots[]={22,126};
+    for(unsigned i=0;i<2 && !life_icon_active;++i) {
+      unsigned slot=slots[i],position=ppu->oam[slot*2],attr=ppu->oam[slot*2+1];
+      if((position>>8)>=224 || (attr&0x1ff)!=0x1c8)continue;
+      unsigned group=group_for(life_id),car=vehicles[life_id].slot;
+      const uint8_t *source=(group?art[group-1]:stock_image)+0x40000+car*0x8000+0x6aa0;
+      life_icon_base=(((ppu->obsel&7)<<13)+(((ppu->obsel&0x18)+8)<<9)+0xc8*16)&0x7fff;
+      for(unsigned tile=0;tile<4;++tile) {
+        unsigned at=(life_icon_base+(tile/2)*256+(tile%2)*16)&0x7fff;
+        memcpy(life_icon_backup[tile],ppu->vram+at,32);
+        for(unsigned w=0;w<16;++w)ppu->vram[at+w]=(uint16_t)read16(source+tile*32+w*2);
+      }
+      life_icon_active=true;
+    }
+  }
   /* Practice's native BEST 5/BEST LAP screen loads retail car icons from its
    * own OBJ stream. Records already belong to the selected stable identity;
    * replace only those icon tiles and their palette during presentation.
@@ -861,6 +885,9 @@ void FzeroVehiclesRaster(Ppu *ppu, const uint8_t *ram, unsigned line) {
   }
 }
 void FzeroVehiclesEndFrame(Ppu *ppu) {
+  if(life_icon_active)for(unsigned tile=0;tile<4;++tile)
+    memcpy(ppu->vram+((life_icon_base+(tile/2)*256+(tile%2)*16)&0x7fff),life_icon_backup[tile],32);
+  life_icon_active=false;
   if (practice_results_active) {
     for (unsigned row = 0; row < 2; ++row)
       memcpy(ppu->vram + practice_results_base + row * 256,

@@ -9,6 +9,9 @@
  * the asset catalog are fixtures; no transport, SDL or private ROM required. */
 static FzeroVersus *race;
 static unsigned selection,loads;
+static unsigned menu_owner;
+unsigned FzeroLocalMenuOwner(void) {return menu_owner;}
+void FzeroLocalSetMenuOwner(unsigned n) {menu_owner=n;selection=0;}
 static uint8_t table(void *ctx,uint32_t address) {(void)ctx;(void)address;return 0;}
 unsigned FzeroLocalCupCount(void) {return 18;}
 unsigned FzeroLocalCourseCount(unsigned cup) {return cup<18?20:0;}
@@ -104,7 +107,21 @@ int main(void) {
     press(8,0);CHECK(loads==aspect+1);CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_RACE);
     CHECK(FzeroVersusCompleted(race)->config.course==359);
     FzeroVersusPause(race,FZERO_VS_PAUSE_MANUAL);selection=0;
+    tick(0,0); /* Release the load-transition latch before opening a menu. */
     press(8,8);CHECK(!FzeroVersusCompleted(race)->pause);
+    CHECK(menu_owner==1);
+    uint32_t driving=0x80u|(0x81u<<12);
+    CHECK(!FzeroOnlineTick(&driving) && !(driving&4095) && ((driving>>12)&4095)==0x81);
+    uint64_t before_tick=FzeroVersusCompleted(race)->tick;
+    FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
+    CHECK(FzeroVersusTick(race,(const uint16_t[2]){0,0x8100}));
+    CHECK(FzeroVersusCompleted(race)->tick==before_tick+1);
+    tick(0,0);press(8,0);CHECK(!menu_owner);
+    press(8,0);press(0x20,0);CHECK(FzeroLocalMenuSelection()==1);press(8,0);
+    CHECK(!menu_owner && FzeroVersusCompleted(race)->phase==FZERO_VS_COUNTDOWN && !FzeroVersusCompleted(race)->tick);
+    image(saved);press(8,0);for(unsigned n=0;n<3;++n)press(0x20,0);press(8,0);
+    CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_TITLE && !menu_owner);
+    CHECK(FzeroOnlineRestore(saved));
     CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_RACE);
     FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
     FzeroVersusEndRace(race);selection=0;press(0,8);

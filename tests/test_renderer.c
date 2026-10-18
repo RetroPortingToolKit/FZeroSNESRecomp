@@ -833,6 +833,29 @@ static void test_race_cameras(void) {
   FzeroRenderViewDestroy(views[0]);FzeroRenderViewDestroy(views[1]);
 }
 
+static void test_full_course_interpolation(void) {
+  setup();ram[0x55]=3;word(0xb0,0x4000);
+  uint8_t *bank=ram+0x10000;
+  for(unsigned y=0;y<16;++y)bank[0x4000+y*32+1]=1;
+  for(unsigned block=0;block<2;++block)for(unsigned row=0;row<16;++row) {
+    unsigned list=0x6000+block*0x40,group=0x6100+block*0x100;
+    bank[0x5000+block*32+row*2]=(uint8_t)list;
+    bank[0x5001+block*32+row*2]=(uint8_t)(list>>8);
+    bank[list+row*2]=(uint8_t)group;bank[list+row*2+1]=(uint8_t)(group>>8);
+    for(unsigned q=0;q<4;++q)bank[group+q]=(uint8_t)(7+block);
+  }
+  for(unsigned q=0;q<64;++q) {p.vram[7*64+q]=1<<8;p.vram[8*64+q]=2<<8;}
+  p.cgram[1]=0x3e0;p.cgram[2]=0x7c00;
+  publish(100);p.m7matrix[6]=600;publish(101);
+  FzeroViewport v={256,0,4.0/3.0,false};uint32_t *out=guarded+1;
+  CHECK(FzeroRendererDraw(out,v,0.5));
+  CHECK(out[100*256]==0x0000ff); /* x=300, not x=-212 in another course block. */
+  static uint32_t hd[512*448];
+  CHECK(FzeroRendererDrawPresentation(NULL,hd,512*448,v,0.5,2));
+  CHECK(hd[200*512]==0x0000ff);
+  CHECK(FzeroRendererDraw(out,v,1) && out[100*256]==0x00ff00);
+}
+
 static void test_texture_smoothing(void) {
   setup();p.cgram[2]=0x3e0;
   for(unsigned y=0;y<8;++y)for(unsigned x=0;x<8;++x)p.vram[y*8+x]=(uint16_t)((((x+y)&1)+1)<<8);
@@ -909,6 +932,7 @@ int main(void) {
   test_view_isolation();
   test_race_cameras();
   test_texture_smoothing();
+  test_full_course_interpolation();
   FzeroRendererShutdown();
   CHECK(FzeroRendererWorkerCount() == 1);
   puts("F-Zero renderer: bounds, immutable frames, scene fallback, car identity, signed X, panorama wrap and HUD transitions passed");

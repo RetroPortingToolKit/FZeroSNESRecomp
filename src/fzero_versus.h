@@ -52,8 +52,10 @@ void FzeroVersusPause(FzeroVersus *session,unsigned reason);
 void FzeroVersusResume(FzeroVersus *session);
 void FzeroVersusEndRace(FzeroVersus *session);
 bool FzeroVersusRematch(FzeroVersus *session);
+/* Explicit live-menu restart; restores initial racers and course world. */
+bool FzeroVersusRestart(FzeroVersus *session);
 /* Returns true only when simulation advanced. Both words are latched before
- * either actor runs. Multiplayer never pauses; Start has no race action. */
+ * either actor runs. Multiplayer never pauses; the host handles Start's live menu. */
 bool FzeroVersusTick(FzeroVersus *session,const uint16_t held[2]);
 const FzeroVersusSnapshot *FzeroVersusCompleted(const FzeroVersus *session);
 const uint8_t *FzeroVersusWorld(const FzeroVersus *session);

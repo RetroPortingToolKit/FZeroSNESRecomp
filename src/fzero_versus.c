@@ -100,6 +100,10 @@ bool FzeroVersusRematch(FzeroVersus *s) {
   if (!s || s->state.phase!=FZERO_VS_RESULTS) return false;
   reset(s);return true;
 }
+bool FzeroVersusRestart(FzeroVersus *s) {
+  if(!s)return false;
+  reset(s);return true;
+}
 static void progress(FzeroVersus *s,unsigned player,int gates) {
   FzeroVersusRacer *r=&s->state.racers[player];FzeroActor *a=&r->actor;
   r->gates+=gates;

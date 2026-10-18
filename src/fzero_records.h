@@ -19,7 +19,7 @@ void FzeroRecordsMergeCup(uint8_t records[0x400], const uint8_t previous[0x400],
 void FzeroRecordsTick(void);
 uint16_t FzeroRecordsInput(uint16_t input);
 void FzeroRecordsInstallHooks(void);
-void FzeroRecordsOverlay(uint32_t *pixels, unsigned width, unsigned height, size_t pitch);
+void FzeroRecordsOverlay(uint32_t *pixels, unsigned width, unsigned height, size_t pitch,const uint8_t *ram);
 bool FzeroRecordsDetail(void);
 unsigned FzeroRecordsCup(void);
 unsigned FzeroRecordsOrder(void);

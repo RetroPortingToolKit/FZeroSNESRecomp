@@ -43,15 +43,34 @@ bool FzeroOnlineTick(uint32_t *packed) {
   if(state.phase==FZERO_ONLINE_RACE) {
     FzeroVersus *race=FzeroLocalSession();const FzeroVersusSnapshot *s=FzeroVersusCompleted(race);
     if(!s)return false;
-    /* Host navigates results only. Neither participant can stop a race. */
-    if(s->phase==FZERO_VS_RESULTS && FzeroLocalMenuReady()) {
-      unsigned count=2,choice=FzeroLocalMenuSelection()%count;
+    /* Menu state is in the rollback image. Opening it never consumes a
+     * simulation tick; only its operator's driving input is neutralized. */
+    bool results=s->phase==FZERO_VS_RESULTS;
+    unsigned owner=FzeroLocalMenuOwner();
+    if(results && owner) {FzeroLocalSetMenuOwner(0);owner=0;}
+    if(!results && !owner)for(unsigned p=0;p<2;++p)if(pressed[p]&8) {
+      FzeroLocalSetMenuOwner(p+1);owner=FzeroLocalMenuOwner();
+      pressed[p]=0;break;
+    }
+    if(!results && owner)*packed&=~(4095u<<((owner-1)*12));
+    if((results || owner) && FzeroLocalMenuReady()) {
+      unsigned operator=results?0:owner-1;
+      unsigned count=results?2:4,choice=FzeroLocalMenuSelection()%count;
       if(choice!=FzeroLocalMenuSelection())FzeroLocalSetMenuSelection(choice);
-      if(pressed[0]&0x30)FzeroLocalSetMenuSelection((choice+((pressed[0]&0x10)?count-1:1))%count);
-      if(pressed[0]&0x109) {
+      if(pressed[operator]&0x30)FzeroLocalSetMenuSelection((choice+((pressed[operator]&0x10)?count-1:1))%count);
+      if(!results && (pressed[operator]&1)) {FzeroLocalSetMenuOwner(0);return false;}
+      if(pressed[operator]&(results?0x109:0x108)) {
         choice=FzeroLocalMenuSelection();
+        FzeroLocalSetMenuOwner(0);
+        if(!results && choice==0)return false;
+        if(!results && choice==3) {
+          state.phase=FZERO_ONLINE_TITLE;state.ready=0;state.release=3;
+          state.previous[0]=state.previous[1]=4095;*packed=3u<<30;return true;
+        }
+        if(!results)--choice;
         if(choice==0) {
-          FzeroVersusRematch(race);FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
+          if(results)FzeroVersusRematch(race);else FzeroVersusRestart(race);
+          FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
         } else if(choice==1) {
           state.phase=FZERO_ONLINE_MACHINES;state.ready=0;
         }

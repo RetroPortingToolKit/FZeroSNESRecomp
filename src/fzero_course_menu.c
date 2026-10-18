@@ -168,7 +168,7 @@ static unsigned horizon_pixel(const FzeroCourse *course, const uint8_t *map,
   unsigned priority = (tile & 0x2000 ? 4 : 2) - layer;
   return color && palette >= 1 ? (priority << 8) | palette * 16 | color : 0;
 }
-static void records_art(Canvas canvas, const FzeroRecordsView *view, unsigned cup, unsigned order) {
+static void records_art(Canvas canvas, const FzeroRecordsView *view, unsigned cup, unsigned order,const uint8_t *ram) {
   const FzeroCourse *course = FzeroTracksCourseAt(cup, order);
   if (course) {
     /* Keep the native 256x56 venue strip. Use the actual course's two horizon
@@ -190,7 +190,7 @@ static void records_art(Canvas canvas, const FzeroRecordsView *view, unsigned cu
    * times and best lap. Empty rows are hidden at Y=224. Use their positions,
    * but draw the identity owning this records namespace, not its donor slot. */
   for (unsigned row = 0; row < 11; ++row) {
-    const uint8_t *oam = g_ram + 0x200 + row * 4;
+    const uint8_t *oam = ram + 0x200 + row * 4;
     unsigned x = oam[0], y = oam[1];
     if (y + 16 > 224 || x + 16 > 256) continue;
     for (unsigned yy = 0; yy < 16; ++yy)
@@ -199,10 +199,10 @@ static void records_art(Canvas canvas, const FzeroRecordsView *view, unsigned cu
             icon[yy * 16 + xx] ? icon[yy * 16 + xx] : 0xff000000);
   }
 }
-void FzeroRecordsOverlay(uint32_t *pixels, unsigned width, unsigned height, size_t pitch) {
+void FzeroRecordsOverlay(uint32_t *pixels, unsigned width, unsigned height, size_t pitch,const uint8_t *ram) {
   FzeroRecordsView *v = FzeroRecordsViewState();
   if (!v || !pixels || height < 224 || height % 224 || width / (height / 224) < 256) return;
-  if (g_ram[0x54] || g_ram[0x55] < 2 || g_ram[0x55] > (FzeroDeluxeActive() ? 3 : 5)) return;
+  if (ram[0x54] || ram[0x55] < 3 || ram[0x55] > (FzeroDeluxeActive() ? 3 : 5)) return;
   bool detail = v->display_detail != 0;
   unsigned brightness = g_snes->ppu->inidisp;
   Canvas c = {pixels, pitch, height / 224, (width / (height / 224) - 256) / 2,
@@ -210,7 +210,7 @@ void FzeroRecordsOverlay(uint32_t *pixels, unsigned width, unsigned height, size
   char label[80];
   if (detail) {
     unsigned index = v->page * 3 + v->display_selected / 5, order = v->display_selected % 5;
-    records_art(c, v, index, order);
+    records_art(c, v, index, order,ram);
     const CpCup *cup = FzeroTracksRuntimeCup(index, NULL);
     const CpTrack *track = FzeroTracksRuntimeTrack(index, order);
     if (!cup || !track) return;
@@ -253,9 +253,39 @@ void FzeroRecordsOverlay(uint32_t *pixels, unsigned width, unsigned height, size
   record_text(c, 144, 192, label, 14, 0xffb8e8ff);
   record_text(c, 144, 204, FzeroVehicleCount() ? "X/Y CAR" : "SHARED TIMES", 14, 0xffb8e8ff);
 }
-void FzeroTracksOverlay(uint32_t *pixels, unsigned width, unsigned height, size_t pitch) {
-  FzeroRecordsOverlay(pixels, width, height, pitch);
-  if (!pixels || !FzeroTracksMenuVisible() || height < 224 || height % 224)
+/* Native substate 1 also owns the car information card. Its league panel
+ * is installed before substate 2 accepts input. Follow the displayed tilemap
+ * through that transition, rather than covering the card or waiting for the
+ * fade to finish. Only visible menu maps are searched, in the native heading
+ * reservation; stale tiles elsewhere in VRAM cannot open the overlay. */
+static bool league_panel_loaded(void) {
+  const Ppu *p=g_snes->ppu;bool deluxe=FzeroDeluxeActive();
+  static const unsigned bs[]={0x156,0x148,0x140,0x14c,0x168,0x148};
+  static const unsigned stock[]={0xcd,0xc6,0xaf,0xc8,0xd6,0xc6};
+  static const unsigned small[]={0xab,0xa4,0xa0,0xa6,0xb4,0xa4}; /* Practice's 8x8 BG2 heading. */
+  const unsigned *expected=deluxe?bs:stock;
+  for(unsigned layer=0;layer<3;++layer) {
+    if(!((p->screenEnabled[0]|p->screenEnabled[1])&(1u<<layer)))continue;
+    for(unsigned y=5;y<10;++y)for(unsigned x=14;x<25;++x) {
+      bool match=true,small_match=deluxe;unsigned sc=p->bgXsc[layer];
+      for(unsigned ch=0;ch<6;++ch) {
+        unsigned tx=(((x+ch)*8+p->hScroll[layer])&1023)/8;
+        unsigned ty=((y*8+p->vScroll[layer])&1023)/8;
+        unsigned at=(sc&0xfc)*256+(tx&31)+(ty&31)*32;
+        if((sc&1) && (tx&32))at+=1024;
+        if((sc&2) && (ty&32))at+=(sc&1)?2048:1024;
+        unsigned tile=p->vram[at&0x7fff]&1023;
+        match=match && tile==expected[ch];small_match=small_match && tile==small[ch];
+        if(!match && !small_match)break;
+      }
+      if(match || small_match)return true;
+    }
+  }
+  return false;
+}
+void FzeroTracksOverlay(uint32_t *pixels, unsigned width, unsigned height, size_t pitch,const uint8_t *ram) {
+  FzeroRecordsOverlay(pixels, width, height, pitch,ram);
+  if (!pixels || !FzeroTracksMenuVisibleAt(ram) || !league_panel_loaded() || height < 224 || height % 224)
     return;
   static bool logged;
   if (!logged) {
@@ -269,8 +299,8 @@ void FzeroTracksOverlay(uint32_t *pixels, unsigned width, unsigned height, size_
   Canvas c = {pixels, pitch, scale, (width / scale - 256) / 2,
               brightness & 128 ? 0 : brightness & 15};
   unsigned count = FzeroTracksRuntimeCount(), selected = FzeroTracksMenuIndex();
-  bool practice = g_ram[0x58] != 0;
-  bool choosing_class = !practice && FzeroTracksClassSelected();
+  bool practice = ram[0x58] != 0;
+  bool choosing_class = !practice && FzeroTracksClassSelectedAt(ram);
   unsigned first = selected < 5 ? 0 : selected - 4;
   box(c, 110, 68, 124, 82, 0xff000000);
   for (unsigned row = 0; row < 5 && first + row < count; ++row) {
@@ -307,7 +337,7 @@ void FzeroTracksOverlay(uint32_t *pixels, unsigned width, unsigned height, size_
   }
   menu_text(c, 120, 151, "CLASS", 5, MENU_YELLOW);
   static const char *classes[] = {"BEGINNER", "STANDARD", "EXPERT", "MASTER", "LEGEND"};
-  unsigned level=g_ram[choosing_class && !FzeroDeluxeActive() ? 0x5a : 0x57];
+  unsigned level=ram[choosing_class && !FzeroDeluxeActive() ? 0x5a : 0x57];
   menu_text(c, 128, 167, classes[level < 5 ? level : 0], 12, choosing_class ? MENU_CYAN : MENU_GREY);
   if (choosing_class)
     text(c, 115, 168, ">", 1, 0xffffff00);

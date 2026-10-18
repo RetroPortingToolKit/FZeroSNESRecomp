@@ -132,9 +132,9 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
   for(unsigned n=0;n<2;++n) {
     unsigned letter=n?'V':'M',id=n?0xa3:0x8a;
     uint8_t *glyph=ui->title_letters[letter-'A'];
-    for(unsigned y=1;y<15;++y)for(unsigned x=0;x<8;++x) {
+    for(unsigned y=1;y<15;++y)for(unsigned x=n?1:0;x<(n?7u:8u);++x) {
       unsigned sy=(n?2:3)+(y-1)*(n?11:10)/14;
-      unsigned source=ui->objects[id+(sy/8)*16][(sy&7)*8+x];
+      unsigned source=ui->objects[id+(sy/8)*16][(sy&7)*8+(n?(x-1)*7/5:x)];
       /* V's taper/tip uses the highlight color after the inner stroke ends. */
       bool stroke=source==3 || (n && source==2);
       if(stroke)glyph[y*8+x]=ui->title_letters['I'-'A'][y*8+3];

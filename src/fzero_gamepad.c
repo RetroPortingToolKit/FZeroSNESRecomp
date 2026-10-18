@@ -137,10 +137,10 @@ void FzeroGamepadEvent(SDL_GameController **pad, const SDL_Event *event) {
   if (event->type == SDL_CONTROLLERDEVICEADDED ||
       event->type == SDL_CONTROLLERDEVICEREMOVED)
     FzeroGamepadRefresh(pad);
-  if (event->type == SDL_CONTROLLERDEVICEREMAPPED && *pad &&
-      SNESRECOMP_SDL_EVENT_DEVICE(*event) ==
-          SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(*pad)))
-    load_profile(*pad);
+  if (event->type == SDL_CONTROLLERDEVICEREMAPPED) {
+    if(*pad && SNESRECOMP_SDL_EVENT_DEVICE(*event)==SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(*pad)))load_profile(*pad);
+    ++s_profile_generation; /* Invalidate per-seat maps after SDL remapping. */
+  }
 }
 
 uint32_t FzeroGamepadRead(SDL_GameController *pad) {

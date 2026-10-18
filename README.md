@@ -94,7 +94,7 @@ Open **Mods** for:
   Start at 2x. Above 4x can cause severe slowdown; use at your own risk.
 - **BS Satellaview vehicles:** adds four machines independently of courses.
 - **BS Satellaview tracks:** adds the ten original BS courses; mutually exclusive with Track Pack Loader, whose CGP pack supplies corrected versions.
-- **CGP vehicles:** one opt-in mod for all three authored car groups (eight additional ships plus the original four). The original-car rebalances are one separate opt-in.
+- **CGP vehicles:** one opt-in mod for all three authored car groups (eight additional ships plus the original four). The separate original-car rebalances default on.
 - **CGP rules and fixes:** optional gameplay rules and fixes. See [source coverage](mods/cgp-source/README.md).
 - **Community Grand Prix (prototype):** a bundled course pack with one enable checkbox. Every enabled track pack adds its cups to the in-game leagues. See [installation and manifest instructions](mods/README.md).
 

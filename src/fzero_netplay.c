@@ -1,4 +1,5 @@
 #include "fzero_netplay.h"
+#include "fzero_netplay_mods.h"
 #include "fzero_capture.h"
 #include "fzero_build.h"
 #include "fzero_runtime.h"
@@ -19,13 +20,11 @@
 #include <stdlib.h>
 #include <string.h>
 
-static bool initialized,from_lobby,resume,menu_mode;
+static bool initialized,from_lobby,resume;
 static unsigned aspect=FZERO_ASPECT_16_9;
 static char identity[512],base_identity[400],lobby_version[64];
 static const RecompLauncherCNetplayCallbacks *original;
 static RecompLauncherCNetplayCallbacks callbacks;
-static const RecompLauncherCModProvider *original_mods;
-static RecompLauncherCModProvider mods;
 static SnesTraceWriter *trace;
 static bool exit_ready;
 static struct {uint32_t tick,confirmed,episodes,desync;uint64_t resim;} last_stats;
@@ -39,11 +38,7 @@ static int store_name(void *ctx,const char *name) {(void)ctx;return snes_netplay
 static int load_name(void *ctx,char *out,size_t n) {(void)ctx;return snes_netplay_identity_load(out,n);}
 static int no(void *ctx) {(void)ctx;return 0;}
 static const char *caption(void *ctx) {(void)ctx;return "Viewport";}
-static int feature_count(void *ctx) {return menu_mode?0:original_mods->feature_count(ctx);}
-static int package_count(void *ctx) {return menu_mode?0:original_mods->package_count(ctx);}
-static int preset_count(void *ctx) {return menu_mode?0:original_mods->preset_count(ctx);}
-static int net_commit(void *ctx,const char *rom) {(void)ctx;(void)rom;return 1;}
-static void mode(int active) {menu_mode=active!=0;}
+static void mode(int active) {FzeroNetplayModsMode(active!=0);}
 static int create(void *ctx,const char *name,char *endpoint,const char *password,
                   const RecompLauncherCSettings *settings,int lan,int seats) {
   (void)seats;
@@ -91,11 +86,7 @@ void FzeroNetplayLauncher(RecompLauncherCGameInfo *info) {
     initialized=true;
   }
   info->netplay_supported=1;info->netplay=&callbacks;info->netplay_mode_changed=mode;
-  if(info->mods && info->mods!=&mods) {
-    original_mods=info->mods;mods=*original_mods;
-    mods.feature_count=feature_count;mods.package_count=package_count;mods.preset_count=preset_count;
-    mods.commit_netplay=net_commit;info->mods=&mods;
-  }
+  if(info->mods)info->mods=FzeroNetplayMods(info->mods);
   if(resume) {
     info->resume_netplay_room=1;info->resume_netplay_endpoint=recomp_netplay_host_resume_endpoint();resume=false;
   }
@@ -129,12 +120,12 @@ static void trace_frame(void) {
   if(!trace)return;
   const FzeroOnlineState *s=FzeroOnlineCompleted();
   const FzeroVersusSnapshot *r=FzeroVersusCompleted(FzeroLocalSession());char row[384];
-  int n=snprintf(row,sizeof(row),"%llu,%08x,%u,%u,%u,%u,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
+  int n=snprintf(row,sizeof(row),"%llu,%08x,%u,%u,%u,%u,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
       (unsigned long long)s->tick,(unsigned)game_digest(),s->phase,s->config.course,
       s->config.machine[0],s->config.machine[1],(unsigned long long)(r?r->race_tick:0),
       r?r->racers[0].actor.x:0,r?r->racers[0].actor.y:0,r?r->racers[1].actor.x:0,r?r->racers[1].actor.y:0,
       r?r->phase:0,r?r->racers[0].completed_laps:0,r?r->racers[1].completed_laps:0,
-      r?r->racers[0].status:0,r?r->racers[1].status:0,r?r->winner:0,r?r->pause:0);
+      r?r->racers[0].status:0,r?r->racers[1].status:0,r?r->winner:0,r?r->pause:0,FzeroLocalMenuOwner(),g_ram[0x46]);
   if(n>0 && n<(int)sizeof(row))SnesTraceWriterWrite(trace,row,(size_t)n);
 }
 static void replay(uint32_t input,uint32_t tick) {
@@ -180,7 +171,7 @@ bool FzeroNetplayStart(const RecompLauncherCSettings *settings) {
   snes_state_digest_set_extra(game_digest);snes_netplay_rb_set_replay_frame(replay);
   if(snes_netplay_start(&cfg)!=0) {FzeroOnlineEnd();snes_state_digest_set_extra(NULL);return false;}
   const char *stem=getenv("FZERO_TEST_NET_TRACE");
-  if(stem && *stem)trace=SnesTraceWriterOpen(stem,"tick,hash,phase,course,p1,p2,race,x1,y1,x2,y2,stage,lap1,lap2,status1,status2,winner,pause\n",16*1024*1024,2);
+  if(stem && *stem)trace=SnesTraceWriterOpen(stem,"tick,hash,phase,course,p1,p2,race,x1,y1,x2,y2,stage,lap1,lap2,status1,status2,winner,pause,menu,music\n",16*1024*1024,2);
   /* RtlEnsureSaveDir creates one level; install the isolated namespace's
    * parents on a fresh extraction before any shared save operation. */
   RtlSetSaveRoot("saves");RtlEnsureSaveDir();

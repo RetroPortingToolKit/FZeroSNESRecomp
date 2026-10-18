@@ -16,7 +16,11 @@ void FzeroVsMenuConfigure(bool enabled) {
   available=enabled;selected=requested=false;previous=0;
   if(enabled)FzeroNativeUiInit(&ui,(FzeroActorTables){read_rom,NULL});
 }
-static bool title(const uint8_t *ram) {return available && !ram[0x54] && ram[0x55]==1 && !ram[0xc3];}
+static bool title(const uint8_t *ram) {return available && !ram[0x54] && ram[0x55]==1;}
+static bool title_visible(const uint8_t *ram) {
+  return available && ((!ram[0x54] && (ram[0x55]==1 || ram[0x55]==2)) ||
+      (ram[0x54]==1 && !ram[0x55]));
+}
 static unsigned last(const uint8_t *ram) {
   return ram[0xf2]!=15 || FzeroGameplaySettingsCurrent()->always_records?2:1;
 }
@@ -25,7 +29,7 @@ static void cursor(uint8_t *ram,unsigned choice) {
 }
 uint16_t FzeroVsMenuInput(uint16_t input,uint8_t *ram) {
   uint16_t pressed=input&~previous;previous=input;
-  if(!title(ram)) {selected=false;return input;}
+  if(!title(ram) || ram[0xc3]) {selected=false;return input;}
   if(selected) {
     if(pressed&16) {selected=false;cursor(ram,last(ram));return 0;}
     if(pressed&0x109) {
@@ -38,7 +42,7 @@ uint16_t FzeroVsMenuInput(uint16_t input,uint8_t *ram) {
   return input;
 }
 void FzeroVsMenuTick(uint8_t *ram) {
-  if(!title(ram))return;
+  if(!title_visible(ram))return;
   /* Four rows need equal spacing and breathing room above the copyright.
    * Keep the original OBJ words; only their Y coordinates change. */
   for(unsigned slot=24;slot<=36;++slot) {
@@ -51,7 +55,7 @@ void FzeroVsMenuTick(uint8_t *ram) {
 bool FzeroVsMenuPending(void) {return requested;}
 bool FzeroVsMenuRequested(void) {bool value=requested;requested=false;return value;}
 void FzeroVsMenuDraw(FzeroUiCanvas canvas,int extra,const uint8_t *ram) {
-  if(!title(ram))return;
+  if(!title_visible(ram))return;
   const Ppu *ppu=g_snes->ppu;unsigned brightness=ppu->inidisp&15;
   if((ppu->inidisp&128) || !brightness)return;
   /* Match the native OBJ row through title fades and palette changes, rather

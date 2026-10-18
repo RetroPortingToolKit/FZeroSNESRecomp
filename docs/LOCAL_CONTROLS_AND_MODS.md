@@ -11,13 +11,20 @@ keyboard input to the game. Disable Steam desktop keyboard mappings or run
 outside Steam when using a separate keyboard player. The game cannot identify
 which physical device generated an operating-system keyboard event.
 
-Multiplayer never pauses. Start, P, Escape, focus loss and disconnects do not
-open an in-race menu or freeze the other player. A disconnected seat sends
-neutral input until its assigned device returns. Close the window to quit.
+Multiplayer never pauses. Start opens a live menu: Continue, Restart Race,
+Change Race or Main Menu. The race and the other player's controls continue;
+the player operating the menu sends neutral driving input. B closes the menu.
+Focus loss and disconnects never freeze the other player. A disconnected seat
+sends neutral input until its assigned device returns.
 After the race, use **Race Again**, **Change Race**, or **Main Menu** locally;
 the online host selects Race Again or Change Race. Save/rewind browser hotkeys
 and quick saves/loads cannot interrupt a multiplayer race. Single-player keeps
 its normal pause behavior.
+
+Lobby Mods lists the required VS rules and the shared course catalog. Change
+the catalog in the main Mods screen before entering a lobby; both players
+must match. Presentation and music are local choices, and single-player
+handling switches do not change the fixed VS machine roster.
 
 | Setting | Where it applies |
 | --- | --- |

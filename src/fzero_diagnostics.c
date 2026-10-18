@@ -217,6 +217,8 @@ void FzeroDiagnosticsSample(const FzeroDiagnosticFrame *f, bool final) {
           elapsed > 0 ? sim * 1000.0 / elapsed : 0, elapsed > 0 ? presents * 1000.0 / elapsed : 0,
           f->target_hz, f->refresh_hz, percentile(95), percentile(99), ms(interval_max));
   const FzeroVideoSettings *v = &f->settings;
+  fprintf(log_file,",\"controller\":{\"instance\":%d,\"attached\":%d,\"left_x\":%d,\"left_y\":%d,\"buttons\":%u}",
+      f->controller_id,f->controller_attached,f->controller_x,f->controller_y,(unsigned)f->controller_buttons);
   string_field("aspect", FzeroAspectName(v->aspect));
   fprintf(log_file, ",\"enhanced\":%d,\"viewport_enhanced\":%d,\"bs_deluxe\":%d,"
           "\"hd_enabled\":%d,\"requested_scale\":%u,\"effective_scale\":%u,"

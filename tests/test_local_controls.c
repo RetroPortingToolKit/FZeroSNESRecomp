@@ -19,6 +19,9 @@ bool FzeroLocalCourseLocation(unsigned id,unsigned *cup,unsigned *order) {
 const char *FzeroLocalCupName(unsigned cup) {return cup==0?"KNIGHT LEAGUE":cup==1?"QUEEN LEAGUE":"KING LEAGUE";}
 const char *FzeroLocalCourseName(unsigned id) {return FzeroUiCourseName(id);}
 static unsigned selection;
+static unsigned menu_owner;
+unsigned FzeroLocalMenuOwner(void) {return menu_owner;}
+void FzeroLocalSetMenuOwner(unsigned n) {menu_owner=n;selection=0;}
 bool FzeroLocalMenuReady(void) {return true;}
 unsigned FzeroLocalMenuSelection(void) {return selection;}
 void FzeroLocalSetMenuSelection(unsigned n) {selection=n;}
@@ -156,6 +159,22 @@ int main(void) {
   const uint16_t start[2]={0x1000,0};CHECK(FzeroVersusTick(race,start));
   CHECK(!FzeroVersusCompleted(race)->pause);
   CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_WEST,false));poll(c,0);
+  /* A live menu consumes only its operator's input. Opponent input and the
+   * authoritative race clock continue; Start closes without confirmation. */
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_WEST,true));poll(c,0);
+  poll(c,8);CHECK(menu_owner==1 && FzeroLocalControlsInput(c)==4096);
+  uint64_t live_tick=FzeroVersusCompleted(race)->tick;
+  for(unsigned i=0;i<20;++i) {
+    poll(c,0);CHECK(FzeroLocalControlsInput(c)==4096);
+    CHECK(FzeroVersusTick(race,(const uint16_t[2]){0,0x8000}));
+  }
+  CHECK(FzeroVersusCompleted(race)->tick==live_tick+20 && !FzeroVersusCompleted(race)->pause);
+  poll(c,8);CHECK(!menu_owner && (FzeroLocalControlsInput(c)>>12)==1);poll(c,0);
+  CHECK((FzeroLocalControlsInput(c)>>12)==1); /* Continuing cannot latch the opponent off. */
+  CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_WEST,false));poll(c,0);
+  poll(c,8);poll(c,0);poll(c,0x20);CHECK(selection==1);poll(c,0);poll(c,8);
+  CHECK(!menu_owner && FzeroVersusCompleted(race)->phase==FZERO_VS_COUNTDOWN && !FzeroVersusCompleted(race)->tick);
+  poll(c,0);
   SDL_Event focus={0};focus.type=SDL_EVENT_WINDOW_FOCUS_LOST;FzeroLocalControlsEvent(c,&focus);
   CHECK(!FzeroVersusCompleted(race)->pause);
   FzeroLocalControlsBack(c);CHECK(!poll(c,0));

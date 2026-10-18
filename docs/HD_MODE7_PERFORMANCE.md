@@ -5,6 +5,50 @@ records the original serial baseline and private multicore experiment. The
 production renderer now uses snesrecomp's opt-in
 [rendering worker pool](../snesrecomp/docs/RENDER_WORKERS.md).
 
+## Live menus and filtered rendering (0.10.3, 2026-10-18)
+
+Local split screen and each online camera now generate the native image and
+HD image together. They share the camera/source preparation and native
+composition instead of repeating a native draw after the HD draw. Filtering
+also shares each row's palette/color-math lookup tables and caches the last
+filtered texel for adjacent HD samples. Sprite/window exceptions and oversized
+coordinates retain the general composition path. This is portable scalar C;
+the existing reusable workers and serial fallback remain available.
+
+Windows Release, GCC 15.2, Ryzen 7 9800X3D, one captured Astra U-Zero raster,
+alpha 1. Each value is the median of three batches of 20 presentations after
+warmup, with no competing builds or game tests. The reference disables the
+new filtering caches while keeping the corrected full-course geometry.
+
+| Aspect | HD scale | Filtering reference | Filtering cached |
+| --- | --- | ---: | ---: |
+| 4:3 | 4x | 11.782 ms | 2.053 ms |
+| 16:9 | 2x | 4.573 ms | 1.670 ms |
+| 16:9 | 4x | 14.701 ms | 2.759 ms |
+| 21:9 | 4x | 24.490 ms | 3.549 ms |
+| 32:9 | 4x | 37.300 ms | 5.869 ms |
+
+Native and HD hashes match for every combination of four aspects and
+native/2x/4x. Without filtering, reproducing the old separate native+HD draws
+takes 2.005 ms at 16:9 2x and 2.807 ms at 16:9 4x; combined output takes
+0.866 ms and 1.595 ms respectively, with matching hashes. These measurements
+isolate composition, excluding simulation, texture upload, GPU/display work,
+and frame pacing. They do not establish the reporter's hardware performance
+or multiply directly into a whole-game speedup.
+
+Full-course interpolation also now unwraps the camera centre separately from
+the affine displacement. The hardware's 1024-texel cache period must not wrap
+the complete 8192x4096 course displacement. The native/HD regression catches
+the incorrect block sample that could flash barriers or magnets for a frame
+in an interpolated windowed presentation. Integer/current-frame output stays
+unchanged.
+
+Private evidence: `captures/feedback18/*smoothing*-split*.csv`. Reproduce with
+`FZeroRendererBenchmark`, `FZERO_BENCHMARK_SMOOTHING=1`; use
+`FZERO_BENCHMARK_SPLIT_PASSES=1` for the former separate-draw cost. The optional
+`FZERO_BENCHMARK_MAX_SCALE` extends scale coverage through 6x/8x/10x. Native
+4:3 benchmark rows now actually compose a frame instead of reporting zero.
+
 ## Reusable workers (2026-10-09)
 
 HD racing and frozen finish scenery use persistent workers with immutable
@@ -186,9 +230,9 @@ FZeroRendererBenchmark frame-001600.bin 30 frame-001601.bin
 
 With two consecutive captures it tests current and interpolated frames;
 with one capture it tests current frames only. CSV output includes width,
-scale, blend, median render time and separate native/HD hashes. At 4:3 with
-HD off, the custom renderer is unused; its reported zero cost excludes the
-shared PPU, which still renders the native game.
+scale, blend, median render time and separate native/HD hashes. Native 4:3
+rows compose through the custom renderer for a meaningful benchmark; ordinary
+unmodified gameplay can still use the shared PPU for that presentation.
 
 The measured captures used BS Deluxe, 32:9, `FZERO_CAPTURE_FRAMES=1600,1601`
 and the deterministic input route

@@ -11,6 +11,7 @@ static unsigned local_ui_arrival_shots,local_ui_catalog_shots;
 static bool local_ui_setup;
 static unsigned local_ui_cup;
 static bool local_ui_racing;
+static bool local_ui_live_captured;
 static unsigned local_ui_drive_captured;
 static uint16_t local_ui_drive_start[2][2];
 static const unsigned local_ui_resize_ticks[]={10,65,125,220,260};
@@ -99,16 +100,23 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
         unsigned finish=local_ui_stage==3?(getenv("FZERO_TEST_LOCAL_UI_DRIVE")?500u:360u):FZERO_VERSUS_COUNTDOWN+24;
         if(s->tick>=finish && s->tick<finish+12)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
         if(s->pause)Die("Multiplayer Start paused the race");
-        if(s->tick>=finish+12 && s->phase!=FZERO_VS_RESULTS)FzeroVersusEndRace(FzeroLocalSession());
+        if(getenv("FZERO_TEST_LOCAL_UI_LIVE")) {
+          if(s->tick>=finish+12 && s->phase!=FZERO_VS_RESULTS) {
+            if(FzeroLocalMenuOwner()!=1)Die("UI Start did not open live menu");
+            ++local_ui_stage;local_ui_step=0;
+          }
+        } else if(s->tick>=finish+12 && s->phase!=FZERO_VS_RESULTS)FzeroVersusEndRace(FzeroLocalSession());
         if(s->phase==FZERO_VS_RESULTS && FzeroLocalMenuReady()) {++local_ui_stage;local_ui_step=0;}
       }
       break;
     case 4:
+      if(getenv("FZERO_TEST_LOCAL_UI_LIVE") && (t==2 || t==3))local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
       if(t==6 || t==7)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
       if(t>10) {if(!s || s->pause || s->phase!=FZERO_VS_COUNTDOWN)Die("UI Restart Race failed");local_ui_stage=5;local_ui_step=0;}
       break;
     case 6:
       if(t==2 || t==3)local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
+      if(getenv("FZERO_TEST_LOCAL_UI_LIVE") && (t==6 || t==7))local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
       if(t==10 || t==11)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
       if(t>14) {if(!setup)Die("UI Change Race failed");local_ui_stage=7;local_ui_step=0;}
       break;
@@ -127,17 +135,19 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
         local_ui_stage=11;local_ui_step=0;break;
       }
       if(t==2 || t==3 || t==6 || t==7)local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
+      if(getenv("FZERO_TEST_LOCAL_UI_LIVE") && (t==10 || t==11))local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
       if(t==14 || t==15)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
       break;
     case 11:
       if(controls || FzeroLocalEnabled() || g_ram[0x54] || g_ram[0x55]!=1)Die("UI confirmation leaked into single-player");
       if(t>4) {
+        if(getenv("FZERO_TEST_LOCAL_UI_LIVE") && !local_ui_live_captured)Die("Live menu was never presented");
         if(getenv("FZERO_TEST_LOCAL_UI_RESIZE") &&
            (local_ui_captured!=31 || local_ui_countdowns!=14 || !local_ui_racing))Die("UI resize/countdown presentation coverage incomplete");
         if(local_ui_setup_shots!=7)Die("UI setup-page presentation coverage incomplete");
         if(local_ui_arrival_shots!=7 || local_ui_catalog_shots!=3)Die("UI arrival/catalog presentation coverage incomplete");
         if(getenv("FZERO_TEST_LOCAL_UI_DRIVE") && local_ui_drive_captured!=63)Die("UI drive animation coverage incomplete");
-        fprintf(stderr,"local-ui: PASS native VS entry, two SDL devices, preload/Ready, uninterrupted Start and results-only Restart/Change/Main Menu and single-player return\n");return true;}
+        fprintf(stderr,"local-ui: PASS native VS entry, two SDL devices, preload/Ready, live/results Restart/Change/Main Menu and single-player return\n");return true;}
       break;
     default:break;
   }
@@ -159,6 +169,9 @@ static void local_ui_presented(const FzeroPresenter *p) {
   const char *directory=getenv("FZERO_TEST_LOCAL_UI_DUMP");
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(FzeroLocalSession());
   static bool title_captured;
+  if(s && FzeroLocalMenuOwner() && !local_ui_live_captured) {
+    local_ui_live_captured=true;local_ui_images(p,directory,"live-menu");
+  }
   char label[64];
   if(local_ui_setup && !(local_ui_setup_shots&(1u<<local_ui_page))) {
     local_ui_setup_shots|=1u<<local_ui_page;
