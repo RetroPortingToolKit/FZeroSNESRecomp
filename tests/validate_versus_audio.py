@@ -31,7 +31,7 @@ def main():
                ('astra', 15, 3, False)]
     cases = [(name + '-vs', course, song, bs, '') for name, course, song, bs in courses]
     cases += [(name + '-' + action, course, song, bs, action)
-              for name, course, song, bs in courses for action in ('paused', 'resumed')]
+              for name, course, song, bs in courses for action in ('start-ignored',)]
     cases += [('death-storm-single' + ('-' + action if action else ''), None, 9, False, action)
               for action in ('', 'paused', 'resumed')]
 
@@ -66,8 +66,7 @@ def main():
         assert proc.returncode == 0, (name, proc.returncode, proc.stderr[-1500:])
         if course is not None:
             assert 'phase=2 ' in proc.stderr, (name, 'did not reach racing')
-            if action == 'resumed':
-                assert 'audio-fixture: resumed VS' in proc.stderr, (name, 'resume not exercised')
+            assert 'pause=0' in proc.stderr, (name, 'multiplayer must never pause')
         else:
             ram = (folder / 'ram.bin').read_bytes()
             assert ram[0x54] == 2 and ram[0x55] == (5 if action == 'paused' else 3), (name, 'native pause/race not exercised')

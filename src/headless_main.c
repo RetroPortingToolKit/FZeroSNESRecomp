@@ -164,7 +164,7 @@ static uint8_t *read_rom(const char *path, size_t *size_out,
     return NULL;
   }
   long length = ftell(stream);
-  if (length <= 0 || fseek(stream, 0, SEEK_SET) != 0) {
+  if ((length != kFzeroRomSize && length != kFzeroRomSize+512) || fseek(stream, 0, SEEK_SET) != 0) {
     fclose(stream);
     return NULL;
   }
@@ -448,6 +448,7 @@ int main(int argc, char **argv) {
     free(rom);
     return 2;
   }
+  FzeroSetTextureSmoothing((capture_video.gameplay.enabled&(1u<<FZERO_RULE_FOG))!=0);
   RtlRegisterGame(versus?FzeroLocalGameInfo():FzeroGameInfo());
   if (!SnesInit(rom, (int)rom_size)) {
     fputs("failed to initialize the F-Zero cartridge\n", stderr);
@@ -963,10 +964,10 @@ int main(int argc, char **argv) {
     qualified=qualified && (v!=NULL || (FzeroOnlineEnabled() && FzeroCaptureReplayActive()));
     if(local_driver)qualified=qualified && v && v->phase==FZERO_VS_RESULTS &&
         v->racers[0].status==FZERO_VS_FINISHED && v->racers[1].status==FZERO_VS_FINISHED;
-    if(v)fprintf(stderr,"local-versus: tick=%llu phase=%u race=%llu hash=%016llx p1=%u,%u status=%u p2=%u,%u status=%u\n",
+    if(v)fprintf(stderr,"local-versus: tick=%llu phase=%u race=%llu hash=%016llx p1=%u,%u status=%u p2=%u,%u status=%u pause=%u\n",
         (unsigned long long)v->tick,v->phase,(unsigned long long)v->race_tick,
         (unsigned long long)FzeroVersusHash(FzeroLocalSession()),v->racers[0].actor.x,v->racers[0].actor.y,
-        v->racers[0].status,v->racers[1].actor.x,v->racers[1].actor.y,v->racers[1].status);
+        v->racers[0].status,v->racers[1].actor.x,v->racers[1].actor.y,v->racers[1].status,v->pause);
     if(teleport_fixture && qualified) {
       FzeroVersus *race=FzeroLocalSession();uint64_t result_hash=FzeroVersusHash(race);
       size_t size=RtlSaveSnapshotToMemory(NULL,0);uint8_t *result=size?malloc(size):NULL;

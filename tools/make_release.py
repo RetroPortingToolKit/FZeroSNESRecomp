@@ -23,7 +23,7 @@ p.add_argument("--build", default="build-release")
 p.add_argument("--mingw", default="C:/msys64/mingw64")
 p.add_argument("--output", default="release-stage", help="Parent for a fresh versioned staging directory")
 p.add_argument("--label", default="", help="Optional local build label, such as fzero-55")
-p.add_argument("--exe", default="FZeroSNESRecomp.exe", help="Desktop executable filename in the build directory")
+p.add_argument("--exe", default="F-Zero Forever.exe", help="Desktop executable filename in the build directory")
 p.add_argument("--music", choices=("bundled", "external"), default="bundled",
                help="Include the approved CGP and Astra soundtracks, or retain MSU support without audio files")
 p.add_argument("--profile", choices=("player", "developer"), default="player",
@@ -92,12 +92,12 @@ for source in Path(cache.get("FZERO_GEN_DIR", ROOT / "src/gen")).glob("*.c"):
     if "rtl_aot_node_denied(" in source.read_text(encoding="utf-8"):
         raise SystemExit("Regenerate without the AOT deny gate before packaging")
 flavor = "with-msu" if bundled_music else "without-msu"
-name = f"FZeroSNESRecomp-{release_version}-windows-x64-{flavor}"
+name = f"F-Zero-Forever-{release_version}-windows-x64-{flavor}"
 if developer:
     name += "-dev"
 stage = ROOT / a.output / name
 stage.mkdir(parents=True, exist_ok=False)
-shutil.copy2(exe, stage / "FZeroSNESRecomp.exe")
+shutil.copy2(exe, stage / "F-Zero Forever.exe")
 for helper in import_helpers:
     shutil.copy2(helper, stage / helper.name)
 # Build trees can contain privately imported shaders; never redistribute them.
@@ -205,7 +205,7 @@ if developer:
     shutil.copy2(ROOT/"docs/PACK_FORMAT.md",stage/"docs/PACK_FORMAT.md")
 # MODS.md links to these instructions in player downloads too.
 (stage / "docs").mkdir(exist_ok=True)
-player_guides = ("PACK_FORMAT.md", "CGP_COURSE_CAPABILITIES.md", "CGP_SNES_MUSIC.md", "ASTRA_FRONT_IMPORT.md", "FUZEE_FORMAT.md", "DIAGNOSTIC_REPLAY.md", "NETPLAY.md")
+player_guides = ("PACK_FORMAT.md", "CGP_COURSE_CAPABILITIES.md", "CGP_SNES_MUSIC.md", "ASTRA_FRONT_IMPORT.md", "FUZEE_FORMAT.md", "DIAGNOSTIC_REPLAY.md", "NETPLAY.md", "LOCAL_CONTROLS_AND_MODS.md")
 for filename in player_guides:
     shutil.copy2(ROOT / "docs" / filename, stage / "docs" / filename)
 shutil.copy2(ROOT / "mods/PARSE_MANIFEST.md", stage / "mods/PARSE_MANIFEST.md")
@@ -215,6 +215,9 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
 (stage/"README.txt").write_text(
     f"F-Zero Forever {release_version} - Windows x64\n\n"
     "For local two-player, enable Mods > Local 2 Player, then choose VS MODE on the title screen.\n"
+    "Assign a different keyboard/controller source to each player in Controls before playing.\n"
+    "Multiplayer never pauses; rematch and change-race menus appear only after the race.\n"
+    "See docs/LOCAL_CONTROLS_AND_MODS.md for Steam Input and which mods apply in each mode.\n"
     "Recomp-ui Netplay starts online play and includes VS MODE automatically.\n"
     "Online players get independent full screens; host chooses 4:3, 16:9 or 21:9.\n"
     "Both peers need this build and matching enabled course packs. Online rewind is disabled.\n"
@@ -224,7 +227,7 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "Recent inputs and checkpoints are recorded automatically, including online rollback.\n"
     "Nothing is uploaded automatically. The ZIP contains game memory, saves and diagnostic paths.\n"
     "See docs/DIAGNOSTIC_REPLAY.md and docs/NETPLAY.md.\n\n"
-    "Extract the entire ZIP and run FZeroSNESRecomp.exe. Select your own F-Zero (USA) ROM.\n"
+    "Extract the entire ZIP and run F-Zero Forever.exe. Select your own F-Zero (USA) ROM.\n"
     "Custom Content > Import adds course ZIPs, FZEdit projects, IPS/BPS patches or supported ROM hacks.\n"
     "Some imports ask you to confirm pack/cup names and course assignments. No Python installation is needed.\n"
     "Import limits: custom vehicles, menus and unsupported game-wide code changes are excluded.\n"
@@ -235,7 +238,7 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "The included CGP, Astra, Bower and MAX packs add 15 cups / 75 course versions.\n"
     "Vehicle packs, rules and screen override remain separate options. CGP preset enables the full experience.\n\n"
     "Required course mechanics load automatically with their pack and have no separate switches.\n"
-    "Legend difficulty defaults on; performance diagnostics and MSU-1 default off. Saved choices are respected.\n\n"
+    "Legend difficulty defaults on; performance diagnostics default off; MSU-1 defaults on with SNES fallback for missing songs. Saved choices are respected.\n\n"
     "Mods > Crash diagnostics and replay defaults on for testing. Files stay local.\n"
     "After a crash, ZIP the newest diagnostics/replay-* folder beside the game and send it with your report.\n"
     "The folder contains recent inputs, game checkpoints, settings, records and crash evidence, never your ROM file.\n"
@@ -245,14 +248,14 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "Course ZIPs contain editable projects; example.zip contains example.fzm and uses music/example.pcm.\n"
     "Bundled courses include a ready-to-use cache in mods/packs/.cache.\n"
     "Changed or newly added courses rebuild their cache automatically on launch.\n"
-    "Enable MSU-1 in Settings > Audio. Music is discovered from each pack.\n"
+    "MSU-1 defaults on in Settings > Audio. Music is discovered from each pack.\n"
     "Match courses/huckmine.zip with music/huckmine.pcm. Missing songs use SNES music.\n"
     "Mods > Menu and event music shows the supplied CGP menu songs and lets you replace them.\n"
     "See MODS.md for music instructions and the editable Huckmine source ZIP example.\n\n"
-    "F7: save-state menu. R: rewind. D/C: left/right shoulder. Alt+Enter: fullscreen.\n"
+    "Single-player: F7 save-state menu, R rewind. All modes: D/C left/right shoulder, Alt+Enter fullscreen.\n"
     "Credits are in CREDITS.txt and each pack; license notices are in licenses/.\n",encoding="utf-8")
 
-pending, seen = [stage / "FZeroSNESRecomp.exe"] + [stage / p.name for p in import_helpers], set()
+pending, seen = [stage / "F-Zero Forever.exe"] + [stage / p.name for p in import_helpers], set()
 system = Path(os.environ.get("SystemRoot", "C:/Windows")) / "System32"
 while pending:
     binary = pending.pop()

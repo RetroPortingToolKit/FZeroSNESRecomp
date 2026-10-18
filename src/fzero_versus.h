@@ -4,10 +4,10 @@
 
 /* A single game-owned authoritative race. Presentation and host device state
  * are deliberately absent. All time is measured in FZERO_SIMULATION_HZ ticks.
- * Rule 6: twelve identity-owned stock/CGP vehicle profiles.
+ * Rule 7: twelve identity-owned stock/CGP vehicle profiles; no multiplayer pause.
  * Two humans, five laps, movement then one stable-ID contact.
  * This is a new simulation profile, not a claim of stock whole-frame parity. */
-#define FZERO_VERSUS_RULES 6u
+#define FZERO_VERSUS_RULES 7u
 #define FZERO_VERSUS_LAPS 5u
 #define FZERO_VERSUS_ARRIVAL 68u
 #define FZERO_VERSUS_REV_COUNTDOWN 180u
@@ -53,7 +53,7 @@ void FzeroVersusResume(FzeroVersus *session);
 void FzeroVersusEndRace(FzeroVersus *session);
 bool FzeroVersusRematch(FzeroVersus *session);
 /* Returns true only when simulation advanced. Both words are latched before
- * either actor runs. Start from either participant pauses the entire session. */
+ * either actor runs. Multiplayer never pauses; Start has no race action. */
 bool FzeroVersusTick(FzeroVersus *session,const uint16_t held[2]);
 const FzeroVersusSnapshot *FzeroVersusCompleted(const FzeroVersus *session);
 const uint8_t *FzeroVersusWorld(const FzeroVersus *session);

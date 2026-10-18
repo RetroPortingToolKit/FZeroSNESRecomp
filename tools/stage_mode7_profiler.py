@@ -37,7 +37,7 @@ def main():
                 path.relative_to(base).parts[0] in {'saves', 'diagnostics', 'profile-results'}):
             parser.error(f'Base contains private/non-player material: {path.relative_to(base)}')
     shutil.copytree(base, out)
-    shutil.copy2(exe, out / 'FZeroSNESRecomp.exe')
+    shutil.copy2(exe, out / 'F-Zero Forever.exe')
     for path in (ROOT / 'tools/mode7_profiler').iterdir():
         if path.is_file():
             shutil.copy2(path, out / path.name)

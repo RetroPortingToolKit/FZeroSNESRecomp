@@ -68,7 +68,7 @@ def main():
     # Stage one clean desktop installation. Leave CrashReplay absent to prove
     # an existing Diagnostics=0 preference does not turn crash recording off.
     stage=out/'desktop';stage.mkdir(exist_ok=a.resume_desktop)
-    exe=stage/'FZeroSNESRecomp.exe';shutil.copy2(build/exe.name,exe)
+    exe=stage/'F-Zero Forever.exe';shutil.copy2(build/exe.name,exe)
     for dll in build.glob('*.dll'):shutil.copy2(dll,stage/dll.name)
     if not a.resume_desktop:
         shutil.copytree(build/'assets',stage/'assets')

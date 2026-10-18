@@ -545,7 +545,6 @@ void FzeroUiBoosts(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned 
   for(unsigned i=0;i<3;++i) {
     unsigned p=i<count?0:active && i==count?1:2;
     uint32_t colors[16];memcpy(colors,ui->boost_palette[p],sizeof(colors));
-    for(unsigned color=0;color<16;++color)if(!(colors[color]&0xffffff))colors[color]=0;
     tile(ui->objects[0x5f],colors,c,x+(int)i*8,y,false,false);
   }
 }

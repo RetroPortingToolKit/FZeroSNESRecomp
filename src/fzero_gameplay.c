@@ -28,7 +28,7 @@ bool FzeroRuleEnabled(FzeroRule r) {
 }
 bool FzeroBsCars(void) { return cars; }
 bool FzeroBsTracks(void) { return tracks; }
-bool FzeroGameplayActive(void) { return settings.enabled || cars != tracks || settings.vehicle_packs || settings.stock_rebalance; }
+bool FzeroGameplayActive(void) { return (settings.enabled&~(1u<<FZERO_RULE_FOG)) || cars != tracks || settings.vehicle_packs || settings.stock_rebalance; }
 const FzeroGameplaySettings *FzeroGameplaySettingsCurrent(void) {
   return &settings;
 }
@@ -209,7 +209,7 @@ bool FzeroGameplayPrepare(uint8_t **rom, size_t *size) {
     /* Complete native adapters below supply these at course boundaries.
      * Installing their donor ASM globally would bypass scoping when a hook
      * declines to run on an unrelated course. */
-    if (FZERO_RULE_COURSE_MASK & (1u << rule))
+    if ((FZERO_RULE_COURSE_MASK & (1u << rule)) || rule==FZERO_RULE_FOG)
       continue;
     unsigned patch = rule + 6 + (rule > FZERO_RULE_RAINBOW);
     apply(grown, patch);

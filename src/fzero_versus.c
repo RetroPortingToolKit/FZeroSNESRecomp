@@ -57,8 +57,9 @@ void FzeroVersusReady(FzeroVersus *s,unsigned player,bool ready) {
   if (s->state.ready==3) { clear_inputs(s);s->state.phase=FZERO_VS_COUNTDOWN; }
 }
 void FzeroVersusPause(FzeroVersus *s,unsigned reason) {
-  if (!s) return;
-  s->state.pause|=(uint8_t)(reason&15);clear_inputs(s);
+  /* Retain the interface for older host callers, without a race-stopping
+   * side effect. Neither focus/device loss nor Start may freeze multiplayer. */
+  (void)s;(void)reason;
 }
 void FzeroVersusResume(FzeroVersus *s) { if (s) { clear_inputs(s);s->state.pause=0; } }
 bool FzeroVersusRaceComplete(const FzeroVersusRacer *racers,unsigned count) {
@@ -128,9 +129,6 @@ static void progress(FzeroVersus *s,unsigned player,int gates) {
 bool FzeroVersusTick(FzeroVersus *s,const uint16_t held[2]) {
   if (!s || !held || s->state.pause || s->state.phase==FZERO_VS_READY || s->state.phase==FZERO_VS_RESULTS) return false;
   for (unsigned i=0;i<2;++i) FzeroActorLatch(&s->state.racers[i].actor,held[i]);
-  if ((s->state.racers[0].actor.pressed|s->state.racers[1].actor.pressed)&0x1000) {
-    FzeroVersusPause(s,FZERO_VS_PAUSE_MANUAL);return false;
-  }
   ++s->state.tick;
   if (s->state.phase==FZERO_VS_COUNTDOWN) {
     if(s->state.countdown>FZERO_VERSUS_REV_COUNTDOWN) {--s->state.countdown;return true;}
@@ -270,7 +268,7 @@ static bool actor_valid(const FzeroActor *a,const FzeroVersus *s,unsigned player
 static bool valid(const FzeroVersus *s) {
   const FzeroVersusSnapshot *v=&s->state;
   if (!config_valid(v->config) || !FzeroMachineAvailable(s->tables,v->config.machine[0]) ||
-      !FzeroMachineAvailable(s->tables,v->config.machine[1]) || v->phase>FZERO_VS_RESULTS || v->pause>15 || v->ready>3 ||
+      !FzeroMachineAvailable(s->tables,v->config.machine[1]) || v->phase>FZERO_VS_RESULTS || v->pause || v->ready>3 ||
       v->contact>2 || v->winner>FZERO_VS_TIE || v->countdown>FZERO_VERSUS_COUNTDOWN || v->race_tick>v->tick) return false;
   if (v->phase==FZERO_VS_READY && (v->ready==3 || v->countdown!=FZERO_VERSUS_COUNTDOWN || v->tick)) return false;
   if (v->phase==FZERO_VS_COUNTDOWN && (v->ready!=3 || !v->countdown || v->race_tick)) return false;

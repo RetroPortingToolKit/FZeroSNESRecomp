@@ -359,6 +359,7 @@ static FzeroCourse course_open(const FzeroSourceFrame *f, bool world) {
   if (!world) return course;
   course.bank = f->ram + 0x10000;
   course.grid = (unsigned)f->ram[0xb0] | ((unsigned)f->ram[0xb1] << 8);
+  if(!course.grid)return course; /* Race setup has not installed course tables. */
   /* $03:9346 and $03:9381 select the streamed strip with ($14 & $03F0) and
    * ($12 & $03F0), so the square starts on a 16-unit block boundary whatever
    * the anchor's low bits are. Align down, or the last block row and column
@@ -583,16 +584,10 @@ static bool window_condition(unsigned mode, bool inside) {
 }
 
 static void race_color_math(Ppu *p) {
-  /* Native B1F6 HDMA adds full-width horizon haze, then B1FF changes to a
-   * subtractive player-shadow window. VS draws actor-owned shadows. Clearing
-   * the native window without clearing its localized math subtracts that
-   * shadow color from the entire lower track, producing a hard dark seam.
-   * Test every constant interval of the two windows, not a scanline cutoff:
-   * preserve math only when the native color window admits the whole row. */
-  const int points[]={0,255,p->window1left,p->window1right+1,p->window2left,p->window2right+1};
-  for(unsigned i=0;i<sizeof(points)/sizeof(*points);++i)if(points[i]<256 &&
-      window_condition((p->cgwsel>>4)&3,in_window(p,5,points[i],0))) {p->cgadsub=0;break;}
-  p->windowsel=0;p->cgwsel&=15;
+  /* VS owns its actor shadows. Remove both native shadow-window math and
+   * full-width HDMA haze: leaving either behind creates hard dark seams or
+   * horizontal color bands on the full-course track. */
+  p->cgadsub=0;p->windowsel=0;p->cgwsel&=15;
 }
 
 static uint32_t colour(const Ppu *p, const uint16_t *palette, uint16_t main,
@@ -658,6 +653,27 @@ typedef struct FzeroHdPixelContext {
   uint8_t flags; /* BG enabled on main/sub, then colour-window membership. */
 } FzeroHdPixelContext;
 
+static bool texture_smoothing;
+void FzeroRendererSetTextureSmoothing(bool enabled) {texture_smoothing=enabled;}
+/* A bounded 2x2 texture filter softens authored two-color road dithering.
+ * Resolve each neighbor through the full course, including tile boundaries;
+ * palette math precedes averaging. UI, sprites and guest state are untouched. */
+static uint32_t smooth_track(const Ppu *p,const FzeroSourceFrame *f,const FzeroMode7Line *line,
+                             const FzeroCourse *course,const FzeroCourseLine *reference,
+                             const uint16_t palette[256],double x,unsigned flags) {
+  FzeroMode7Texel base=FzeroMode7Locate(line,x);FzeroCourseCache cache=kCourseCacheEmpty;
+  unsigned channels[3]={0};
+  for(unsigned dy=0;dy<2;++dy)for(unsigned dx=0;dx<2;++dx) {
+    FzeroMode7Texel at={base.x+dx,base.y+dy};
+    unsigned index=FzeroMode7Fetch(line,f->vram,at,course_sample(course,reference,&cache,at));
+    uint16_t main=(flags&1) && index?0x5000|index:0x500;
+    uint16_t sub=(flags&2) && index?0x5000|index:0x500;
+    uint32_t color=colour(p,palette,main,sub,(flags&4)!=0);
+    for(unsigned c=0;c<3;++c)channels[c]+=(color>>(c*8))&255;
+  }
+  return ((channels[0]+2)/4)|(((channels[1]+2)/4)<<8)|(((channels[2]+2)/4)<<16);
+}
+
 typedef struct FzeroRenderBatch {
   const FzeroSourceFrame *frame, *previous;
   uint32_t *out, *native;
@@ -666,7 +682,7 @@ typedef struct FzeroRenderBatch {
   FzeroCourse course;
   double alpha, sample_offset[FZERO_HD_SCALE_MAX];
   unsigned scale;
-  bool scenery, results, result_scenery, world, race_hud, interpolate;
+  bool scenery, results, result_scenery, world, race_hud, interpolate, smoothing;
 } FzeroRenderBatch;
 
 static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) {
@@ -689,6 +705,14 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
     memcpy(scanout, l->registers, PPU_SAVESTATE_REGS_SIZE);
     if (scanout->inidisp & 128) continue;
     int mode = scanout->bgmode & 7;
+    if(mode==7 && (world || result_scenery) && !(scanout->cgadsub&128)) {
+      bool full_row=true;
+      const int points[]={0,255,scanout->window1left,scanout->window1right+1,
+                          scanout->window2left,scanout->window2right+1};
+      for(unsigned i=0;i<sizeof(points)/sizeof(*points);++i)if(points[i]<256 &&
+          window_condition((scanout->cgwsel>>4)&3,in_window(scanout,5,points[i],0)))full_row=false;
+      if(full_row)scanout->cgadsub&=~0x23u; /* Keep localized shadow/HUD math. */
+    }
     if (!scenery || (mode != 1 && mode != 7)) {
       /* Flat selection/loading screens keep their original centered artwork,
        * but their backdrop, fades and colour windows cover the full viewport. */
@@ -784,6 +808,12 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
           colour_x -= viewport.extra;
         row[sx] = colour(scanout, l->palette, screens[0], screens[1],
             in_window(scanout, 5, colour_x, black_results ? 0 : viewport.extra));
+        if(batch->smoothing && mode==7 && (world || result_scenery) && !object_pixels[sx]) {
+          unsigned flags=in_window(scanout,5,colour_x,0)?4:0;
+          for(unsigned sub=0;sub<2;++sub)if((scanout->screenEnabled[sub]&1) &&
+              (!(scanout->screenWindowed[sub]&1) || !in_window(scanout,0,x,viewport.extra)))flags|=1u<<sub;
+          row[sx]=smooth_track(scanout,f,&transform,&course,&reference,l->palette,x,flags);
+        }
       }
       /* Preserve the meter's composed fill, including its fixed-colour HDMA,
        * without letting a different section of skyline show through it. */
@@ -869,6 +899,10 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
         const FzeroHdPixelContext *c = &contexts[sx];
         for (unsigned sample = 0; sample < scale; ++sample) {
           double position = x + sample_offset[sample];
+          if(batch->smoothing && !(c->objects[0]|c->objects[1])) {
+            destination[sx*scale+sample]=smooth_track(scanout,f,&subline,&course,&reference,l->palette,position,c->flags);
+            continue;
+          }
           /* Near-camera HD samples often hit the same source texel. The
            * immutable texture/course lookup is independent of screen masks
            * and sprites, so reuse its index across those column boundaries. */
@@ -953,8 +987,10 @@ static bool render_frame(FzeroRenderView *view, uint32_t *out, FzeroViewport vie
    * live race and its frozen finish backdrop retain the course tables. */
   bool race = view->race[view->current];
   if (race) race_hud = false;
-  FzeroCourse course = course_open(f, race || ((world || result_scenery) && viewport.enhanced));
-  course.complete = race;
+  FzeroCourse course = course_open(f, race || world || result_scenery);
+  /* Resolve the full course for every race/aspect. The guest's 1024-unit
+   * VRAM streaming square is a cache, never the maximum visible distance. */
+  course.complete = race || world || result_scenery;
   /* Only substantial HD scenery uses workers. Native composition and flat
    * menus stay serial. The call joins before another source frame, state load,
    * rewind action or shutdown can replace the immutable snapshot. */
@@ -968,7 +1004,7 @@ static bool render_frame(FzeroRenderView *view, uint32_t *out, FzeroViewport vie
     .scratch = pool ? view->worker_scratch : scanout,
     .viewport = viewport, .course = course, .alpha = alpha, .scale = scale,
     .scenery = scenery, .results = results, .result_scenery = result_scenery,
-    .world = world, .race_hud = race_hud, .interpolate = interpolate
+    .world = world, .race_hud = race_hud, .interpolate = interpolate, .smoothing=texture_smoothing
   };
   for (unsigned sample = 0; sample < scale; ++sample)
     batch.sample_offset[sample] = (double)sample / scale;

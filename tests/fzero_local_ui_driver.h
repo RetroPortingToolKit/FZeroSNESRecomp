@@ -1,6 +1,7 @@
 #pragma once
 /* Opt-in desktop qualification using actual SDL virtual devices and the
- * public human control path. No racer, world or progress injection. */
+ * public human control path. Results are requested through EndRace only to
+ * exercise menu routing; this fixture does not certify natural race finishes. */
 #if SNESRECOMP_SDL3
 static SDL_Joystick *local_ui_pads[2];
 static unsigned local_ui_stage,local_ui_step,local_ui_resizes,local_ui_captured;
@@ -40,6 +41,9 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
     /* Native menu input was an ordinary script. From here the virtual pads
      * exclusively drive joining, selection, pause and mode transitions. */
     if(!FzeroReplayConfigurePlayers(NULL,getenv("FZERO_VIEWPORT_SCRIPT"),2))Die("UI validation replay setup failed");
+    int sources[2]={2,2};char guids[2][40];
+    for(unsigned i=0;i<2;++i)SDL_GUIDToString(SDL_GetJoystickGUID(local_ui_pads[i]),guids[i],40);
+    FzeroLocalControlsAssign(controls,sources,guids);
     local_ui_stage=1;local_ui_step=0;t=0;
   }
   switch(local_ui_stage) {
@@ -91,17 +95,20 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
         SDL_SetWindowSize(window,local_ui_sizes[local_ui_resizes][0],local_ui_sizes[local_ui_resizes][1]);
         ++local_ui_resizes;
       }
-      if(s && !(local_ui_stage==3 && getenv("FZERO_TEST_LOCAL_UI_DRIVE") && local_ui_drive_captured!=63) &&
-         s->tick>=(local_ui_stage==3?(getenv("FZERO_TEST_LOCAL_UI_DRIVE")?405u:getenv("FZERO_TEST_LOCAL_UI_RESIZE")?320u:200u):12u))local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
-      if(s && s->pause) {++local_ui_stage;local_ui_step=0;}
+      if(s && !(local_ui_stage==3 && getenv("FZERO_TEST_LOCAL_UI_DRIVE") && local_ui_drive_captured!=63)) {
+        unsigned finish=local_ui_stage==3?(getenv("FZERO_TEST_LOCAL_UI_DRIVE")?500u:360u):FZERO_VERSUS_COUNTDOWN+24;
+        if(s->tick>=finish && s->tick<finish+12)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
+        if(s->pause)Die("Multiplayer Start paused the race");
+        if(s->tick>=finish+12 && s->phase!=FZERO_VS_RESULTS)FzeroVersusEndRace(FzeroLocalSession());
+        if(s->phase==FZERO_VS_RESULTS && FzeroLocalMenuReady()) {++local_ui_stage;local_ui_step=0;}
+      }
       break;
     case 4:
-      if(t==2 || t==3)local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
       if(t==6 || t==7)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
       if(t>10) {if(!s || s->pause || s->phase!=FZERO_VS_COUNTDOWN)Die("UI Restart Race failed");local_ui_stage=5;local_ui_step=0;}
       break;
     case 6:
-      if(t==2 || t==3 || t==6 || t==7)local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
+      if(t==2 || t==3)local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
       if(t==10 || t==11)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
       if(t>14) {if(!setup)Die("UI Change Race failed");local_ui_stage=7;local_ui_step=0;}
       break;
@@ -119,7 +126,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
         if(FzeroLocalEnabled() || g_ram[0x54] || g_ram[0x55]!=1)Die("UI Main Menu return failed");
         local_ui_stage=11;local_ui_step=0;break;
       }
-      if(t==2 || t==3 || t==6 || t==7 || t==10 || t==11)local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
+      if(t==2 || t==3 || t==6 || t==7)local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
       if(t==14 || t==15)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
       break;
     case 11:
@@ -130,7 +137,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
         if(local_ui_setup_shots!=7)Die("UI setup-page presentation coverage incomplete");
         if(local_ui_arrival_shots!=7 || local_ui_catalog_shots!=3)Die("UI arrival/catalog presentation coverage incomplete");
         if(getenv("FZERO_TEST_LOCAL_UI_DRIVE") && local_ui_drive_captured!=63)Die("UI drive animation coverage incomplete");
-        fprintf(stderr,"local-ui: PASS native VS entry, two SDL devices, preload/Ready, cursor Restart/Change/Main Menu and single-player return\n");return true;}
+        fprintf(stderr,"local-ui: PASS native VS entry, two SDL devices, preload/Ready, uninterrupted Start and results-only Restart/Change/Main Menu and single-player return\n");return true;}
       break;
     default:break;
   }

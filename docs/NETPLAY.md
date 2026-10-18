@@ -41,8 +41,7 @@ eight added ships use their authored CGP handling, energy boost and exhaust.
 Each actor binds its own immutable profile, including mixed-cohort collisions;
 selecting another ship never swaps the shared guest cartridge.
 
-Either participant can pause. The host navigates the shared pause/results menu:
-continue, restart/rematch, or change race. The in-game menus have no lobby
+Multiplayer races cannot be paused. Start, focus loss and in-race menu hotkeys do not stop the simulation. The host navigates rematch or change race only after results. The in-game menus have no lobby
 exit option; closing the game returns through the existing launcher flow. Finishing cars
 coast and fade using the local VS presentation. A crash uses the native
 explosion; when only one non-crashed participant remains, that participant wins.
@@ -50,9 +49,9 @@ Results distinguish FINISHED, CRASHED OUT and SURVIVED. Non-finish times are
 dashes. The completion predicate counts the remaining field for later expansion;
 this frontend currently supports two seats.
 
-The existing save-state browser pauses both peers on the same confirmed frame.
+The save-state browser is available after the race only and synchronizes both peers on the same confirmed frame.
 The host selects, saves, loads and closes it; the guest mirrors the menu.
-Quick saves/loads also use shared state synchronization. Online slots live under
+Quick saves/loads also use shared state synchronization and are unavailable during a race. Online slots live under
 `saves/netplay/fzero`; offline single-player and local VS slots remain separate.
 Rewind and diagnostic local replay remain offline features. Rewind is disabled
 during netplay. Native course loading is a bounded deterministic transition,
@@ -60,9 +59,9 @@ followed by the same arrival glide and countdown used in local VS.
 
 The shared SPC timeline switches from the original pre-race program to the
 uploaded course song at GO, as single-player does. The host audio latch retains
-this across pauses, rematches and restored races. `tests/validate_versus_audio.py`
+this across rematches and restored races. `tests/validate_versus_audio.py`
 checks real music-voice envelopes over a one-second window, native master volume
-and captured PCM on stock, imported and BS courses, including pause and resume.
+and captured PCM on stock, imported and BS courses, including ignored multiplayer Start inputs and native single-player pause/resume.
 As in single-player, pause keeps the song playing and clears vehicle effects;
 it never sends the native crash command. Engine noise or a crash tail alone
 does not pass the check. The actual-peer `pause` scenario exercises pausing

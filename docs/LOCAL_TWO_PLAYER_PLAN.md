@@ -7,6 +7,8 @@ the implementation plan. This document preserves the preparation, verified
 source map and subsequent implementation milestones. Current online behavior
 and validation instructions are in [NETPLAY.md](NETPLAY.md).
 
+The owner superseded the pause design on 2026-10-17: multiplayer is unpausable, with menus at race end only. See `PLAYTEST_BURNDOWN_20261017.md` for the current implementation and validation.
+
 Tracking: central Beads `beads-8uc1`, beneath F-Zero epic `beads-8wg.5`.
 Prepared 2026-10-15; implementation and owner QA milestones follow below.
 

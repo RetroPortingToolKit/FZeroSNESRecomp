@@ -26,7 +26,7 @@ def main():
     stage.mkdir()
     state = output / 'portable' if args.appimage_layout else stage
     state.mkdir(exist_ok=True)
-    name = 'FZeroSNESRecomp' + ('.exe' if os.name == 'nt' else '')
+    name = 'F-Zero Forever' + ('.exe' if os.name == 'nt' else '')
     shutil.copy2(source / name, stage / name)
     shutil.copytree(source / 'assets', stage / 'assets')
     for dll in source.glob('*.dll'):

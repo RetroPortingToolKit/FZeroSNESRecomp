@@ -36,14 +36,14 @@ def main():
                     "--source", str(ROOT / args.build)], check=True)
     stage = Path(tempfile.mkdtemp(prefix="desktop-", dir=ROOT / "captures"))
     build = ROOT / args.build
-    shutil.copy2(build / "FZeroSNESRecomp.exe", stage)
+    shutil.copy2(build / "F-Zero Forever.exe", stage)
     for dll in build.glob("*.dll"):
         shutil.copy2(dll, stage)
     shutil.copytree(build / "assets", stage / "assets")
     env = {k: v for k, v in os.environ.items()
            if not k.startswith(("FZERO_", "SNESRECOMP_", "SDL_", "LNG_"))}
     env.update(SDL_AUDIODRIVER="dummy", SNESRECOMP_SAVE_ROOT=str(stage / "saves"))
-    exe = str(stage / "FZeroSNESRecomp.exe")
+    exe = str(stage / "F-Zero Forever.exe")
     rom = "fzero.sfc"  # resolved against the caller's cwd, NOT the install
     shader_relative = os.path.relpath(shader, stage)
     pack_relative = os.path.relpath(pack, stage)

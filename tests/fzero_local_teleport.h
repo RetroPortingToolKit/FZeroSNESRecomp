@@ -53,11 +53,17 @@ static void FzeroLocalCrashFixture(FzeroVersus *session) {
     const uint8_t *world=FzeroVersusWorld(session);bool found=false;
     for(unsigned y=0;y<4096 && !found;y+=16)for(unsigned x=0;x<8192 && !found;x+=16) {
       unsigned surface=FzeroActorSampleSurface(world,(uint16_t)x,(uint16_t)y);
-      if(surface>=0xd0) {
+      bool lethal=world[FZERO_WORLD_RESOURCE]?
+          (world[FZERO_WORLD_TERRAIN+0x300+surface]&0x80)!=0:surface>=0xd0;
+      if(lethal) {
         FzeroActor *actor=&((FzeroVersusSnapshot *)(void *)race)->racers[0].actor;
-        actor->x=(uint16_t)x;actor->y=(uint16_t)y;actor->health=0xffff;
-        actor->state=0x80;actor->height=0x400;actor->height_velocity=0xffff;
-        fprintf(stderr,"online-crash-test: landing pose on native void surface %02x at %u,%u\n",surface,x,y);
+        actor->x=(uint16_t)x;actor->y=(uint16_t)y;actor->health=0x800;
+        actor->speed=actor->speed_fraction=actor->vx=actor->vx_fraction=0;
+        actor->vy=actor->vy_fraction=actor->spin=actor->no_control=0;
+        actor->recovery_active=0;
+        actor->state=0x80;actor->height=0x210;actor->height_velocity=0xff00;
+        fprintf(stderr,"online-crash-test: healthy landing on %s void surface %02x at %u,%u\n",
+            world[FZERO_WORLD_RESOURCE]?"imported":"native",surface,x,y);
         found=true;
       }
     }

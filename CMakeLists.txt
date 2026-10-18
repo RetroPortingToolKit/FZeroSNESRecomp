@@ -310,8 +310,16 @@ target_sources(FZeroSNESRecompHeadless PRIVATE "${SNESRECOMP_ROOT}/runner/src/di
 snesrecomp_target_sdl(FZeroSNESRecompHeadless)
 configure_fzero_target(FZeroSNESRecomp)
 snesrecomp_target_post_mortem(FZeroSNESRecomp)
-set(FZERO_DESKTOP_NAME "FZeroSNESRecomp" CACHE STRING "Desktop executable name for isolated experiments")
+set(FZERO_DESKTOP_NAME "F-Zero Forever" CACHE STRING "Desktop executable name for isolated experiments")
+if(FZERO_DESKTOP_NAME STREQUAL "FZeroSNESRecomp")
+    set(FZERO_DESKTOP_NAME "F-Zero Forever" CACHE STRING "Desktop executable name for isolated experiments" FORCE)
+endif()
 set_target_properties(FZeroSNESRecomp PROPERTIES OUTPUT_NAME "${FZERO_DESKTOP_NAME}")
+if(WIN32)
+    # The headless host remains a console tool. Production desktop errors use
+    # the message box and crash logs, without opening an unrelated terminal.
+    set_target_properties(FZeroSNESRecomp PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
 # Hosts include "desktop/sdl_compat.h" rather than <SDL.h> so both majors build.
 snesrecomp_target_glsl_shader(FZeroSNESRecomp)
 snesrecomp_target_sdl(FZeroSNESRecomp)

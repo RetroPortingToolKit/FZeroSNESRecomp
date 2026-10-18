@@ -103,12 +103,15 @@ int main(void) {
     memcpy(bad,same,sizeof(bad));memset(bad+44,255,8);CHECK(!FzeroOnlineValidate(bad));
     press(8,0);CHECK(loads==aspect+1);CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_RACE);
     CHECK(FzeroVersusCompleted(race)->config.course==359);
-    FzeroVersusPause(race,FZERO_VS_PAUSE_MANUAL);selection=1;
-    press(0,8);CHECK(FzeroVersusCompleted(race)->pause);
-    press(8,0);CHECK(!FzeroVersusCompleted(race)->pause);
-    CHECK(FzeroVersusCompleted(race)->phase==FZERO_VS_COUNTDOWN);
-    FzeroVersusPause(race,FZERO_VS_PAUSE_MANUAL);selection=2;press(0x20,0);
-    CHECK(selection==0);press(0x10,0);CHECK(selection==2);press(8,0);
+    FzeroVersusPause(race,FZERO_VS_PAUSE_MANUAL);selection=0;
+    press(8,8);CHECK(!FzeroVersusCompleted(race)->pause);
+    CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_RACE);
+    FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
+    FzeroVersusEndRace(race);selection=0;press(0,8);
+    CHECK(FzeroVersusCompleted(race)->phase==FZERO_VS_RESULTS); /* Guest cannot select results. */
+    press(8,0);CHECK(FzeroVersusCompleted(race)->phase==FZERO_VS_COUNTDOWN);
+    FzeroVersusEndRace(race);selection=1;press(0x20,0);
+    CHECK(selection==0);press(0x10,0);CHECK(selection==1);press(8,0);
     CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_MACHINES);
     CHECK(!FzeroOnlineCompleted()->exit_tick);image(initial);
     tick(0x20,0);CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_MACHINES);

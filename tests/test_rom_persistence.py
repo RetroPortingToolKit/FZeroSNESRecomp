@@ -134,7 +134,7 @@ def main():
         env = dict(base_env, LNG_SCRIPT=script, SNESRECOMP_SAVE_ROOT="saves")
         log_path = install / f"{name}.log"
         with log_path.open("w") as log:
-            proc = subprocess.Popen([str(install / "FZeroSNESRecomp.exe")],
+            proc = subprocess.Popen([str(install / "F-Zero Forever.exe")],
                                     cwd=cwd or root, env=env, stdout=log, stderr=log)
             try:
                 if pick is not None:
@@ -160,7 +160,7 @@ def main():
         case = root / exit_mode
         install = case / "Decomp Recomp Ports Remakes/FZeroSNESRecomp"
         install.mkdir(parents=True, exist_ok=False)
-        shutil.copy2(source / "FZeroSNESRecomp.exe", install)
+        shutil.copy2(source / "F-Zero Forever.exe", install)
         for dll in source.glob("*.dll"):
             shutil.copy2(dll, install)
         shutil.copytree(source / "assets", install / "assets")
@@ -193,7 +193,7 @@ def main():
             assert Path(cache(install)).samefile(moved)
             assert run(install, "after-move")
     report = dict(expected_broken=args.expect_broken,
-                  executable_sha256=hashlib.sha256((source / "FZeroSNESRecomp.exe").read_bytes()).hexdigest(),
+                  executable_sha256=hashlib.sha256((source / "F-Zero Forever.exe").read_bytes()).hexdigest(),
                   source=str(source), results=results)
     (root / "results.json").write_text(json.dumps(report, indent=2) + "\n")
     print(f"{'REPRODUCED' if args.expect_broken else 'PASS'}: {root}", flush=True)

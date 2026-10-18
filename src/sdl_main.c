@@ -87,7 +87,7 @@ static const char kBuildVersion[] = SNESRECOMP_BUILD_VERSION;
 
 bool g_new_ppu = true;
 static SDL_mutex *g_audio_mutex;
-static const char kWindowTitle[] = "F-Zero";
+static const char kWindowTitle[] = "F-Zero Forever";
 static const char *const kQuickLabels[] = {"Quick Save", "Quick Load"};
 static const char *const kQuickKeys[] = {"QuickSaveKey", "QuickLoadKey"};
 static const char *const kQuickPads[] = {"QuickSavePad", "QuickLoadPad"};
@@ -126,7 +126,7 @@ void NORETURN Die(const char *error) {
   host_report_fatal(error ? error : "unknown error");
   fprintf(stderr, "fatal: %s\n", error ? error : "unknown error");
   fflush(stderr);
-  if (!getenv("SNESRECOMP_CRASH_TEST") && !getenv("FZERO_REPLAY_INPUT_FILE") && !getenv("FZERO_TEST_LOCAL_UI_HIDDEN")) SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "F-Zero",
+  if (!getenv("SNESRECOMP_CRASH_TEST") && !getenv("FZERO_REPLAY_INPUT_FILE") && !getenv("FZERO_TEST_LOCAL_UI_HIDDEN")) SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "F-Zero Forever",
                            error ? error : "Unknown error", NULL);
   exit(EXIT_FAILURE);
 }
@@ -553,6 +553,7 @@ static int resolve_rom(const char *executable, const char *explicit_rom,
   settings->enable_audio = 1;
   settings->audio_freq = 32040;
   settings->volume = 100;
+  settings->msu1_enabled = 1;
   settings->player_src[0] = 1;
   settings->player_src[1] = 2;
   settings->deadzone[0] = settings->deadzone[1] = 25;
@@ -575,7 +576,7 @@ static int resolve_rom(const char *executable, const char *explicit_rom,
   RecompLauncherCGameInfo game;
   memset(&game, 0, sizeof(game));
   launcher_profile_apply("snes", &game);
-  game.name = "F-Zero";
+  game.name = "F-Zero Forever";
   game.region = "(USA)";
   game.known_sha1_hex = kFzeroSha1;
   game.num_known_sha1 = 1;
@@ -650,7 +651,7 @@ static int resolve_rom(const char *executable, const char *explicit_rom,
   fprintf(stderr, "[fzero-launcher] opening%s\n", force_launcher ? " (--launcher)" : "");
   game.custom_content = FzeroContentProvider("mods", assets_dir);
   int action =
-      recomp_launcher_run_window("F-Zero \xE2\x80\x94 Launcher", settings,
+      recomp_launcher_run_window("F-Zero Forever \xE2\x80\x94 Launcher", settings,
                                  &game, assets_dir, initial_rom, path,
                                  path_size);
   int content_changed = FzeroContentShutdown();
@@ -1726,6 +1727,7 @@ static int run_game(int argc, char **argv) {
   const bool online=FzeroNetplayWanted(&launcher_settings);
   if(online)local_two_player=true;
   const bool local_available=local_two_player || g_video.local_two_player;
+  FzeroSetTextureSmoothing((g_video.gameplay.enabled&(1u<<FZERO_RULE_FOG))!=0);
   if (!FzeroReplayConfigurePlayers(getenv("SNESRECOMP_INPUT_SCRIPT"),getenv("FZERO_VIEWPORT_SCRIPT"),local_two_player?2:1)) {
     fprintf(stderr,"[fzero] Invalid validation replay\n");return 2;
   }
@@ -1746,6 +1748,8 @@ static int run_game(int argc, char **argv) {
   if (!rom || !verify_rom(rom, rom_size)) {
     fprintf(stderr, "A verified F-Zero (USA) ROM is required: %s\n", rom_path);
     free(rom);
+    if(!getenv("FZERO_TEST_LOCAL_UI_HIDDEN"))SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR,
+        "F-Zero Forever", "Choose an unmodified F-Zero (USA) ROM. Headered and headerless dumps are accepted. The selected file failed validation.",NULL);
     return 2;
   }
 
@@ -1983,6 +1987,7 @@ static int run_game(int argc, char **argv) {
   FzeroLocalControls *local_controls=local_two_player && !online?
       FzeroLocalControlsCreate(local_config,getenv("FZERO_TEST_LOCAL_READY")!=NULL):NULL;
   if(local_two_player && !online && !local_controls)Die("Cannot allocate local two-player controls");
+  if(local_controls)FzeroLocalControlsAssign(local_controls,launcher_settings.player_src,launcher_settings.player_gamepad_guid);
   uint64_t local_controls_generation=RtlStateGeneration();
 
   bool sp_release=false;
@@ -2081,6 +2086,8 @@ static int run_game(int argc, char **argv) {
   FzeroDiagnosticFrame diagnostic_frame = {0};
 
   while (running) {
+    const FzeroVersusSnapshot *race_state=FzeroVersusCompleted(FzeroLocalSession());
+    bool race_running=local_two_player && (!race_state || race_state->phase!=FZERO_VS_RESULTS);
     if (diagnostics_enabled) {
       diagnostic_frame = (FzeroDiagnosticFrame){
         .simulation = (uint64_t)frames, .presentations = presentations,
@@ -2120,11 +2127,13 @@ static int run_game(int argc, char **argv) {
          * F-key takes that key from the slot behind it. */
         if (hotkey_matches(&g_hotkey_menu, SNESRECOMP_SDL_EVENT_KEY(event),
                            (Uint16)SNESRECOMP_SDL_EVENT_MOD(event))) {
+          if(race_running)continue;
           open_savestate_menu = 1;
           continue;
         }
         if (hotkey_matches(&g_hotkey_rewind, SNESRECOMP_SDL_EVENT_KEY(event),
                            (Uint16)SNESRECOMP_SDL_EVENT_MOD(event))) {
+          if(race_running)continue;
           if(online) {
             set_title_message(window,"Rewind is unavailable during netplay",&state_feedback_until);
             continue;
@@ -2153,7 +2162,7 @@ static int run_game(int argc, char **argv) {
           if (!FzeroVideoSave(&g_video, kVideoConfig)) fprintf(stderr, "[fzero] Unable to save video settings\n");
           next_display_check = 0;
           char title[192];
-          snprintf(title, sizeof(title), "F-Zero - %s - %s%u FPS",
+          snprintf(title, sizeof(title), "F-Zero Forever - %s - %s%u FPS",
                    g_video.enhanced ? FzeroAspectName(g_video.aspect) : "4:3",
                    g_video.fps ? "" : "Auto / ", g_video.fps ? g_video.fps : (unsigned)display_refresh(window));
           SDL_SetWindowTitle(window, title);
@@ -2161,6 +2170,7 @@ static int run_game(int argc, char **argv) {
           continue;
         }
         if (key >= SDLK_F1 && key <= SDLK_F12) {
+          if(race_running)continue;
           int slot = (int)(key - SDLK_F1);
           perform_state_action(window, (mod & KMOD_SHIFT) != 0, slot,
                                &state_feedback_until);
@@ -2168,10 +2178,10 @@ static int run_game(int argc, char **argv) {
         }
         switch (key) {
           case SDLK_ESCAPE:
-            if(local_controls)FzeroLocalControlsBack(local_controls);else running = 0;
+            if(local_controls)FzeroLocalControlsBack(local_controls);else if(!race_running)running = 0;
             break;
           case SDLK_p:
-            if(!online)paused = !paused;
+            if(!local_two_player)paused = !paused;
             break;
           case SDLK_r:
             if (!online && (mod & KMOD_CTRL)) {
@@ -2208,6 +2218,7 @@ static int run_game(int argc, char **argv) {
       local_two_player=true;debug_server_set_ram(g_snes->ram,0x20000);
       local_controls=FzeroLocalControlsCreate(local_config,false);
       if(!local_controls)Die("Cannot allocate local controls");
+      FzeroLocalControlsAssign(local_controls,launcher_settings.player_src,launcher_settings.player_gamepad_guid);
       local_controls_generation=RtlStateGeneration();
       snes_rewind_configure();SDL_UnlockMutex(g_audio_mutex);
       snesrecomp_sdl_pause_audio_device(audio,suspended || !launcher_settings.enable_audio);
@@ -2297,7 +2308,7 @@ static int run_game(int argc, char **argv) {
     uint32_t active_quick = quick_actions(pad);
     uint32_t pressed_quick = active_quick & ~g_previous_quick_actions;
     g_previous_quick_actions = active_quick;
-    if (pressed_quick) {
+    if (pressed_quick && !race_running) {
       perform_state_action(window, (pressed_quick & 1u) != 0,
                            SNES_SAVESTATE_QUICK_SLOT, &state_feedback_until);
     }
@@ -2315,7 +2326,7 @@ static int run_game(int argc, char **argv) {
     if (monotonic_seconds() - debug_wait_start > 0.1)
       g_reset_presentation_clock = true;
     if (!running) break;
-    bool should_suspend = !online && (paused || (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED));
+    bool should_suspend = !local_two_player && (paused || (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED));
     if (should_suspend != suspended) {
       suspended = should_suspend;
       FzeroDiagnosticsEvent(suspended ? "pause" : "resume", 0);
@@ -2409,21 +2420,23 @@ static int run_game(int argc, char **argv) {
        * facility, and the press that closed one must neither reach the game
        * nor re-open the panel. */
       if(online) {
-        (void)snes_savestate_menu_poll_open(input);
-        input=snes_savestate_menu_filter_guest_input(input);
+        if(!race_running) {
+          (void)snes_savestate_menu_poll_open(input);
+          input=snes_savestate_menu_filter_guest_input(input);
+        }
         if(!FzeroNetplayAdmit((uint16_t)(input&4095),&running)) {
           FzeroClockReset(&clock,monotonic_seconds(),hz);SDL_Delay(1);break;
         }
         input=snes_netplay_published_inputs()|snes_netplay_active_mask();
       }
-      if(!online)input = overlay_filter_guest_input(
+      if(!online && !race_running)input = overlay_filter_guest_input(
           snes_savestate_menu_filter_guest_input(input));
-      if (!online && (snes_savestate_menu_poll_open(input) ||
+      if (!online && !race_running && (snes_savestate_menu_poll_open(input) ||
           snes_savestate_menu_is_open())) {
         panel = 1;
         break; /* guest frozen: no frame to run or present */
       }
-      if (!online && rewind_gesture_pressed(input) && snes_rewind_open()) {
+      if (!online && !race_running && rewind_gesture_pressed(input) && snes_rewind_open()) {
         panel = 2;
         break;
       }

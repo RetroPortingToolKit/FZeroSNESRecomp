@@ -29,7 +29,7 @@ def write_notices(destination):
 
 def stage(build, converter, mingw):
     build, converter, mingw = map(Path, (build, converter, mingw))
-    required = [build / 'FZeroSNESRecomp.exe', build / 'FZeroExportCourses.exe',
+    required = [build / 'F-Zero Forever.exe', build / 'FZeroExportCourses.exe',
                 build / 'FZeroInspectPacks.exe', converter]
     for path in required:
         if not path.is_file():

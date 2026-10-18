@@ -1,4 +1,4 @@
-# FZeroSNESRecomp
+# F-Zero Forever
 
 A native PC build of *F-Zero* for SNES.
 
@@ -10,7 +10,9 @@ folder or ZIP into `mods/packs` and restart. All installed packs load together.
 BS Satellaview Tracks excludes the loader; vehicle options remain independent.
 Optional race music uses the same filename as the course source, in its pack's
 `music/` folder: `courses/example.fzc` or `example.fzm` uses `music/example.pcm`.
-Restart and enable **Settings > Audio > MSU-1 > Installed pack music**.
+MSU-1 and **Installed pack music** default on for fresh settings; missing songs use the SNES soundtrack. Explicit saved choices are respected.
+
+See [local controls and mod scopes](docs/LOCAL_CONTROLS_AND_MODS.md) for player assignments, unpausable multiplayer and texture smoothing.
 
 See [pack authoring and music](docs/PACK_FORMAT.md) for JSON manifests,
 raw FZEdit exports, extracted course resources and separate audio packs.
@@ -54,7 +56,7 @@ On Windows:
 
 1. Download the Windows x64 ZIP from the Releases page.
 2. Extract the whole ZIP.
-3. Run `FZeroSNESRecomp.exe`.
+3. Run `F-Zero Forever.exe`.
 4. Pick your own *F-Zero (USA)* `.sfc` or `.smc` ROM when asked.
 
 On Linux:
@@ -68,7 +70,7 @@ The app remembers your ROM path after the first launch.
 
 Enable **Skip launcher on boot** to start directly with that ROM next time.
 The choice is saved as `[General] SkipLauncher=1` in `config.ini` beside the
-executable. Run `FZeroSNESRecomp.exe --launcher` (on Linux, run your AppImage
+executable. Run `F-Zero Forever.exe --launcher` (on Linux, run your AppImage
 with `--launcher`) or set the value to `0` to return to the launcher. The override also works
 with a ROM path before or after it. A missing or invalid remembered ROM opens
 the launcher so you can select a valid copy.
@@ -127,7 +129,7 @@ title artwork is retained but hidden for a future course pack. No preset is appl
 
 Windows previews come in **with-msu** and **without-msu** ZIPs. Both support
 MSU playback; only with-msu includes the replacement **Community Grand Prix PC-port**
-soundtrack (29 attribution-cleared recordings). In **Settings > Audio**, enable **MSU-1 music** and leave its source
+soundtrack (29 attribution-cleared recordings). In **Settings > Audio**, **MSU-1 music** defaults on for fresh settings. Leave its source
 on **Installed pack music**, or select the CGP preset in Mods. Music starts
 off on a fresh installation. Missing tracks and unrelated track packs use
 SNES music. Track selection works in both Grand Prix and Practice.

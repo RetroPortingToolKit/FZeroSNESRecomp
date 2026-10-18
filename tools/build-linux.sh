@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Build and package FZeroSNESRecomp as a Linux x86_64 AppImage.
+# Build and package F-Zero Forever as a Linux x86_64 AppImage.
 set -euo pipefail
 
-APP_NAME="FZeroSNESRecomp"
+APP_NAME="F-Zero Forever"
 CMAKE_TARGET="FZeroSNESRecomp"
-RELEASE_SLUG="FZeroSNESRecomp"
+RELEASE_SLUG="F-Zero-Forever"
 ROM_EXTS="sfc smc"
 
 LINUXDEPLOY_URL=https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
@@ -73,7 +73,7 @@ cmake --build "$BUILD" --target "$CMAKE_TARGET" -j"$JOBS"
 
 BIN=""
 while IFS= read -r file; do
-  if [ "$(basename "$file")" = "$CMAKE_TARGET" ] && file -b "$file" | grep -q "ELF.*executable"; then
+  if [ "$(basename "$file")" = "$APP_NAME" ] && file -b "$file" | grep -q "ELF.*executable"; then
     BIN="$file"
     break
   fi
@@ -136,8 +136,8 @@ DESKTOP="$WORK/fzerosnesrecomp.desktop"
 cat > "$DESKTOP" <<EOF
 [Desktop Entry]
 Type=Application
-Name=FZeroSNESRecomp
-Exec=FZeroSNESRecomp
+Name=F-Zero Forever
+Exec="F-Zero Forever"
 Icon=fzerosnesrecomp
 Categories=Game;
 Terminal=false
@@ -245,7 +245,7 @@ if [ -n "\$ROM" ]; then
 fi
 
 cd "\$ROMDIR" 2>/dev/null || true
-exec "\$HERE/usr/bin/FZeroSNESRecomp" "\$@"
+exec "\$HERE/usr/bin/F-Zero Forever" "\$@"
 EOF
 chmod +x "$APPDIR/AppRun"
 

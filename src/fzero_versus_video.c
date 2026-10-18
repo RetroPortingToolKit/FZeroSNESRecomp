@@ -137,9 +137,12 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     }
     /* Native human body/exhaust in its own view; the other racer uses the
      * native opponent projection. Presentation never advances actor state. */
-    int shadow_w=24-(int)ship->size*2;if(shadow_w<2)shadow_w=2;
+    int rx=16-(int)ship->size*2,ry=4-(int)ship->size/2;
+    if(rx<2)rx=2;if(ry<1)ry=1;
     if(ship->ground_y>=0 && ship->ground_y<224)
-      fade_rect(p,viewport,scale,ship->ground_x+viewport.extra-shadow_w/2,ship->ground_y-2,shadow_w,2,0xff202028,opacity);
+      for(int dy=-ry;dy<=ry;++dy)for(int dx=-rx;dx<=rx;++dx)
+        if(dx*dx*ry*ry+dy*dy*rx*rx<=rx*rx*ry*ry)
+          fade_rect(p,viewport,scale,ship->ground_x+viewport.extra+dx,ship->ground_y-2+dy,1,1,0xff101018,opacity*160/255);
     for(int sy=0;sy<64;++sy)for(int sx=0;sx<64;++sx) {
       uint32_t pixel=ship->pixels[sy*64+sx];if(!pixel)continue;
       int dx=x+sx+viewport.extra,dy=y+sy;
@@ -172,8 +175,7 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
   FzeroUiRaceInstruments(ui,canvas,viewport.width-112,0,r->actor.health,FzeroDisplaySpeed(r->actor.speed),s->tick);
   FzeroUiBoosts(ui,canvas,viewport.width-48,208,r->actor.boosts,(r->actor.state&8)!=0);
   const char *message=NULL;
-  if(s->pause)message="PAUSED";
-  else if(s->phase==FZERO_VS_READY)message="READY";
+  if(s->phase==FZERO_VS_READY)message="READY";
   else if(s->phase==FZERO_VS_COUNTDOWN) {
     if(s->countdown<=FZERO_VERSUS_REV_COUNTDOWN) {
       snprintf(line,sizeof(line),"%u",(s->countdown+59)/60);message=line;
@@ -190,20 +192,17 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
 }
 static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsigned scale,bool single) {
   const FzeroVersusSnapshot *s=&v->state;
-  if(!s->pause && s->phase!=FZERO_VS_RESULTS)return;
+  if(s->phase!=FZERO_VS_RESULTS)return;
   if(!s->pause && !FzeroVersusVideoResultsReady(s,v->result_ticks))return;
   FzeroUiCanvas c={out,viewport.width*(int)scale,(single?224:448)*(int)scale,scale};
   const FzeroNativeUi *ui=&v->ui;int center=viewport.width/2;
-  bool paused=s->pause!=0;unsigned count=(paused?4u:3u)-(single?1u:0u);
-  const char *heading=paused?"PAUSE":s->winner==FZERO_VS_TIE?"TIE":
+  unsigned count=single?2:3;
+  const char *heading=s->winner==FZERO_VS_TIE?"TIE":
       s->winner==FZERO_VS_PLAYER1?"PLAYER 1 WINS":s->winner==FZERO_VS_PLAYER2?"PLAYER 2 WINS":"NO FINISHERS";
-  static const char *pause[]={"CONTINUE","RESTART RACE","CHANGE RACE","MAIN MENU"};
   static const char *results[]={"RACE AGAIN","CHANGE RACE","MAIN MENU"};
-  bool disconnected=paused && (s->pause&12);
-  FzeroUiFrame(ui,c,center-112,single?(paused?32:8):(paused?120:88),224,
-      single?(paused?136:184):paused?(disconnected?184:160):264);
-  FzeroUiCenter(ui,c,single?(paused?48:20):(paused?136:104),heading,FZERO_UI_MENU,FZERO_UI_YELLOW);
-  if(!paused)for(unsigned i=0;i<2;++i) {
+  FzeroUiFrame(ui,c,center-112,single?8:88,224,single?184:264);
+  FzeroUiCenter(ui,c,single?20:104,heading,FZERO_UI_MENU,FZERO_UI_YELLOW);
+  for(unsigned i=0;i<2;++i) {
     const FzeroVersusRacer *r=&s->racers[i];char line[64],timer[32];int y=(single?52:140)+(int)i*(single?40:48);
     bool won=s->winner==i+1;
     snprintf(line,sizeof(line),"P%u  %s",i+1,FzeroUiMachineName(r->actor.machine));
@@ -217,12 +216,11 @@ static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsign
     FzeroUiRaceClock(ui,c,center+24,y+16,timer);
   }
   for(unsigned i=0;i<count;++i) {
-    int y=(single?(paused?84:144):(paused?172:264))+(int)i*24;bool selected=i==v->menu_selection;
+    int y=(single?144:264)+(int)i*24;bool selected=i==v->menu_selection;
     if(selected)FzeroUiTile(ui,c,center-96,y+4,0x2f,FZERO_UI_YELLOW,true,false);
-    const char *label=paused?pause[i]:results[i];
+    const char *label=results[i];
     FzeroUiText(ui,c,center-80,y,label,FZERO_UI_MENU,selected?FZERO_UI_YELLOW:FZERO_UI_CYAN);
   }
-  if(disconnected)FzeroUiCenter(ui,c,284,"PRESS START TO REJOIN",FZERO_UI_SMALL,FZERO_UI_CYAN);
 }
 bool FzeroVersusVideoDraw(FzeroVersusVideo *v,uint32_t *out,size_t capacity,FzeroViewport viewport,double alpha,unsigned scale) {
   if(!v || !v->valid || !out || viewport.width<256 || viewport.width>FZERO_MAX_WIDTH ||

@@ -2,13 +2,13 @@
 param([switch]$NoOpen)
 
 $ErrorActionPreference = 'Stop'
-$game = Join-Path $PSScriptRoot 'FZeroSNESRecomp.exe'
+$game = Join-Path $PSScriptRoot 'F-Zero Forever.exe'
 $logs = Join-Path $PSScriptRoot 'diagnostics'
 $reports = Join-Path $PSScriptRoot 'profile-results'
 $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $report = Join-Path $reports ("mode7-profile-$stamp-" + [guid]::NewGuid().ToString('N').Substring(0, 8))
 $archive = "$report.zip"
-if (-not (Test-Path -LiteralPath $game -PathType Leaf)) { throw 'FZeroSNESRecomp.exe is missing. Extract the entire profiler ZIP first.' }
+if (-not (Test-Path -LiteralPath $game -PathType Leaf)) { throw 'F-Zero Forever.exe is missing. Extract the entire profiler ZIP first.' }
 
 Write-Host 'F-Zero Mode 7 profiler'
 Write-Host 'Use your usual graphics settings. Play a course that runs poorly for at least 30 seconds, then quit the game.'

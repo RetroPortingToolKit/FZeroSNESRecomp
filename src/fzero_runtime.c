@@ -447,9 +447,9 @@ void FzeroPresent(double alpha) {
     return;
   }
   s_hd_ready = s_hd_scale && s_hd_pixels &&
-      FzeroRendererDrawPresentation(s_viewport.enhanced ? (uint32_t *)s_output_pixels : NULL,
+      FzeroRendererDrawPresentation((uint32_t *)s_output_pixels,
           s_hd_pixels, s_hd_capacity, s_viewport, alpha, s_hd_scale);
-  if (!s_hd_ready && s_viewport.enhanced && s_output_pixels)
+  if (!s_hd_ready && s_output_pixels)
     FzeroRendererDraw((uint32_t *)s_output_pixels, s_viewport, alpha);
   if(s_hd_ready)FzeroTracksOverlay(s_hd_pixels,s_viewport.width*s_hd_scale,224*s_hd_scale,s_viewport.width*s_hd_scale*4);
   else if(s_output_pixels)FzeroTracksOverlay((uint32_t *)s_output_pixels,s_viewport.width,224,s_output_pitch);
@@ -457,6 +457,7 @@ void FzeroPresent(double alpha) {
   else if(s_output_pixels)FzeroVsMenuDraw((FzeroUiCanvas){(uint32_t *)s_output_pixels,s_viewport.width,224,1},s_viewport.extra,g_ram);
 }
 void FzeroSetDeferredPresentation(bool deferred) { s_deferred_presentation = deferred; }
+void FzeroSetTextureSmoothing(bool enabled) {FzeroRendererSetTextureSmoothing(enabled);}
 
 void FzeroSetMode7Hd(unsigned scale, uint32_t *pixels, size_t capacity) {
   if (!pixels || !FzeroValidHdScale(scale)) scale = 0;

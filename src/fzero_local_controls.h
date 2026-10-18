@@ -6,6 +6,8 @@ enum {FZERO_LOCAL_START=1,FZERO_LOCAL_CHANGE=2,FZERO_LOCAL_MAIN=4};
 typedef enum FzeroLocalPage {FZERO_LOCAL_MACHINES,FZERO_LOCAL_CUP,FZERO_LOCAL_COURSE} FzeroLocalPage;
 FzeroLocalPage FzeroLocalControlsPage(const FzeroLocalControls *controls);
 FzeroLocalControls *FzeroLocalControlsCreate(FzeroVersusConfig config,bool scripted);
+void FzeroLocalControlsAssign(FzeroLocalControls *controls,const int sources[2],
+                              const char guids[2][40]);
 void FzeroLocalControlsDestroy(FzeroLocalControls *controls);
 void FzeroLocalControlsEvent(FzeroLocalControls *controls,const SDL_Event *event);
 unsigned FzeroLocalControlsUpdate(FzeroLocalControls *controls,uint32_t keyboard);

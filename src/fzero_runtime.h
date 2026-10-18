@@ -36,6 +36,7 @@ int FzeroFrameHeight(void);
 uint32_t FzeroResumePc(void);
 int FzeroLastLleResult(void);
 void FzeroSetViewport(FzeroViewport viewport);
+void FzeroSetTextureSmoothing(bool enabled);
 void FzeroPresent(double alpha);
 void FzeroSetDeferredPresentation(bool deferred);
 void FzeroSetMode7Hd(unsigned scale, uint32_t *pixels, size_t capacity);

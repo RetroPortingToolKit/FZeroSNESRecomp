@@ -80,7 +80,6 @@ FzeroVersus *FzeroLocalSession(void) {return session;}
 const FzeroNativeUi *FzeroLocalUi(void) {return enabled && ui.valid?&ui:NULL;}
 bool FzeroLocalMenuReady(void) {
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(session);if(!s)return false;
-  if(s->pause)return true;
   return FzeroVersusVideoResultsReady(s,result_ticks);
 }
 unsigned FzeroLocalMenuSelection(void) {return menu_selection;}

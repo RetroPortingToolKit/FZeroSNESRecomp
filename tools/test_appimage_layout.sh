@@ -9,7 +9,7 @@ fi
 
 APPDIR="$(CDPATH= cd -- "$1" && pwd)"
 test -x "$APPDIR/AppRun" || { echo "missing executable AppRun" >&2; exit 1; }
-test -x "$APPDIR/usr/bin/FZeroSNESRecomp" || { echo "missing FZeroSNESRecomp ELF" >&2; exit 1; }
+test -x "$APPDIR/usr/bin/F-Zero Forever" || { echo "missing F-Zero Forever ELF" >&2; exit 1; }
 test -d "$APPDIR/usr/bin/assets" || { echo "missing launcher assets" >&2; exit 1; }
 test -f "$APPDIR/usr/bin/assets/shaders/crt-soft.glslp" || { echo "missing CRT shader" >&2; exit 1; }
 test -f "$APPDIR/usr/share/doc/fzerosnesrecomp/README.md" || { echo "missing user instructions" >&2; exit 1; }
@@ -21,7 +21,7 @@ done
 if [ -d "$APPDIR/usr/bin/mods" ]; then
   # The payload ships inside the binary, not beside it, so a download can
   # never be missing it; the files here are credits and provenance only.
-  grep -qa BSDELX1 "$APPDIR/usr/bin/FZeroSNESRecomp" || {
+  grep -qa BSDELX1 "$APPDIR/usr/bin/F-Zero Forever" || {
     echo "binary has no embedded BS Deluxe payload" >&2; exit 1; }
   test -f "$APPDIR/usr/bin/mods/BS-Deluxe-credits.txt" || { echo "missing BS Deluxe credits" >&2; exit 1; }
 fi
@@ -48,9 +48,9 @@ grep -q 'RECOMP_HOST_LD_LIBRARY_PATH' "$APPDIR/AppRun" || {
 
 # Everything the binary needs must resolve with LD_LIBRARY_PATH unset -- that
 # is exactly what the shipped AppRun gives the loader.
-if env -u LD_LIBRARY_PATH ldd "$APPDIR/usr/bin/FZeroSNESRecomp" | grep -q 'not found'; then
+if env -u LD_LIBRARY_PATH ldd "$APPDIR/usr/bin/F-Zero Forever" | grep -q 'not found'; then
   echo "binary has unresolved libraries without LD_LIBRARY_PATH" >&2
-  env -u LD_LIBRARY_PATH ldd "$APPDIR/usr/bin/FZeroSNESRecomp" | grep 'not found' >&2
+  env -u LD_LIBRARY_PATH ldd "$APPDIR/usr/bin/F-Zero Forever" | grep 'not found' >&2
   exit 1
 fi
 
@@ -58,7 +58,7 @@ fi
 # An unreachable copy is only ever reachable by setting the global
 # LD_LIBRARY_PATH above, so leaving one there invites the bug back.
 if [ -d "$APPDIR/usr/lib" ]; then
-  REACH="$(env -u LD_LIBRARY_PATH ldd "$APPDIR/usr/bin/FZeroSNESRecomp" \
+  REACH="$(env -u LD_LIBRARY_PATH ldd "$APPDIR/usr/bin/F-Zero Forever" \
             | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^\//) print $i }' \
             | while read -r p; do readlink -f "$p" 2>/dev/null || true; done \
             | sort -u)"
@@ -80,7 +80,7 @@ chmod -R a-w "$APPDIR"
 STATE="$TMP/state"
 mkdir -p "$STATE"
 : > "$STATE/pretend.sfc"
-( cd "$STATE" && APPIMAGE="$STATE/FZeroSNESRecomp.AppImage" \
+( cd "$STATE" && APPIMAGE="$STATE/F-Zero-Forever.AppImage" \
     SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \
     timeout 20 "$APPDIR/AppRun" >/dev/null 2>&1 ) || true
 
@@ -120,7 +120,7 @@ picker_run() {  # $1 = stub exit code -> stdout of the run
   PICKDIR="$TMP/pick$1"
   mkdir -p "$PICKDIR"
   : > "$PICKDIR/pretend.sfc"
-  ( cd "$PICKDIR" && APPIMAGE="$PICKDIR/FZeroSNESRecomp.AppImage" \
+  ( cd "$PICKDIR" && APPIMAGE="$PICKDIR/F-Zero-Forever.AppImage" \
       PATH="$STUBBIN:$PATH" STUB_ZENITY_EXIT="$1" \
       RECOMP_UI_PICKER_SELFTEST=1 \
       SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy \

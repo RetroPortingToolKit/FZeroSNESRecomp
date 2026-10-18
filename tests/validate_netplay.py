@@ -79,7 +79,7 @@ def main():
                 for old in saves.glob('fzero-local-2p*.sav*'):
                     if old.is_file():
                         old.unlink()
-            shutil.copy2(a.build / 'FZeroSNESRecomp.exe', install / 'FZeroSNESRecomp.exe')
+            shutil.copy2(a.build / 'F-Zero Forever.exe', install / 'F-Zero Forever.exe')
             for dll in a.runtime.glob('*.dll'):
                 shutil.copy2(dll, install / dll.name)
             shutil.copytree(a.build / 'assets', install / 'assets', dirs_exist_ok=True)
@@ -166,7 +166,7 @@ def main():
             env['SNESRECOMP_INPUT_SCRIPT'] = (boot + ','.join(navigation + shifted)).rstrip(',')
             log = (folder / 'game.log').open('w')
             logs.append(log)
-            launches.append(([str(install / 'FZeroSNESRecomp.exe'), str(a.rom)],
+            launches.append(([str(install / 'F-Zero Forever.exe'), str(a.rom)],
                              dict(cwd=install, env=env, stdout=log, stderr=log)))
         # Prepare both installations before starting either boot handshake.
         # Copying assets for peer1 after peer0 starts can consume its deadline.
@@ -199,7 +199,7 @@ def main():
                   aspect=a.aspect, loss=a.loss, hd_peer=a.hd_peer,
                   force_mispredict=a.force_mispredict,
                   peer_installation=str(a.peers_dir),
-                  executable_sha256=hashlib.sha256((a.build / 'FZeroSNESRecomp.exe').read_bytes()).hexdigest(),
+                  executable_sha256=hashlib.sha256((a.build / 'F-Zero Forever.exe').read_bytes()).hexdigest(),
                   seconds=round(time.monotonic() - started, 3), exits=[proc.returncode for proc in processes])
     if a.scenario in ('reject', 'reject-catalog'):
         assert all('mod_set_mismatch' in s for s in text), 'expected exact identity refusal'
@@ -273,8 +273,8 @@ def main():
             assert not any(row['phase'] == '6' for row in shared), 'in-game menu unexpectedly exited to lobby'
         if a.scenario == 'pause':
             pauses = [row for row in shared if row['pause'] != '0']
-            assert len(pauses) >= 100 and shared[-1]['pause'] == '0', 'pause/resume not exercised'
-            assert shared[-1]['stage'] == '2', 'race did not continue after pause'
+            assert not pauses, 'Start must never pause multiplayer'
+            assert shared[-1]['stage'] == '2', 'race did not continue through Start inputs'
             for slot in range(2):
                 dsp = (a.out / ('peer%d/dsp.bin' % slot)).read_bytes()
                 assert [dsp[0x0c], dsp[0x1c]] == [0x54, 0x54], 'music master did not survive pause'

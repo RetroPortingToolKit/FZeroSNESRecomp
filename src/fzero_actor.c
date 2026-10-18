@@ -492,7 +492,7 @@ static void start_jump(FzeroActor *a, unsigned base_height) {
 /* $9B4F..$9D41. Versus has no rank-out; the jump rank guard always admits
  * each human. Return presentation events as fields rather than touching OAM,
  * the camera, music, lives or the shared guest scene. */
-static void altitude(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t,uint8_t tick,bool custom,unsigned features) {
+static void altitude(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t,uint8_t tick,bool custom,unsigned features,unsigned landing_flags) {
   if (a->recovery_active) return;
   bool magnetic=(features&FZERO_TERRAIN_GRIP_MAGNETS) && (a->surface&8);
   if (a->exhaust && !magnetic) {
@@ -518,7 +518,7 @@ static void altitude(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t,uin
       (a->height & 0x8000) || a->height<ground_height;
   if (landed && (a->height_velocity & 0x8000)) {
     a->height = ground_height;
-    bool off_track = custom?((a->ground_flags&0x80) || (!(a->state&1) && (a->ground_flags&0x20))):a->surface_id >= 0xd0 ||
+    bool off_track = custom?((landing_flags&0x80) || (!(a->state&1) && (landing_flags&0x20))):a->surface_id >= 0xd0 ||
         (!(a->state & 1) && (a->surface_id == 0x69 || a->surface_id == 0xa5));
     if (off_track) {
       a->race_state |= 0x40; a->death_animation = 6; a->death_lap = a->lap;
@@ -558,10 +558,14 @@ static void altitude(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t,uin
   }
 }
 void FzeroActorAltitude(FzeroActor *a,FzeroActorScratch *s,FzeroActorTables t,uint8_t tick) {
-  altitude(a,s,t,tick,false,0);
+  altitude(a,s,t,tick,false,0,0);
 }
 void FzeroActorCourseAltitude(FzeroActor *a,FzeroActorScratch *s,FzeroActorTables t,uint8_t tick,const uint8_t world[0x20000]) {
-  altitude(a,s,t,tick,world[FZERO_WORLD_RESOURCE]!=0,world[FZERO_WORLD_FEATURES]);
+  /* Airborne ticks intentionally clear wall-response flags. Landing must
+   * still inspect the actual terrain: those transient flags cannot tell us
+   * whether an imported course has road or lethal void below the machine. */
+  unsigned flags=world[FZERO_WORLD_RESOURCE]?world[FZERO_WORLD_TERRAIN+0x300+a->surface_id]:0;
+  altitude(a,s,t,tick,world[FZERO_WORLD_RESOURCE]!=0,world[FZERO_WORLD_FEATURES],flags);
 }
 
 /* $8E36..$8ECD and $03:9187..$920A, player branch. The boundary animation

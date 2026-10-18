@@ -10,6 +10,9 @@ struct FzeroLocalControls {
   LocalPad pads[MAX_PADS];
   FzeroVersusConfig config;
   int seat[2];
+  int source[2];
+  char guid[2][40];
+  bool assigned;
   uint32_t previous[2],input[2],keyboard;
   bool setup,ready[2],release[2],scan,scripted,back;
   unsigned menu_tag;
@@ -20,6 +23,15 @@ struct FzeroLocalControls {
 FzeroLocalControls *FzeroLocalControlsCreate(FzeroVersusConfig config,bool scripted) {
   FzeroLocalControls *c=calloc(1,sizeof(*c));if(!c)return NULL;
   c->config=config;FzeroLocalCourseLocation(config.course,&c->cup,NULL);c->seat[0]=c->seat[1]=NO_DEVICE;c->setup=!scripted;c->scripted=scripted;c->scan=true;return c;
+}
+void FzeroLocalControlsAssign(FzeroLocalControls *c,const int sources[2],const char guids[2][40]) {
+  if(!c || c->scripted)return;
+  c->assigned=true;c->scan=true;
+  for(unsigned p=0;p<2;++p) {
+    c->source[p]=sources[p];snprintf(c->guid[p],sizeof(c->guid[p]),"%s",guids[p]);
+    c->seat[p]=sources[p]==1 && (!p || sources[0]!=1)?KEYBOARD:NO_DEVICE;
+    c->previous[p]=c->input[p]=0;c->release[p]=true;
+  }
 }
 void FzeroLocalControlsDestroy(FzeroLocalControls *c) {
   if(!c)return;
@@ -35,11 +47,7 @@ void FzeroLocalControlsEvent(FzeroLocalControls *c,const SDL_Event *event) {
 #else
   bool focus_lost=event->type==SDL_WINDOWEVENT && event->window.event==SDL_WINDOWEVENT_FOCUS_LOST;
 #endif
-  if(focus_lost && !c->setup && FzeroLocalSession()) {
-    FzeroVersusPause(FzeroLocalSession(),FZERO_VS_PAUSE_FOCUS);
-    FzeroLocalControlChanged();
-    for(unsigned i=0;i<2;++i){c->input[i]=0;c->release[i]=true;}
-  }
+  (void)focus_lost; /* Multiplayer keeps advancing when focus changes. */
 }
 static void scan_pads(FzeroLocalControls *c) {
   for(unsigned i=0;i<MAX_PADS;++i)if(c->pads[i].handle && !SDL_GameControllerGetAttached(c->pads[i].handle)) {
@@ -47,7 +55,6 @@ static void scan_pads(FzeroLocalControls *c) {
     for(unsigned p=0;p<2;++p)if(c->seat[p]==(int)i) {
       c->seat[p]=NO_DEVICE;c->ready[p]=false;c->input[p]=0;c->release[p]=true;
       if(c->setup)c->page=FZERO_LOCAL_MACHINES;
-      if(FzeroLocalSession())FzeroVersusPause(FzeroLocalSession(),FZERO_VS_PAUSE_DEVICE1<<p);
       if(FzeroLocalSession())FzeroLocalControlChanged();
     }
   }
@@ -80,8 +87,21 @@ static void scan_pads(FzeroLocalControls *c) {
   SDL_free(ids);
 #endif
   c->scan=false;
+  if(c->assigned)for(unsigned p=0;p<2;++p)if(c->source[p]==2 && c->seat[p]==NO_DEVICE) {
+    for(unsigned i=0;i<MAX_PADS;++i)if(c->pads[i].handle && c->seat[1-p]!=(int)i) {
+      char guid[40];
+#if SNESRECOMP_SDL3
+      SDL_GUIDToString(SDL_GetJoystickGUID(SDL_GetGamepadJoystick(c->pads[i].handle)),guid,sizeof(guid));
+#else
+      SDL_JoystickGetGUIDString(SDL_JoystickGetGUID(SDL_GameControllerGetJoystick(c->pads[i].handle)),guid,sizeof(guid));
+#endif
+      if(c->guid[p][0] && SDL_strcasecmp(guid,c->guid[p]))continue;
+      c->seat[p]=(int)i;c->release[p]=true;break;
+    }
+  }
 }
 static void join(FzeroLocalControls *c,int device) {
+  if(c->assigned)return;
   for(unsigned p=0;p<2;++p)if(c->seat[p]==device)return;
   for(unsigned p=0;p<2;++p)if(c->seat[p]==NO_DEVICE) {
     c->seat[p]=device;c->ready[p]=false;c->release[p]=true;break;
@@ -89,7 +109,7 @@ static void join(FzeroLocalControls *c,int device) {
 }
 static unsigned menu_tag(void) {
   const FzeroVersusSnapshot *s=FzeroLocalSession()?FzeroVersusCompleted(FzeroLocalSession()):NULL;
-  return s?(s->pause?1:s->phase==FZERO_VS_RESULTS?2:0):0;
+  return s && s->phase==FZERO_VS_RESULTS?2:0;
 }
 static void release_inputs(FzeroLocalControls *c) {
   c->release[0]=c->release[1]=true;
@@ -97,13 +117,9 @@ static void release_inputs(FzeroLocalControls *c) {
 }
 static unsigned activate(FzeroLocalControls *c,unsigned choice) {
   FzeroVersus *race=FzeroLocalSession();
-  if(c->menu_tag==1 && choice==0) {
-    if(c->seat[0]==NO_DEVICE || c->seat[1]==NO_DEVICE)return 0;
-    FzeroVersusResume(race);
-  } else if(choice==(c->menu_tag==1?1:0)) {
-    if(c->menu_tag==1) {FzeroVersusEndRace(race);FzeroVersusResume(race);}
+  if(choice==0) {
     FzeroVersusRematch(race);FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
-  } else if(choice==(c->menu_tag==1?2:1)) {
+  } else if(choice==1) {
     c->setup=true;c->page=FZERO_LOCAL_MACHINES;FzeroLocalCourseLocation(c->config.course,&c->cup,NULL);c->ready[0]=c->ready[1]=false;
     release_inputs(c);return FZERO_LOCAL_CHANGE;
   } else {release_inputs(c);return FZERO_LOCAL_MAIN;}
@@ -121,14 +137,6 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
   ++c->menu_ticks;
   if(!c->setup && FzeroLocalSession())c->config=FzeroLocalConfig();
   if(c->scan)scan_pads(c);
-  if(!c->scripted && !c->setup && FzeroLocalSession()) {
-    unsigned missing=(c->seat[0]==NO_DEVICE?FZERO_VS_PAUSE_DEVICE1:0)|
-        (c->seat[1]==NO_DEVICE?FZERO_VS_PAUSE_DEVICE2:0);
-    if(missing&~FzeroVersusCompleted(FzeroLocalSession())->pause) {
-      FzeroVersusPause(FzeroLocalSession(),missing);FzeroLocalControlChanged();
-      c->release[0]=c->release[1]=true;c->input[0]=c->input[1]=0;
-    }
-  }
   if((keyboard&8) && !(c->keyboard&8))join(c,KEYBOARD);
   c->keyboard=keyboard;
   for(unsigned i=0;i<MAX_PADS;++i)if(c->pads[i].handle) {
@@ -142,8 +150,6 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
     c->back=false;
     if(c->setup)return setup_back(c);
     if(tag==2) {release_inputs(c);return FZERO_LOCAL_MAIN;}
-    if(tag==1)return activate(c,0);
-    if(FzeroLocalSession()) {FzeroVersusPause(FzeroLocalSession(),FZERO_VS_PAUSE_MANUAL);FzeroLocalControlChanged();release_inputs(c);}
     return 0;
   }
   for(unsigned p=0;p<2;++p) {
@@ -187,7 +193,7 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
         if(pressed)return 0;
       }
     } else if(FzeroLocalSession() && tag && FzeroLocalMenuReady()) {
-      unsigned count=tag==1?4:3,choice=FzeroLocalMenuSelection();
+      unsigned count=3,choice=FzeroLocalMenuSelection();
       if(choice>=count)choice=0;
       if(pressed&0x30) {choice=(choice+((pressed&0x10)?count-1:1))%count;FzeroLocalSetMenuSelection(choice);}
       if(pressed&0x109)return activate(c,choice);

@@ -156,7 +156,7 @@ bool FzeroNetplayStart(const RecompLauncherCSettings *settings) {
   FzeroOnlineBegin(aspect,(unsigned)cfg.local_slot);
   uint8_t content[32]={0};if(FzeroTracksStateActive())memcpy(content,FzeroTracksActiveHash(),32);
   char hex[65];for(unsigned i=0;i<32;++i)snprintf(hex+i*2,3,"%02x",content[i]);
-  snprintf(base_identity,sizeof(base_identity),"fzero-vs6;build=%s;catalog=%s;portable-scalar-v1;aspect=%u",
+  snprintf(base_identity,sizeof(base_identity),"fzero-vs7;build=%s;catalog=%s;portable-scalar-v1;aspect=%u",
       FZERO_REPLAY_BUILD_ID,hex,aspect);
   const char *fixture=getenv("FZERO_TEST_ONLINE_FIXTURE");
   if(fixture && *fixture) {

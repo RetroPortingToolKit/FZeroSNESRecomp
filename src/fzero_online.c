@@ -43,19 +43,16 @@ bool FzeroOnlineTick(uint32_t *packed) {
   if(state.phase==FZERO_ONLINE_RACE) {
     FzeroVersus *race=FzeroLocalSession();const FzeroVersusSnapshot *s=FzeroVersusCompleted(race);
     if(!s)return false;
-    /* Either human may pause. Host alone navigates shared pause/results and
-     * changes course; its controls are ordinary synchronized input rows. */
-    if((s->pause || s->phase==FZERO_VS_RESULTS) && FzeroLocalMenuReady()) {
-      bool pause=s->pause!=0;unsigned count=pause?3:2,choice=FzeroLocalMenuSelection()%count;
+    /* Host navigates results only. Neither participant can stop a race. */
+    if(s->phase==FZERO_VS_RESULTS && FzeroLocalMenuReady()) {
+      unsigned count=2,choice=FzeroLocalMenuSelection()%count;
       if(choice!=FzeroLocalMenuSelection())FzeroLocalSetMenuSelection(choice);
       if(pressed[0]&0x30)FzeroLocalSetMenuSelection((choice+((pressed[0]&0x10)?count-1:1))%count);
       if(pressed[0]&0x109) {
         choice=FzeroLocalMenuSelection();
-        if(pause && choice==0)FzeroVersusResume(race);
-        else if(choice==(pause?1u:0u)) {
-          if(pause){FzeroVersusEndRace(race);FzeroVersusResume(race);}
+        if(choice==0) {
           FzeroVersusRematch(race);FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
-        } else if(choice==(pause?2u:1u)) {
+        } else if(choice==1) {
           state.phase=FZERO_ONLINE_MACHINES;state.ready=0;
         }
         FzeroLocalSetMenuSelection(0);state.previous[0]=state.previous[1]=4095;state.release=3;*packed=3u<<30;

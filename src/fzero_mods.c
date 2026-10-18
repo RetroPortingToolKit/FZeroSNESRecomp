@@ -151,15 +151,21 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
     unsigned i=(unsigned)(index-VEHICLE_START);memset(out,0,sizeof(*out));
     COPY(out->id,"vehicles");COPY(out->package_id,vehicle_ids[i]);COPY(out->package_name,vehicle_names[i]);
     COPY(out->package_version,"1");COPY(out->name,vehicle_names[i]);COPY(out->group,i==0?"Vehicle Packs":"Vehicle Rebalances");
-    COPY(out->author,"Fennor Virastar and the CGP contributors");COPY(out->description,vehicle_descriptions[i]);
-    out->enabled=vehicle_enabled(i);COPY(out->status,out->enabled?"Enabled":"Disabled");return 1;
+    COPY(out->author,"Fennor Virastar and the CGP contributors");
+    snprintf(out->description,sizeof(out->description),"Single-player setting. %s Versus has its own twelve-machine roster; choose a machine on each player's car page. Its authored handling follows that machine.",vehicle_descriptions[i]);
+    out->enabled=vehicle_enabled(i);COPY(out->status,out->enabled?"Single-player: on":"Single-player: off");return 1;
   }
   if (index>=6 && out) {
     const FzeroRuleInfo *r=&fzero_rules[visible_rule((unsigned)index)]; memset(out,0,sizeof(*out));
     COPY(out->id,"rules"); COPY(out->package_id,r->id); COPY(out->package_name,r->name); COPY(out->package_version,"1");
     COPY(out->name,r->name); COPY(out->group,"CGP Rules and Fixes");
-    COPY(out->author,"Fennor Virastar and the CGP contributors"); COPY(out->description,r->description);
-    out->enabled=(video->gameplay.enabled>>visible_rule((unsigned)index))&1; COPY(out->status,out->enabled ? "Enabled" : "Disabled");
+    COPY(out->author,"Fennor Virastar and the CGP contributors");
+    snprintf(out->description,sizeof(out->description),"Single-player only. %s Versus uses fixed shared rules and each selected machine's authored handling. Course-required terrain effects follow the chosen course in either mode.",r->description);
+    out->enabled=(video->gameplay.enabled>>visible_rule((unsigned)index))&1; COPY(out->status,out->enabled ? "Single-player: on" : "Single-player: off");
+    if(visible_rule((unsigned)index)==FZERO_RULE_FOG) {
+      COPY(out->group,"Presentation");COPY(out->description,r->description);
+      COPY(out->status,out->enabled?"Single-player + VS: on":"Single-player + VS: off");
+    }
     out->option_count=0; return 1;
   }
   (void)ctx;
@@ -170,6 +176,8 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
   COPY(out->name, names[index]); COPY(out->group, index == 5 ? "Track Packs" : index == 4 ? "Support" : index == 2 ? "Vehicle Packs" : "Presentation");
   COPY(out->author, (index == 2 || index == 5) ? "GuyPerfect, PowerPanda, Porthor, Catador" : "FZeroSNESRecomp contributors");
   COPY(out->description, descriptions[index]);
+  if(index==2)snprintf(out->description,sizeof(out->description),"Single-player only. %s Versus selects its machines independently.",descriptions[index]);
+  else if(index!=4)snprintf(out->description,sizeof(out->description),"Single-player and versus. %s",descriptions[index]);
   out->enabled = index == 5 ? video->bs_tracks : index == 4 ? video->diagnostics : index == 3 ? video->hd_mode7 : index == 2 ? video->bs_deluxe : index ? video->fps_enabled : video->enhanced;
   COPY(out->status, out->enabled ? "Enabled" : "Disabled");
   if (index == 3 && video->hd_scale > 4) {

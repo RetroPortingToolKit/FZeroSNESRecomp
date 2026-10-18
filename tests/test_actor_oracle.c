@@ -574,8 +574,8 @@ static void test_session(void) {
     CHECK(v->countdown==1 && v->race_tick==0);session_roundtrip(s,copy);
     CHECK(FzeroVersusTick(s,held) && v->phase==FZERO_VS_RACING);
     FzeroVersusPause(s,FZERO_VS_PAUSE_DEVICE2);uint64_t paused=FzeroVersusHash(s);
-    for (unsigned i=0;i<120;++i) CHECK(!FzeroVersusTick(s,held));
-    CHECK(FzeroVersusHash(s)==paused && !v->racers[0].actor.held && !v->racers[1].actor.held);
+    for (unsigned i=0;i<120;++i) CHECK(FzeroVersusTick(s,held));
+    CHECK(FzeroVersusHash(s)!=paused && !v->pause);
     session_roundtrip(s,copy);FzeroVersusResume(s);
     CHECK(FzeroVersusTick(s,held));CHECK(v->racers[0].actor.action!=v->racers[1].actor.action);
     session_roundtrip(s,copy);
@@ -586,7 +586,7 @@ static void test_session(void) {
       if (i%600==0) CHECK(FzeroVersusHash(s)==FzeroVersusHash(copy));
     }
     CHECK(v->racers[0].actor.x!=v->racers[1].actor.x || v->racers[0].actor.y!=v->racers[1].actor.y);
-    held[0]=0;held[1]=0x1000;CHECK(!FzeroVersusTick(s,held) && v->pause==FZERO_VS_PAUSE_MANUAL);
+    held[0]=0;held[1]=0x1000;CHECK(FzeroVersusTick(s,held) && !v->pause);
     FzeroVersusEndRace(s);CHECK(v->phase==FZERO_VS_RESULTS && v->winner==FZERO_VS_NO_WINNER);
     session_roundtrip(s,copy);CHECK(FzeroVersusRematch(s) && v->phase==FZERO_VS_READY && !v->tick);
     CHECK(v->config.machine[0]==machine && v->racers[0].actor.x==spawns[0].x);
@@ -1020,7 +1020,15 @@ static void test_sound(void) {
   /* The real CPU's GO transition starts the already uploaded course song.
    * Audio peak/engine tests alone miss a permanently silent music program. */
   memset(ram,0,sizeof(ram));reference_until(0xad9f,0xada3);unsigned race_music=ram[0x46];CHECK(race_music==6);
-  FzeroSoundState music;FzeroSoundInit(&music,1);
+  FzeroSoundState music;FzeroSoundInit(&music,3);
+  FzeroVersusSnapshot arrival={.phase=FZERO_VS_COUNTDOWN,.countdown=FZERO_VERSUS_COUNTDOWN};
+  for(unsigned i=0;i<FZERO_VERSUS_ARRIVAL;++i) {
+    FzeroSoundCommands command=FzeroSoundTick(&music,&arrival,true);
+    CHECK(command.ports[0]==3 && !command.ports[1] && !command.ports[2]);--arrival.countdown;
+  }
+  FzeroSoundCommands rev=FzeroSoundTick(&music,&arrival,true);
+  CHECK(rev.ports[0]==1 && rev.ports[1]==1);
+  FzeroSoundInit(&music,1);
   FzeroVersusSnapshot start={.phase=FZERO_VS_COUNTDOWN,.countdown=1};
   CHECK(FzeroSoundTick(&music,&start,true).ports[0]==1);
   start.pause=1;CHECK(FzeroSoundTick(&music,&start,false).ports[0]==1);
@@ -1126,7 +1134,7 @@ static void test_native_hud(void) {
     if(active)reference(0xb825);
     memset(actual,0,sizeof(actual));memset(expected,0,sizeof(expected));
     for(unsigned i=44;i<47;++i)paint_native_obj(expected,&ui,i,8,0);
-    for(unsigned i=0;i<COUNT(expected);++i)if(expected[i]==0xff000000)expected[i]=0;
+    /* Native nonzero palette entries include the S-jet black outline. */
     FzeroUiBoosts(&ui,canvas,208,208,count,active!=0);
     if(memcmp(actual,expected,sizeof(actual))) {
       for(unsigned i=44;i<47;++i)fprintf(stderr,"native boost active=%u count=%u slot=%u xy=%04x attr=%04x\n",active,count,i,ram_word(0x200+i*4),ram_word(0x202+i*4));
@@ -1618,6 +1626,18 @@ int main(int argc, char **argv) {
   test_contact();
   test_finish();
   test_mine_commit();
+  {
+    flat_course();ram[FZERO_WORLD_RESOURCE]=1;
+    ram[FZERO_WORLD_TERRAIN+0x300+0xd0]=0x80;
+    FzeroActor a={.state=0x80,.height=0x210,.height_velocity=0xff00,.surface_id=0xd0,.lap=2};
+    FzeroActorScratch scratch={.gravity=0x60};
+    CHECK(!a.ground_flags);
+    FzeroActorCourseAltitude(&a,&scratch,(FzeroActorTables){rom_read,NULL},0,ram);
+    CHECK((a.race_state&0x40) && a.death_animation==6 && a.death_lap==2);
+    a=(FzeroActor){.state=0x80,.height=0x210,.height_velocity=0xff00,.surface_id=0};
+    FzeroActorCourseAltitude(&a,&scratch,(FzeroActorTables){rom_read,NULL},0,ram);
+    CHECK(!a.race_state);
+  }
   test_session();
   test_session_finishes();
   test_session_events();

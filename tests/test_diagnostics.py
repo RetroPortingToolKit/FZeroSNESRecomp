@@ -21,7 +21,7 @@ def main():
     args = parser.parse_args()
     source, output = args.source.resolve(), args.output.resolve()
     output.mkdir(parents=True, exist_ok=False)
-    name = 'FZeroSNESRecomp' + ('.exe' if os.name == 'nt' else '')
+    name = 'F-Zero Forever' + ('.exe' if os.name == 'nt' else '')
     hashes = []
     for label, enabled in [('default-off', None), ('enabled', 1), ('disabled', 0), ('unwritable', 1)]:
         folder = output / label

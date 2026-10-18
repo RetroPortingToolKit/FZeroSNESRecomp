@@ -25,7 +25,7 @@ def main():
     capture,build,rom,out=(getattr(a,k).resolve() for k in ('capture','build','rom','out'))
     meta=json.loads((capture/'session.json').read_text(encoding='utf-8'))
     if meta.get('format') not in (1,2) or meta.get('game')!='fzero-usa': p.error('Unsupported capture format')
-    executable=build/('FZeroSNESRecomp.exe' if a.desktop else 'FZeroSNESRecompHeadless.exe')
+    executable=build/('F-Zero Forever.exe' if a.desktop else 'FZeroSNESRecompHeadless.exe')
     image=executable.read_bytes()
     for key in ('revision','framework','ui','build','version'):
         if meta[key]=='unknown' or meta[key].encode() not in image:

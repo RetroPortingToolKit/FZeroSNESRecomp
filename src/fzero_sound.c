@@ -34,7 +34,9 @@ FzeroSoundCommands FzeroSoundTick(FzeroSoundState *s,const FzeroVersusSnapshot *
   /* $8CA6 selects the pre-race program; $AD9F selects the uploaded course
    * song at GO. The parked guest never reaches AD9F during a VS race.
    * Also repair a resumed/loaded race with the older pre-race audio latch. */
-  if(v->phase==FZERO_VS_COUNTDOWN)s->music=1;
+  /* $8CA6 starts the rev program only AFTER the arrival animation. Starting
+   * it while the engine command is still zero leaves its startup tone held. */
+  if(v->phase==FZERO_VS_COUNTDOWN && v->countdown<=FZERO_VERSUS_REV_COUNTDOWN)s->music=1;
   else if(v->phase==FZERO_VS_RACING)s->music=6;
   if(s->phase!=phase) {
     if(v->phase==FZERO_VS_COUNTDOWN)s->landing=0;
@@ -48,11 +50,12 @@ FzeroSoundCommands FzeroSoundTick(FzeroSoundState *s,const FzeroVersusSnapshot *
    * holding it retriggers the crash and can strand the music after resume. */
   if(v->pause)return out;
   if(!advanced || v->phase==FZERO_VS_READY)return out;
+  if(v->phase==FZERO_VS_COUNTDOWN && v->countdown>FZERO_VERSUS_REV_COUNTDOWN)return out;
   for(unsigned i=0;i<2;++i) {
     const FzeroVersusRacer *r=&v->racers[i];const FzeroActor *a=&r->actor;
     if(r->status!=FZERO_VS_ACTIVE && r->finish_tick!=v->race_tick)continue;
     FzeroSoundCommands voice=FzeroSoundActor(a);
-    if(v->phase==FZERO_VS_COUNTDOWN)voice.ports[1]=a->countdown_acceleration&63;
+    if(v->phase==FZERO_VS_COUNTDOWN)voice.ports[1]=a->countdown_acceleration?a->countdown_acceleration&63:1;
     if(r->status==FZERO_VS_ACTIVE) {
       unsigned pitch=voice.ports[1]&63;
       if(pitch>(out.ports[1]&63))out.ports[1]=(uint8_t)((out.ports[1]&0xc0)|pitch);

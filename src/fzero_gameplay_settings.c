@@ -49,8 +49,8 @@ const FzeroRuleInfo fzero_rules[FZERO_RULE_COUNT] = {
     {"cgp-up-magnet", "Reverse magnets",
      "Courses declaring CGP up magnets receive their required lift behavior "
      "automatically. Other courses keep their original magnet behavior."},
-    {"cgp-fog", "Smooth fog",
-     "Soften the first three fog lines where the track meets the horizon."},
+    {"cgp-fog", "Track texture smoothing",
+     "Single-player and versus: soften road texture banding with a 2x2 texture filter. Keeps HUD and vehicles sharp. Off preserves original pixel sampling. Independent of HD Mode 7; increases rendering cost."},
     {"cgp-msu", "CGP MSU music adapter",
      "Optional CGP/FZEdit music mapping. Select your own music folder under "
      "Sound. Missing tracks fall back to the original soundtrack. No music is "
