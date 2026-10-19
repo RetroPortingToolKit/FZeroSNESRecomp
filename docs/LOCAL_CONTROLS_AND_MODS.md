@@ -29,7 +29,6 @@ handling switches do not change the fixed VS machine roster.
 | Setting | Where it applies |
 | --- | --- |
 | Aspect, presentation FPS, HD Mode 7 | Single-player and versus; online aspect follows the host. |
-| Track texture smoothing | Single-player and versus, independently of HD Mode 7. The former Smooth fog control is now in Presentation. Enable to soften road dithering/banding; disable for original sharp pixel sampling. Costs extra rendering work. |
 | Enabled course packs and imports | Add courses to the shared single-player/versus catalog. Online peers must have the same catalog. |
 | Single-player vehicle packs and original-car rebalances | Single-player only. Versus always has its own twelve-machine selector; each chosen machine carries its authored handling and boost behavior. |
 | CGP gameplay rules | Single-player only. Versus uses fixed shared rules. Terrain mechanics required by an imported course follow that course in both modes. |
@@ -40,11 +39,11 @@ vehicles default off. Saved settings take precedence. Extra CGP vehicles remain
 a separate choice.
 
 Full-course rendering is always active in races, including 4:3 and both local
-views. It does not depend on widescreen or texture smoothing. The renderer
-resolves beyond the original streamed tilemap and removes stepped distance haze.
-Texture smoothing also addresses the separate bands produced by projecting the
-original low-color road artwork; it does not change physics or collision data.
-Broad stripes painted into the road texture remain part of the course artwork.
+views. It does not depend on widescreen. The renderer resolves beyond the
+original streamed tilemap and removes stepped distance haze. Track textures
+always use original sharp pixel sampling. The former texture-smoothing mod was
+removed in 0.10.4; older saved settings cannot re-enable it. Stripes and dithering
+painted into the road texture remain part of the course artwork.
 
 Automated validation mutes its own audio. Owner-facing playtests and QA builds
 use normal audio by default.

@@ -20,14 +20,14 @@ typedef enum FzeroRule {
   FZERO_RULE_RED_BUMPER,
   FZERO_RULE_HITBOX,
   FZERO_RULE_UP_MAGNET,
-  FZERO_RULE_FOG,
+  FZERO_RULE_RETIRED_FOG, /* Retired texture filter; preserve saved bit 16. */
   FZERO_RULE_MSU,
   FZERO_RULE_CREDITS, /* Retired; keep the saved bit number reserved. */
   FZERO_RULE_COUNT
 } FzeroRule;
 /* Credits are source attribution only; never install their SNES ending patch. */
 #define FZERO_RULE_COURSE_MASK ((1u << FZERO_RULE_DMAG) | (1u << FZERO_RULE_UP_MAGNET) | (1u << FZERO_RULE_RAINBOW))
-#define FZERO_RULE_ACTIVE_MASK (((1u << FZERO_RULE_COUNT) - 1u) & ~((1u << FZERO_RULE_CREDITS) | FZERO_RULE_COURSE_MASK))
+#define FZERO_RULE_ACTIVE_MASK (((1u << FZERO_RULE_COUNT) - 1u) & ~((1u << FZERO_RULE_CREDITS) | (1u << FZERO_RULE_RETIRED_FOG) | FZERO_RULE_COURSE_MASK))
 #define FZERO_RULE_SELECTABLE_MASK (FZERO_RULE_ACTIVE_MASK & ~7u)
 #define FZERO_RULE_DEFAULT_MASK (1u << FZERO_RULE_LEGEND)
 typedef struct FzeroGameplaySettings {

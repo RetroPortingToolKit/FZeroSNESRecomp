@@ -201,7 +201,7 @@ bool FzeroVideoSave(const FzeroVideoSettings *s, const char *path) {
   FILE *f = fopen(temporary, "w");
   if (!f) return false;
   bool ok = fprintf(f, "[FZeroVideo]\nEnhancedRenderer=%d\nAspect=%s\nPresentationEnabled=%d\nPresentationFPS=%u\nBSVehicles=%d\nBSTracks=%d\nCGPRules=%u\nCGPTuning=%u\nCGPBoost=%u\nCGPExhaust=%u\nCGPCars=%u\nCGPStockRebalance=%u\nHDMode7=%d\nHDMode7Scale=%u\nDiagnostics=%d\n",
-                    s->enhanced, FzeroAspectName(s->aspect), s->fps_enabled, s->fps, s->bs_deluxe, s->bs_tracks, s->gameplay.enabled,
+                    s->enhanced, FzeroAspectName(s->aspect), s->fps_enabled, s->fps, s->bs_deluxe, s->bs_tracks, s->gameplay.enabled & FZERO_RULE_SELECTABLE_MASK,
                     s->gameplay.tuning, s->gameplay.boost, s->gameplay.exhaust,
                     s->gameplay.vehicle_packs ? 7u : 0u,s->gameplay.stock_rebalance ? 15u : 0u,
                     s->hd_mode7, FzeroValidHdScale(s->hd_scale) ? s->hd_scale : 2u, s->diagnostics) > 0;

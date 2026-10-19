@@ -15,7 +15,7 @@ MSU-1 and **Installed pack music** default on for fresh settings; missing songs 
 VS MODE on the title menu for local split-screen. BS vehicles are a separate,
 conflicting opt-in; saved choices remain respected.
 
-See [local controls and mod scopes](docs/LOCAL_CONTROLS_AND_MODS.md) for player assignments, unpausable multiplayer and texture smoothing.
+See [local controls and mod scopes](docs/LOCAL_CONTROLS_AND_MODS.md) for player assignments, unpausable multiplayer and mod settings.
 
 See [pack authoring and music](docs/PACK_FORMAT.md) for JSON manifests,
 raw FZEdit exports, extracted course resources and separate audio packs.

@@ -5,6 +5,14 @@ records the original serial baseline and private multicore experiment. The
 production renderer now uses snesrecomp's opt-in
 [rendering worker pool](../snesrecomp/docs/RENDER_WORKERS.md).
 
+## Texture filter removed (0.10.4, 2026-10-19)
+
+Track texture smoothing and its Mods entry have been removed completely at the
+owner's request. Old settings and presets cannot enable it. Native and HD views
+use sharp texel sampling; combined VS composition, reusable workers, full-course
+draw distance and camera/scanline interpolation remain. Filtering measurements
+below describe the historical 0.10.3 implementation, not a current option.
+
 ## Live menus and filtered rendering (0.10.3, 2026-10-18)
 
 Local split screen and each online camera now generate the native image and

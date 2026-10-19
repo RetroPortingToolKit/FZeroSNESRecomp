@@ -450,7 +450,6 @@ int main(int argc, char **argv) {
     free(rom);
     return 2;
   }
-  FzeroSetTextureSmoothing((capture_video.gameplay.enabled&(1u<<FZERO_RULE_FOG))!=0);
   RtlRegisterGame(versus?FzeroLocalGameInfo():FzeroGameInfo());
   if (!SnesInit(rom, (int)rom_size)) {
     fputs("failed to initialize the F-Zero cartridge\n", stderr);

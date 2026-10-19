@@ -458,7 +458,6 @@ void FzeroPresent(double alpha) {
   else if(s_output_pixels)FzeroVsMenuDraw((FzeroUiCanvas){(uint32_t *)s_output_pixels,s_viewport.width,224,1},s_viewport.extra,s_published_ram);
 }
 void FzeroSetDeferredPresentation(bool deferred) { s_deferred_presentation = deferred; }
-void FzeroSetTextureSmoothing(bool enabled) {FzeroRendererSetTextureSmoothing(enabled);}
 
 void FzeroSetMode7Hd(unsigned scale, uint32_t *pixels, size_t capacity) {
   if (!pixels || !FzeroValidHdScale(scale)) scale = 0;

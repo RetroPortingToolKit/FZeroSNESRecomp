@@ -65,8 +65,6 @@ int main(int argc, char **argv) {
   long requested = strtol(argv[2], &end, 10);
   if (*end || requested < 1 || requested > 10000 || !FzeroRendererLoadCapture(argv[1])) return 2;
   int iterations = (int)requested;
-  const char *smoothing=getenv("FZERO_BENCHMARK_SMOOTHING");
-  FzeroRendererSetTextureSmoothing(smoothing && !strcmp(smoothing,"1"));
   if (argc == 4 && !FzeroRendererLoadCapture(argv[3])) return 2;
   puts("enhanced,aspect,width,scale,alpha,median_ms,native_digest,hd_digest");
   unsigned max_scale=4;const char *maximum=getenv("FZERO_BENCHMARK_MAX_SCALE");

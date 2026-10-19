@@ -856,20 +856,17 @@ static void test_full_course_interpolation(void) {
   CHECK(FzeroRendererDraw(out,v,1) && out[100*256]==0x00ff00);
 }
 
-static void test_texture_smoothing(void) {
+static void test_sharp_track_sampling(void) {
   setup();p.cgram[2]=0x3e0;
   for(unsigned y=0;y<8;++y)for(unsigned x=0;x<8;++x)p.vram[y*8+x]=(uint16_t)((((x+y)&1)+1)<<8);
   publish(1);memcpy(before,ram,sizeof(ram));
   FzeroViewport v={256,0,4.0/3.0,false};uint32_t *out=guarded+1;
-  FzeroRendererSetTextureSmoothing(false);CHECK(FzeroRendererDraw(out,v,1));
+  CHECK(FzeroRendererDraw(out,v,1));
   CHECK(out[100*256+100]==0xff0000 || out[100*256+100]==0x00ff00);
-  FzeroRendererSetTextureSmoothing(true);CHECK(FzeroRendererDraw(out,v,1));
-  CHECK(out[100*256+100]==0x808000);
   static uint32_t hd[512*448];
   CHECK(FzeroRendererDrawPresentation(NULL,hd,512*448,v,1,2));
-  CHECK(hd[200*512+200]==0x808000);
+  CHECK(hd[200*512+200]==0xff0000 || hd[200*512+200]==0x00ff00);
   CHECK(!memcmp(before,ram,sizeof(ram)));
-  FzeroRendererSetTextureSmoothing(false);
 }
 
 int main(void) {
@@ -931,7 +928,7 @@ int main(void) {
   test_hd_composition_cache();
   test_view_isolation();
   test_race_cameras();
-  test_texture_smoothing();
+  test_sharp_track_sampling();
   test_full_course_interpolation();
   FzeroRendererShutdown();
   CHECK(FzeroRendererWorkerCount() == 1);

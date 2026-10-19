@@ -10,7 +10,6 @@
  * by reference to the running guest. NULL is rejected by the view interface. */
 typedef struct FzeroRenderView FzeroRenderView;
 /* Set on the host thread between completed draws; shared by both views. */
-void FzeroRendererSetTextureSmoothing(bool enabled);
 FzeroRenderView *FzeroRenderViewCreate(void);
 void FzeroRenderViewDestroy(FzeroRenderView *view);
 void FzeroRenderViewReset(FzeroRenderView *view);

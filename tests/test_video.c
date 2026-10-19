@@ -157,6 +157,22 @@ static void config_tests(void) {
     CHECK(a.bs_deluxe && !a.gameplay.vehicle_packs && !a.gameplay.stock_rebalance);
     f=fopen("test-video.ini","w");CHECK(f);fputs("BSVehicles=0\nCGPRules=7\n",f);fclose(f);
     CHECK(FzeroVideoLoad(&a,"test-video.ini") && !a.gameplay.enabled && !a.gameplay.vehicle_packs && a.gameplay.stock_rebalance==15);
+  /* A former smoothing opt-in is discarded without shifting MSU or any
+   * unrelated option. Saving also clears stale bits from caller settings. */
+  CHECK(FZERO_RULE_MSU==17 && FZERO_RULE_CREDITS==18);
+  unsigned retained=(1u<<FZERO_RULE_LEGEND)|(1u<<FZERO_RULE_MSU);
+  f=fopen("test-video.ini","w");CHECK(f);
+  fprintf(f,"BSVehicles=0\nCGPRules=%u\nHDMode7=1\nHDMode7Scale=4\n",retained|(1u<<FZERO_RULE_RETIRED_FOG));
+  fclose(f);
+  CHECK(FzeroVideoLoad(&a,"test-video.ini") && a.gameplay.enabled==retained);
+  CHECK(a.hd_mode7 && a.hd_scale==4);
+  a.gameplay.enabled|=1u<<FZERO_RULE_RETIRED_FOG;
+  CHECK(FzeroVideoSave(&a,"test-video.ini"));
+  f=fopen("test-video.ini","r");CHECK(f);
+  char setting[256];unsigned saved_rules=0;bool found_rules=false;
+  while(fgets(setting,sizeof(setting),f))if(sscanf(setting,"CGPRules=%u",&saved_rules)==1)found_rules=true;
+  fclose(f);CHECK(found_rules && saved_rules==retained);
+  CHECK(FzeroVideoLoad(&b,"test-video.ini") && b.gameplay.enabled==retained);
   /* Migrate saved partial car packs to the complete roster, including when
    * skipping the launcher; an explicit BS vehicle choice still wins. */
   for(unsigned bs=0;bs<2;++bs) for(unsigned mask=0;mask<8;++mask) for(unsigned rebalance=0;rebalance<16;++rebalance) {

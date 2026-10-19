@@ -27,7 +27,7 @@ static const char *const descriptions[] = {
 static const FzeroRule menu_rules[] = {
   FZERO_RULE_ANIMATION, FZERO_RULE_DASH, FZERO_RULE_SPIN, FZERO_RULE_BOUNCE,
   FZERO_RULE_CPU_SPIN, FZERO_RULE_ROTATION, FZERO_RULE_LEGEND, FZERO_RULE_LAPS,
-  FZERO_RULE_RED_BUMPER, FZERO_RULE_HITBOX, FZERO_RULE_FOG
+  FZERO_RULE_RED_BUMPER, FZERO_RULE_HITBOX
 };
 enum { VEHICLE_COUNT=2, VEHICLE_START=6+sizeof(menu_rules)/sizeof(*menu_rules), TITLE_INDEX=VEHICLE_START+VEHICLE_COUNT,
        RECORDS_INDEX=TITLE_INDEX+1, CRASH_INDEX=RECORDS_INDEX+1, LOCAL_INDEX=CRASH_INDEX+1, TRACK_START=LOCAL_INDEX+1,
@@ -162,10 +162,6 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
     COPY(out->author,"Fennor Virastar and the CGP contributors");
     snprintf(out->description,sizeof(out->description),"Single-player only. %s Versus uses fixed shared rules and each selected machine's authored handling. Course-required terrain effects follow the chosen course in either mode.",r->description);
     out->enabled=(video->gameplay.enabled>>visible_rule((unsigned)index))&1; COPY(out->status,out->enabled ? "Single-player: on" : "Single-player: off");
-    if(visible_rule((unsigned)index)==FZERO_RULE_FOG) {
-      COPY(out->group,"Presentation");COPY(out->description,r->description);
-      COPY(out->status,out->enabled?"Single-player + VS: on":"Single-player + VS: off");
-    }
     out->option_count=0; return 1;
   }
   (void)ctx;

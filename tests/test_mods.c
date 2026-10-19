@@ -13,7 +13,14 @@ int main(void) {
   RecompLauncherCModFeature w, f;
   RecompLauncherCModOption option;
   const CpCatalog *catalog = FzeroTracksCatalog();
-  CHECK(p->package_count(NULL) == 6 + FZERO_RULE_COUNT && p->feature_count(NULL) == p->package_count(NULL));
+  CHECK(p->package_count(NULL) == 5 + FZERO_RULE_COUNT && p->feature_count(NULL) == p->package_count(NULL));
+  for(int i=0;i<p->feature_count(NULL);++i) {
+    RecompLauncherCModPackage package;
+    CHECK(p->package_get(NULL,i,&package) && p->feature_get(NULL,i,&f));
+    CHECK(strcmp(package.id,"cgp-fog") && strcmp(f.package_id,"cgp-fog"));
+    CHECK(!strstr(f.name,"texture smoothing"));
+  }
+  CHECK(!p->feature_enable(NULL,"cgp-fog","rules",1));
   CHECK(!p->feature_enable(NULL, "track-library", "cups", 1));
   const CpPack *max = cp_catalog_find(catalog,"max-league");
   if (max && FzeroTracksHidden(max)) {
@@ -21,7 +28,7 @@ int main(void) {
     CHECK(!p->feature_enable(NULL,"max-league","tracks",1));
     CHECK(p->feature_resource_count(NULL,"max-league","tracks") == 0);
   }
-  for (int i = 2 + FZERO_RULE_COUNT; i < p->feature_count(NULL); ++i) {
+  for (int i = 1 + FZERO_RULE_COUNT; i < p->feature_count(NULL); ++i) {
     RecompLauncherCModFeature pack;
     RecompLauncherCModPackage package;
     CHECK(p->feature_get(NULL, i, &pack) && p->package_get(NULL, i, &package));
@@ -211,7 +218,7 @@ int main(void) {
   CHECK(!s.bs_deluxe && s.enhanced && !s.fps_enabled);
   /* One global title feature; no per-pack dropdowns or file pickers. */
   RecompLauncherCModFeature title;
-  CHECK(p->feature_get(NULL, FZERO_RULE_COUNT, &title));
+  CHECK(p->feature_get(NULL, FZERO_RULE_COUNT-1, &title));
   CHECK(!strcmp(title.package_id,"fzero-title") && !strcmp(title.group,"Presentation"));
   CHECK(title.option_count==1 && !title.enabled);
   CHECK(p->feature_resource_count(NULL,"fzero-title","title-screen")==0);

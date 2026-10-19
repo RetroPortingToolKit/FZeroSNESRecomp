@@ -55,6 +55,8 @@ audio quality checks must be reported separately from automated evidence.
   smoothing**, formerly Smooth fog, filters the road in both modes independently
   of HD Mode 7. It softens texture dithering; authored broad road-color strips
   remain visible. It does not supply higher-color replacement road artwork.
+  This optional filter was subsequently removed entirely in 0.10.4 at the
+  owner's request; the sharp renderer and full-course draw distance remain.
 - **Void landing:** imported terrain properties were being read from temporary
   ground-response flags that airborne ticks clear. Landing now reads the actual
   immutable terrain property table, so lethal void cannot become safe road.
@@ -108,8 +110,8 @@ the QA folder is a workspace installation, not a portable release ZIP.
   closed, then with Steam Input configured without desktop keyboard emulation.
 - [ ] Listen to first-race arrival/rev/GO and a rematch with both native music
   and an installed MSU soundtrack. Record any remaining high-pitched sound.
-- [ ] Play tight borders and jumps on the originally reported course. Compare
-  Track texture smoothing on/off and confirm the desired texture appearance.
+- [ ] Play tight borders and jumps on the originally reported course. Confirm
+  the original sharp texture appearance; the optional filter was removed in 0.10.4.
 
 All eleven code items are implemented; B06/B10 remain open in the central
 tracker for the physical-device/listening acceptance checks above. No release

@@ -1729,7 +1729,6 @@ static int run_game(int argc, char **argv) {
   const bool online=FzeroNetplayWanted(&launcher_settings);
   if(online)local_two_player=true;
   const bool local_available=local_two_player || g_video.local_two_player;
-  FzeroSetTextureSmoothing((g_video.gameplay.enabled&(1u<<FZERO_RULE_FOG))!=0);
   if (!FzeroReplayConfigurePlayers(getenv("SNESRECOMP_INPUT_SCRIPT"),getenv("FZERO_VIEWPORT_SCRIPT"),local_two_player?2:1)) {
     fprintf(stderr,"[fzero] Invalid validation replay\n");return 2;
   }

@@ -675,38 +675,6 @@ typedef struct FzeroHdPixelContext {
   uint8_t flags; /* BG enabled on main/sub, then colour-window membership. */
 } FzeroHdPixelContext;
 
-static bool texture_smoothing;
-void FzeroRendererSetTextureSmoothing(bool enabled) {texture_smoothing=enabled;}
-/* A bounded 2x2 texture filter softens authored two-color road dithering.
- * Resolve each neighbor through the full course, including tile boundaries;
- * palette math precedes averaging. UI, sprites and guest state are untouched. */
-static uint32_t smooth_track(const Ppu *p,const FzeroSourceFrame *f,const FzeroMode7Line *line,
-                             const FzeroCourse *course,const FzeroCourseLine *reference,
-                             const uint16_t palette[256],double x,unsigned flags) {
-  FzeroMode7Texel base=FzeroMode7Locate(line,x);FzeroCourseCache cache=kCourseCacheEmpty;
-  unsigned channels[3]={0};
-  for(unsigned dy=0;dy<2;++dy)for(unsigned dx=0;dx<2;++dx) {
-    FzeroMode7Texel at={base.x+dx,base.y+dy};
-    unsigned index=FzeroMode7Fetch(line,f->vram,at,course_sample(course,reference,&cache,at));
-    uint16_t main=(flags&1) && index?0x5000|index:0x500;
-    uint16_t sub=(flags&2) && index?0x5000|index:0x500;
-    uint32_t color=colour(p,palette,main,sub,(flags&4)!=0);
-    for(unsigned c=0;c<3;++c)channels[c]+=(color>>(c*8))&255;
-  }
-  return ((channels[0]+2)/4)|(((channels[1]+2)/4)<<8)|(((channels[2]+2)/4)<<16);
-}
-
-static uint32_t smooth_texel(const FzeroSourceFrame *f,unsigned control,
-    const FzeroCourse *course,const FzeroCourseLine *reference,int x,int y,const uint32_t colors[256]) {
-  FzeroCourseCache cache=kCourseCacheEmpty;unsigned rb=0,g=0;
-  for(int dy=0;dy<2;++dy)for(int dx=0;dx<2;++dx) {
-    unsigned index=SnesMode7HdFetchInt(control,f->vram,x+dx,y+dy,
-        course_sample_at(course,reference,&cache,x+dx,y+dy));
-    uint32_t c=colors[index];rb+=(c&0xff00ff);g+=c&0xff00;
-  }
-  return (((rb+0x20002)>>2)&0xff00ff)|(((g+0x200)>>2)&0xff00);
-}
-
 typedef struct FzeroRenderBatch {
   const FzeroSourceFrame *frame, *previous;
   uint32_t *out, *native;
@@ -715,7 +683,7 @@ typedef struct FzeroRenderBatch {
   FzeroCourse course;
   double alpha, sample_offset[FZERO_HD_SCALE_MAX];
   unsigned scale;
-  bool scenery, results, result_scenery, world, race_hud, interpolate, smoothing;
+  bool scenery, results, result_scenery, world, race_hud, interpolate;
 } FzeroRenderBatch;
 
 static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) {
@@ -845,21 +813,6 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
           colour_x -= viewport.extra;
         row[sx] = colour(scanout, l->palette, screens[0], screens[1],
             in_window(scanout, 5, colour_x, black_results ? 0 : viewport.extra));
-        if(batch->smoothing && mode==7 && (world || result_scenery) && !object_pixels[sx]) {
-          unsigned flags=in_window(scanout,5,colour_x,0)?4:0;
-          for(unsigned sub=0;sub<2;++sub)if((scanout->screenEnabled[sub]&1) &&
-              (!(scanout->screenWindowed[sub]&1) || !in_window(scanout,0,x,viewport.extra)))flags|=1u<<sub;
-          FzeroMode7Texel texel=FzeroMode7Locate(&transform,x);
-          if(fabs(texel.x)<1e6 && fabs(texel.y)<1e6) {
-            if(!(colors_ready&(1u<<flags))) {
-              for(unsigned index=0;index<256;++index)colors[flags][index]=colour(scanout,l->palette,
-                  (flags&1) && index?0x5000|index:0x500,
-                  (flags&2) && index?0x5000|index:0x500,(flags&4)!=0);
-              colors_ready|=1u<<flags;
-            }
-            row[sx]=smooth_texel(f,transform.control,&course,&reference,(int)texel.x,(int)texel.y,colors[flags]);
-          } else row[sx]=smooth_track(scanout,f,&transform,&course,&reference,l->palette,x,flags);
-        }
       }
       /* Preserve the meter's composed fill, including its fixed-colour HDMA,
        * without letting a different section of skyline show through it. */
@@ -938,25 +891,11 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
       FzeroMode7Texel last = {NAN, NAN};
       int last_x = 1000000, last_y = 1000000;
       unsigned index = 0;
-      int smooth_x=1000000,smooth_y=1000000;unsigned smooth_flags=256;uint32_t filtered=0;
       for (int sx = 0; sx < viewport.width; ++sx) {
         int x = sx - viewport.extra;
         const FzeroHdPixelContext *c = &contexts[sx];
         for (unsigned sample = 0; sample < scale; ++sample) {
           double position = x + sample_offset[sample];
-          if(batch->smoothing && c->colors && bounded) {
-            int tx=SnesMode7HdFloorInt((subline.origin_x+position*subline.step_x)/256);
-            int ty=SnesMode7HdFloorInt((subline.origin_y+position*subline.step_y)/256);
-            if(tx!=smooth_x || ty!=smooth_y || smooth_flags!=c->flags) {
-              filtered=smooth_texel(f,subline.control,&course,&reference,tx,ty,c->colors);
-              smooth_x=tx;smooth_y=ty;smooth_flags=c->flags;
-            }
-            destination[sx*scale+sample]=filtered;continue;
-          }
-          if(batch->smoothing && !(c->objects[0]|c->objects[1])) {
-            destination[sx*scale+sample]=smooth_track(scanout,f,&subline,&course,&reference,l->palette,position,c->flags);
-            continue;
-          }
           /* Near-camera HD samples often hit the same source texel. The
            * immutable texture/course lookup is independent of screen masks
            * and sprites, so reuse its index across those column boundaries. */
@@ -1058,7 +997,7 @@ static bool render_frame(FzeroRenderView *view, uint32_t *out, FzeroViewport vie
     .scratch = pool ? view->worker_scratch : scanout,
     .viewport = viewport, .course = course, .alpha = alpha, .scale = scale,
     .scenery = scenery, .results = results, .result_scenery = result_scenery,
-    .world = world, .race_hud = race_hud, .interpolate = interpolate, .smoothing=texture_smoothing
+    .world = world, .race_hud = race_hud, .interpolate = interpolate
   };
   for (unsigned sample = 0; sample < scale; ++sample)
     batch.sample_offset[sample] = (double)sample / scale;
