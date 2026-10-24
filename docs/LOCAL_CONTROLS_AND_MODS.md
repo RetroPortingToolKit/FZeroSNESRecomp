@@ -21,10 +21,12 @@ the online host selects Race Again or Change Race. Save/rewind browser hotkeys
 and quick saves/loads cannot interrupt a multiplayer race. Single-player keeps
 its normal pause behavior.
 
-Lobby Mods lists the required VS rules and the shared course catalog. Change
-the catalog in the main Mods screen before entering a lobby; both players
+VS rules are always active and hidden. Lobby Mods lists the shared course
+catalog. Change it in the main Mods screen before entering a lobby; both players
 must match. Presentation and music are local choices, and single-player
-handling switches do not change the fixed VS machine roster.
+handling switches do not change the fixed VS machine roster. All twelve VS
+machines use their CGP artwork, handling, energy boost and exhaust, including
+the original four cars.
 
 | Setting | Where it applies |
 | --- | --- |

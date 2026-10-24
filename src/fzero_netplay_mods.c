@@ -18,9 +18,9 @@ static int feature(void *ctx,int index,RecompLauncherCModFeature *out) {
   if(index==0) {
     COPY(out->id,"versus-rules");COPY(out->package_id,"fzero-online-versus");
     COPY(out->name,"Online VS rules and machines");COPY(out->package_name,out->name);
-    COPY(out->package_version,"1");COPY(out->group,"Network gameplay");out->enabled=1;
+    COPY(out->package_version,"1");COPY(out->group,"Network gameplay");out->enabled=1;out->hidden=1;
     COPY(out->status,"Required for netplay");
-    COPY(out->description,"Both players use the same fixed VS rules and all twelve machines, each with its authored handling. Single-player car and rule switches do not change VS. Start opens a menu while the race continues. These rules cannot be disabled in a lobby.");
+    COPY(out->description,"Both players use the same fixed VS rules and all twelve CGP machines, each with its authored artwork, handling and energy boost. Single-player car and rule switches do not change VS. Start opens a menu while the race continues. These rules cannot be disabled in a lobby.");
     return 1;
   }
   const char *wanted=index==1?"track-pack-loader":"bs-tracks";
@@ -56,7 +56,7 @@ static int commit(void *ctx,const char *rom) {
 static const char *last_error(void *ctx) {return error?error:source->last_error?source->last_error(ctx):"";}
 const RecompLauncherCModProvider *FzeroNetplayMods(const RecompLauncherCModProvider *offline) {
   if(offline==&provider)return &provider;
-  source=offline;provider=*offline;provider.feature_count=count;provider.feature_get=feature;
+  source=offline;provider=*offline;provider.hide_hidden_features=1;provider.feature_count=count;provider.feature_get=feature;
   provider.package_count=packages;provider.package_get=package;provider.preset_count=presets;
   provider.feature_enable=enable;provider.set_enabled=set_enabled;provider.last_error=last_error;
   provider.commit_netplay=commit;return &provider;

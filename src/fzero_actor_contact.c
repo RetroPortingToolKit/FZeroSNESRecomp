@@ -46,7 +46,7 @@ static void swap_motion(FzeroActor *a,FzeroActor *b) {
   a->speed=b->speed;a->momentum=b->momentum;b->speed=speed;b->momentum=momentum;
 }
 /* $BD51..$BE01, exactly one exchange for the pair. X is the following actor. */
-void FzeroActorContactSpeed(FzeroActor *f,FzeroActor *l) {
+void FzeroActorContactSpeed(FzeroActor *f,FzeroActor *l,FzeroActorTables t) {
   f->no_control=(f->no_control&0xff00)|10;
   unsigned difference=((f->facing>>8)+192-(l->facing>>8))%192;
   if (difference>=48 && difference<144) {
@@ -57,7 +57,7 @@ void FzeroActorContactSpeed(FzeroActor *f,FzeroActor *l) {
   unsigned relative=f->speed>=l->speed?f->speed-l->speed:l->speed-f->speed;
   if (f->speed>=l->speed) swap_motion(f,l);
   if(relative<0x100) {
-    bool cgp=FzeroMachineGroup(f->machine) || FzeroMachineGroup(l->machine);
+    bool cgp=FzeroMachineProfile(t,f->machine) || FzeroMachineProfile(t,l->machine);
     if(!cgp)f->speed=f->speed>=128?(uint16_t)(f->speed-128):0;
     l->speed+=(uint16_t)(cgp?32:128);
   }
@@ -117,7 +117,7 @@ bool FzeroActorResolveContact(FzeroActor *a,FzeroActor *b,FzeroActorTables t,uin
   }
   if (direct) {
     FzeroActorContactSpin(a,b,t,(uint8_t)geometry);
-    if (dy<0) FzeroActorContactSpeed(b,a);else FzeroActorContactSpeed(a,b);
+    if (dy<0) FzeroActorContactSpeed(b,a,t);else FzeroActorContactSpeed(a,b,t);
   } else FzeroActorContactLateral(a,b,t,(uint8_t)geometry,separation);
   *contact=kind;
   return true;

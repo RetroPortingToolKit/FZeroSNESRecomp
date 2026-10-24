@@ -31,7 +31,7 @@ void FzeroLocalSetMenuSelection(unsigned n) {selection=n;}
 bool FzeroLocalMenuReady(void) {return true;}
 bool FzeroOnlineLoadCourse(FzeroVersusConfig config) {
   static const uint8_t world[0x20000];FzeroActor spawn[2]={{0},{0}};spawn[1].x=64;
-  FzeroVersusDestroy(race);race=FzeroVersusCreate(config,world,spawn,(FzeroActorTables){table,NULL});
+  FzeroVersusDestroy(race);race=FzeroVersusCreate(config,world,spawn,(FzeroActorTables){table,NULL,0});
   ++loads;return race!=NULL;
 }
 static void tick(unsigned p1,unsigned p2) {

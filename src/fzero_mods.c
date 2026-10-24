@@ -32,7 +32,7 @@ static const FzeroRule menu_rules[] = {
 enum { VEHICLE_COUNT=2, VEHICLE_START=6+sizeof(menu_rules)/sizeof(*menu_rules), TITLE_INDEX=VEHICLE_START+VEHICLE_COUNT,
        RECORDS_INDEX=TITLE_INDEX+1, CRASH_INDEX=RECORDS_INDEX+1, LOCAL_INDEX=CRASH_INDEX+1, TRACK_START=LOCAL_INDEX+1,
        TITLE_KIND=200, RECORDS_KIND=201, CRASH_KIND=202, LOCAL_KIND=203 };
-static const char local_description[]="Enabled by default. Add VS MODE to the main menu. Two humans race on one shared course with top/bottom split-screen. Choose from all twelve machines and the installed single-player course catalog. The original four retain stock handling; the eight added ships use their authored CGP handling and energy boosts. Your single-player content settings are retained.";
+static const char local_description[]="Enabled by default. Add VS MODE to the main menu. Two humans race on one shared course with top/bottom split-screen. Choose from all twelve machines and the installed single-player course catalog. All twelve ships use their authored CGP artwork, handling, energy boosts and exhaust. Your single-player content settings are retained.";
 static const char crash_description[] =
   "Automatically keep recent inputs and checkpoints in diagnostics beside the game. "
   "Enabled by default for testing, including online play and existing installations. "

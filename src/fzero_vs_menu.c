@@ -14,7 +14,7 @@ static uint8_t read_rom(void *context,uint32_t address) {
 }
 void FzeroVsMenuConfigure(bool enabled) {
   available=enabled;selected=requested=false;previous=0;
-  if(enabled)FzeroNativeUiInit(&ui,(FzeroActorTables){read_rom,NULL});
+  if(enabled)FzeroNativeUiInit(&ui,(FzeroActorTables){read_rom,NULL,0});
 }
 static bool title(const uint8_t *ram) {return available && !ram[0x54] && ram[0x55]==1;}
 static bool title_visible(const uint8_t *ram) {

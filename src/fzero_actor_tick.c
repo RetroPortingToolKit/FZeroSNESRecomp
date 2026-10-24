@@ -5,7 +5,7 @@ int FzeroActorTick(FzeroActor *a,const uint8_t world[0x20000],FzeroActorTables t
                    uint8_t tick,FzeroActorMineEvent *mine) {
   FzeroMachineReader reader;t=FzeroMachineTables(&reader,t,a->machine);
   a->sound_flags=a->sound_flags2=a->sound_port3=a->landing_sound=0;
-  FzeroActorEnergyBoost(a);
+  FzeroActorEnergyBoost(a,t);
   if (!a->recovery_active) {
     a->surface_id=FzeroActorSampleSurface(world,a->x,a->y);
     FzeroActorCourseSurface(a,world);
@@ -31,7 +31,7 @@ int FzeroActorTick(FzeroActor *a,const uint8_t world[0x20000],FzeroActorTables t
   FzeroActorMine(a,t,mine);FzeroActorCourseAltitude(a,&s,t,tick,world);FzeroActorSpeed(a,&s,t,a->race_state);
   FzeroActorApplySpin(a,&s);FzeroActorTurn(a,&s);FzeroActorApplyGrip(a,&s);
   FzeroActorVelocity(&s,t);FzeroActorWind(a,&s,t,a->race_state);
-  FzeroActorStoreVelocity(a,&s);FzeroActorMove(a,&s);FzeroActorAnimation(a,t);
+  FzeroActorStoreVelocity(a,&s,t);FzeroActorMove(a,&s);FzeroActorAnimation(a,t);
   if (!a->death_animation && !a->race_state) FzeroActorExhaust(a,t);
   if (!a->death_animation) FzeroActorSpark(a);
   FzeroActorTransientEffects(a);

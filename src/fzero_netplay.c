@@ -66,7 +66,7 @@ void FzeroNetplayLauncher(RecompLauncherCGameInfo *info) {
     static const RecompNetplaySessionVariant variants[]={{0,"4:3"},{1,"16:9"},{2,"21:9"}};
     /* LAN room versions have a 32-byte wire field. Keep this discovery tag
      * within it; the full build/catalog identity is checked before frame 0. */
-    snprintf(lobby_version,sizeof(lobby_version),"fzero-vs7-%.20s",FZERO_REPLAY_BUILD_ID);
+    snprintf(lobby_version,sizeof(lobby_version),"fzero-vs8-%.20s",FZERO_REPLAY_BUILD_ID);
     RecompNetplayHostHooks h={0};h.game_name="F-Zero Forever";h.game_version=lobby_version;
     h.platform="snes";h.legacy_env_prefix="SNES_NET_";h.default_lobby_name="F-Zero Forever VS";
     h.lan_registry_path="fzero-netplay-lan.txt";h.max_players=2;h.netplay_max_players=2;
@@ -76,6 +76,9 @@ void FzeroNetplayLauncher(RecompLauncherCGameInfo *info) {
     h.session_variants=variants;h.session_variant_count=3;h.default_session_variant=1;
     if(recomp_netplay_host_init(&h)!=0)return;
     original=recomp_netplay_host_callbacks();callbacks=*original;
+    /* Six frames adds 100 ms to the host too. Start at the shared driver's
+     * supported two-frame floor; the host can raise it for a rough link. */
+    if(original->input_delay_set)original->input_delay_set(original->ctx,2);
     /* The getter can return a persisted name before the lobby client has a
      * live identity. Install it before creating/joining a room too. */
     const char *name=original->player_name(original->ctx);
@@ -147,7 +150,7 @@ bool FzeroNetplayStart(const RecompLauncherCSettings *settings) {
   FzeroOnlineBegin(aspect,(unsigned)cfg.local_slot);
   uint8_t content[32]={0};if(FzeroTracksStateActive())memcpy(content,FzeroTracksActiveHash(),32);
   char hex[65];for(unsigned i=0;i<32;++i)snprintf(hex+i*2,3,"%02x",content[i]);
-  snprintf(base_identity,sizeof(base_identity),"fzero-vs7;build=%s;catalog=%s;portable-scalar-v1;aspect=%u",
+  snprintf(base_identity,sizeof(base_identity),"fzero-vs8;build=%s;catalog=%s;portable-scalar-v1;aspect=%u",
       FZERO_REPLAY_BUILD_ID,hex,aspect);
   const char *fixture=getenv("FZERO_TEST_ONLINE_FIXTURE");
   if(fixture && *fixture) {

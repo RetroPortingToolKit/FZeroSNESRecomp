@@ -7,6 +7,10 @@ static const char *names[FZERO_MACHINE_COUNT]={"BLUE FALCON","WILD GOOSE","GOLDE
   "MOON SHADOW","DRAGON BIRD","GREAT STAR","DEATH ANCHOR","P. EMERALD","BLACK BULL","WHITE CAT","RED GAZELLE"};
 unsigned FzeroMachineSlot(unsigned id) {return id<FZERO_MACHINE_COUNT?slots[id]:0;}
 unsigned FzeroMachineGroup(unsigned id) {return id<FZERO_MACHINE_COUNT?groups[id]:0;}
+unsigned FzeroMachineProfile(FzeroActorTables t,unsigned id) {
+  if(id<4 && (t.cgp_originals&(1u<<id)))return id==0 || id==2?2:3;
+  return FzeroMachineGroup(id);
+}
 const char *FzeroMachineName(unsigned id) {return id<FZERO_MACHINE_COUNT?names[id]:"";}
 unsigned FzeroMachineAt(unsigned index) {return roster[index%FZERO_MACHINE_COUNT];}
 unsigned FzeroMachineIndex(unsigned id) {
@@ -26,18 +30,18 @@ static uint8_t read_machine(void *context,uint32_t address) {
   return r->base.read(r->base.context,(address&0xffffff)|(r->group<<24));
 }
 FzeroActorTables FzeroMachineTables(FzeroMachineReader *r,FzeroActorTables base,unsigned id) {
-  unsigned group=FzeroMachineGroup(id);
+  unsigned group=FzeroMachineProfile(base,id);
   if(base.read==read_machine) {
     const FzeroMachineReader *old=base.context;
     if(old->group==group)return base;
     base=old->base;
   }
   if(!group)return base;
-  *r=(FzeroMachineReader){base,group};return (FzeroActorTables){read_machine,r};
+  *r=(FzeroMachineReader){base,group};return (FzeroActorTables){read_machine,r,base.cgp_originals};
 }
 bool FzeroMachineAvailable(FzeroActorTables t,unsigned id) {
   if(id>=FZERO_MACHINE_COUNT || !t.read)return false;
-  if(!FzeroMachineGroup(id))return true;
+  if(!FzeroMachineProfile(t,id))return true;
   FzeroMachineReader r;t=FzeroMachineTables(&r,t,id);
   return t.read(t.context,0xfa7a)==29 && t.read(t.context,0xfa7b)==58 && t.read(t.context,0xfa7c)==87;
 }

@@ -154,7 +154,7 @@ int main(void) {
   poll(c,8);poll(c,0);poll(c,1);CHECK(FzeroLocalControlsInput(c)==4097);
   static uint8_t world[0x20000];
   FzeroActor spawns[2]={{.x=256,.y=256},{.x=320,.y=256}};
-  race=FzeroVersusCreate(FzeroLocalControlsConfig(c),world,spawns,(FzeroActorTables){empty_table,NULL});CHECK(race);
+  race=FzeroVersusCreate(FzeroLocalControlsConfig(c),world,spawns,(FzeroActorTables){empty_table,NULL,0});CHECK(race);
   FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
   const uint16_t start[2]={0x1000,0};CHECK(FzeroVersusTick(race,start));
   CHECK(!FzeroVersusCompleted(race)->pause);

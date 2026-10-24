@@ -7,6 +7,7 @@ enum {FZERO_MACHINE_COUNT=12,FZERO_MACHINE_COLUMNS=3};
  * the caller owns the reader and may use its own ROM/cache implementation. */
 unsigned FzeroMachineSlot(unsigned identity);
 unsigned FzeroMachineGroup(unsigned identity);
+unsigned FzeroMachineProfile(FzeroActorTables tables,unsigned identity);
 const char *FzeroMachineName(unsigned identity);
 unsigned FzeroMachineAt(unsigned index);
 unsigned FzeroMachineIndex(unsigned identity);

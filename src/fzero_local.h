@@ -2,7 +2,7 @@
 #include "fzero_versus_video.h"
 #include "fzero_native_ui.h"
 
-/* Bridge from native asset setup to the authoritative stock race. */
+/* Bridge from native course setup to the authoritative CGP-profile VS race. */
 bool FzeroLocalConfigure(FzeroVersusConfig config);
 bool FzeroLocalStockTables(const uint8_t *rom,size_t size);
 unsigned FzeroLocalCupCount(void);

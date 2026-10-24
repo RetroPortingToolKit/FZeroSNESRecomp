@@ -27,10 +27,10 @@ typedef struct FzeroNativeUi {
   uint32_t palette[4][8], machine_palette[2][FZERO_MACHINE_COUNT][16];
   uint16_t information[4][1024];
   uint32_t information_palette[FZERO_MACHINE_COUNT][8];
-  uint8_t cards[8][44][64];
+  uint8_t cards[FZERO_MACHINE_COUNT][44][64];
   uint16_t machines_available;
   FzeroActorTables tables;
-  bool valid,information_valid;
+  bool valid,information_valid,cgp_hud;
 } FzeroNativeUi;
 typedef struct FzeroUiCanvas {
   uint32_t *pixels;

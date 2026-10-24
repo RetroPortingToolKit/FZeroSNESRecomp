@@ -319,9 +319,11 @@ int main(void) {
   const RecompLauncherCModProvider *net=FzeroNetplayMods(p);
   RecompLauncherCModPackage pkg;
   FzeroNetplayModsMode(true);
+  CHECK(net->hide_hidden_features);
   CHECK(net->feature_count(NULL)==3 && net->package_count(NULL)==3 && !net->preset_count(NULL));
   for(int i=0;i<3;++i) {
-    CHECK(net->feature_get(NULL,i,&f) && *f.name && !f.hidden && !f.option_count);
+    CHECK(net->feature_get(NULL,i,&f) && *f.name && f.hidden==(i==0) && !f.option_count);
+    if(i==0)CHECK(f.enabled && !strcmp(f.package_id,"fzero-online-versus"));
     CHECK(net->package_get(NULL,i,&pkg) && !strcmp(pkg.id,f.package_id));
     CHECK(!net->feature_enable(NULL,f.package_id,f.id,!f.enabled));
     CHECK(*net->last_error(NULL));

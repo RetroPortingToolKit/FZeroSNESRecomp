@@ -71,7 +71,7 @@ static uint8_t read_table(void *context,uint32_t address) {
   const uint8_t *p=cart_getRomPtr(g_snes->cart,(uint8_t)(address>>16),(uint16_t)address);
   return p?*p:0;
 }
-static FzeroActorTables tables(void) {return (FzeroActorTables){read_table,NULL};}
+static FzeroActorTables tables(void) {return (FzeroActorTables){read_table,NULL,15};}
 static void course_config(CpuState *cpu,uint32_t pc) {
   (void)cpu;(void)pc;FzeroLocalPrepareCourse();FzeroTracksRefreshCourse();
 }

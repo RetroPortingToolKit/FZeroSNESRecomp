@@ -56,7 +56,7 @@ void FzeroActorSlide(FzeroActor *a) {
 
 /* $91BC..$925F, human branch. DB=0/D=0; table indices are bytes. */
 void FzeroActorTopSpeed(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t) {
-  bool cgp=FzeroMachineGroup(a->machine)!=0;
+  bool cgp=FzeroMachineProfile(t,a->machine)!=0;
   if ((a->no_control & 255) != 0) a->action &= 0x5c;
   s->off_gas = (s->off_gas & 0xff00) | table8(t, 0xfaa9 + FzeroMachineSlot(a->machine));
   s->over_speed = (s->over_speed & 0xff00) | table8(t, 0xfaad + FzeroMachineSlot(a->machine));
@@ -123,12 +123,12 @@ static uint32_t acceleration(FzeroActor *a, FzeroActorTables t) {
     if (a->jump_timer < 20) { ++a->jump_timer; jump_initial = true; }
   } else {
     /* M16 LDA $15 spans gravity's high byte and the action copy at $16. */
-    if ((a->action & 0x40) || (a->state & 8)) return FzeroMachineGroup(a->machine)?0x9c40:0x10000;
+    if ((a->action & 0x40) || (a->state & 8)) return FzeroMachineProfile(t,a->machine)?0x9c40:0x10000;
     if ((a->action & 3) && a->speed >= 0x600 && a->slide >= 5) return 0xffff00;
   }
   unsigned index = jump_initial ? 0 : ((a->speed >> 7) & 255);
   unsigned carry = !jump_initial && (a->speed & 0x8000) ? 1 : 0;
-  unsigned value = FzeroMachineGroup(a->machine)?
+  unsigned value = FzeroMachineProfile(t,a->machine)?
       table8(t,0x02ca42+FzeroMachineSlot(a->machine)*29+(index<29?index:28)):
       table8(t, 0x02ca37 + ((index + a->acceleration_index + carry) & 255));
   bool backward = table8(t, 0x08ed20 + a->slide) != 0;
@@ -154,7 +154,7 @@ void FzeroActorSpeed(FzeroActor *a, FzeroActorScratch *s, FzeroActorTables t, ui
     if (a->speed & 0x8000) { a->momentum = a->facing; a->speed_fraction = 0; a->speed = 0; }
   } else if (a->action & 0x20) {
     /* M16 ASL/XBA, X8 TAX: the table receives just the quotient byte. */
-    a->speed = subtract_floor(a->speed, table8(t, (FzeroMachineGroup(a->machine)?0x02cab6:0x02ca96) + ((a->speed >> 7) & 255)));
+    a->speed = subtract_floor(a->speed, table8(t, (FzeroMachineProfile(t,a->machine)?0x02cab6:0x02ca96) + ((a->speed >> 7) & 255)));
   } else if (a->action & 0x10) {
     a->speed = subtract_floor(a->speed, 0x20);
     force_no_turn = race_state != 0;
@@ -227,8 +227,8 @@ void FzeroActorWind(const FzeroActor *a, FzeroActorScratch *s, FzeroActorTables 
   s->vx = (uint16_t)(x >> 16); s->vx_fraction = (uint16_t)x;
   s->vy = (uint16_t)(y >> 16); s->vy_fraction = (uint16_t)y;
 }
-void FzeroActorStoreVelocity(FzeroActor *a, FzeroActorScratch *s) {
-  if (!FzeroMachineGroup(a->machine) && !(a->state & 0x28)) {
+void FzeroActorStoreVelocity(FzeroActor *a, FzeroActorScratch *s,FzeroActorTables t) {
+  if (!FzeroMachineProfile(t,a->machine) && !(a->state & 0x28)) {
     unsigned limit=9;
     if (!(s->vx & 0x8000) && s->vx >= limit) { s->vx = (uint16_t)limit; s->vx_fraction = 0; }
     else if ((s->vx & 0x8000) && s->vx < 65536-limit) { s->vx = (uint16_t)(65536-limit); s->vx_fraction = 0; }
@@ -280,8 +280,8 @@ void FzeroActorLatch(FzeroActor *a, uint16_t held) {
 /* CGP/{1,2,3}/CGP_Boost.asm, independent energy boost per human.
  * Native autogas's temporary action flag is overwritten by B7CB before
  * physics; retain its actual refill/drain behavior, not an invented assist. */
-void FzeroActorEnergyBoost(FzeroActor *a) {
-  unsigned group=FzeroMachineGroup(a->machine);if(!group)return;
+void FzeroActorEnergyBoost(FzeroActor *a,FzeroActorTables t) {
+  unsigned group=FzeroMachineProfile(t,a->machine);if(!group)return;
   if(a->lap>1 && (group==2 || !(a->state&8))) {
     if(!a->health || (a->health&0x8000))a->boosts=0;
     else if(a->boosts!=3 && !a->boost_award)a->boost_award=1;
@@ -309,7 +309,7 @@ void FzeroActorInputAction(FzeroActor *a, FzeroActorTables t) {
     }
     if ((a->pressed & 0x80) && a->boosts) {
       a->state |= 8;
-      a->boost_timer = FzeroMachineGroup(a->machine)?150:0;
+      a->boost_timer = FzeroMachineProfile(t,a->machine)?150:0;
       --a->boosts;
     } else if ((a->pressed & 0x80) && !a->boost_beep_guard) a->boost_beep = 0x10;
   }
@@ -382,7 +382,7 @@ static void turn_performance(FzeroActor *a,FzeroActorTables t,bool magnet) {
   if (high) {
     bool left = (high & 0x80) != 0;
     unsigned magnitude = left ? ((0u - high) & 255) : high;
-    unsigned factor = magnet?0x38:FzeroMachineGroup(a->machine)?
+    unsigned factor = magnet?0x38:FzeroMachineProfile(t,a->machine)?
         table8(t,0x02c9ab+FzeroMachineSlot(a->machine)*30+(index<30?index:29)):index < 0x12 ? table8(t, 0x02c9ab + ((index + a->turning_index) & 255))
                                   : table8(t, 0x02c9f7 + index);
     a->turning = (uint16_t)(magnitude * factor / 2);
@@ -394,7 +394,7 @@ static void turn_performance(FzeroActor *a,FzeroActorTables t,bool magnet) {
   unsigned shoulder = a->held & 0x30;
   if (!shoulder || shoulder == 0x30) return;
   unsigned difference = ((a->momentum >> 8) + 192 - (a->facing >> 8)) % 192;
-  unsigned amount = (magnet?0x50:table8(t, (FzeroMachineGroup(a->machine)?0x02ca23:0x02ca18) + index)) * 16;
+  unsigned amount = (magnet?0x50:table8(t, (FzeroMachineProfile(t,a->machine)?0x02ca23:0x02ca18) + index)) * 16;
   if (shoulder & 0x10) {
     if (difference >= 96 || difference < 6) {
       a->momentum = angle_add(a->momentum, (uint16_t)amount); a->instant_grip = 2;
@@ -715,7 +715,7 @@ void FzeroActorPreRace(FzeroActor *a, FzeroActorTables t) {
   if ((a->held & 0xc000) == 0x8000) {
     unsigned index = ((a->speed >> 7) & 255) + ((a->speed & 0x8000) ? 1 : 0);
     index = (index + table8(t,0xfa79+FzeroMachineSlot(a->machine))) & 255;
-    unsigned speed = (a->speed + table8(t,(FzeroMachineGroup(a->machine)?0x02ca42:0x02ca37)+index)) & 65535;
+    unsigned speed = (a->speed + table8(t,(FzeroMachineProfile(t,a->machine)?0x02ca42:0x02ca37)+index)) & 65535;
     a->speed = speed < 0x7ff ? (uint16_t)speed : 0x7ff;
   } else {
     a->speed = (uint16_t)(a->speed - 40);

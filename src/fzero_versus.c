@@ -25,7 +25,7 @@ static void reset(FzeroVersus *s) {
 }
 FzeroVersus *FzeroVersusCreate(FzeroVersusConfig c,const uint8_t world[0x20000],
                               const FzeroActor spawns[2],FzeroActorTables tables) {
-  if (!config_valid(c) || !world || !spawns || !tables.read ||
+  if (!config_valid(c) || !world || !spawns || !tables.read || tables.cgp_originals>15 ||
       !FzeroMachineAvailable(tables,c.machine[0]) || !FzeroMachineAvailable(tables,c.machine[1]) ||
       spawns[0].x>8191 || spawns[1].x>8191 || spawns[0].y>4095 || spawns[1].y>4095 ||
       spawns[0].facing>=0xc000 || spawns[1].facing>=0xc000 ||
@@ -249,14 +249,14 @@ static size_t codec(Stream *x,const FzeroVersus *source,FzeroVersus *target) {
 size_t FzeroVersusSaveSize(void) { Stream x={0};return 32+codec(&x,NULL,NULL); }
 static void put32(uint8_t *p,uint32_t v) { for (unsigned i=0;i<4;++i) p[i]=(uint8_t)(v>>(i*8)); }
 static uint32_t get32(const uint8_t *p) { return p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
-static const uint8_t magic[8]={'F','Z','V','S','0','0','6',0};
+static const uint8_t magic[8]={'F','Z','V','S','0','0','8',0};
 static uint64_t integrity(const uint8_t *data,size_t size) {
   uint64_t hash=hash_bytes(UINT64_C(14695981039346656037),data,24);
   return hash_bytes(hash,data+32,size-32);
 }
 bool FzeroVersusSave(const FzeroVersus *s,void *output,size_t size) {
   if (!s || !output || size!=FzeroVersusSaveSize()) return false;
-  uint8_t *p=output;memcpy(p,magic,8);put32(p+8,1);put32(p+12,FZERO_VERSUS_RULES);put32(p+16,(uint32_t)size);put32(p+20,0);
+  uint8_t *p=output;memcpy(p,magic,8);put32(p+8,1);put32(p+12,FZERO_VERSUS_RULES);put32(p+16,(uint32_t)size);put32(p+20,s->tables.cgp_originals);
   Stream x={.output=p+32};codec(&x,s,NULL);
   uint64_t hash=integrity(p,size);for (unsigned i=0;i<8;++i) p[24+i]=(uint8_t)(hash>>(i*8));
   return true;
@@ -312,7 +312,7 @@ FzeroVersus *FzeroVersusDecode(const void *input,size_t size,FzeroActorTables ta
   const uint8_t *p=input;uint64_t stored=0;
   for (unsigned i=0;i<8;++i) stored|=(uint64_t)p[24+i]<<(i*8);
   if (memcmp(p,magic,8) || get32(p+8)!=1 || get32(p+12)!=FZERO_VERSUS_RULES || get32(p+16)!=size ||
-      get32(p+20) || stored!=integrity(p,size)) return NULL;
+      get32(p+20)!=tables.cgp_originals || tables.cgp_originals>15 || stored!=integrity(p,size)) return NULL;
   FzeroVersus *candidate=calloc(1,sizeof(*candidate));if (!candidate) return NULL;
   candidate->tables=tables;Stream x={.input=p+32};codec(&x,NULL,candidate);
   bool ok=!x.invalid && valid(candidate) && (!expected || same_config(candidate->state.config,*expected));
@@ -328,5 +328,5 @@ bool FzeroVersusRestore(FzeroVersus *s,const void *input,size_t size,const Fzero
 uint64_t FzeroVersusHash(const FzeroVersus *s) {
   if (!s) return 0;
   Stream x={.hash=UINT64_C(14695981039346656037)};
-  scalar(&x,FZERO_VERSUS_RULES,4);codec(&x,s,NULL);return x.hash;
+  scalar(&x,FZERO_VERSUS_RULES,4);scalar(&x,s->tables.cgp_originals,1);codec(&x,s,NULL);return x.hash;
 }

@@ -49,7 +49,7 @@ static void before_progress(CpuState *cpu,uint32_t pc) {
   (void)cpu;(void)pc;
   if (!eligible() || !(g_ram[0xb00]&0x80)) return;
   capture_actor();
-  FzeroActorProgressTick(&expected,g_ram,(FzeroActorTables){stock_table,g_snes->cart->rom},g_ram[0x51]);
+  FzeroActorProgressTick(&expected,g_ram,(FzeroActorTables){stock_table,g_snes->cart->rom,0},g_ram[0x51]);
   progress_pending=true;
 }
 static void before_movement(CpuState *cpu,uint32_t pc) {
@@ -58,7 +58,7 @@ static void before_movement(CpuState *cpu,uint32_t pc) {
   capture_actor();
   FzeroActorScratch s={0};
   s.off_gas=word(0x19);s.over_speed=word(0x1b);s.gravity=word(0x14);
-  FzeroActorTables t={stock_table,g_snes->cart->rom};
+  FzeroActorTables t={stock_table,g_snes->cart->rom,0};
   FzeroActorSlide(&expected);
   FzeroActorDamageSurface(&expected,t);
   FzeroActorDash(&expected);
@@ -77,7 +77,7 @@ static void before_movement(CpuState *cpu,uint32_t pc) {
   FzeroActorApplyGrip(&expected,&s);
   FzeroActorVelocity(&s,t);
   FzeroActorWind(&expected,&s,t,expected.race_state);
-  FzeroActorStoreVelocity(&expected,&s);
+  FzeroActorStoreVelocity(&expected,&s,t);
   FzeroActorMove(&expected,&s);
   pending=true;
 }
@@ -141,7 +141,7 @@ static void before_full_tick(CpuState *cpu,uint32_t pc) {
   full_initialized=true;
   full_start_recovery=full_expected.recovery_active;
   FzeroActorMineEvent mine={0};FzeroActorTick(&full_expected,full_world,
-      (FzeroActorTables){stock_table,g_snes->cart->rom},g_ram[0x51],&mine);
+      (FzeroActorTables){stock_table,g_snes->cart->rom,0},g_ram[0x51],&mine);
   /* Finish-side tracking is owned by the session after the uncoupled tick.
    * It also selects the native boundary/checkpoint direction next tick. */
   FzeroActorCrossFinish(&full_expected,full_world);

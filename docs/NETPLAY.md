@@ -36,10 +36,20 @@ renamed imports can therefore be rejected even when their layouts match.
 Renaming only an enclosing installation folder does not change the identity.
 Personal single-player modifications
 are retained. VS offers all twelve existing machine identities in the original
-three-column selector. The four original cars retain retail handling; the
-eight added ships use their authored CGP handling, energy boost and exhaust.
+three-column selector. All twelve use their authored CGP artwork, handling,
+energy boost and exhaust, including the CGP versions of the original four cars.
 Each actor binds its own immutable profile, including mixed-cohort collisions;
 selecting another ship never swaps the shared guest cartridge.
+
+VS rules are mandatory and hidden in Lobby Mods. The shared course catalog is
+still listed there and checked before play. Both players always use the same
+VS roster, regardless of their single-player car switches. The HUD uses CGP's
+lightning emblem and one boost indicator beside the energy bar.
+
+F-Zero lobbies default to two frames of input delay (about 33 ms at 60 FPS),
+down from six frames (about 100 ms). This delay applies to the host too. The
+host can raise it in the lobby for a less reliable connection. Rollback remains
+required; two frames is not a claim of zero total input or network latency.
 
 Multiplayer races cannot be paused. Start, focus loss and in-race menu hotkeys do not stop the simulation. The host navigates rematch or change race only after results. The in-game menus have no lobby
 exit option; closing the game returns through the existing launcher flow. Finishing cars
@@ -98,7 +108,7 @@ The launcher uses a short discovery version within the shared 32-byte LAN field.
 This does not replace the full pre-race identity check. New UI is either existing
 recomp-ui lobby UI or the same native F-Zero assets used by local VS.
 
-Rules6 (`FZVS006`) and online protocol3 carry stable twelve-car identities and
+Rules8 (`FZVS008`) and online protocol3 carry stable twelve-car identities and
 independent selector slide/spin state. The snapshot namespaces are
 `fzero-local-2p-v2` and `fzero-online-v3`; earlier VS snapshots are intentionally
 incompatible. Build identity includes the reviewed generated mechanics/exhaust

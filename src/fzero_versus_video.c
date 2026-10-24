@@ -38,7 +38,7 @@ bool FzeroVersusVideoCapture(FzeroVersusVideo *v,const FzeroRenderView *assets,
   if(!v || !session || !tables.read)return false;
   if(!v->ui.valid && !FzeroNativeUiInit(&v->ui,tables))return false;
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(session);
-  if((s->config.machine[0]>=4 || s->config.machine[1]>=4) && v->ui.machines_available!=4095 &&
+  if((tables.cgp_originals || s->config.machine[0]>=4 || s->config.machine[1]>=4) && v->ui.machines_available!=4095 &&
       !FzeroNativeUiLoadMachines(&v->ui,tables))return false;
   v->interpolate=v->valid && s->tick==v->state.tick+1 &&
       !memcmp(&s->config,&v->state.config,sizeof(s->config)) && s->phase==v->state.phase;
@@ -173,8 +173,8 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
   uint64_t tick=r->status!=FZERO_VS_ACTIVE?r->finish_tick:s->race_tick;
   if(r->status==FZERO_VS_DNF)snprintf(timer,sizeof(timer),"--'--\"--");else time_text(timer,tick);
   FzeroUiRaceClock(ui,canvas,8,23,timer);
-  FzeroUiRaceInstruments(ui,canvas,viewport.width-112,0,r->actor.health,FzeroDisplaySpeed(r->actor.speed),s->tick);
-  FzeroUiBoosts(ui,canvas,viewport.width-48,208,r->actor.boosts,(r->actor.state&8)!=0);
+  FzeroUiRaceInstruments(ui,canvas,viewport.width-(ui->cgp_hud?136:112),0,r->actor.health,FzeroDisplaySpeed(r->actor.speed),s->tick);
+  FzeroUiBoosts(ui,canvas,viewport.width-(ui->cgp_hud?16:48),ui->cgp_hud?8:208,r->actor.boosts,(r->actor.state&8)!=0);
   FzeroUiMachine(ui,canvas,viewport.width-80,204,r->actor.machine,true);
   const char *message=NULL;
   if(s->phase==FZERO_VS_READY)message="READY";

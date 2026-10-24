@@ -103,7 +103,7 @@ unsigned FzeroCameraFinishPose(FzeroActor *out,const FzeroActor *finished,FzeroA
     out->steering_history=5;out->animation_scale=3;out->animation_transition=0;
     out->effect_timer=out->electric_flash=out->track_flash=out->body_flash=0;
     FzeroActorScratch scratch={.speed=out->speed,.momentum=out->momentum};
-    FzeroActorVelocity(&scratch,tables);FzeroActorStoreVelocity(out,&scratch);
+    FzeroActorVelocity(&scratch,tables);FzeroActorStoreVelocity(out,&scratch,tables);
     unsigned ticks=(unsigned)(elapsed>FZERO_FINISH_PRESENTATION?FZERO_FINISH_PRESENTATION:elapsed);
     for(unsigned tick=0;tick<ticks;++tick)FzeroActorMove(out,&scratch);
   }

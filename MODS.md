@@ -1,5 +1,13 @@
 # Mods and differences from the source games
 
+## Online VS
+
+For online VS, the rules are automatic and do not have a switch in Lobby Mods.
+Everyone gets all twelve CGP cars with their matching artwork, handling and
+energy boost. Your single-player car settings stay separate. The host can
+adjust input delay in the lobby; F-Zero starts at two frames. Increase it if a
+less reliable connection causes frequent corrections.
+
 ## Reporting a crash
 
 **Crash diagnostics and replay** is on by default in Mods for these test builds.

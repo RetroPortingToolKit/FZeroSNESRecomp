@@ -20,6 +20,7 @@
 static uint8_t rom[0x80000], ram[0x20000];
 static uint8_t *deluxe_rom,*cgp_images[3],*cgp_native;
 static unsigned cgp_boost_entry;
+static uint8_t original_profiles;
 static uint8_t ram_reads[0x20000], ram_writes[0x20000];
 static bool audit_enabled;
 static uint8_t multiplier, multiplicand;
@@ -191,7 +192,7 @@ static uint16_t reference_until(unsigned pc,unsigned stop) {
 }
 static uint16_t reference(unsigned pc) { return reference_until(pc,0); }
 static void call_adapter(unsigned pc, FzeroActor *a, FzeroActorScratch *s, uint8_t phase) {
-  FzeroActorTables t = {rom_read, NULL};
+  FzeroActorTables t = {rom_read, NULL,original_profiles};
   FzeroMachineReader reader;t=FzeroMachineTables(&reader,t,a->machine);
   switch (pc) {
     case 0x9377: FzeroActorSlide(a); break;
@@ -204,7 +205,7 @@ static void call_adapter(unsigned pc, FzeroActor *a, FzeroActorScratch *s, uint8
     case 0x9589: FzeroActorApplyGrip(a,s); break;
     case 0x95e7: FzeroActorVelocity(s,t); break;
     case 0x9672: FzeroActorWind(a,s,t,phase); break;
-    case 0x96f2: FzeroActorStoreVelocity(a,s); break;
+    case 0x96f2: FzeroActorStoreVelocity(a,s,t); break;
     case 0x9753: FzeroActorMove(a,s); break;
     case 0x981c: FzeroActorDash(a); break;
     case 0xb7cb: FzeroActorInputAction(a,t); break;
@@ -368,7 +369,7 @@ static void randomize(FzeroActor *a, FzeroActorScratch *s, unsigned machine) {
 }
 static void test_progress(void) {
   const unsigned routines[]={0xe5cf,0xe67b,0xde07,0xdd25};
-  FzeroActorTables t={rom_read,NULL};
+  FzeroActorTables t={rom_read,NULL,original_profiles};
   for (unsigned r=0;r<COUNT(routines);++r) {
     memset(ram_reads,0,sizeof(ram_reads));memset(ram_writes,0,sizeof(ram_writes));audit_enabled=true;
     for (unsigned sample=0;sample<40000;++sample) {
@@ -413,7 +414,7 @@ static void pair_fields(const FzeroActor *a,const FzeroActor *b) {
   set_word(0xb72,b->x);set_word(0xb92,b->y);ram[0xd1]=a->machine*2;
 }
 static void test_contact(void) {
-  FzeroActorTables t={rom_read,NULL};
+  FzeroActorTables t={rom_read,NULL,original_profiles};
   memset(ram_reads,0,sizeof(ram_reads));memset(ram_writes,0,sizeof(ram_writes));audit_enabled=true;
   for (unsigned sample=0;sample<80000;++sample) {
     FzeroActor a,b;FzeroActorScratch s;randomize(&a,&s,sample%4);randomize(&b,&s,(sample/4)%4);
@@ -444,7 +445,7 @@ static void test_contact(void) {
       ram[0x11]=0;ram[0x12]=2;
       initial_actor=a;initial_scratch=s;
       switch (routines[r]) {
-        case 0xbd51:FzeroActorContactSpeed(&a,&b);break;
+        case 0xbd51:FzeroActorContactSpeed(&a,&b,(FzeroActorTables){rom_read,NULL,original_profiles});break;
         case 0xbc4a:FzeroActorContactLateral(&a,&b,t,(uint8_t)geometry,separation);break;
         case 0xbe02:FzeroActorContactSpin(&a,&b,t,(uint8_t)geometry);break;
         case 0x87a3:FzeroActorDamageContact(&a,&b,t,true);break;
@@ -562,7 +563,7 @@ static void test_session(void) {
   flat_course();FzeroActor spawns[2]={{0},{0}};
   spawns[0].x=2160;spawns[1].x=2120;spawns[0].y=spawns[1].y=2144;
   spawns[0].facing=spawns[1].facing=0x9000;
-  FzeroActorTables t={rom_read,NULL};uint64_t hash=0;
+  FzeroActorTables t={rom_read,NULL,original_profiles};uint64_t hash=0;
   for (unsigned machine=0;machine<4;++machine) {
     FzeroVersusConfig c={(uint16_t)(machine==3?1000:0),{(uint8_t)machine,(uint8_t)((machine+1)%4)}};
     FzeroVersus *s=FzeroVersusCreate(c,ram,spawns,t),*copy=FzeroVersusCreate(c,ram,spawns,t);CHECK(s && copy);
@@ -607,7 +608,7 @@ static void test_session_finishes(void) {
   FzeroActor spawns[2]={{0},{0}};
   spawns[0].x=spawns[1].x=2160;spawns[0].y=1000;spawns[1].y=1192;
   spawns[0].facing=spawns[1].facing=0x3000;
-  FzeroActorTables t={rom_read,NULL};uint16_t held[2]={0x8000,0x8000};
+  FzeroActorTables t={rom_read,NULL,original_profiles};uint16_t held[2]={0x8000,0x8000};
   for (unsigned race=0;race<2;++race) {
     FzeroVersusConfig config={0,{0,(uint8_t)(race?3:0)}};
     FzeroVersus *s=FzeroVersusCreate(config,ram,spawns,t),*copy=FzeroVersusCreate(config,ram,spawns,t);CHECK(s && copy);
@@ -676,7 +677,7 @@ static void test_session_contact_dnf(void) {
   flat_course();FzeroActor spawns[2]={{0},{0}};
   spawns[0].x=1000;spawns[1].x=1300;spawns[0].y=spawns[1].y=1000;
   spawns[0].facing=spawns[1].facing=0x3000;
-  FzeroVersus *s=FzeroVersusCreate((FzeroVersusConfig){0,{0,0}},ram,spawns,(FzeroActorTables){rom_read,NULL});CHECK(s);
+  FzeroVersus *s=FzeroVersusCreate((FzeroVersusConfig){0,{0,0}},ram,spawns,(FzeroActorTables){rom_read,NULL,original_profiles});CHECK(s);
   FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
   const FzeroVersusSnapshot *v=FzeroVersusCompleted(s);bool terminal=false;unsigned contacts=0;
   for (unsigned tick=0;tick<100000 && !terminal;++tick) {
@@ -691,7 +692,7 @@ static void test_session_contact_dnf(void) {
   puts("session: repeated input-driven contacts produce DNF on the damage tick, before finish awards");
 }
 static void test_session_events(void) {
-  FzeroActorTables t={rom_read,NULL};uint16_t held[2]={0,0};FzeroActor spawns[2]={{0},{0}};
+  FzeroActorTables t={rom_read,NULL,original_profiles};uint16_t held[2]={0,0};FzeroActor spawns[2]={{0},{0}};
   spawns[0].x=1000;spawns[1].x=1008;spawns[0].y=spawns[1].y=1000;
   for (unsigned mine=0;mine<2;++mine) {
     flat_course();
@@ -767,7 +768,7 @@ static void test_camera(void) {
     uint16_t v=(uint16_t)(0u-(rom_read(NULL,address)|(unsigned)rom_read(NULL,address+1)<<8));
     negative[i]=(uint8_t)v;negative[i+1]=(uint8_t)(v>>8);
   }
-  FzeroActorTables t={rom_read,NULL};
+  FzeroActorTables t={rom_read,NULL,original_profiles};
   for (unsigned sample=0;sample<40000;++sample) {
     FzeroActor a={0};a.x=random_word()&8191;a.y=random_word()&4095;a.facing=random_word()%0xc000;
     FzeroCamera camera;CHECK(FzeroCameraBuild(&camera,&a,t));
@@ -837,8 +838,15 @@ static void player_reference_pixels(uint32_t out[4096],unsigned machine,int orig
   }
 }
 static void test_menu_spin(void) {
+  static FzeroNativeUi title_ui;
+  CHECK(FzeroNativeUiInit(&title_ui,(FzeroActorTables){rom_read,NULL,0}));
+  /* The old six-column conversion deleted the V's center/tip. Keep both
+   * upper strokes, the sloping edge and the final center stroke. */
+  const uint8_t *v=title_ui.title_letters['V'-'A'];
+  CHECK(v[2*8+1]==3 && v[2*8+5]==3);
+  CHECK(v[10*8+2]!=5 && v[12*8+3]==3);
   for(unsigned machine=0;machine<4;++machine)for(unsigned age=0;age<288;++age) {
-    FzeroShip ship;CHECK(FzeroShipMenu(&ship,machine,age,(FzeroActorTables){rom_read,NULL}));
+    FzeroShip ship;CHECK(FzeroShipMenu(&ship,machine,age,(FzeroActorTables){rom_read,NULL,original_profiles}));
     int phase=8-(int)((age/6)%24);if(phase< -12)phase+=24;
     memset(ram,0,sizeof(ram));ram[0x52]=(uint8_t)machine;ram[0xce]=(uint8_t)phase;
     reference(0xecc5);
@@ -849,7 +857,7 @@ static void test_menu_spin(void) {
   const char *folder=getenv("FZERO_TEST_SELECTOR_DUMP");
   if(folder) {
     static FzeroNativeUi ui;static uint32_t pixels[256*224];
-    CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
+    CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL,original_profiles}));
     for(unsigned machine=0;machine<4;++machine) {
       memset(pixels,0,sizeof(pixels));
       FzeroUiMachineSelect(&ui,(FzeroUiCanvas){pixels,256,224,1},machine,0,0,true,false);
@@ -865,7 +873,7 @@ static void test_menu_spin(void) {
   puts("native selector spin: all four machines, every six-frame angle and both full rotations match original ECC5 layouts");
 }
 static void test_player_display(void) {
-  FzeroActorTables tables={rom_read,NULL};
+  FzeroActorTables tables={rom_read,NULL,original_profiles};
   for(unsigned machine=0;machine<4;++machine)for(unsigned pose=0;pose<13;++pose)for(unsigned scale=0;scale<7;++scale)for(unsigned height=0;height<4;++height) {
     FzeroActor a={.x=2048,.y=1024,.facing=0x3000,.machine=(uint8_t)machine,
         .steering_history=(uint8_t)(pose<11?pose:0x80+pose-11),.animation_scale=(uint8_t)scale};
@@ -892,7 +900,7 @@ static void test_player_display(void) {
  * texture lookup, beyond the CPU/OAM/layout differential fixtures above. */
 static void test_player_captures(void) {
   const char *paths=getenv("FZERO_TEST_PLAYER_CAPTURES");if(!paths)return;
-  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
+  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL,original_profiles}));
   char *list=malloc(strlen(paths)+1);CHECK(list);strcpy(list,paths);unsigned cases=0;
   for(char *path=strtok(list,";");path;path=strtok(NULL,";")) {
     struct Line {uint8_t regs[64];uint16_t palette[256],oam[256];uint8_t high[32];};
@@ -925,7 +933,7 @@ static void test_player_captures(void) {
     FzeroActor actor={0};for(unsigned field=0;field<COUNT(actor_fields);++field) {
       const Field *a=&actor_fields[field];memcpy((uint8_t *)&actor+a->offset,c->ram+a->address,a->size);
     }
-    actor.machine=c->ram[0x52];FzeroActorTables tables={rom_read,NULL};FzeroShip ship;
+    actor.machine=c->ram[0x52];FzeroActorTables tables={rom_read,NULL,original_profiles};FzeroShip ship;
     CHECK(FzeroShipBuild(&ship,&actor,&actor,tables));uint32_t expected[4096]={0};
     const struct Line *line=&c->lines[160];
     /* Capture RAM and displayed OAM straddle a native frame boundary. Align
@@ -977,7 +985,7 @@ static void test_display(void) {
     unsigned expected=ram[0xa58]*100+ram[0xa59]*10+ram[0xa5a];
     CHECK(FzeroDisplaySpeed((uint16_t)speed)==expected);
   }
-  FzeroActorTables tables={rom_read,NULL};
+  FzeroActorTables tables={rom_read,NULL,original_profiles};
   for(unsigned sample=0;sample<16000;++sample) {
     FzeroActor camera={.x=4096,.y=2048},actor={0};
     camera.facing=(uint16_t)(random_word()%0xc000);
@@ -1091,7 +1099,7 @@ static void paint_native_obj(uint32_t out[256*224],const FzeroNativeUi *ui,unsig
   }
 }
 static void test_native_hud(void) {
-  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
+  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL,original_profiles}));
   static uint32_t actual[256*224],expected[256*224];FzeroUiCanvas canvas={actual,256,224,1};
   memset(ram,0,sizeof(ram));
   for(unsigned i=0;i<128;++i)ram[0xa00+i]=rom_read(NULL,0x0aec00+i*2);
@@ -1186,7 +1194,7 @@ static void test_native_course_animation(void) {
   puts("course animation: all native venues/counter phases match C185/C1CF; imported overlapping cycles and native entry trajectory passed");
 }
 static void test_finish_presentation(void) {
-  FzeroActorTables tables={rom_read,NULL};
+  FzeroActorTables tables={rom_read,NULL,original_profiles};
   for(unsigned machine=0;machine<4;++machine)for(unsigned angle=0;angle<192;angle+=24)for(unsigned speed=0;speed<3;++speed) {
     FzeroActor frozen={.machine=(uint8_t)machine,.x=8190,.y=4094,.x_fraction=0xff00,.y_fraction=0x0100,
       .speed=(uint16_t)(speed==0?0:speed==1?0x200:0x800),.facing=(uint16_t)(angle<<8),.momentum=(uint16_t)(angle<<8)};
@@ -1234,14 +1242,14 @@ static void test_deluxe_course_animation(void) {
       ram[0x1600+i]=random_word()%192;ram[0x1700+i]=(uint8_t)random_word();
     }
     CHECK(FzeroActorCaptureWorld(world,ram));world[FZERO_WORLD_NATIVE_SHORTCUT]=(uint8_t)(type+1);
-    FzeroActorRecoveryTrigger(&a,world,(FzeroActorTables){rom_read,NULL});reference(0xd9c8);
+    FzeroActorRecoveryTrigger(&a,world,(FzeroActorTables){rom_read,NULL,original_profiles});reference(0xd9c8);
     compare_fields(&a,actor_fields,COUNT(actor_fields),0xd9c8,type*2000+sample);
   }
   puts("native BS shortcuts: all eight metadata predicates match Deluxe CPU on16000 landing/recovery fixtures");
   free(deluxe_rom);deluxe_rom=NULL;
 }
 static void test_native_pit_art(void) {
-  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
+  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL,original_profiles}));
   static uint32_t actual[256*224],expected[256*224];FzeroUiCanvas canvas={actual,256,224,1};
   static uint32_t wide[768*224];
   for(unsigned machine=0;machine<4;++machine)for(unsigned early=0;early<4;++early) {
@@ -1252,7 +1260,7 @@ static void test_native_pit_art(void) {
     for(unsigned tick=0;tick<230;++tick) {
       a.surface_flags=tick<(early==0?8:early==1?80:150)?0x10:0;
       if(early==3)a.recovery_active=tick<60;
-      write_fields(&a,actor_fields,COUNT(actor_fields));reference(0xb61b);FzeroActorPit(&a,(FzeroActorTables){rom_read,NULL});
+      write_fields(&a,actor_fields,COUNT(actor_fields));reference(0xb61b);FzeroActorPit(&a,(FzeroActorTables){rom_read,NULL,original_profiles});
       compare_fields(&a,actor_fields,COUNT(actor_fields),0xb61b,tick);
       memset(actual,0,sizeof(actual));memset(expected,0,sizeof(expected));
       for(int slot=59;slot>=52;--slot)paint_native_obj(expected,&ui,(unsigned)slot,16,0);
@@ -1298,7 +1306,7 @@ static void test_stock_pits(void) {
     for(unsigned machine=0;machine<4;++machine) {
       FzeroVersusConfig config={0,{(uint8_t)machine,(uint8_t)((machine+1)%4)}};
       FzeroActor spawn[2]={{.x=(uint16_t)px,.y=(uint16_t)py},{.x=(uint16_t)(px+pdx),.y=(uint16_t)(py+pdy)}};
-      FzeroVersus *s=FzeroVersusCreate(config,world,spawn,(FzeroActorTables){rom_read,NULL});CHECK(s);
+      FzeroVersus *s=FzeroVersusCreate(config,world,spawn,(FzeroActorTables){rom_read,NULL,original_profiles});CHECK(s);
       FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
       const uint16_t held[2]={0,0};for(unsigned n=0;n<FZERO_VERSUS_COUNTDOWN;++n)CHECK(FzeroVersusTick(s,held));
       FzeroVersusSnapshot *v=(FzeroVersusSnapshot *)(void *)FzeroVersusCompleted(s);
@@ -1320,7 +1328,7 @@ static void test_stock_pits(void) {
         }
       }
       CHECK(healed[0] && healed[1] && v->racers[0].actor.health==0x800 && v->racers[1].actor.health==0x800);
-      FzeroVersus *copy=FzeroVersusCreate(config,world,spawn,(FzeroActorTables){rom_read,NULL});CHECK(copy);
+      FzeroVersus *copy=FzeroVersusCreate(config,world,spawn,(FzeroActorTables){rom_read,NULL,original_profiles});CHECK(copy);
       session_roundtrip(s,copy);
       CHECK(FzeroVersusTick(s,held) && FzeroVersusTick(copy,held));
       CHECK(FzeroVersusHash(s)==FzeroVersusHash(copy));
@@ -1353,7 +1361,7 @@ static void test_stock_pits(void) {
   free(list);printf("stock repair integration: %u course captures, all four machines and both seats passed\n",courses);
 }
 static void test_native_effect_art(void) {
-  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
+  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL,original_profiles}));
   static uint32_t actual[256*224],expected[256*224];
   FzeroUiCanvas canvas={actual,256,224,1};
   memset(ram,0,sizeof(ram));ram[0x4e]=3;reference(0xd107);
@@ -1396,9 +1404,9 @@ static void test_native_effect_art(void) {
 
 static void test_all_exhaust_art(void) {
   static FzeroNativeUi ui;static uint32_t actual[256*224],expected[256*224];
-  FzeroActorTables tables={rom_read,NULL};CHECK(FzeroNativeUiInit(&ui,tables));CHECK(FzeroNativeUiLoadMachines(&ui,tables));
+  FzeroActorTables tables={rom_read,NULL,original_profiles};CHECK(FzeroNativeUiInit(&ui,tables));CHECK(FzeroNativeUiLoadMachines(&ui,tables));
   for(unsigned id=0;id<FZERO_MACHINE_COUNT;++id)for(unsigned pose=0;pose<13;++pose)for(unsigned tilt=0;tilt<2;++tilt) {
-    unsigned group=FzeroMachineGroup(id),slot=FzeroMachineSlot(id);
+    unsigned group=FzeroMachineProfile((FzeroActorTables){rom_read,NULL,original_profiles},id),slot=FzeroMachineSlot(id);
     cgp_native=group?cgp_images[group-1]:NULL;
     FzeroActor a={.machine=(uint8_t)id,.speed=0x800,.exhaust=0x80,
       .steering_history=(uint8_t)(pose<11?pose:128+pose-11),.animation_scale=(uint8_t)(tilt?128:0)};
@@ -1435,13 +1443,13 @@ static void test_all_exhaust_art(void) {
   puts("native exhaust: all12 identities,13 steering/shoulder poses, both hover offsets,256-tick ignition/decay/full-color sequences match CPU OAM/CGRAM PASS");
 }
 static void test_cgp_mixed_sessions(void) {
-  FzeroActorTables tables={rom_read,NULL};
+  FzeroActorTables tables={rom_read,NULL,original_profiles};
   for(unsigned ma=0;ma<FZERO_MACHINE_COUNT;++ma)for(unsigned mb=0;mb<FZERO_MACHINE_COUNT;++mb) {
     for(unsigned n=0;n<100;++n) {
       FzeroActor a,b;FzeroActorScratch scratch;randomize(&a,&scratch,FzeroMachineSlot(ma));randomize(&b,&scratch,FzeroMachineSlot(mb));
       FzeroActor na=a,nb=b;pair_fields(&na,&nb);ram[0x11]=0;ram[0x12]=2;
-      a.machine=(uint8_t)ma;b.machine=(uint8_t)mb;FzeroActorContactSpeed(&a,&b);
-      unsigned group=FzeroMachineGroup(ma);if(!group)group=FzeroMachineGroup(mb);
+      a.machine=(uint8_t)ma;b.machine=(uint8_t)mb;FzeroActorContactSpeed(&a,&b,(FzeroActorTables){rom_read,NULL,original_profiles});
+      unsigned group=FzeroMachineProfile(tables,ma);if(!group)group=FzeroMachineProfile(tables,mb);
       cgp_native=group?cgp_images[group-1]:NULL;reference(0xbd51);
       a.machine=na.machine;compare_fields(&a,actor_fields,COUNT(actor_fields),0xbd51,ma*1200+mb*100+n);
       if(b.speed!=ram_word(0xb22) || b.momentum!=ram_word(0xbe2) || b.no_control!=ram_word(0xd22))
@@ -1449,7 +1457,7 @@ static void test_cgp_mixed_sessions(void) {
       CHECK(b.speed==ram_word(0xb22) && b.momentum==ram_word(0xbe2) && b.no_control==ram_word(0xd22));cgp_native=NULL;
     }
     for(unsigned side=0;side<2;++side)for(unsigned direct=0;direct<2;++direct)for(unsigned n=0;n<100;++n) {
-      unsigned own=side?mb:ma,other=side?ma:mb,group=FzeroMachineGroup(own);
+      unsigned own=side?mb:ma,other=side?ma:mb,group=FzeroMachineProfile(tables,own);
       FzeroActor a,b;FzeroActorScratch scratch;
       randomize(&a,&scratch,FzeroMachineSlot(own));randomize(&b,&scratch,FzeroMachineSlot(other));
       a.machine=(uint8_t)own;b.machine=(uint8_t)other;
@@ -1466,6 +1474,13 @@ static void test_cgp_mixed_sessions(void) {
     FzeroVersusConfig config={0,{(uint8_t)ma,(uint8_t)mb}};
     FzeroVersus *s=FzeroVersusCreate(config,ram,spawns,tables),*copy=FzeroVersusCreate(config,ram,spawns,tables);
     CHECK(s && copy);session_roundtrip(s,copy);
+    if(ma==0 && mb==1) {
+      size_t n=FzeroVersusSaveSize();uint8_t *image=malloc(n);CHECK(image);
+      CHECK(FzeroVersusSave(s,image,n));
+      FzeroActorTables retail=tables;retail.cgp_originals=0;
+      CHECK(!FzeroVersusDecode(image,n,retail,&config));
+      free(image);
+    }
     FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);session_roundtrip(s,copy);
     for(unsigned tick=0;tick<900;++tick) {
       uint16_t held[2]={(uint16_t)(0x8000|(tick%97<20?0x110:0)),(uint16_t)(0x8000|(tick%79<15?0x220:0))};
@@ -1486,10 +1501,11 @@ static void test_cgp_machine_profiles(void) {
     FILE *f=fopen(path,"rb");CHECK(f);cgp_images[group]=malloc(0x400000);CHECK(cgp_images[group]);
     CHECK(fread(cgp_images[group],0x400000,1,f)==1 && fgetc(f)==EOF);fclose(f);
   }
+  original_profiles=15;
   const unsigned routines[]={0x91bc,0x9264,0x938d,0x96f2,0xb7cb,0xb881,0x98a4,0xfa1c,0xba70,0xc507};
-  for(unsigned id=4;id<12;++id) {
-    unsigned slot=FzeroMachineSlot(id),group=FzeroMachineGroup(id);cgp_native=cgp_images[group-1];
-    CHECK(FzeroMachineAvailable((FzeroActorTables){rom_read,NULL},id));
+  for(unsigned id=0;id<12;++id) {
+    unsigned slot=FzeroMachineSlot(id),group=FzeroMachineProfile((FzeroActorTables){rom_read,NULL,original_profiles},id);cgp_native=cgp_images[group-1];
+    CHECK(FzeroMachineAvailable((FzeroActorTables){rom_read,NULL,original_profiles},id));
     for(unsigned r=0;r<COUNT(routines);++r)for(unsigned sample=0;sample<2000;++sample) {
       FzeroActor a;FzeroActorScratch scratch;randomize(&a,&scratch,slot);
       a.machine=(uint8_t)id;a.speed=(uint16_t)(a.speed%0xe01);scratch.speed=a.speed;
@@ -1522,8 +1538,8 @@ static void test_cgp_machine_profiles(void) {
       FzeroActor expected=a;expected.machine=(uint8_t)slot;
       memset(ram,0,sizeof(ram));write_fields(&expected,actor_fields,COUNT(actor_fields));
       ram[0x54]=2;ram[0x55]=3;ram[0xd1]=(uint8_t)(slot*2);ram[0xf53]=a.lap>1;ram[0xd40]=a.lap-1;
-      FzeroActorEnergyBoost(&a);FzeroMachineReader reader;
-      FzeroActorInputAction(&a,FzeroMachineTables(&reader,(FzeroActorTables){rom_read,NULL},id));
+      FzeroActorEnergyBoost(&a,(FzeroActorTables){rom_read,NULL,original_profiles});FzeroMachineReader reader;
+      FzeroActorInputAction(&a,FzeroMachineTables(&reader,(FzeroActorTables){rom_read,NULL,original_profiles},id));
       reference(cgp_boost_entry);reference(0xb7cb);
       /* The native helper's lap numbering is zero-based, like $F53; VS's
        * authored five-lap progression exposes lap1..5 to its HUD instead. */
@@ -1536,6 +1552,7 @@ static void test_cgp_machine_profiles(void) {
   cgp_native=NULL;
   test_all_exhaust_art();
   test_cgp_mixed_sessions();
+  original_profiles=0;
   for(unsigned group=0;group<3;++group) {
     cgp_native=cgp_images[group];
     test_player_display();test_menu_spin();test_native_effect_art();
@@ -1544,9 +1561,10 @@ static void test_cgp_machine_profiles(void) {
   cgp_native=NULL;
   const char *dump=getenv("FZERO_TEST_EXPANDED_SELECTOR_DUMP");
   if(dump) {
+    original_profiles=15;
     static FzeroNativeUi ui;static uint32_t pixels[256*224];
-    CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL}));
-    CHECK(FzeroNativeUiLoadMachines(&ui,(FzeroActorTables){rom_read,NULL}) && ui.machines_available==4095);
+    CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL,original_profiles}));
+    CHECK(FzeroNativeUiLoadMachines(&ui,(FzeroActorTables){rom_read,NULL,original_profiles}) && ui.machines_available==4095);
     for(unsigned id=0;id<FZERO_MACHINE_COUNT;++id) {
       memset(pixels,0,sizeof(pixels));FzeroUiMachineSelect(&ui,(FzeroUiCanvas){pixels,256,224,1},id,0,0,true,false);
       char path[2048];snprintf(path,sizeof(path),"%s/expanded%u.ppm",dump,id);
@@ -1557,6 +1575,8 @@ static void test_cgp_machine_profiles(void) {
       CHECK(!fclose(f));
     }
   }
+  original_profiles=0;
+  original_profiles=0;
   for(unsigned i=0;i<3;++i) {free(cgp_images[i]);cgp_images[i]=NULL;}
 }
 
@@ -1632,10 +1652,10 @@ int main(int argc, char **argv) {
     FzeroActor a={.state=0x80,.height=0x210,.height_velocity=0xff00,.surface_id=0xd0,.lap=2};
     FzeroActorScratch scratch={.gravity=0x60};
     CHECK(!a.ground_flags);
-    FzeroActorCourseAltitude(&a,&scratch,(FzeroActorTables){rom_read,NULL},0,ram);
+    FzeroActorCourseAltitude(&a,&scratch,(FzeroActorTables){rom_read,NULL,original_profiles},0,ram);
     CHECK((a.race_state&0x40) && a.death_animation==6 && a.death_lap==2);
     a=(FzeroActor){.state=0x80,.height=0x210,.height_velocity=0xff00,.surface_id=0};
-    FzeroActorCourseAltitude(&a,&scratch,(FzeroActorTables){rom_read,NULL},0,ram);
+    FzeroActorCourseAltitude(&a,&scratch,(FzeroActorTables){rom_read,NULL,original_profiles},0,ram);
     CHECK(!a.race_state);
   }
   test_session();

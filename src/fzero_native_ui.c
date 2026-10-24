@@ -37,7 +37,12 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
   for(unsigned p=0;p<4;++p)for(unsigned i=0;i<8;++i)
     ui->palette[p][i]=rgb(word(t,0x0ee100+p*32+i*2));
   /* $00:A6A3 uploads the original two-plane race digits, gauge and symbols. */
-  for(unsigned i=0;i<56;++i)decode(ui->hud[i],t,0x0cc000+i*16,2);
+  /* CGP's energy gauge includes its authored lightning emblem. Keep the
+   * native layout/attributes, replacing only the donor-owned HUD tiles. */
+  FzeroMachineReader hud_reader;
+  FzeroActorTables hud=t;
+  if(t.cgp_originals==15) {hud=FzeroMachineTables(&hud_reader,t,0);ui->cgp_hud=true;}
+  for(unsigned i=0;i<56;++i)decode(ui->hud[i],hud,0x0cc000+i*16,2);
   for(unsigned i=0;i<128;++i)ui->hud_map[i]=(uint16_t)word(t,0x0aec00+i*2);
   for(unsigned p=0;p<4;++p)for(unsigned i=0;i<4;++i)
     ui->hud_palette[p][i]=rgb(word(t,0x0edde0+p*8+i*2));
@@ -132,9 +137,11 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
   for(unsigned n=0;n<2;++n) {
     unsigned letter=n?'V':'M',id=n?0xa3:0x8a;
     uint8_t *glyph=ui->title_letters[letter-'A'];
-    for(unsigned y=1;y<15;++y)for(unsigned x=n?1:0;x<(n?7u:8u);++x) {
-      unsigned sy=(n?2:3)+(y-1)*(n?11:10)/14;
-      unsigned source=ui->objects[id+(sy/8)*16][(sy&7)*8+(n?(x-1)*7/5:x)];
+    for(unsigned y=1;y<15;++y)for(unsigned x=0;x<8;++x) {
+      /* V already fits eight pixels. Downsampling it to six skips its
+       * center column, deleting the taper and tip. Preserve every column. */
+      unsigned sy=n?y:3+(y-1)*10/14;
+      unsigned source=ui->objects[id+(sy/8)*16][(sy&7)*8+x];
       /* V's taper/tip uses the highlight color after the inner stroke ends. */
       bool stroke=source==3 || (n && source==2);
       if(stroke)glyph[y*8+x]=ui->title_letters['I'-'A'][y*8+3];
@@ -209,7 +216,8 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
 bool FzeroNativeUiLoadMachines(FzeroNativeUi *ui,FzeroActorTables base) {
   if(!ui || !ui->valid)return false;
   static const int layout[]={-1,0,1,2,3,7,8,9,10,11,4,5,6,12,13};
-  for(unsigned id=4;id<FZERO_MACHINE_COUNT;++id) {
+  for(unsigned id=0;id<FZERO_MACHINE_COUNT;++id) {
+    if(!FzeroMachineProfile(base,id))continue;
     if(!FzeroMachineAvailable(base,id))return false;
     FzeroMachineReader reader;FzeroActorTables t=FzeroMachineTables(&reader,base,id);
     unsigned slot=FzeroMachineSlot(id);
@@ -229,7 +237,7 @@ bool FzeroNativeUiLoadMachines(FzeroNativeUi *ui,FzeroActorTables base) {
       ui->exhaust_palette[id][i]=rgb(word(t,0x0fcd20+i*2));
     }
     unsigned card=0x108008+slot*(0x580+6);
-    for(unsigned n=0;n<44;++n)decode(ui->cards[id-4][n],t,card+n*32,4);
+    for(unsigned n=0;n<44;++n)decode(ui->cards[id][n],t,card+n*32,4);
     memcpy(ui->information_palette[id],ui->palette[0],sizeof(ui->palette[0]));
     for(unsigned i=0;i<3;++i)ui->information_palette[id][3+i]=rgb(word(t,card+0x580+i*2));
     ui->machines_available|=(uint16_t)(1u<<id);
@@ -425,7 +433,7 @@ void FzeroUiExhaust(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const Fz
       a->race_state || (!(a->exhaust&128) && a->exhaust_frame==3))return;
   unsigned pose=a->steering_history<128?a->steering_history:(a->steering_history&127)+11;
   if(pose>12)return;
-  unsigned group=FzeroMachineGroup(a->machine),slot=FzeroMachineSlot(a->machine);
+  unsigned group=FzeroMachineProfile(ui->tables,a->machine),slot=FzeroMachineSlot(a->machine);
   FzeroMachineReader reader;FzeroActorTables t=FzeroMachineTables(&reader,ui->tables,a->machine);
   unsigned count=group?exhaust_counts[group-1][slot]:slot==1?3:slot==3?2:4;
   unsigned frame=a->exhaust&128?(a->exhaust==0x81?2:a->exhaust==0x82?1:0):a->exhaust_frame;
@@ -542,8 +550,8 @@ void FzeroUiBoosts(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned 
   if(!ui || !ui->valid)return;
   /* B825/B85E change the palette of the SAME $5F tile: $31 available,
    * $33 currently burning, $35 spent. No substitute S or empty glyph. */
-  for(unsigned i=0;i<3;++i) {
-    unsigned p=i<count?0:active && i==count?1:2;
+  for(unsigned i=0;i<(ui->cgp_hud?1u:3u);++i) {
+    unsigned p=ui->cgp_hud?(active?1:count?0:2):i<count?0:active && i==count?1:2;
     uint32_t colors[16];memcpy(colors,ui->boost_palette[p],sizeof(colors));
     tile(ui->objects[0x5f],colors,c,x+(int)i*8,y,false,false);
   }
@@ -603,14 +611,14 @@ void FzeroUiMachineSelectScroll(const FzeroNativeUi *ui,FzeroUiCanvas c,unsigned
     tile(ui->tiles[id],pal?ui->palette[1]:ui->information_palette[machine],c,
         left+(int)x*8,(int)y*8-1,(entry&0x4000)!=0,(entry&0x8000)!=0);
   }
-  if(machine>=4) {
+  if(FzeroMachineProfile(ui->tables,machine)) {
     /* Same 44 data-only slots used by the existing 1P card adapter. */
     static const unsigned spans[][3]={{22,29,7},{22,25,9},{22,24,11},{22,25,13},
       {17,28,17},{16,24,18},{15,21,19},{15,18,20},{15,16,21}};
     uint32_t colors[16]={0};colors[13]=ui->palette[0][2];colors[15]=ui->palette[0][7];unsigned n=0;
     for(unsigned span=0;span<9;++span)for(unsigned x=spans[span][0];x<spans[span][1];++x) {
       int y=(int)spans[span][2]*8-1;FzeroUiRect(c,left+(int)x*8,y,8,8,0xff000000);
-      tile(ui->cards[machine-4][n++],colors,c,left+(int)x*8,y,false,false);
+      tile(ui->cards[machine][n++],colors,c,left+(int)x*8,y,false,false);
     }
     FzeroUiRect(c,left+112,30,120,18,0xff000000);
     const char *name=FzeroMachineName(machine);int x=left+172-(int)strlen(name)*4;

@@ -12,6 +12,9 @@ typedef uint8_t (*FzeroActorReadRom)(void *context, uint32_t address);
 typedef struct FzeroActorTables {
   FzeroActorReadRom read;
   void *context;
+  /* Immutable per-session binding for the four retail identities. Zero is
+   * the retail oracle; VS uses all four authored CGP profiles. */
+  uint8_t cgp_originals;
 } FzeroActorTables;
 /* Owned resource metadata in otherwise unused low-bank course space. It is
  * copied/hashed with the shared world, never read from the live catalog. */
@@ -86,13 +89,13 @@ void FzeroActorApplyGrip(FzeroActor *actor, FzeroActorScratch *scratch);
 void FzeroActorVelocity(FzeroActorScratch *scratch, FzeroActorTables tables);
 void FzeroActorWind(const FzeroActor *actor, FzeroActorScratch *scratch,
                     FzeroActorTables tables, uint8_t race_state);
-void FzeroActorStoreVelocity(FzeroActor *actor, FzeroActorScratch *scratch);
+void FzeroActorStoreVelocity(FzeroActor *actor, FzeroActorScratch *scratch, FzeroActorTables tables);
 void FzeroActorMove(FzeroActor *actor, const FzeroActorScratch *scratch);
 void FzeroActorDash(FzeroActor *actor);
 /* SNES auto-joypad bit order (B=$8000, right=$0100, A=$0080, R=$0010).
  * Latch both actors before evaluating either one's movement. */
 void FzeroActorLatch(FzeroActor *actor, uint16_t held);
-void FzeroActorEnergyBoost(FzeroActor *actor);
+void FzeroActorEnergyBoost(FzeroActor *actor, FzeroActorTables tables);
 void FzeroActorInputAction(FzeroActor *actor, FzeroActorTables tables);
 void FzeroActorTurnStage(FzeroActor *actor);
 void FzeroActorTurnPerformance(FzeroActor *actor, FzeroActorTables tables);
@@ -147,7 +150,7 @@ typedef struct FzeroActorProjection {
 /* Stock world-to-body projection in the reference actor's physical frame.
  * No presentation camera/viewport/visibility state is an input. */
 FzeroActorProjection FzeroActorProject(const FzeroActor *reference, const FzeroActor *actor, FzeroActorTables tables);
-void FzeroActorContactSpeed(FzeroActor *follower, FzeroActor *leader);
+void FzeroActorContactSpeed(FzeroActor *follower, FzeroActor *leader, FzeroActorTables tables);
 void FzeroActorDamageContact(FzeroActor *actor, const FzeroActor *other, FzeroActorTables tables, bool direct);
 void FzeroActorContactSpin(FzeroActor *a, FzeroActor *b, FzeroActorTables tables, uint8_t geometry);
 void FzeroActorContactLateral(FzeroActor *a, FzeroActor *b, FzeroActorTables tables, uint8_t geometry, unsigned separation);

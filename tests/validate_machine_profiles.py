@@ -64,7 +64,7 @@ def main():
         folder.mkdir()
         shutil.copytree(ROOT / 'assets', folder / 'assets')
         env = dict(clean, FZERO_DELUXE_DATA='embedded', FZERO_BS_CARS='0', FZERO_BS_TRACKS='0',
-                   FZERO_CGP_CARS='7', FZERO_CGP_REBALANCE='0', FZERO_RULES='',
+                   FZERO_CGP_CARS='7', FZERO_CGP_REBALANCE='15', FZERO_RULES='',
                    FZERO_TRACK_PACKS='packs', SNESRECOMP_SAVE_ROOT='s',
                    SNESRECOMP_INPUT_SCRIPT=player_route(identity) + ',600-606:8',
                    SNESRECOMP_FRAME_DUMP=str(folder / 'native.ppm'),
@@ -94,7 +94,7 @@ def main():
         print('machine', identity, 'native card PASS', flush=True)
 
     with ThreadPoolExecutor(max_workers=3) as pool:
-        list(pool.map(compare, range(4, 12)))
+        list(pool.map(compare, range(12)))
     (out / 'report.json').write_text(json.dumps(report, indent=2), newline='\n')
 
 

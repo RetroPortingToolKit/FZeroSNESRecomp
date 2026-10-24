@@ -1,5 +1,14 @@
 ﻿# Changelog
 
+## Unreleased - VS playtest feedback
+
+- Make required online VS rules automatic and hidden in Lobby Mods.
+- Use all twelve CGP vehicle profiles in VS, including the original four cars'
+  artwork, handling, energy boost, exhaust and information cards.
+- Restore the complete V in VS MODE and the CGP lightning/single-boost HUD.
+- Default F-Zero lobbies to two frames of input delay instead of six, with
+  the host's delay control retained.
+
 ## 0.10.2 - Default car rebalances and local VS
 
 - Enable CGP original-car rebalances and Local 2 Player/VS MODE for fresh
