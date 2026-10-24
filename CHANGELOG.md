@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## Unreleased - VS playtest feedback
+## 0.10.5 - VS playtest feedback
 
 - Make required online VS rules automatic and hidden in Lobby Mods.
 - Use all twelve CGP vehicle profiles in VS, including the original four cars'
