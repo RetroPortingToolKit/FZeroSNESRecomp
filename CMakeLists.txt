@@ -371,6 +371,7 @@ list(APPEND FZERO_BUILD_INPUTS "${CMAKE_CURRENT_SOURCE_DIR}/CMakeLists.txt"
   list(APPEND FZERO_BUILD_INPUTS "${CMAKE_CURRENT_SOURCE_DIR}/tests/fzero_online_ui_driver.h")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${FZERO_BUILD_INPUTS})
 set(fingerprint "${SNESRECOMP_BUILD_VERSION};${FZERO_SOURCE_REVISION};${FZERO_FRAMEWORK_REVISION};${FZERO_UI_REVISION};${CMAKE_BUILD_TYPE};${CMAKE_C_COMPILER_ID};${CMAKE_C_COMPILER_VERSION};${CMAKE_C_FLAGS};${CMAKE_C_FLAGS_RELEASE}")
+string(APPEND fingerprint ";apu=${SNESRECOMP_APU_TIME_IMPL};crc=${SNESRECOMP_CRC32_IMPL};frame=${SNESRECOMP_FRAME_IMPL};ppu8=${SNESRECOMP_PPU_8BPP_IMPL}")
 foreach(input IN LISTS FZERO_BUILD_INPUTS)
     file(SHA256 "${input}" input_hash)
     get_filename_component(input_name "${input}" NAME)
@@ -412,6 +413,20 @@ if(BUILD_TESTING AND FZERO_DELUXE_GEN_DIR)
     endif()
     add_test(NAME fzero_deluxe COMMAND fzero_deluxe_tests
              WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
+endif()
+
+# Keep assert-based checks active in the Release builds used for qualification.
+if(BUILD_TESTING)
+    get_property(fzero_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(test_target IN LISTS fzero_test_targets)
+        if(test_target MATCHES "^fzero_.*(_tests|_oracle)$")
+            if(MSVC)
+                target_compile_options(${test_target} PRIVATE /UNDEBUG)
+            else()
+                target_compile_options(${test_target} PRIVATE -UNDEBUG)
+            endif()
+        endif()
+    endforeach()
 endif()
 
 # Shipped descriptors, patches and credits live separately from user inputs/settings.

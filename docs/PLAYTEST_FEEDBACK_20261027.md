@@ -14,7 +14,7 @@ Course tiles then disagree with their intratile texture coordinates for one
 presentation, especially visible along barriers, magnets and road edges.
 Both single-player and VS use the affected compositor, with or without HD.
 
-Version 0.11.1 interpolates the integer relative reference and the difference
+Version 0.11.2 interpolates the integer relative reference and the difference
 between the wrapped camera/centre movements. A constant reference remains
 exact; legitimate relative motion and world/cache seams retain their topology.
 This is a default rendering correction and introduces no setting.

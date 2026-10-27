@@ -1999,6 +1999,11 @@ static int run_game(int argc, char **argv) {
   long auto_close_frames = 0;
   const char *auto_close = getenv("SNESRECOMP_AUTOCLOSE_FRAMES");
   if (auto_close) auto_close_frames = strtol(auto_close, NULL, 10);
+  const char *benchmark_env = getenv("FZERO_BENCHMARK");
+  const bool benchmark = benchmark_env && !strcmp(benchmark_env, "1");
+  if (benchmark && (auto_close_frames <= 0 || online))
+    Die("Desktop benchmarking requires a finite offline frame limit");
+  const double benchmark_start = monotonic_seconds();
   FzeroClock clock;
   double actual_refresh = display_refresh(window);
   double hz = g_video.fps_enabled ? FzeroPresentationHz(g_video.fps, actual_refresh) : FZERO_SIMULATION_HZ;
@@ -2393,8 +2398,8 @@ static int run_game(int argc, char **argv) {
     else if (snes_rewind_is_open()) panel = 2;
 
     /* Viewport policy and input sampling change only at simulation boundaries. */
-    for (unsigned batch = 0; !panel && batch < 4 &&
-                             FzeroClockSimulationDue(&clock, now); ++batch) {
+    for (unsigned batch = 0; !panel && batch < (benchmark ? 1u : 4u) &&
+                             (benchmark || FzeroClockSimulationDue(&clock, now)); ++batch) {
       selftest_main_tick(frames);
       if (!scripted_save_done && frames == scripted_save.frame) {
         scripted_save_done=true;
@@ -2523,9 +2528,9 @@ static int run_game(int argc, char **argv) {
       continue;
     }
 
-    if (FzeroClockPresentationDue(&clock, now)) {
+    if (benchmark || FzeroClockPresentationDue(&clock, now)) {
       uint64_t diagnostic_start = FzeroDiagnosticsBegin();
-      FzeroPresent(FzeroClockAlpha(&clock, now));
+      FzeroPresent(benchmark ? 1.0 : FzeroClockAlpha(&clock, now));
       FzeroDiagnosticsEnd(FZERO_DIAG_COMPOSITION, diagnostic_start);
       if(online && snes_savestate_menu_is_open())present_overlay(&presenter,1);
       else present_frame(&presenter, NULL, 0, 0, 0);
@@ -2540,7 +2545,7 @@ static int run_game(int argc, char **argv) {
       FzeroClockPresentationDone(&clock, monotonic_seconds());
       ++presentations;
     }
-    if (running) {
+    if (running && !benchmark) {
       uint64_t diagnostic_start = FzeroDiagnosticsBegin();
       wait_until(FzeroClockNextDeadline(&clock));
       FzeroDiagnosticsEnd(FZERO_DIAG_WAIT, diagnostic_start);
@@ -2557,6 +2562,13 @@ static int run_game(int argc, char **argv) {
           frames, (unsigned long long)presentations,
           (unsigned long long)(missed_presentations + clock.missed_presentations), hz);
 
+  if (benchmark) {
+    double seconds = monotonic_seconds() - benchmark_start;
+    printf("SNESRECOMP_BENCHMARK {\"game\":\"F-Zero Forever\","
+           "\"frames\":%ld,\"seconds\":%.9f,\"fps\":%.3f,"
+           "\"presentations\":%llu}\n", frames, seconds, frames / seconds,
+           (unsigned long long)presentations);
+  }
   const char *frame_dump = getenv("SNESRECOMP_FRAME_BMP");
   const uint32_t *hd_dump = FzeroHdFrame();
   unsigned dump_scale = FzeroHdScale();
