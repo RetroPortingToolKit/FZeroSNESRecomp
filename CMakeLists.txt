@@ -410,6 +410,20 @@ if(BUILD_TESTING AND FZERO_DELUXE_GEN_DIR)
              WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}")
 endif()
 
+# Keep assert-based checks active in the Release builds used for qualification.
+if(BUILD_TESTING)
+    get_property(fzero_test_targets DIRECTORY PROPERTY BUILDSYSTEM_TARGETS)
+    foreach(test_target IN LISTS fzero_test_targets)
+        if(test_target MATCHES "^fzero_.*(_tests|_oracle)$")
+            if(MSVC)
+                target_compile_options(${test_target} PRIVATE /UNDEBUG)
+            else()
+                target_compile_options(${test_target} PRIVATE -UNDEBUG)
+            endif()
+        endif()
+    endforeach()
+endif()
+
 # Shipped descriptors, patches and credits live separately from user inputs/settings.
 set(FZERO_PACK_SOURCE "" CACHE PATH "Locally extracted, validated standalone release packs")
 option(FZERO_STAGE_RELEASE_CONTENT "Stage optional release packs and music after desktop links" ON)
