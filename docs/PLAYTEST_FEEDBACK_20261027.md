@@ -5,6 +5,13 @@ The reporter confirms the latest Nextcloud build still exhibits the issue;
 the supplied screenshot is the earlier October 18 report. The exact current
 course and original reporter route are unknown.
 
+The final delivery check identified a newer 0.11.1 archive (`470c17c`) from
+the qualified native-runtime campaign. Its renderer is byte-identical source
+to the reproduced 0.11.0 renderer. Version 0.11.2 merges that delivered work
+and preserves engine `5ac4b98`, native audio-time advancement, SLICE8 CRC,
+HLE frame composition and LLE 8bpp rendering. It also reuses that build's
+qualified generated stock/Deluxe modules. No new engine optimization is made.
+
 The 0.10.3 fix corrected wrapping the whole affine displacement at the
 1024-texel streaming-map period. It did not cover floating-point cancellation
 when independently interpolating the world camera and its hardware centre.
@@ -45,6 +52,13 @@ This is a default rendering correction and introduces no setting.
   with native and 2x HD rendering at a 144 Hz presentation target. The shipped
   support collector produces a valid ZIP containing replay/host information,
   the performance log and exit report, without ROM or PCM files.
+- The integrated 0.11.2 native-runtime build also passes all 18 checks with
+  `FZERO_PACKS_DIR` pointing to the installed test course catalog. Without
+  that fixture, the existing mods test expects unavailable pack title choices
+  and fails; the same failure was recorded for the earlier qualified build.
+  The integrated lifecycle run retains the exact baseline race/WRAM/DSP/pixel
+  hashes. An initial private comparison rejected JSON lists versus regex
+  tuples; normalizing that container type confirms every value matches.
 
 Private repro inputs, baseline/corrected images and logs are retained under
 `captures/flicker-20261027`. These establish a current presentation defect;
