@@ -9,6 +9,7 @@ struct FzeroVersus {
   FzeroActor spawns[2];
   uint8_t world[0x20000], initial_world[0x20000];
   FzeroActorTables tables;
+  FzeroTraffic traffic;
 };
 static bool config_valid(FzeroVersusConfig c) { return c.course<UINT16_MAX && c.machine[0]<FZERO_MACHINE_COUNT && c.machine[1]<FZERO_MACHINE_COUNT; }
 static bool same_config(FzeroVersusConfig a,FzeroVersusConfig b) {
@@ -22,6 +23,7 @@ static void reset(FzeroVersus *s) {
   memset(&s->state,0,sizeof(s->state));s->state.config=config;s->state.countdown=FZERO_VERSUS_COUNTDOWN;
   memcpy(s->world,s->initial_world,sizeof(s->world));
   for (unsigned i=0;i<2;++i) s->state.racers[i].actor=s->spawns[i];
+  FzeroTrafficReset(&s->traffic);FzeroTrafficDescribe(&s->traffic,s->state.traffic);
 }
 FzeroVersus *FzeroVersusCreate(FzeroVersusConfig c,const uint8_t world[0x20000],
                               const FzeroActor spawns[2],FzeroActorTables tables) {
@@ -49,6 +51,11 @@ FzeroVersus *FzeroVersusCreate(FzeroVersusConfig c,const uint8_t world[0x20000],
   reset(s);return s;
 }
 void FzeroVersusDestroy(FzeroVersus *s) { free(s); }
+bool FzeroVersusEnableTraffic(FzeroVersus *s,const uint8_t native[0x20000]) {
+  if(!s || s->state.phase!=FZERO_VS_READY || s->state.tick ||
+      !FzeroTrafficInit(&s->traffic,s->world,native,s->tables))return false;
+  memcpy(s->initial_world,s->world,sizeof(s->world));reset(s);return true;
+}
 const FzeroVersusSnapshot *FzeroVersusCompleted(const FzeroVersus *s) { return s?&s->state:NULL; }
 const uint8_t *FzeroVersusWorld(const FzeroVersus *s) { return s?s->world:NULL; }
 void FzeroVersusReady(FzeroVersus *s,unsigned player,bool ready) {
@@ -159,6 +166,11 @@ bool FzeroVersusTick(FzeroVersus *s,const uint16_t held[2]) {
   if (s->state.racers[0].status==FZERO_VS_ACTIVE && s->state.racers[1].status==FZERO_VS_ACTIVE)
     FzeroActorResolveContact(&s->state.racers[0].actor,&s->state.racers[1].actor,s->tables,&s->state.contact);
   else s->state.contact=0;
+  FzeroActor references[2]={s->state.racers[0].actor,s->state.racers[1].actor};
+  if(!FzeroTrafficTick(&s->traffic,s->world,references,s->state.tick,s->tables))return false;
+  for(unsigned i=0;i<2;++i)if(s->state.racers[i].status==FZERO_VS_ACTIVE)
+    FzeroTrafficContact(&s->traffic,i,&s->state.racers[i].actor,s->tables);
+  FzeroTrafficDescribe(&s->traffic,s->state.traffic);
   for (unsigned i=0;i<2;++i) FzeroActorCommitMine(s->world,&s->state.mines[i]);
   for (unsigned i=0;i<2;++i) {
     FzeroVersusRacer *r=&s->state.racers[i];
@@ -242,6 +254,12 @@ static size_t codec(Stream *x,const FzeroVersus *source,FzeroVersus *target) {
     S(state.mines[i].x,2);S(state.mines[i].y,2);S(state.mines[i].surface_id,1);
   }
 #undef S
+  block(x,source?source->traffic.ram:NULL,target?target->traffic.ram:NULL,0x2000);
+  block(x,source?source->traffic.seed:NULL,target?target->traffic.seed:NULL,0x2000);
+#define T(field) do {uint64_t v=scalar(x,source?source->traffic.field:0,1);if(target)target->traffic.field=(uint8_t)v;} while(0)
+  T(enabled);T(present);
+  for(unsigned p=0;p<2;++p)for(unsigned i=0;i<FZERO_TRAFFIC_COUNT;++i)T(contacts[p][i]);
+#undef T
   block(x,source?source->world:NULL,target?target->world:NULL,0x20000);
   block(x,source?source->initial_world:NULL,target?target->initial_world:NULL,0x20000);
   return x->position;
@@ -249,7 +267,7 @@ static size_t codec(Stream *x,const FzeroVersus *source,FzeroVersus *target) {
 size_t FzeroVersusSaveSize(void) { Stream x={0};return 32+codec(&x,NULL,NULL); }
 static void put32(uint8_t *p,uint32_t v) { for (unsigned i=0;i<4;++i) p[i]=(uint8_t)(v>>(i*8)); }
 static uint32_t get32(const uint8_t *p) { return p[0]|(uint32_t)p[1]<<8|(uint32_t)p[2]<<16|(uint32_t)p[3]<<24; }
-static const uint8_t magic[8]={'F','Z','V','S','0','0','8',0};
+static const uint8_t magic[8]={'F','Z','V','S','0','0','9',0};
 static uint64_t integrity(const uint8_t *data,size_t size) {
   uint64_t hash=hash_bytes(UINT64_C(14695981039346656037),data,24);
   return hash_bytes(hash,data+32,size-32);
@@ -271,6 +289,7 @@ static bool actor_valid(const FzeroActor *a,const FzeroVersus *s,unsigned player
 }
 static bool valid(const FzeroVersus *s) {
   const FzeroVersusSnapshot *v=&s->state;
+  if(!FzeroTrafficValid(&s->traffic,s->world))return false;
   if (!config_valid(v->config) || !FzeroMachineAvailable(s->tables,v->config.machine[0]) ||
       !FzeroMachineAvailable(s->tables,v->config.machine[1]) || v->phase>FZERO_VS_RESULTS || v->pause || v->ready>3 ||
       v->contact>2 || v->winner>FZERO_VS_TIE || v->countdown>FZERO_VERSUS_COUNTDOWN || v->race_tick>v->tick) return false;
@@ -315,6 +334,7 @@ FzeroVersus *FzeroVersusDecode(const void *input,size_t size,FzeroActorTables ta
       get32(p+20)!=tables.cgp_originals || tables.cgp_originals>15 || stored!=integrity(p,size)) return NULL;
   FzeroVersus *candidate=calloc(1,sizeof(*candidate));if (!candidate) return NULL;
   candidate->tables=tables;Stream x={.input=p+32};codec(&x,NULL,candidate);
+  FzeroTrafficDescribe(&candidate->traffic,candidate->state.traffic);
   bool ok=!x.invalid && valid(candidate) && (!expected || same_config(candidate->state.config,*expected));
   if (!ok) {free(candidate);return NULL;}
   return candidate;

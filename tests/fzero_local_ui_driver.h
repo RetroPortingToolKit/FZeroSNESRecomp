@@ -14,6 +14,8 @@ static bool local_ui_racing;
 static bool local_ui_live_captured;
 static unsigned local_ui_drive_captured;
 static uint16_t local_ui_drive_start[2][2];
+static uint64_t local_ui_traffic_tick;
+static unsigned local_ui_traffic_contacts;
 static const unsigned local_ui_resize_ticks[]={10,65,125,220,260};
 static const int local_ui_sizes[][2]={{600,800},{1342,1378},{1280,720},{1600,600},{768,576}};
 static void local_ui_attach(void) {
@@ -81,6 +83,29 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
           else {local_ui_drive_start[p][0]=s->racers[p].actor.x;local_ui_drive_start[p][1]=s->racers[p].actor.y;}
         }
         unsigned tick=(unsigned)s->race_tick;
+        if(getenv("FZERO_TEST_TRAFFIC_VISIBLE") && local_ui_drive_captured==63 && tick>=225 && !local_ui_traffic_tick) {
+          /* Prepared contact encounter, not natural-driving qualification.
+           * Place each human on a different moving NPC with fresh health and
+           * contact cooldown. Do not set race progress, status or results. */
+          FzeroVersusSnapshot *race=(FzeroVersusSnapshot *)(void *)s;
+          for(unsigned p=0;p<2;++p) {
+            if(!s->traffic[p].active || s->racers[p].status!=FZERO_VS_ACTIVE)Die("Traffic encounter unavailable");
+            const FzeroActor *npc=&s->traffic[p].actor;FzeroActor *a=&race->racers[p].actor;
+            a->x=npc->x;a->y=npc->y;a->x_fraction=a->y_fraction=0;
+            a->facing=a->momentum=npc->facing;a->speed=npc->speed+0x500;a->speed_fraction=0;
+            a->vx=a->vx_fraction=a->vy=a->vy_fraction=a->spin=a->no_control=0;
+            a->height=npc->height;a->height_velocity=0;a->health=0x800;a->damage_cooldown=0;
+            a->state=a->recovery_active=0;a->checkpoint=npc->checkpoint;a->branch=npc->branch;
+            FzeroActorCheckpointInitialize(a,FzeroVersusWorld(FzeroLocalSession()));
+          }
+          local_ui_traffic_tick=s->race_tick;
+          fputs("traffic-encounter: position/motion/health fixture; native contacts and rendering remain active\n",stderr);
+        } else if(local_ui_traffic_tick && tick>local_ui_traffic_tick && local_ui_traffic_contacts!=3) {
+          for(unsigned p=0;p<2;++p)if(s->racers[p].actor.health<0x800 && s->racers[p].actor.damage_cooldown)
+            local_ui_traffic_contacts|=1u<<p;
+          if(local_ui_traffic_contacts==3)fputs("traffic-encounter: both human impacts PASS\n",stderr);
+          else if(tick>local_ui_traffic_tick+5)Die("Traffic encounter did not hit both humans");
+        }
         /* Presenter readback can consume several simulation ticks in HD.
          * Hold each input until its image is observed before releasing it. */
         if((tick>=30 && !(local_ui_drive_captured&2)) ||
@@ -97,7 +122,8 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
         ++local_ui_resizes;
       }
       if(s && !(local_ui_stage==3 && getenv("FZERO_TEST_LOCAL_UI_DRIVE") && local_ui_drive_captured!=63)) {
-        unsigned finish=local_ui_stage==3?(getenv("FZERO_TEST_LOCAL_UI_DRIVE")?500u:360u):FZERO_VERSUS_COUNTDOWN+24;
+        unsigned finish=local_ui_stage==3?(getenv("FZERO_TEST_TRAFFIC_VISIBLE")?600u:
+            getenv("FZERO_TEST_LOCAL_UI_DRIVE")?500u:360u):FZERO_VERSUS_COUNTDOWN+24;
         if(s->tick>=finish && s->tick<finish+12)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
         if(s->pause)Die("Multiplayer Start paused the race");
         if(getenv("FZERO_TEST_LOCAL_UI_LIVE")) {
@@ -194,6 +220,10 @@ static void local_ui_presented(const FzeroPresenter *p) {
     }
   }
   if(s && local_ui_stage==3 && s->phase==FZERO_VS_RACING && getenv("FZERO_TEST_LOCAL_UI_DRIVE")) {
+    static bool traffic_captured;
+    if(getenv("FZERO_TEST_TRAFFIC_VISIBLE") && !traffic_captured && s->race_tick>=300) {
+      traffic_captured=true;local_ui_images(p,directory,"traffic");return;
+    }
     static const unsigned ticks[]={15,45,80,115,175,215};
     for(unsigned shot=0;shot<6;++shot)if(!(local_ui_drive_captured&(1u<<shot)) && s->race_tick>=ticks[shot]) {
       if(shot==4 && ((s->racers[0].actor.steering_history!=0 && s->racers[0].actor.steering_history!=10) ||

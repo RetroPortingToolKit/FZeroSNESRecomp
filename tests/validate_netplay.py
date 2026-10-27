@@ -266,6 +266,10 @@ def main():
         else:
             assert any(row['phase'] == '5' for row in shared), 'did not enter race'
             assert all([int(row['p1']), int(row['p2'])] == a.machines for row in shared if row['phase'] == '5'), 'race machine identities differ'
+            racing=[row for row in shared if row['phase']=='5' and row['stage']=='2']
+            if racing:
+                assert any(int(row['npcs'])>0 for row in racing), 'shared bumper field missing'
+                assert len({(row['npc0x'],row['npc0y']) for row in racing})>1, 'bumper field did not move'
         if a.scenario == 'finish':
             results = [row for row in shared if row['stage'] == '3']
             assert results and all(row['lap1'] == row['lap2'] == '5' for row in results), 'two real five-lap finishes missing'

@@ -18,9 +18,9 @@ static int feature(void *ctx,int index,RecompLauncherCModFeature *out) {
   if(index==0) {
     COPY(out->id,"versus-rules");COPY(out->package_id,"fzero-online-versus");
     COPY(out->name,"Online VS rules and machines");COPY(out->package_name,out->name);
-    COPY(out->package_version,"1");COPY(out->group,"Network gameplay");out->enabled=1;out->hidden=1;
+    COPY(out->package_version,"9");COPY(out->group,"Network gameplay");out->enabled=1;out->hidden=1;
     COPY(out->status,"Required for netplay");
-    COPY(out->description,"Both players use the same fixed VS rules and all twelve CGP machines, each with its authored artwork, handling and energy boost. Single-player car and rule switches do not change VS. Start opens a menu while the race continues. These rules cannot be disabled in a lobby.");
+    COPY(out->description,"Both players use the same fixed VS rules, four shared NPC bumpers and all twelve CGP machines with their authored handling and energy boost. Traffic is an obstacle, not a race entrant. Single-player switches do not change VS. Start opens a menu while racing continues. These rules are automatic.");
     return 1;
   }
   const char *wanted=index==1?"track-pack-loader":"bs-tracks";

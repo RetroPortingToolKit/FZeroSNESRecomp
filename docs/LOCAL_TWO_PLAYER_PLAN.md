@@ -3,11 +3,14 @@
 Implement local two-player versus racing in F-Zero Forever with one shared
 simulation and two independent cameras, always displayed top/bottom. The owner
 selected versus races without CPU opponents for the first release and approved
-the implementation plan. This document preserves the preparation, verified
+the implementation plan. Version 0.11.0 adds four shared regular NPC bumpers
+at the owner's request; see [NETPLAY.md](NETPLAY.md) for their architecture and
+validation. This document preserves the preparation, verified
 source map and subsequent implementation milestones. Current online behavior
 and validation instructions are in [NETPLAY.md](NETPLAY.md).
 
-The owner superseded the pause design on 2026-10-17: multiplayer is unpausable, with menus at race end only. See `PLAYTEST_BURNDOWN_20261017.md` for the current implementation and validation.
+The owner subsequently requested a live Start menu without pausing. See
+[LOCAL_CONTROLS_AND_MODS.md](LOCAL_CONTROLS_AND_MODS.md) for current controls.
 
 Tracking: central Beads `beads-8uc1`, beneath F-Zero epic `beads-8wg.5`.
 Prepared 2026-10-15; implementation and owner QA milestones follow below.

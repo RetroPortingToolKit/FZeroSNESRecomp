@@ -1,13 +1,14 @@
 #pragma once
 #include "fzero_actor.h"
+#include "fzero_traffic.h"
 #include <stddef.h>
 
 /* A single game-owned authoritative race. Presentation and host device state
  * are deliberately absent. All time is measured in FZERO_SIMULATION_HZ ticks.
- * Rule 8: all twelve authored CGP profiles; no multiplayer pause.
- * Two humans, five laps, movement then one stable-ID contact.
+ * Rule 9: all twelve authored CGP profiles and shared native bumper traffic.
+ * Two humans, five laps, movement then stable-ID contacts; never pauses.
  * This is a new simulation profile, not a claim of stock whole-frame parity. */
-#define FZERO_VERSUS_RULES 8u
+#define FZERO_VERSUS_RULES 9u
 #define FZERO_VERSUS_LAPS 5u
 #define FZERO_VERSUS_ARRIVAL 68u
 #define FZERO_VERSUS_REV_COUNTDOWN 180u
@@ -36,6 +37,7 @@ typedef struct FzeroVersusSnapshot {
   FzeroVersusConfig config;
   FzeroVersusRacer racers[2];
   FzeroActorMineEvent mines[2];
+  FzeroTrafficPose traffic[FZERO_TRAFFIC_COUNT];
   uint64_t tick, race_tick;
   uint32_t countdown;
   uint8_t phase, pause, ready, contact, winner;
@@ -47,6 +49,8 @@ typedef struct FzeroVersusSnapshot {
 FzeroVersus *FzeroVersusCreate(FzeroVersusConfig config,const uint8_t world[0x20000],
                               const FzeroActor spawns[2],FzeroActorTables tables);
 void FzeroVersusDestroy(FzeroVersus *session);
+/* Capture immutable native CPU-car resources before the first Ready. */
+bool FzeroVersusEnableTraffic(FzeroVersus *session,const uint8_t native[0x20000]);
 void FzeroVersusReady(FzeroVersus *session,unsigned player,bool ready);
 void FzeroVersusPause(FzeroVersus *session,unsigned reason);
 void FzeroVersusResume(FzeroVersus *session);
