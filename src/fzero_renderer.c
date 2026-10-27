@@ -430,10 +430,19 @@ static const FzeroCourseCache kCourseCacheEmpty = {-1, -1, -1};
  * integer offset per scanline instead of two floors per sample. */
 typedef struct FzeroCourseLine { int offset_x, offset_y; } FzeroCourseLine;
 
-static FzeroCourseLine course_line(double camera_x, double camera_y,
-                                   double centre_x, double centre_y) {
-  return (FzeroCourseLine){(int)floor(camera_x - centre_x),
-                           (int)floor(camera_y - centre_y)};
+static FzeroCourseLine course_line(int camera_x, int camera_y,
+                                   int centre_x, int centre_y) {
+  return (FzeroCourseLine){camera_x-centre_x,camera_y-centre_y};
+}
+
+static int course_blended_offset(int old_camera,int camera,int old_centre,int centre,
+                                 unsigned period,double blend) {
+  /* Interpolate the relative reference, not two large floating coordinates
+   * followed by subtraction. For example 1154 -> 1155 versus 130 -> 131
+   * must stay exactly 1024: at alpha .004 the separate blends subtract to
+   * 1023.9999999999999 and floor selects the neighbouring course tile. */
+  double delta=remainder(camera-old_camera,period)-remainder(centre-old_centre,1024);
+  return (int)floor((old_camera-old_centre)+delta*blend);
 }
 
 static int course_sample_at(const FzeroCourse *course, const FzeroCourseLine *line,
@@ -726,9 +735,10 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
       continue;
     }
     FzeroMode7Line transform = FzeroMode7Transform(scanout->m7matrix, scanout->m7sel, y + 1);
-    double camera_x = course.camera_x, camera_y = course.camera_y;
-    double centre_x = course_centre(scanout->m7matrix, 4);
-    double centre_y = course_centre(scanout->m7matrix, 5);
+    int camera_x = course.camera_x, camera_y = course.camera_y;
+    int centre_x = course_centre(scanout->m7matrix, 4);
+    int centre_y = course_centre(scanout->m7matrix, 5);
+    FzeroCourseLine reference = course_line(camera_x, camera_y, centre_x, centre_y);
     FzeroCourseCache cache = kCourseCacheEmpty;
     if (mode == 7 && interpolate && alpha < 1) {
       Ppu old;
@@ -744,14 +754,13 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
             course_centre(old.m7matrix,4),course_centre(old.m7matrix,5),centre_x,centre_y):
             FzeroMode7Interpolate(before, transform, alpha);
         if (blend < 1) {
-          centre_x = periodic_blend(course_centre(old.m7matrix, 4), centre_x, blend, 1024);
-          centre_y = periodic_blend(course_centre(old.m7matrix, 5), centre_y, blend, 1024);
-          camera_x = periodic_blend(read_i16(previous->ram + 0xb70), camera_x, blend, 8192);
-          camera_y = periodic_blend(read_i16(previous->ram + 0xb90), camera_y, blend, 4096);
+          reference.offset_x=course_blended_offset(read_i16(previous->ram+0xb70),camera_x,
+              course_centre(old.m7matrix,4),centre_x,8192,blend);
+          reference.offset_y=course_blended_offset(read_i16(previous->ram+0xb90),camera_y,
+              course_centre(old.m7matrix,5),centre_y,4096,blend);
         }
       }
     }
-    FzeroCourseLine reference = course_line(camera_x, camera_y, centre_x, centre_y);
     if (world || results)
       sprites(scanout, f, interpolate ? previous : NULL, alpha, y, viewport,
               race_hud, results, object_pixels);

@@ -856,6 +856,64 @@ static void test_full_course_interpolation(void) {
   CHECK(FzeroRendererDraw(out,v,1) && out[100*256]==0x00ff00);
 }
 
+static void test_fractional_course_reference(void) {
+  setup();ram[0x55]=3;word(0xb0,0x4000);
+  uint8_t *bank=ram+0x10000;
+  /* Repeat a red/blue tile pair across the world. Translating a camera by
+   * one 1024-unit streaming period must preserve every rendered pixel. */
+  for(unsigned row=0;row<16;++row) {
+    bank[0x5000+row*2]=0;bank[0x5001+row*2]=0x60;
+    bank[0x6000+row*2]=0;bank[0x6001+row*2]=0x61;
+  }
+  bank[0x6100]=bank[0x6103]=7;bank[0x6101]=bank[0x6102]=8;
+  for(unsigned i=0;i<64;++i) {p.vram[7*64+i]=1<<8;p.vram[8*64+i]=2<<8;}
+  p.cgram[1]=31;p.cgram[2]=0x7c00;
+  FzeroRenderView *assets=FzeroRenderViewCreate(),*views[2]={FzeroRenderViewCreate(),FzeroRenderViewCreate()};
+  CHECK(assets && views[0] && views[1]);
+  FzeroRenderViewBeginFrame(assets,ram,80);
+  for(unsigned y=1;y<=224;++y) {p.bgmode=y<48?1:7;FzeroRenderViewCaptureLine(assets,&p,y);}
+  FzeroRenderViewEndFrame(assets,&p,stock);
+  static uint32_t reference[FZERO_MAX_WIDTH*224*4],actual[FZERO_MAX_WIDTH*224*4];
+  static const struct {unsigned x,y,offset_x,offset_y;int dx,dy;} cases[]={
+    {130,130,1024,1024,1,1},{130,200,3072,2048,9,-4},
+    {127,175,7168,3072,1,1},{1023,1023,7168,3072,1,1}
+  };
+  static const double alphas[]={0,.004,.007,.013,.37,.5,.999,1};
+  for(unsigned vs=0;vs<2;++vs)for(unsigned test=0;test<sizeof(cases)/sizeof(*cases);++test) {
+    for(unsigned side=0;side<2;++side)FzeroRenderViewReset(views[side]);
+    for(unsigned frame=0;frame<2;++frame)for(unsigned side=0;side<2;++side) {
+      unsigned x=(cases[test].x+frame*cases[test].dx)&8191,y=(cases[test].y+frame*cases[test].dy)&4095;
+      FzeroActor actor={.x=(x+side*cases[test].offset_x)&8191,.y=(y+side*cases[test].offset_y)&4095};
+      FzeroCamera camera={.scroll_x=(x-128)&1023,.scroll_y=(y-176)&1023};
+      camera.center_x=camera.scroll_x+128;camera.center_y=camera.scroll_y+176;
+      for(unsigned row=0;row<176;++row)camera.coefficients[row][0]=camera.coefficients[row][3]=256;
+      if(vs)CHECK(FzeroRenderViewCaptureRace(views[side],assets,ram,&actor,&camera,100+frame));
+      else {
+        word(0xb70,actor.x);word(0xb90,actor.y);p.bgmode=7;
+        p.m7matrix[4]=camera.center_x;p.m7matrix[5]=camera.center_y;
+        p.m7matrix[6]=camera.scroll_x;p.m7matrix[7]=camera.scroll_y;
+        view_publish(views[side],100+frame);
+      }
+    }
+    for(unsigned wide=0;wide<2;++wide)for(unsigned phase=0;phase<sizeof(alphas)/sizeof(*alphas);++phase)
+      for(unsigned scale=1;scale<=2;++scale) {
+        FzeroViewport v=wide?(FzeroViewport){684,214,32.0/9.0,true}:(FzeroViewport){256,0,4.0/3.0,false};
+        if(scale==1) {
+          CHECK(FzeroRenderViewDraw(views[0],reference,v,alphas[phase]));
+          CHECK(FzeroRenderViewDraw(views[1],actual,v,alphas[phase]));
+        } else {
+          CHECK(FzeroRenderViewDrawPresentation(views[0],NULL,reference,sizeof(reference)/4,v,alphas[phase],scale));
+          CHECK(FzeroRenderViewDrawPresentation(views[1],NULL,actual,sizeof(actual)/4,v,alphas[phase],scale));
+        }
+        unsigned differences=0;for(unsigned i=0;i<(unsigned)v.width*224*scale*scale;++i)differences+=reference[i]!=actual[i];
+        if(differences)fprintf(stderr,"fractional reference: vs=%u case=%u width=%d scale=%u alpha=%.17g wrong=%u\n",vs,test,v.width,scale,alphas[phase],differences);
+        CHECK(!differences);
+      }
+  }
+  for(unsigned i=0;i<2;++i)FzeroRenderViewDestroy(views[i]);
+  FzeroRenderViewDestroy(assets);
+}
+
 static void test_sharp_track_sampling(void) {
   setup();p.cgram[2]=0x3e0;
   for(unsigned y=0;y<8;++y)for(unsigned x=0;x<8;++x)p.vram[y*8+x]=(uint16_t)((((x+y)&1)+1)<<8);
@@ -930,6 +988,7 @@ int main(void) {
   test_race_cameras();
   test_sharp_track_sampling();
   test_full_course_interpolation();
+  test_fractional_course_reference();
   FzeroRendererShutdown();
   CHECK(FzeroRendererWorkerCount() == 1);
   puts("F-Zero renderer: bounds, immutable frames, scene fallback, car identity, signed X, panorama wrap and HUD transitions passed");

@@ -16,6 +16,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     for key in ('build', 'runtime', 'rom', 'packs', 'out'):
         p.add_argument('--' + key, type=Path, required=True)
+    p.add_argument('--fps',type=int,default=60)
+    p.add_argument('--native',action='store_true',help='Disable HD Mode 7 for this windowed run')
     a = p.parse_args()
     build, runtime, rom, packs, out = (getattr(a, k).resolve() for k in ('build', 'runtime', 'rom', 'packs', 'out'))
     out.mkdir(parents=True, exist_ok=False)
@@ -32,8 +34,8 @@ def main():
     (stage / 'config.ini').write_text(config)
     shutil.copy2(runtime / 'keybinds.ini', stage)
     (stage / 'fzero-video.ini').write_text(
-        '[FZeroVideo]\nEnhancedRenderer=1\nAspect=Fit\nPresentationEnabled=1\nPresentationFPS=60\n'
-        'HDMode7=1\nHDMode7Scale=2\nBSVehicles=0\nBSTracks=0\nCGPCars=0\nCGPStockRebalance=0\n'
+        f'[FZeroVideo]\nEnhancedRenderer=1\nAspect=Fit\nPresentationEnabled=1\nPresentationFPS={a.fps}\n'
+        f'HDMode7={int(not a.native)}\nHDMode7Scale=2\nBSVehicles=0\nBSTracks=0\nCGPCars=0\nCGPStockRebalance=0\n'
         'LocalTwoPlayer=1\nAlwaysShowRecords=1\nCrashReplay=1\nDiagnostics=1\n')
     shots = out / 'images'
     shots.mkdir()
