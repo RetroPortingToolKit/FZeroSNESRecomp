@@ -8,6 +8,7 @@
 #include "fzero_course_runtime.h"
 #include "fzero_sound.h"
 #include "common_rtl.h"
+#include "common_cpu_infra.h"
 #include "cpu_state.h"
 #include "snes/interp_bridge.h"
 #include "snes/cart.h"
@@ -119,6 +120,9 @@ bool FzeroLocalTick(uint32_t packed) {
   unsigned previous_phase=FzeroVersusCompleted(session)->phase;
   uint16_t held[2]={auto_word(packed&4095),auto_word((packed>>12)&4095)};
   bool advanced=FzeroVersusTick(session,held);
+  if(!advanced && (previous_phase==FZERO_VS_COUNTDOWN || previous_phase==FZERO_VS_RACING)) {
+    fputs("[local-versus] shared simulation failed\n",stderr);g_fail=1;
+  }
   const FzeroVersusSnapshot *state=FzeroVersusCompleted(session);
   if(state->phase==FZERO_VS_RESULTS)menu_owner=0;
   if(state->phase!=FZERO_VS_RESULTS || previous_phase!=FZERO_VS_RESULTS)result_ticks=0;
@@ -178,6 +182,7 @@ void FzeroLocalCapture(void) {
     world[FZERO_WORLD_NATIVE_SHORTCUT]=(uint8_t)(g_ram[0x14c2a]+1);
   }
   FzeroVersus *candidate=FzeroVersusCreate(config,world,spawns,tables());free(world);
+  if(candidate && !FzeroVersusEnableTraffic(candidate,g_ram)) {FzeroVersusDestroy(candidate);candidate=NULL;}
   FzeroVersusVideo *display=FzeroVersusVideoCreate();
   if(!candidate || !display || !FzeroVersusVideoCapture(display,NULL,candidate,tables())) {
     FzeroVersusDestroy(candidate);FzeroVersusVideoDestroy(display);return;

@@ -40,6 +40,7 @@ def main():
     clean = {k: v for k, v in os.environ.items() if not k.startswith(
         ('FZERO_', 'SNESRECOMP_', 'SDL_', 'LNG_', 'SNES_NET_', 'RNET_'))}
     env = dict(clean, SDL_AUDIODRIVER='dummy', SNESRECOMP_MSU1='off',
+               FZERO_TEST_TRAFFIC_VISIBLE='1',
                FZERO_TEST_LOCAL_UI='1', FZERO_TEST_LOCAL_UI_HIDDEN='1', FZERO_TEST_LOCAL_UI_LIVE='1',
                FZERO_TEST_LOCAL_UI_RESIZE='1', FZERO_TEST_LOCAL_UI_DRIVE='1', FZERO_TEST_LOCAL_UI_DUMP=str(shots),
                FZERO_PACKS_DIR=str(out / 'catalog'), FZERO_TRACK_PACKS=str(out / 'settings'), SNESRECOMP_SAVE_ROOT='s',
@@ -51,7 +52,9 @@ def main():
     text = (out / 'game.log').read_text(errors='replace')
     assert result.returncode == 0 and 'local-ui: PASS' in text, text[-4000:]
     assert (shots / 'live-menu-frame.bmp').exists(), 'Live menu was not displayed'
-    print('PASS live menu: two SDL devices, moving race, restart/change/exit, resized HD/native presentation', flush=True)
+    assert '[traffic-video] pane=0 ' in text and '[traffic-video] pane=1 ' in text, 'Bumper pixels were not visible in both gameplay views'
+    assert 'traffic-encounter: both human impacts PASS' in text, 'Prepared bumper contacts did not reach both humans'
+    print('PASS live menu: two SDL devices, prepared bumper impacts/views, restart/change/exit, resized HD/native presentation', flush=True)
 
 
 if __name__ == '__main__':

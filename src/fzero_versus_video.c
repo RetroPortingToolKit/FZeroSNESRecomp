@@ -9,9 +9,9 @@
 struct FzeroVersusVideo {
   FzeroRenderView *views[2];
   FzeroVersusSnapshot state, previous;
-  FzeroShip ships[2][2], old_ships[2][2];
+  FzeroShip ships[2][2+FZERO_TRAFFIC_COUNT], old_ships[2][2+FZERO_TRAFFIC_COUNT];
   FzeroActor display[2];
-  unsigned opacity[2];
+  unsigned opacity[2+FZERO_TRAFFIC_COUNT];
   FzeroNativeUi ui;
   bool valid, interpolate;
   unsigned menu_selection,result_ticks,menu_owner;
@@ -48,6 +48,7 @@ bool FzeroVersusVideoCapture(FzeroVersusVideo *v,const FzeroRenderView *assets,
     if(r->status==FZERO_VS_FINISHED)v->opacity[i]=FzeroCameraFinishPose(&v->display[i],&r->actor,tables,
         s->race_tick-r->finish_tick+(s->phase==FZERO_VS_RESULTS?v->result_ticks:0));
   }
+  for(unsigned i=0;i<FZERO_TRAFFIC_COUNT;++i)v->opacity[2+i]=s->traffic[i].active?255:0;
   for(unsigned pane=0;pane<2;++pane) {
     const FzeroActor *a=&s->racers[pane].actor;
     FzeroCamera c;
@@ -72,6 +73,12 @@ bool FzeroVersusVideoCapture(FzeroVersusVideo *v,const FzeroRenderView *assets,
         FzeroShip *ship=&v->ships[pane][i];
         ship->y+=entry*(16-(int)ship->size)/16;
         ship->ground_y+=entry*(16-(int)ship->size)/16;
+      }
+    }
+    for(unsigned i=0;i<FZERO_TRAFFIC_COUNT;++i) {
+      FzeroShip *ship=&v->ships[pane][2+i];memset(ship,0,sizeof(*ship));
+      if(s->traffic[i].active && !FzeroShipBumper(ship,a,&s->traffic[i].actor,FzeroVersusWorld(session),tables)) {
+        FzeroVersusVideoReset(v);return false;
       }
     }
     const FzeroActor *old=&v->previous.racers[pane].actor;
@@ -113,19 +120,27 @@ static void time_text(char out[32],uint64_t tick) {
       (unsigned)(centiseconds/100)%60,(unsigned)(centiseconds%100));
 }
 static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsigned pane,double alpha,unsigned scale) {
+  static bool trace_ready,trace_traffic;static unsigned traced_panes;
+  if(!trace_ready) {trace_ready=true;trace_traffic=getenv("FZERO_TEST_TRAFFIC_VISIBLE")!=NULL;}
   const FzeroVersusSnapshot *s=&v->state;
   const FzeroVersusRacer *r=&s->racers[pane];
   FzeroUiCanvas canvas={p,viewport.width*(int)scale,224*(int)scale,scale};
   const FzeroNativeUi *ui=&v->ui;
   const FzeroUiInk ink[2]={FZERO_UI_CYAN,FZERO_UI_YELLOW};
   /* Stable actor IDs are drawn in depth order in each independent camera. */
-  unsigned first=v->ships[pane][0].ground_y>v->ships[pane][1].ground_y?1:0;
-  for(unsigned n=0;n<2;++n) {
-    unsigned i=n?1-first:first;
+  unsigned order[2+FZERO_TRAFFIC_COUNT];
+  for(unsigned i=0;i<2+FZERO_TRAFFIC_COUNT;++i) {
+    unsigned at=i;while(at && v->ships[pane][order[at-1]].ground_y>v->ships[pane][i].ground_y) {
+      order[at]=order[at-1];--at;
+    }
+    order[at]=i;
+  }
+  for(unsigned n=0;n<2+FZERO_TRAFFIC_COUNT;++n) {
+    unsigned i=order[n];bool npc=i>=2;
     const FzeroShip *ship=&v->ships[pane][i],*old=&v->old_ships[pane][i];
     unsigned opacity=v->opacity[i];
     if(!ship->visible || !opacity)continue;
-    if(s->racers[i].status==FZERO_VS_DNF) {
+    if(!npc && s->racers[i].status==FZERO_VS_DNF) {
       uint64_t age=s->race_tick-s->racers[i].finish_tick;
       if(s->phase==FZERO_VS_RESULTS)age+=v->result_ticks;
       FzeroUiExplosion(ui,canvas,ship->ground_x+viewport.extra,ship->y+48,ship->size,(unsigned)(age>255?255:age));
@@ -149,7 +164,12 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
       int dx=x+sx+viewport.extra,dy=y+sy;
       if(dy<0 || dy>=224 || dx<0 || dx>=viewport.width)continue;
       fade_rect(p,viewport,scale,dx,dy,1,1,pixel,opacity);
+      if(npc && trace_traffic && !(traced_panes&(1u<<pane))) {
+        traced_panes|=1u<<pane;
+        fprintf(stderr,"[traffic-video] pane=%u npc=%u world=%u,%u visible\n",pane,i-2,s->traffic[i-2].actor.x,s->traffic[i-2].actor.y);
+      }
     }
+    if(npc)continue;
     if(i==pane && s->racers[i].status==FZERO_VS_ACTIVE)
       FzeroUiExhaust(ui,canvas,ship->ground_x+viewport.extra,y+48,&s->racers[i].actor);
     if(s->racers[i].status!=FZERO_VS_FINISHED && s->racers[i].actor.speed>=0x400 && !(s->racers[i].actor.state&0x80))

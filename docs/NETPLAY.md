@@ -41,6 +41,12 @@ energy boost and exhaust, including the CGP versions of the original four cars.
 Each actor binds its own immutable profile, including mixed-cohort collisions;
 selecting another ship never swaps the shared guest cartridge.
 
+Four shared regular NPC bumpers follow each course's authored CPU lines,
+including imported opponent data. Both humans can hit them, and both views
+render the same field. Traffic is automatic in VS and never contributes laps
+or places to the human result. Red explosive bumpers and ranked CPU rivals
+are not implemented.
+
 VS rules are mandatory and hidden in Lobby Mods. The shared course catalog is
 still listed there and checked before play. Both players always use the same
 VS roster, regardless of their single-player car switches. The HUD uses CGP's
@@ -51,8 +57,11 @@ down from six frames (about 100 ms). This delay applies to the host too. The
 host can raise it in the lobby for a less reliable connection. Rollback remains
 required; two frames is not a claim of zero total input or network latency.
 
-Multiplayer races cannot be paused. Start, focus loss and in-race menu hotkeys do not stop the simulation. The host navigates rematch or change race only after results. The in-game menus have no lobby
-exit option; closing the game returns through the existing launcher flow. Finishing cars
+Multiplayer races cannot be paused. Start opens a live menu while the race
+continues; its owner sends neutral driving input. Focus loss and hotkeys never
+stop the simulation. Restart and Change Race use shared transitions. The
+in-game menus have no lobby exit option; closing the game returns through the
+existing launcher flow. Finishing cars
 coast and fade using the local VS presentation. A crash uses the native
 explosion; when only one non-crashed participant remains, that participant wins.
 Results distinguish FINISHED, CRASHED OUT and SURVIVED. Non-finish times are
@@ -71,11 +80,11 @@ The shared SPC timeline switches from the original pre-race program to the
 uploaded course song at GO, as single-player does. The host audio latch retains
 this across rematches and restored races. `tests/validate_versus_audio.py`
 checks real music-voice envelopes over a one-second window, native master volume
-and captured PCM on stock, imported and BS courses, including ignored multiplayer Start inputs and native single-player pause/resume.
-As in single-player, pause keeps the song playing and clears vehicle effects;
-it never sends the native crash command. Engine noise or a crash tail alone
-does not pass the check. The actual-peer `pause` scenario exercises pausing
-from both seats and verifies music after the host resumes.
+and captured PCM on stock, imported and BS courses, including multiplayer
+Start inputs and native single-player pause/resume. Live multiplayer menus
+keep the song playing and never send the native crash command. Engine noise
+or a crash tail alone does not pass the check. The actual-peer `pause`
+scenario exercises Start from both seats and checks continuing music.
 
 MSU-1 also works in local and online VS through the existing Audio setting.
 The existing course-file and menu/event music resolver is reused; missing or
@@ -83,8 +92,8 @@ empty recordings restore SNES music. Audio files and the music preference are
 local to each computer and do not have to match. The complete native SPC/DSP
 simulation still runs identically; only the output mixer replaces music voices,
 retaining native engine/effect voices and their original FIR echo. Rollback
-does not restart the soundtrack or advance its presentation echo. Pause keeps
-music playing, and actual loads/rewinds restart the restored song rather than
+does not restart the soundtrack or advance its presentation echo. Live menus
+keep music playing, and actual loads/rewinds restart the restored song rather than
 restoring an exact PCM sample position, matching single-player's behavior.
 This does not relax build or course-catalog checks or transfer any files.
 
@@ -108,14 +117,37 @@ The launcher uses a short discovery version within the shared 32-byte LAN field.
 This does not replace the full pre-race identity check. New UI is either existing
 recomp-ui lobby UI or the same native F-Zero assets used by local VS.
 
-Rules8 (`FZVS008`) and online protocol3 carry stable twelve-car identities and
-independent selector slide/spin state. The snapshot namespaces are
+Rules9 (`FZVS009`) adds the canonical bumper field to the twelve-car race;
+online protocol3 still carries stable machine identities and independent
+selector slide/spin state. The snapshot namespaces are
 `fzero-local-2p-v2` and `fzero-online-v3`; earlier VS snapshots are intentionally
 incompatible. Build identity includes the reviewed generated mechanics/exhaust
 tables and verified vehicle art manifests/payloads, alongside the existing
 source/dependency fingerprint. This does not relax exact-build admission.
 
+`fzero_traffic.c` reuses the cartridge's checkpoint lookup, CPU guidance,
+steering and physics routines through the engine's portable callback CPU.
+Calls are bounded and isolated from the live CPU, PPU, APU, host clock and
+devices. The resource-only seed retains course/class/lane tables; multiplayer
+owns a persistent four-car field and contacts. Spawn positions are screened
+against both humans' maximum view frustums; cars keep driving when distant
+and are replaced only if native physics removes them. Imported terrain uses the
+same course-property adapter as the human actors. Native generic NPC art and
+palettes are captured once at the starting grid. There is one shared traffic
+image, not a game instance per player. Its private RAM, reset seed and contact
+latches are serialized and hashed; presentation poses are derived after load.
+
 ## Validation
+
+`tests/validate_traffic.py --help` boots real original/imported courses, checks
+current-build disk save/load and rewind replay, then tests the moving native
+field, collisions from both humans, both projected views, atomic invalid-state
+rejection and restart equivalence. It requires a private USA ROM and installed
+packs. `tests/validate_live_menu.py` also observes painted bumper pixels in both
+actual SDL views, using prepared position/motion/health encounters to exercise
+both human impacts. Those encounters do not qualify natural driving. Peer
+traces include the active traffic count and first NPC's
+position; the canonical comparison covers the complete field.
 
 `tests/validate_selector.py` compares all four VS information panels and
 unselected previews pixel for pixel with real single-player screens. The stock

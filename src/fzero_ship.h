@@ -13,6 +13,8 @@ typedef struct FzeroShip {
 } FzeroShip;
 bool FzeroShipBuild(FzeroShip *ship, const FzeroActor *camera,
                     const FzeroActor *actor, FzeroActorTables tables);
+bool FzeroShipBumper(FzeroShip *ship,const FzeroActor *camera,const FzeroActor *actor,
+                     const uint8_t world[0x20000],FzeroActorTables tables);
 /* Exact native car-information spin; age is in simulation ticks. */
 bool FzeroShipMenu(FzeroShip *ship,unsigned machine,uint64_t age,FzeroActorTables tables);
 unsigned FzeroDisplaySpeed(uint16_t speed);

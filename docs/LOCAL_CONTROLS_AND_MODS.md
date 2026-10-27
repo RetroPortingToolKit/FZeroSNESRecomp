@@ -28,6 +28,12 @@ handling switches do not change the fixed VS machine roster. All twelve VS
 machines use their CGP artwork, handling, energy boost and exhaust, including
 the original four cars.
 
+VS also includes four shared NPC bumpers, automatically in local and online
+races. They follow the course's original CPU driving lines and can collide
+with either player. Both cameras see the same cars. They are traffic obstacles,
+not ranked entrants: only the two human players determine laps and results.
+This adds regular bumpers, not the red explosive variant or a full GP field.
+
 | Setting | Where it applies |
 | --- | --- |
 | Aspect, presentation FPS, HD Mode 7 | Single-player and versus; online aspect follows the host. |
