@@ -8,7 +8,7 @@
  * Rule 9: all twelve authored CGP profiles and shared native bumper traffic.
  * Two humans, five laps, movement then stable-ID contacts; never pauses.
  * This is a new simulation profile, not a claim of stock whole-frame parity. */
-#define FZERO_VERSUS_RULES 9u
+#define FZERO_VERSUS_RULES 10u
 #define FZERO_VERSUS_LAPS 5u
 #define FZERO_VERSUS_ARRIVAL 68u
 #define FZERO_VERSUS_REV_COUNTDOWN 180u

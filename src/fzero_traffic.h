@@ -3,7 +3,7 @@
 
 #define FZERO_TRAFFIC_COUNT 4u
 enum {FZERO_TRAFFIC_ART=0x8000,FZERO_TRAFFIC_PALETTE=0x7e00};
-typedef struct FzeroTrafficPose { FzeroActor actor; uint8_t active; } FzeroTrafficPose;
+typedef struct FzeroTrafficPose { FzeroActor actor; uint8_t active, explosive; } FzeroTrafficPose;
 typedef struct FzeroTraffic {
   /* Native byte-addressed state is already canonical little endian. CPU
    * registers and multiply/divide scratch are private to each bounded call. */

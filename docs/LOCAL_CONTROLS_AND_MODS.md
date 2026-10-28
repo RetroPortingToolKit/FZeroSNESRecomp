@@ -32,7 +32,11 @@ VS also includes four shared NPC bumpers, automatically in local and online
 races. They follow the course's original CPU driving lines and can collide
 with either player. Both cameras see the same cars. They are traffic obstacles,
 not ranked entrants: only the two human players determine laps and results.
-This adds regular bumpers, not the red explosive variant or a full GP field.
+Regular traffic uses the brown bumper artwork; every fourth accepted spawn
+is a red explosive bumper. Both humans can trigger its native damage, stun
+and airborne response. Passed traffic is replenished outside both views,
+with spacing between spawns, so later laps retain traffic. Bumpers sample
+the course's jumps, magnets and lethal terrain. Ranked CPU rivals are absent.
 
 | Setting | Where it applies |
 | --- | --- |

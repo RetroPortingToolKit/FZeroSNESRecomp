@@ -938,6 +938,12 @@ int main(int argc, char **argv) {
                             frame_width) &&
                   write_wram_dump(getenv("SNESRECOMP_WRAM_DUMP"));
   const char *sram_dump = getenv("FZERO_TEST_SRAM_DUMP");
+  const char *world_dump=getenv("FZERO_TEST_WORLD_DUMP");
+  if(world_dump && *world_dump && FzeroLocalSession()) {
+    FILE *f=fopen(world_dump,"wb");if(!f)return 10;
+    bool ok=fwrite(FzeroVersusWorld(FzeroLocalSession()),1,0x20000,f)==0x20000;
+    if(fclose(f) || !ok)return 10;
+  }
   /* Inspect the actual SPC upload, independently of course metadata/logs. */
   const char *apu_dump = getenv("FZERO_TEST_APURAM_DUMP");
   if (apu_dump && *apu_dump) {

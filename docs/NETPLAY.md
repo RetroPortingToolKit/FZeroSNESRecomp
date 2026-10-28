@@ -41,11 +41,11 @@ energy boost and exhaust, including the CGP versions of the original four cars.
 Each actor binds its own immutable profile, including mixed-cohort collisions;
 selecting another ship never swaps the shared guest cartridge.
 
-Four shared regular NPC bumpers follow each course's authored CPU lines,
+Four shared NPC bumpers follow each course's authored CPU lines,
 including imported opponent data. Both humans can hit them, and both views
 render the same field. Traffic is automatic in VS and never contributes laps
-or places to the human result. Red explosive bumpers and ranked CPU rivals
-are not implemented.
+or places to the human result. Regular bumpers are brown, with one red
+explosive per four accepted spawns. Ranked CPU rivals are not implemented.
 
 VS rules are mandatory and hidden in Lobby Mods. The shared course catalog is
 still listed there and checked before play. Both players always use the same
@@ -117,7 +117,7 @@ The launcher uses a short discovery version within the shared 32-byte LAN field.
 This does not replace the full pre-race identity check. New UI is either existing
 recomp-ui lobby UI or the same native F-Zero assets used by local VS.
 
-Rules9 (`FZVS009`) adds the canonical bumper field to the twelve-car race;
+Rules10 (`FZVS010`) corrects terrain/population and adds explosive bumpers to the canonical field;
 online protocol3 still carries stable machine identities and independent
 selector slide/spin state. The snapshot namespaces are
 `fzero-local-2p-v2` and `fzero-online-v3`; earlier VS snapshots are intentionally
@@ -129,13 +129,20 @@ source/dependency fingerprint. This does not relax exact-build admission.
 steering and physics routines through the engine's portable callback CPU.
 Calls are bounded and isolated from the live CPU, PPU, APU, host clock and
 devices. The resource-only seed retains course/class/lane tables; multiplayer
-owns a persistent four-car field and contacts. Spawn positions are screened
+owns a four-car field and contacts. Spawn positions are screened
 against both humans' maximum view frustums; cars keep driving when distant
-and are replaced only if native physics removes them. Imported terrain uses the
-same course-property adapter as the human actors. Native generic NPC art and
-palettes are captured once at the starting grid. There is one shared traffic
+and passed cars are replenished only when distant and outside both views.
+Spawn candidates avoid unsafe ground and are separated by 360 world units.
+The native pre-physics terrain pass samples the full course, independent of
+either camera; imported landing/up-magnet behavior reuses the human adapter.
+Grounded cars on lethal terrain and cars landing in void are removed.
+Native generic NPC art and palettes are captured once at the starting grid;
+brown/red palette attributes follow each car's variant. There is one shared traffic
 image, not a game instance per player. Its private RAM, reset seed and contact
 latches are serialized and hashed; presentation poses are derived after load.
+Red contact is evaluated for both humans before removing the bumper. It
+reuses the cartridge's mine-damage table and explosive-bumper stun/height/spin
+response, preserving speed. An explosion does not create a mine crater.
 
 ## Validation
 

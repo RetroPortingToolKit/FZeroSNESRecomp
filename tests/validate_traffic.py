@@ -11,6 +11,7 @@ def main():
     p=argparse.ArgumentParser(description=__doc__)
     for key in ('build','rom','packs','out'):p.add_argument('--'+key,type=Path,required=True)
     p.add_argument('--courses',default='0,14,15,65')
+    p.add_argument('--special-course',type=int,default=59,help='Reviewed Sulfur Swamp index; require actual jump and up-magnet tile coverage')
     a=p.parse_args()
     build,rom,packs,out=(getattr(a,key).resolve() for key in ('build','rom','packs','out'))
     out.mkdir(parents=True,exist_ok=False)
@@ -25,6 +26,7 @@ def main():
                  FZERO_BS_CARS='0',FZERO_BS_TRACKS='0',SNESRECOMP_MSU1='off',SNESRECOMP_SAVE_ROOT='s',
                  FZERO_LIFECYCLE_TEST='1',FZERO_REWIND_TEST='1',FZERO_TEST_SAVE_FRAME='925',
                  SNESRECOMP_WRAM_DUMP=str(case/'native.bin'),SNESRECOMP_FRAME_DUMP=str(case/'final.ppm'))
+        env['FZERO_TEST_WORLD_DUMP']=str(case/'world.bin')
         with (case/'game.log').open('w') as log:
             run=subprocess.run([str(build/'FZeroSNESRecompHeadless.exe'),str(rom),'950','--versus',str(course),'0','1'],
                                cwd=case,env=env,stdout=log,stderr=log,timeout=120)
@@ -33,7 +35,8 @@ def main():
         assert 'lifecycle: save/load ten-frame resimulation identical' in text,(course,text[-3000:])
         assert 'rewind: actual ring restore and ten-frame resimulation identical' in text,(course,text[-3000:])
         with (case/'traffic.log').open('w') as log:
-            trial=subprocess.run([str(build/'fzero_traffic_tests.exe'),str(rom),str(case/'native.bin')],
+            trial=subprocess.run([str(build/'fzero_traffic_tests.exe'),str(rom),str(case/'native.bin'),str(case/'world.bin')]+
+                                 (['require-special'] if course==a.special_course else []),
                                  cwd=case,stdout=log,stderr=log,timeout=30)
         assert trial.returncode==0,(course,(case/'traffic.log').read_text())
         report.append(dict(course=course,boot=True,native_traffic_contacts_views_restore_restart=True,

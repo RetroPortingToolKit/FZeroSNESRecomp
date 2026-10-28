@@ -152,6 +152,7 @@ typedef struct FzeroActorProjection {
 FzeroActorProjection FzeroActorProject(const FzeroActor *reference, const FzeroActor *actor, FzeroActorTables tables);
 void FzeroActorContactSpeed(FzeroActor *follower, FzeroActor *leader, FzeroActorTables tables);
 void FzeroActorDamageContact(FzeroActor *actor, const FzeroActor *other, FzeroActorTables tables, bool direct);
+void FzeroActorBumperExplosion(FzeroActor *actor,FzeroActorTables tables,bool bumper_on_left);
 void FzeroActorContactSpin(FzeroActor *a, FzeroActor *b, FzeroActorTables tables, uint8_t geometry);
 void FzeroActorContactLateral(FzeroActor *a, FzeroActor *b, FzeroActorTables tables, uint8_t geometry, unsigned separation);
 /* Pair contact belongs to the shared session and survives save/restore.

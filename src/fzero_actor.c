@@ -443,6 +443,21 @@ void FzeroActorDamageContact(FzeroActor *a,const FzeroActor *b,FzeroActorTables 
   actor_damage(a,damage);
 }
 
+/* $9E73..$9EA9: explosive bumper response, unlike a mine, preserves speed. */
+void FzeroActorBumperExplosion(FzeroActor *a,FzeroActorTables t,bool left) {
+  a->no_control=(a->no_control&0xff00)|0x20;a->black_flash=0x85;
+  a->sound_port3|=8;actor_damage(a,table8(t,0xfac1+FzeroMachineSlot(a->machine)));
+  a->state|=0x81;a->height_velocity=0x100;
+  unsigned spin=left?2:0x82;
+  if(a->state&0x40)--spin;
+  a->spin=(uint16_t)(spin<<8);
+  unsigned angle=a->momentum>>8;
+  if(!left || !(a->state&0x40)) {
+    angle=(angle+192-20)%192;a->animation=0x43;
+  } else {angle=(angle+20)%192;a->animation=0x47;}
+  a->momentum=(a->momentum&255)|(uint16_t)angle<<8;
+}
+
 void FzeroActorDamageSurface(FzeroActor *a, FzeroActorTables t) {
   unsigned flags = a->ground_flags;
   if (!(a->state & 0x80)) flags |= a->surface & 12;

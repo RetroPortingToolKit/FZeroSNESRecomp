@@ -77,7 +77,7 @@ bool FzeroVersusVideoCapture(FzeroVersusVideo *v,const FzeroRenderView *assets,
     }
     for(unsigned i=0;i<FZERO_TRAFFIC_COUNT;++i) {
       FzeroShip *ship=&v->ships[pane][2+i];memset(ship,0,sizeof(*ship));
-      if(s->traffic[i].active && !FzeroShipBumper(ship,a,&s->traffic[i].actor,FzeroVersusWorld(session),tables)) {
+      if(s->traffic[i].active && !FzeroShipBumper(ship,a,&s->traffic[i].actor,FzeroVersusWorld(session),tables,s->traffic[i].explosive)) {
         FzeroVersusVideoReset(v);return false;
       }
     }

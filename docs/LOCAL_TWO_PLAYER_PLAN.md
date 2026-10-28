@@ -4,7 +4,8 @@ Implement local two-player versus racing in F-Zero Forever with one shared
 simulation and two independent cameras, always displayed top/bottom. The owner
 selected versus races without CPU opponents for the first release and approved
 the implementation plan. Version 0.11.0 adds four shared regular NPC bumpers
-at the owner's request; see [NETPLAY.md](NETPLAY.md) for their architecture and
+at the owner's request. Version 0.11.3 corrects terrain and population,
+uses brown regular bumpers and adds red explosives. See [NETPLAY.md](NETPLAY.md) for their architecture and
 validation. This document preserves the preparation, verified
 source map and subsequent implementation milestones. Current online behavior
 and validation instructions are in [NETPLAY.md](NETPLAY.md).

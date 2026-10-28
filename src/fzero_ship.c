@@ -158,7 +158,7 @@ static bool player_build(FzeroShip *s,const FzeroActor *a,FzeroActorProjection p
 }
 
 static bool projected_build(FzeroShip *s,unsigned machine,FzeroActorProjection p,
-    unsigned band,unsigned direction,bool mirror,unsigned height,bool body_flash,FzeroActorTables t,const uint8_t *bumper) {
+    unsigned band,unsigned direction,bool mirror,unsigned height,bool body_flash,FzeroActorTables t,const uint8_t *bumper,unsigned bumper_palette) {
   unsigned graphic=byte(t,0x02fd56+byte(t,0xf260+band)+direction);
   unsigned flags=byte(t,0xe84e + ((graphic>>1)&7));
   unsigned variant=(byte(t,0xf330+(graphic>>4))&flags)?1:0;
@@ -193,7 +193,8 @@ static bool projected_build(FzeroShip *s,unsigned machine,FzeroActorProjection p
       }
       if(color && !s->pixels[oy*64+ox]) {
         if(bumper) {
-          unsigned at=FZERO_TRAFFIC_PALETTE+(128+((attr>>9)&7)*16+color)*2;
+          /* $F464 ORs C41's brown(4)/red(6) attribute into the layout. */
+          unsigned at=FZERO_TRAFFIC_PALETTE+(128+(((attr|(bumper_palette<<8))>>9)&7)*16+color)*2;
           s->pixels[oy*64+ox]=rgb(bumper[at]|(unsigned)bumper[at+1]<<8);
         } else s->pixels[oy*64+ox]=palette[color];
       }
@@ -225,9 +226,9 @@ bool FzeroShipBuild(FzeroShip *s,const FzeroActor *camera,const FzeroActor *a,Fz
   unsigned height=a->height>>8;
   /* $03:907E distant jump-height scaling, also retained for native race views. */
   if(camera!=a && height<128)height=(height*2*byte(t,0x08ede0+255-(unsigned)p.y))>>8;
-  return projected_build(s,a->machine,p,band,direction,mirror,height,a->body_flash!=0,t,NULL);
+  return projected_build(s,a->machine,p,band,direction,mirror,height,a->body_flash!=0,t,NULL,0);
 }
-bool FzeroShipBumper(FzeroShip *s,const FzeroActor *camera,const FzeroActor *a,const uint8_t world[0x20000],FzeroActorTables t) {
+bool FzeroShipBumper(FzeroShip *s,const FzeroActor *camera,const FzeroActor *a,const uint8_t world[0x20000],FzeroActorTables t,bool explosive) {
   if(!s || !camera || !a || !world || !t.read)return false;
   memset(s,0,sizeof(*s));FzeroActorProjection p=FzeroActorProject(camera,a,t);if(!p.projectable)return true;
   int angle=(int)(camera->facing>>8)-(int)(a->facing>>8);
@@ -236,7 +237,7 @@ bool FzeroShipBumper(FzeroShip *s,const FzeroActor *camera,const FzeroActor *a,c
   bool mirror=angle<0;unsigned direction=byte(t,0xf26a+(unsigned)(mirror?-angle:angle)/4),band=0;
   while(band<8 && p.y<(int)byte(t,0xf283+band))++band;
   unsigned height=a->height>>8;if(height<128)height=(height*2*byte(t,0x08ede0+255-(unsigned)p.y))>>8;
-  return projected_build(s,0,p,band,direction,mirror,height,false,t,world);
+  return projected_build(s,0,p,band,direction,mirror,height,false,t,world,explosive?6:4);
 }
 
 bool FzeroShipMenu(FzeroShip *s,unsigned machine,uint64_t age,FzeroActorTables t) {
@@ -249,5 +250,5 @@ bool FzeroShipMenu(FzeroShip *s,unsigned machine,uint64_t age,FzeroActorTables t
   int direction=8-(int)((age/6)%24);
   if(direction< -12)direction+=24;
   FzeroActorProjection p={0};p.projectable=true;
-  return projected_build(s,machine,p,0,(unsigned)(direction<0?-direction:direction),direction<0,0,false,t,NULL);
+  return projected_build(s,machine,p,0,(unsigned)(direction<0?-direction:direction),direction<0,0,false,t,NULL,0);
 }
