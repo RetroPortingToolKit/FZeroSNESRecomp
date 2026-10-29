@@ -1,5 +1,17 @@
 ﻿# Changelog
 
+## 0.12.0 - Native multiplayer HUD and feedback
+
+- Show each human's race rank, the other car's place, and both markers on the
+  course's original minimap in local split-screen and online VS.
+- Reuse native Practice lap and final-lap sounds. Correct the arrival/rev
+  sound sequence at race start and rematch, retaining native SNES effects.
+- Keep the live race menu compact and inside the operating player's view.
+  Restore native human sprite priority when cars overlap.
+- Make K, X and Z readable in multiplayer course names using cartridge glyphs.
+- Retain native stationary explosive bumpers. The reported intermittent sound
+  dropout and oversized-object incident remain unconfirmed.
+
 ## 0.10.5 - VS playtest feedback
 
 - Make required online VS rules automatic and hidden in Lobby Mods.
