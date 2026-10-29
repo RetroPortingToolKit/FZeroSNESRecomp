@@ -3,7 +3,7 @@
 
 /* Presentation commands for the one stock SPC program. No hardware access,
  * guest writes or simulation mutation. Keep this state in the host snapshot. */
-typedef struct FzeroSoundState {uint8_t music,landing,phase;} FzeroSoundState;
+typedef struct FzeroSoundState {uint8_t music,landing,phase,lap[2],lap_beep;} FzeroSoundState;
 typedef struct FzeroSoundCommands {uint8_t ports[4];} FzeroSoundCommands;
 /* Native $F8DD engine and $F999/$F975 effect encoders, without their global
  * RAM side effects. Returned commands use native SPC port bit assignments. */

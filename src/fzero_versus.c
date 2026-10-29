@@ -86,6 +86,20 @@ static unsigned result_winner(const FzeroVersusSnapshot *v) {
   if(b->status==FZERO_VS_FINISHED || b->status==FZERO_VS_SURVIVED)return FZERO_VS_PLAYER2;
   return FZERO_VS_NO_WINNER;
 }
+unsigned FzeroVersusRank(const FzeroVersusSnapshot *v,unsigned player) {
+  if(!v || player>=2)return 0;
+  const FzeroVersusRacer *a=&v->racers[player],*b=&v->racers[1-player];
+  if(a->status==FZERO_VS_FINISHED && b->status==FZERO_VS_FINISHED)
+    return a->finish_tick<=b->finish_tick?1:2;
+  if(a->status==FZERO_VS_DNF)return b->status==FZERO_VS_DNF?player+1:2;
+  if(a->status==FZERO_VS_FINISHED || b->status==FZERO_VS_DNF || a->status==FZERO_VS_SURVIVED)return 1;
+  if(b->status==FZERO_VS_FINISHED)return 2;
+  /* $E8E4 sorts the native lap/checkpoint word, without a distance or camera
+   * approximation. Stable human ID resolves equal checkpoint keys. */
+  unsigned own=(unsigned)a->actor.lap*256+a->actor.checkpoint;
+  unsigned other=(unsigned)b->actor.lap*256+b->actor.checkpoint;
+  return other>own || (other==own && player)?2:1;
+}
 static void results(FzeroVersus *s) {
   if(!FzeroVersusRaceComplete(s->state.racers,sizeof(s->state.racers)/sizeof(*s->state.racers)))return;
   for(unsigned i=0;i<sizeof(s->state.racers)/sizeof(*s->state.racers);++i) {

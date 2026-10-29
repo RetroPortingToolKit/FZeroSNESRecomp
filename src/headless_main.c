@@ -155,6 +155,7 @@ static uint64_t logic_hash(void) {
   return hash;
 }
 #include "../tests/fzero_local_catalog_test.h"
+#include "../tests/fzero_feedback_test.h"
 
 static uint8_t *read_rom(const char *path, size_t *size_out,
                          uint8_t hash[32]) {
@@ -854,6 +855,7 @@ int main(int argc, char **argv) {
       last_phase=phase;last_owner=owner;
     }
     FzeroCaptureAfter();
+    if(!feedback_check())return 10;
     if(FzeroCaptureReplayFailed())return 11;
     /* Private UI regressions need the final composed frame, including host
      * course/records labels which are absent from the raw PPU captures. */
@@ -878,6 +880,7 @@ int main(int argc, char **argv) {
     audio_accumulator -= audio_frames;
     memset(audio, 0, sizeof(audio));
     RtlRenderAudio(audio, audio_frames, 2);
+    if(!feedback_audio(frame))return 10;
     if(dsp_trace) {
       uint8_t registers[128];
       for(unsigned i=0;i<128;++i)registers[i]=dsp_read(g_snes->apu->dsp,(uint8_t)i);

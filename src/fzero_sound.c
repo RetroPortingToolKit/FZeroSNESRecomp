@@ -16,7 +16,7 @@ FzeroSoundCommands FzeroSoundActor(const FzeroActor *a) {
   return out;
 }
 void FzeroSoundInit(FzeroSoundState *s,uint8_t music) {
-  *s=(FzeroSoundState){(uint8_t)(music&15),0,255};
+  *s=(FzeroSoundState){.music=(uint8_t)(music&15),.phase=255};
 }
 static uint8_t merge_effects(uint8_t a,uint8_t b) {
   /* Stock's SPC has one engine pitch and encoded effect groups. Choose the
@@ -34,12 +34,13 @@ FzeroSoundCommands FzeroSoundTick(FzeroSoundState *s,const FzeroVersusSnapshot *
   /* $8CA6 selects the pre-race program; $AD9F selects the uploaded course
    * song at GO. The parked guest never reaches AD9F during a VS race.
    * Also repair a resumed/loaded race with the older pre-race audio latch. */
-  /* $8CA6 starts the rev program only AFTER the arrival animation. Starting
-   * it while the engine command is still zero leaves its startup tone held. */
-  if(v->phase==FZERO_VS_COUNTDOWN && v->countdown<=FZERO_VERSUS_REV_COUNTDOWN)s->music=1;
+  /* $B3CF uses arrival program 3; $8CA6 starts rev program 1 only AFTER
+   * arrival. Starting it while the engine command is still zero leaves
+   * its startup tone held. */
+  if(v->phase==FZERO_VS_COUNTDOWN)s->music=v->countdown>FZERO_VERSUS_REV_COUNTDOWN?3:1;
   else if(v->phase==FZERO_VS_RACING)s->music=6;
   if(s->phase!=phase) {
-    if(v->phase==FZERO_VS_COUNTDOWN)s->landing=0;
+    if(v->phase==FZERO_VS_COUNTDOWN) {s->landing=s->lap_beep=0;s->lap[0]=s->lap[1]=0;}
     if(v->phase==FZERO_VS_RESULTS)s->music|=0x80;
     else s->music&=15;
     s->phase=(uint8_t)phase;
@@ -50,9 +51,19 @@ FzeroSoundCommands FzeroSoundTick(FzeroSoundState *s,const FzeroVersusSnapshot *
    * holding it retriggers the crash and can strand the music after resume. */
   if(v->pause)return out;
   if(!advanced || v->phase==FZERO_VS_READY)return out;
-  if(v->phase==FZERO_VS_COUNTDOWN && v->countdown>FZERO_VERSUS_REV_COUNTDOWN)return out;
+  /* $8C87 keeps the arrival engine command at 3, before $8CA6 starts revs. */
+  if(v->phase==FZERO_VS_COUNTDOWN && v->countdown>FZERO_VERSUS_REV_COUNTDOWN) {
+    out.ports[1]=3;return out;
+  }
   for(unsigned i=0;i<2;++i) {
     const FzeroVersusRacer *r=&v->racers[i];const FzeroActor *a=&r->actor;
+    /* Reuse Practice's $9AF7 lap cue: $16 ticks normally, $6C on the
+     * final lap, emitted by $FA0F on the existing native beep channel. */
+    if(r->completed_laps>s->lap[i] && r->completed_laps<FZERO_VERSUS_LAPS) {
+      unsigned duration=r->completed_laps==FZERO_VERSUS_LAPS-1?0x6c:0x16;
+      if(duration>s->lap_beep)s->lap_beep=(uint8_t)duration;
+    }
+    s->lap[i]=r->completed_laps;
     if(r->status!=FZERO_VS_ACTIVE && r->finish_tick!=v->race_tick)continue;
     FzeroSoundCommands voice=FzeroSoundActor(a);
     if(v->phase==FZERO_VS_COUNTDOWN)voice.ports[1]=a->countdown_acceleration?a->countdown_acceleration&63:1;
@@ -68,6 +79,7 @@ FzeroSoundCommands FzeroSoundTick(FzeroSoundState *s,const FzeroVersusSnapshot *
     out.ports[2]=merge_effects(out.ports[2],voice.ports[2]);
   }
   if(s->landing){--s->landing;out.ports[2]|=0x40;}
+  if(s->lap_beep) {--s->lap_beep;out.ports[1]|=0x40;}
   if(v->phase==FZERO_VS_COUNTDOWN && (v->countdown==179 || v->countdown==119 || v->countdown==59))
     out.ports[1]|=0x40;
   if(launch)out.ports[1]|=0x40;

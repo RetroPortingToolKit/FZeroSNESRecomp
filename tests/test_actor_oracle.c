@@ -837,6 +837,27 @@ static void player_reference_pixels(uint32_t out[4096],unsigned machine,int orig
     }
   }
 }
+static void test_human_ranks(void) {
+  for(unsigned sample=0;sample<1000;++sample) {
+    FzeroVersusSnapshot v={.phase=FZERO_VS_RACING};memset(ram,0,sizeof(ram));
+    for(unsigned p=0;p<5;++p)ram[0x1150+p*2]=(uint8_t)(p*2);
+    for(unsigned p=0;p<2;++p) {
+      FzeroActor *a=&v.racers[p].actor;
+      a->lap=(uint8_t)(1+random_word()%5);a->checkpoint=(uint8_t)(random_word()%200);
+      if(sample%4==0 && p)*a=v.racers[0].actor;
+      ram[0xd00+p*2]=a->checkpoint;
+      ram[p?0xf82:0xd40]=a->lap;
+    }
+    reference_until(0xe8e4,0xe960);
+    for(unsigned p=0;p<2;++p)CHECK(FzeroVersusRank(&v,p)==(ram[0x1150]==p*2?1u:2u));
+  }
+  FzeroVersusSnapshot v={.phase=FZERO_VS_RACING};v.racers[0].status=FZERO_VS_DNF;
+  CHECK(FzeroVersusRank(&v,0)==2 && FzeroVersusRank(&v,1)==1);
+  v.racers[0].status=v.racers[1].status=FZERO_VS_FINISHED;
+  v.racers[0].finish_tick=40;v.racers[1].finish_tick=42;
+  CHECK(FzeroVersusRank(&v,0)==1 && FzeroVersusRank(&v,1)==2);
+  puts("human ranks: 1000 lap/checkpoint/tie fixtures match native E8E4; finish/DNF ordering retained");
+}
 static void test_menu_alphabet(void) {
   static FzeroNativeUi ui;
   CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL,0}));
@@ -1088,7 +1109,7 @@ static void test_sound(void) {
   FzeroVersusSnapshot arrival={.phase=FZERO_VS_COUNTDOWN,.countdown=FZERO_VERSUS_COUNTDOWN};
   for(unsigned i=0;i<FZERO_VERSUS_ARRIVAL;++i) {
     FzeroSoundCommands command=FzeroSoundTick(&music,&arrival,true);
-    CHECK(command.ports[0]==3 && !command.ports[1] && !command.ports[2]);--arrival.countdown;
+    CHECK(command.ports[0]==3 && command.ports[1]==3 && !command.ports[2]);--arrival.countdown;
   }
   FzeroSoundCommands rev=FzeroSoundTick(&music,&arrival,true);
   CHECK(rev.ports[0]==1 && rev.ports[1]==1);
@@ -1103,6 +1124,8 @@ static void test_sound(void) {
   music.music=1;CHECK(FzeroSoundTick(&music,&start,false).ports[0]==race_music); /* old restored latch */
   start.phase=FZERO_VS_RESULTS;CHECK(FzeroSoundTick(&music,&start,true).ports[0]==(race_music|128));
   start.phase=FZERO_VS_COUNTDOWN;CHECK(FzeroSoundTick(&music,&start,true).ports[0]==1);
+  start.countdown=FZERO_VERSUS_COUNTDOWN;
+  CHECK(FzeroSoundTick(&music,&start,true).ports[0]==3); /* native arrival on rematch too */
   for(unsigned sample=0;sample<40000;++sample) {
     FzeroActor a;FzeroActorScratch scratch;randomize(&a,&scratch,sample%4);
     a.sound_flags=(uint8_t)sample;a.sound_flags2=(uint8_t)(sample>>8);a.landing_sound=0;
@@ -1113,7 +1136,7 @@ static void test_sound(void) {
     FzeroVersusSnapshot v={.phase=FZERO_VS_RACING,.race_tick=20,.tick=200};
     v.racers[0].actor=a;randomize(&v.racers[1].actor,&scratch,(sample/4)%4);
     v.racers[0].actor.landing_sound%=13;v.racers[1].actor.landing_sound%=13;
-    FzeroSoundState one={2,0,FZERO_VS_RACING},two=one;
+    FzeroSoundState one={.music=2,.phase=FZERO_VS_RACING},two=one;
     FzeroSoundCommands mixed=FzeroSoundTick(&one,&v,true);
     FzeroVersusRacer swap=v.racers[0];v.racers[0]=v.racers[1];v.racers[1]=swap;
     FzeroSoundCommands reversed=FzeroSoundTick(&two,&v,true);
@@ -1124,6 +1147,21 @@ static void test_sound(void) {
     v.pause=0;out=FzeroSoundTick(&one,&v,false);CHECK(!out.ports[1] && !out.ports[2]);
   }
   puts("sound: 40000 native engine/effect encoders, immutable actors, symmetric two-human mixing and paused effects passed");
+  memset(ram,0,sizeof(ram));reference_until(0x8c87,0x8c8b);CHECK(ram[0x47]==3);
+  for(unsigned lap=1;lap<5;++lap) {
+    FzeroSoundState cue;FzeroSoundInit(&cue,6);
+    FzeroVersusSnapshot v={.phase=FZERO_VS_RACING};
+    FzeroSoundTick(&cue,&v,true);
+    v.racers[0].completed_laps=(uint8_t)lap;
+    memset(ram,0,sizeof(ram));ram[0xf3b]=lap==4?0x6c:0x16;
+    for(unsigned tick=0;tick<110;++tick) {
+      ram[0x47]=0;reference(0xfa0f);
+      FzeroSoundCommands commands=FzeroSoundTick(&cue,&v,true);
+      CHECK((commands.ports[1]&0x40)==ram[0x47]);
+      CHECK(cue.lap_beep==ram[0xf3b]);
+    }
+  }
+  puts("sound: arrival pitch and normal/final-lap cue duration match original 8C87/FA0F");
 }
 
 static void test_transient_effects(void) {
@@ -1721,6 +1759,7 @@ int main(int argc, char **argv) {
   test_camera();
   test_display();
   test_player_display();
+  test_human_ranks();
   test_menu_alphabet();
   test_menu_spin();
   test_player_captures();

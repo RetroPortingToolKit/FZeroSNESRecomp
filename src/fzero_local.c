@@ -164,7 +164,7 @@ void FzeroLocalPrepareCourse(void) {
   setup_started=true;
 }
 void FzeroLocalCapture(void) {
-  if(!enabled || session || !setup_started || g_ram[0x54]!=2 || (g_ram[0x55]!=3 && !(fast_setup && g_ram[0x55]==2 && g_ram[0x56]==2)) ||
+  if(!enabled || session || !setup_started || g_ram[0x54]!=2 || (g_ram[0x55]!=3 && !(fast_setup && g_ram[0x55]==2 && g_ram[0x56]==1)) ||
       g_ram[0xc3] || !FzeroRendererHasFrame())return;
   FzeroActor spawns[2]={{0},{0}};
   for(unsigned i=0;i<2;++i) {
@@ -188,6 +188,7 @@ void FzeroLocalCapture(void) {
     FzeroVersusDestroy(candidate);FzeroVersusVideoDestroy(display);return;
   }
   session=candidate;video=display;
+  FzeroVersusVideoCourseHud(video,g_snes->ppu,g_ram);
   FzeroVersusReady(session,0,true);FzeroVersusReady(session,1,true);
   FzeroSoundInit(&sound,g_ram[0x46]);
   fprintf(stderr,"[local-versus] course=%u machines=%u,%u grid=%u,%u / %u,%u shared session ready\n",
@@ -212,7 +213,10 @@ bool FzeroLocalDrawCombined(uint32_t *native,uint32_t *hd,size_t capacity,FzeroV
 }
 void FzeroLocalPublish(void) {
   FzeroVersusVideoMenu(video,menu_selection,result_ticks);
-  if(video)(void)FzeroVersusVideoCapture(video,NULL,session,tables());
+  if(video) {
+    FzeroVersusVideoCourseHud(video,g_snes->ppu,g_ram);
+    (void)FzeroVersusVideoCapture(video,NULL,session,tables());
+  }
 }
 FzeroVersusConfig FzeroLocalConfig(void) {return config;}
 uint64_t FzeroLocalEpoch(void) {return epoch;}
@@ -234,13 +238,14 @@ static void content_identity(uint8_t hash[32]) {
 bool FzeroLocalSave(void *output,size_t size) {
   if(!enabled || !output || size!=FzeroLocalSaveSize())return false;
   uint8_t *p=output;memset(p,0,size);memcpy(p,"FZLOCAL2",8);
-  put32(p+8,5);put32(p+12,FZERO_VERSUS_RULES);put32(p+16,(uint32_t)size);
+  put32(p+8,6);put32(p+12,FZERO_VERSUS_RULES);put32(p+16,(uint32_t)size);
   put32(p+20,session?(FzeroVersusCompleted(session)->phase==FZERO_VS_RESULTS?result_ticks:0):setup_frame);
   p[24]=(uint8_t)config.course;p[25]=(uint8_t)(config.course>>8);p[26]=config.machine[0];p[27]=config.machine[1];
   p[28]=(uint8_t)(setup_started|(fast_setup?2:0));p[29]=session!=NULL;
   p[30]=sound.music;p[31]=sound.landing;
   p[32]=(uint8_t)((sound.phase==255?8:sound.phase)|(menu_selection<<4));
   p[33]=(uint8_t)menu_owner;
+  p[34]=sound.lap[0];p[35]=sound.lap[1];p[36]=sound.lap_beep;
   content_identity(p+48);
   return !session || FzeroVersusSave(session,p+LOCAL_HEADER,size-LOCAL_HEADER);
 }
@@ -248,12 +253,13 @@ static bool decode(const void *input,size_t size,FzeroVersus **candidate,FzeroVe
   if(!input || size!=FzeroLocalSaveSize())return false;
   const uint8_t *p=input;uint8_t identity[32];content_identity(identity);
   unsigned id=p[24]|(unsigned)p[25]<<8;
-  if(memcmp(p,"FZLOCAL2",8) || get32(p+8)!=5 || get32(p+12)!=FZERO_VERSUS_RULES ||
+  if(memcmp(p,"FZLOCAL2",8) || get32(p+8)!=6 || get32(p+12)!=FZERO_VERSUS_RULES ||
       get32(p+16)!=size || !FzeroLocalCourseLocation(id,NULL,NULL) || p[26]>=FZERO_MACHINE_COUNT || p[27]>=FZERO_MACHINE_COUNT ||
       p[28]>3 || p[29]>1 || (p[29] && !(p[28]&1)) || (p[30]&0x70) || p[31]>12 ||
       (p[32]&15)>8 || (p[32]>>4)>3 || memcmp(p+48,identity,32))return false;
   if(p[33]>2 || (p[33] && !p[29]))return false;
-  for(unsigned i=34;i<48;++i)if(p[i])return false;
+  if(p[34]>FZERO_VERSUS_LAPS || p[35]>FZERO_VERSUS_LAPS || p[36]>0x6c)return false;
+  for(unsigned i=37;i<48;++i)if(p[i])return false;
   *c=(FzeroVersusConfig){(uint16_t)id,{p[26],p[27]}};*candidate=NULL;
   if(p[29])return (*candidate=FzeroVersusDecode(p+LOCAL_HEADER,size-LOCAL_HEADER,tables(),c))!=NULL;
   for(size_t i=LOCAL_HEADER;i<size;++i)if(p[i])return false;
@@ -275,7 +281,8 @@ bool FzeroLocalRestore(const void *input,size_t size) {
   const uint8_t *p=input;setup_frame=session?0:get32(p+20);setup_started=(p[28]&1)!=0;fast_setup=(p[28]&2)!=0;
   result_ticks=session?get32(p+20):0;menu_selection=p[32]>>4;
   menu_owner=p[33];
-  sound=(FzeroSoundState){p[30],p[31],(p[32]&15)==8?255:p[32]&15};
+  sound=(FzeroSoundState){.music=p[30],.landing=p[31],.phase=(p[32]&15)==8?255:p[32]&15,
+      .lap={p[34],p[35]},.lap_beep=p[36]};
   interp_bridge_set_scheduler_aot_policy(0);
   interp_bridge_set_pre_opcode_hook(0x009f08,course_config);
   return true;

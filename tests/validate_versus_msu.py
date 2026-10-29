@@ -21,6 +21,7 @@ def main():
     for key in ('build', 'rom', 'packs', 'out'):
         p.add_argument('--' + key, type=Path, required=True)
     p.add_argument('--filter', default='')
+    p.add_argument('--jobs', type=int, choices=(1, 2, 3), default=3)
     a = p.parse_args()
     build, rom, packs, out = (getattr(a, key).resolve() for key in ('build', 'rom', 'packs', 'out'))
     out.mkdir(parents=True, exist_ok=False)
@@ -135,7 +136,7 @@ def main():
     for case in cases:
         if case['name'] == 'native':
             results.append(run(case))
-    with ThreadPoolExecutor(max_workers=3) as pool:
+    with ThreadPoolExecutor(max_workers=a.jobs) as pool:
         futures = [pool.submit(run, case) for case in cases if case['name'] != 'native']
         for future in futures:
             try:

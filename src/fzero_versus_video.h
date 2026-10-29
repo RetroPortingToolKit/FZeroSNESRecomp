@@ -4,6 +4,8 @@
 
 typedef struct FzeroVersusVideo FzeroVersusVideo;
 void FzeroVersusVideoLiveMenu(FzeroVersusVideo *video,unsigned owner);
+/* Capture the native single-player minimap upload and its marker offsets. */
+void FzeroVersusVideoCourseHud(FzeroVersusVideo *video,const Ppu *ppu,const uint8_t *ram);
 bool FzeroVersusVideoDrawCombined(FzeroVersusVideo *video,uint32_t *native,uint32_t *hd,size_t capacity,
     FzeroViewport viewport,double alpha,unsigned scale,int player);
 FzeroVersusVideo *FzeroVersusVideoCreate(void);

@@ -15,7 +15,35 @@ struct FzeroVersusVideo {
   FzeroNativeUi ui;
   bool valid, interpolate;
   unsigned menu_selection,result_ticks,menu_owner;
+  uint32_t minimap[32*64];
+  uint8_t map_marker[64];
+  int map_x,map_y;
+  bool map_valid;
 };
+void FzeroVersusVideoCourseHud(FzeroVersusVideo *v,const Ppu *ppu,const uint8_t *ram) {
+  if(!v || v->map_valid || !ppu || !ram)return;
+  /* Native $8892 uploads these 32 2bpp tiles to OBJ $1E0..$1FF.
+   * Read the actual expanded upload, including custom/Deluxe course art.
+   * OAM slots24..31 place its eight16x16 pieces at16,152. */
+  if((ram[0x262]|(unsigned)ram[0x263]<<8)%512!=0x1e0)return;
+  for(unsigned y=0;y<64;++y)for(unsigned x=0;x<32;++x) {
+    unsigned tile=y/16*4+(y/8%2)*16+x/8,color=0;
+    for(unsigned bit=0;bit<4;++bit)
+      color|=(ppu->vram[0x5e00+tile*16+y%8+bit/2*8]>>(7-x%8+bit%2*8)&1)<<bit;
+    unsigned w=ppu->cgram[128+color],r=w&31,g=w>>5&31,b=w>>10&31;
+    v->minimap[y*32+x]=color?0xff000000u|((r<<3|r>>2)<<16)|((g<<3|g>>2)<<8)|(b<<3|b>>2):0;
+  }
+  v->map_x=(int)(ram[0xad9]|(unsigned)ram[0xada]<<8)-16;
+  v->map_y=(int)(ram[0xadb]|(unsigned)ram[0xadc]<<8)-152;
+  unsigned attr=ram[0x252]|(unsigned)ram[0x253]<<8;
+  for(unsigned y=0;y<8;++y)for(unsigned x=0;x<8;++x) {
+    unsigned color=0;
+    for(unsigned bit=0;bit<4;++bit)
+      color|=(ppu->vram[0x4000+(attr&511)*16+y+bit/2*8]>>(7-x+bit%2*8)&1)<<bit;
+    v->map_marker[y*8+x]=color?(ppu->cgram[128+(attr>>9&7)*16+color]?2:1):0;
+  }
+  v->map_valid=true;
+}
 void FzeroVersusVideoLiveMenu(FzeroVersusVideo *v,unsigned owner) {if(v)v->menu_owner=owner;}
 FzeroVersusVideo *FzeroVersusVideoCreate(void) {
   FzeroVersusVideo *v=calloc(1,sizeof(*v));
@@ -135,6 +163,12 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     }
     order[at]=i;
   }
+  /* Native human OAM slots0..7 win over later CPU slots at equal priority.
+   * Preserve that ownership when a close following vehicle projects lower. */
+  for(unsigned i=0;i<2+FZERO_TRAFFIC_COUNT;++i)if(order[i]==pane) {
+    memmove(order+i,order+i+1,(1+FZERO_TRAFFIC_COUNT-i)*sizeof(*order));
+    order[1+FZERO_TRAFFIC_COUNT]=pane;break;
+  }
   for(unsigned n=0;n<2+FZERO_TRAFFIC_COUNT;++n) {
     unsigned i=order[n];bool npc=i>=2;
     const FzeroShip *ship=&v->ships[pane][i],*old=&v->old_ships[pane][i];
@@ -175,8 +209,13 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     if(s->racers[i].status!=FZERO_VS_FINISHED && s->racers[i].actor.speed>=0x400 && !(s->racers[i].actor.state&0x80))
       FzeroUiSpark(ui,canvas,ship->ground_x+viewport.extra,y+48,ship->size,s->racers[i].actor.animation_transition);
     if(s->racers[i].status!=FZERO_VS_FINISHED)FzeroUiContact(ui,canvas,ship->ground_x+viewport.extra,y+48,ship->size,s->racers[i].actor.effect_timer);
-    if(opacity==255)FzeroUiPlayerTag(ui,canvas,ship->ground_x+viewport.extra-8,y+2,i,ink[i]);
-    else {
+    /* Far-car labels must not paint across the native timer/power HUD. */
+    if(opacity==255 && y+2>=64) {
+      FzeroUiPlayerTag(ui,canvas,ship->ground_x+viewport.extra-8,y+2,i,ink[i]);
+      if(i!=pane)FzeroUiText(ui,canvas,ship->ground_x+viewport.extra+10,y+5,
+          FzeroVersusRank(s,i)==1?"1ST":"2ND",FZERO_UI_SMALL,ink[i]);
+    }
+    else if(opacity<255 && y+2>=64) {
       uint32_t label[16*16]={0};FzeroUiPlayerTag(ui,(FzeroUiCanvas){label,16,16,1},0,0,i,ink[i]);
       for(unsigned ly=0;ly<16;++ly)for(unsigned lx=0;lx<16;++lx)if(label[ly*16+lx])
         fade_rect(p,viewport,scale,ship->ground_x+viewport.extra-8+(int)lx,y+2+(int)ly,1,1,label[ly*16+lx],opacity);
@@ -196,6 +235,24 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
   FzeroUiRaceInstruments(ui,canvas,viewport.width-(ui->cgp_hud?136:112),0,r->actor.health,FzeroDisplaySpeed(r->actor.speed),s->tick);
   FzeroUiBoosts(ui,canvas,viewport.width-(ui->cgp_hud?16:48),ui->cgp_hud?8:208,r->actor.boosts,(r->actor.state&8)!=0);
   FzeroUiMachine(ui,canvas,viewport.width-80,204,r->actor.machine,true);
+  FzeroUiText(ui,canvas,8,45,"RANK",FZERO_UI_SMALL,ink[pane]);
+  snprintf(line,sizeof(line),"%u",FzeroVersusRank(s,pane));
+  FzeroUiText(ui,canvas,48,40,line,FZERO_UI_MENU,ink[pane]);
+  if(v->map_valid) {
+    for(unsigned y=0;y<64;++y)for(unsigned x=0;x<32;++x)
+      if(v->minimap[y*32+x])FzeroUiRect(canvas,16+(int)x,152+(int)y,1,1,v->minimap[y*32+x]);
+    /* Native $AA6C rotates world Y into map X and negates world X into Y.
+     * Draw the other marker first, preserving the native player's priority. */
+    for(unsigned n=0;n<2;++n) {
+      unsigned i=n?pane:1-pane;if(s->racers[i].status==FZERO_VS_DNF)continue;
+      const FzeroActor *a=&s->racers[i].actor;
+      int x=(((a->y/128&63)+v->map_x+16)&255),y=((v->map_y+152-(a->x/128&63))&255);
+      for(unsigned yy=0;yy<8;++yy)for(unsigned xx=0;xx<8;++xx) {
+        unsigned color=v->map_marker[yy*8+xx];
+        if(color)FzeroUiRect(canvas,x+(int)xx,y+(int)yy,1,1,color==1?0xff000000:ui->palette[ink[i]][3]);
+      }
+    }
+  }
   const char *message=NULL;
   if(s->phase==FZERO_VS_READY)message="READY";
   else if(s->phase==FZERO_VS_COUNTDOWN) {
@@ -212,19 +269,25 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     FzeroUiCenter(ui,canvas,76,message,FZERO_UI_MENU,ink[pane]);
   }
 }
-static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsigned scale,bool single) {
+static void menu(FzeroVersusVideo *v,uint32_t *out,FzeroViewport viewport,unsigned scale,int player) {
+  bool single=player>=0;
   const FzeroVersusSnapshot *s=&v->state;
   if(s->phase!=FZERO_VS_RESULTS) {
     if(!v->menu_owner)return;
     FzeroUiCanvas c={out,viewport.width*(int)scale,(single?224:448)*(int)scale,scale};
-    const FzeroNativeUi *ui=&v->ui;int center=viewport.width/2,top=single?20:132;
+    const FzeroNativeUi *ui=&v->ui;
+    /* Keep the live menu compact, inside its operator's own pane.
+     * Reuse the native small alphabet and original frame artwork. */
+    unsigned owner=v->menu_owner-1;
+    if(single && owner!=(unsigned)player)return;
+    int left=viewport.width-184,top=single?4:4+(int)owner*224;
     static const char *labels[]={"CONTINUE","RESTART RACE","CHANGE RACE","MAIN MENU"};
-    FzeroUiFrame(ui,c,center-112,top,224,184);
-    FzeroUiCenter(ui,c,top+12,"RACE CONTINUES",FZERO_UI_MENU,FZERO_UI_YELLOW);
+    FzeroUiFrame(ui,c,left,top,176,72);
+    FzeroUiText(ui,c,left+8,top+8,"RACE CONTINUES",FZERO_UI_SMALL,FZERO_UI_YELLOW);
     for(unsigned i=0;i<4;++i) {
-      int y=top+52+(int)i*28;bool selected=i==v->menu_selection;
-      if(selected)FzeroUiTile(ui,c,center-96,y+4,0x2f,FZERO_UI_YELLOW,true,false);
-      FzeroUiText(ui,c,center-80,y,labels[i],FZERO_UI_MENU,selected?FZERO_UI_YELLOW:FZERO_UI_CYAN);
+      int y=top+24+(int)i*10;bool selected=i==v->menu_selection;
+      if(selected)FzeroUiTile(ui,c,left+8,y,0x2f,FZERO_UI_YELLOW,true,false);
+      FzeroUiText(ui,c,left+24,y,labels[i],FZERO_UI_SMALL,selected?FZERO_UI_YELLOW:FZERO_UI_CYAN);
     }
     return;
   }
@@ -273,7 +336,7 @@ bool FzeroVersusVideoDraw(FzeroVersusVideo *v,uint32_t *out,size_t capacity,Fzer
   }
   FzeroUiRect((FzeroUiCanvas){out,viewport.width*(int)scale,448*(int)scale,scale},
       0,223,viewport.width,1,0xff000000);
-  menu(v,out,viewport,scale,false);
+  menu(v,out,viewport,scale,-1);
   return true;
 }
 bool FzeroVersusVideoDrawPlayer(FzeroVersusVideo *v,uint32_t *out,size_t capacity,
@@ -285,7 +348,7 @@ bool FzeroVersusVideoDrawPlayer(FzeroVersusVideo *v,uint32_t *out,size_t capacit
   bool ok=scale==1?FzeroRenderViewDraw(v->views[player],out,viewport,alpha):
       FzeroRenderViewDrawPresentation(v->views[player],NULL,out,count,viewport,alpha,scale);
   if(!ok)return false;
-  overlay(v,out,viewport,player,alpha,scale);menu(v,out,viewport,scale,true);return true;
+  overlay(v,out,viewport,player,alpha,scale);menu(v,out,viewport,scale,(int)player);return true;
 }
 
 bool FzeroVersusVideoDrawCombined(FzeroVersusVideo *v,uint32_t *native,uint32_t *hd,size_t capacity,
@@ -307,5 +370,5 @@ bool FzeroVersusVideoDrawCombined(FzeroVersusVideo *v,uint32_t *native,uint32_t 
     FzeroUiRect((FzeroUiCanvas){hd,viewport.width*(int)scale,448*(int)scale,scale},0,223,viewport.width,1,0xff000000);
     if(native)FzeroUiRect((FzeroUiCanvas){native,viewport.width,448,1},0,223,viewport.width,1,0xff000000);
   }
-  menu(v,hd,viewport,scale,single);if(native)menu(v,native,viewport,1,single);return true;
+  menu(v,hd,viewport,scale,player);if(native)menu(v,native,viewport,1,player);return true;
 }

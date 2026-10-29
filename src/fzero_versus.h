@@ -42,6 +42,8 @@ typedef struct FzeroVersusSnapshot {
   uint32_t countdown;
   uint8_t phase, pause, ready, contact, winner;
 } FzeroVersusSnapshot;
+/* Native $E8E4 lap/checkpoint ordering, restricted to the two human racers. */
+unsigned FzeroVersusRank(const FzeroVersusSnapshot *race,unsigned player);
 
 /* world is the stock course prepared by the guest; spawns are distinct stock
  * grid slots. It is copied once, and never read from a live guest during ticks.
