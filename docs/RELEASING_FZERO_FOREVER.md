@@ -29,12 +29,12 @@ Use the plain version without a `fzero-55-preview` label.
 
 ## Current release
 
-The current local tester bundles are **0.12.0**: native multiplayer minimaps,
-human ranks, lap/final-lap cues and corrected arrival audio, with a compact
-operator-only live menu and clearer course lettering. Both variants retain
+The current local tester bundles are **0.12.1**: native multiplayer lap/boost
+visuals and corrected Quick Save/Load shortcut capture, in addition to the
+0.12.0 minimaps, human ranks, sounds and compact live menu. Both variants retain
 per-pack music, prebuilt portable course caches and the qualified native runtime.
-Next fixes are 0.12.1; new features are 0.13.0.
-Tracked by `beads-8wg.5.114`; feedback work is `beads-iiw8`.
+Next fixes are 0.12.2; new features are 0.13.0.
+Tracked by `beads-8wg.5.115`; feedback work is `beads-iiw8`.
 
 ## Preparing a release
 

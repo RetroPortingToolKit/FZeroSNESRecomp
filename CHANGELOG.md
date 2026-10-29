@@ -1,5 +1,16 @@
 ﻿# Changelog
 
+## 0.12.1 - Lap visuals and shortcut binding fixes
+
+- Restore the original S OK boost-ready graphic, remaining-laps banner and
+  flashing FINAL LAP banner independently for each VS racer, including
+  widescreen and current-build save/load, rewind and rollback timing.
+- Fix Quick Save/Load controller and keyboard binding so shortcuts no longer
+  overwrite Up. Preserve bindings across launcher restarts; cancellation and
+  clearing work with the native gameplay button mapper.
+- Keep the existing course packs, per-course MSU filenames, credits and
+  prebuilt course caches in both tester editions.
+
 ## 0.12.0 - Native multiplayer HUD and feedback
 
 - Show each human's race rank, the other car's place, and both markers on the

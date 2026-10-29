@@ -21,7 +21,7 @@ See [pack authoring and music](docs/PACK_FORMAT.md) for JSON manifests,
 raw FZEdit exports, extracted course resources and separate audio packs.
 [Mods and source-game differences](MODS.md) describes scoped mechanics.
 
-The current local tester release is **0.12.0**. Future fixes advance the patch
+The current local tester release is **0.12.1**. Future fixes advance the patch
 version; new features advance the minor version. All bundle variants share
 that version. See [the release policy](docs/RELEASING_FZERO_FOREVER.md).
 
