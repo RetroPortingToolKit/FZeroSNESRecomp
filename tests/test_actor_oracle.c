@@ -837,6 +837,62 @@ static void player_reference_pixels(uint32_t out[4096],unsigned machine,int orig
     }
   }
 }
+static void test_menu_alphabet(void) {
+  static FzeroNativeUi ui;
+  CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL,0}));
+  for(unsigned ink=0;ink<4;++ink)for(unsigned scale=1;scale<=2;++scale)
+    for(unsigned n=0;n<26;++n) {
+      uint32_t pixels[32*32]={0};
+      char label[]={(char)('a'+n),0};
+      FzeroUiText(&ui,(FzeroUiCanvas){pixels,16*(int)scale,16*(int)scale,scale},
+          0,0,label,FZERO_UI_MENU,(FzeroUiInk)ink);
+      for(unsigned y=0;y<16;++y)for(unsigned x=0;x<16;++x) {
+        unsigned color=0;
+        if(x<8) {
+          /* Independently read the native bitplanes. Preserve the other 23
+           * tall letters (including Q), and verify that K/X/Z follow the
+           * complete records silhouettes with the tall I's scanline shading. */
+          bool extended=n=='K'-'A' || n=='X'-'A' || n=='Z'-'A';
+          unsigned id=extended?8+y/8*16:n/16*32+n%16+y/8*16;
+          unsigned row=y%8,column=x;
+          if(extended) {
+            bool center=y>0 && y<15 && (rom[0x75ea0+n*16+(y-1)/2*2+1]>>(7-x)&1),edge=false;
+            for(int yy=(int)y-1;yy<=(int)y+1;++yy)for(int xx=(int)x-1;xx<=(int)x+1;++xx)
+              if(yy>0 && yy<15 && xx>=0 && xx<8 && (rom[0x75ea0+n*16+(yy-1)/2*2+1]>>(7-xx)&1))edge=true;
+            column=center?2:1;
+            if(!edge)column=8;
+          }
+          const uint8_t *source=rom+0x76800+id*24;
+          if(column<8)color=(source[row*2]>>(7-column)&1) | (source[row*2+1]>>(7-column)&1)<<1 |
+              (source[16+row]>>(7-column)&1)<<2;
+        }
+        uint32_t expected=color && (ui.palette[ink][color]&0xffffff)?ui.palette[ink][color]:0;
+        for(unsigned sy=0;sy<scale;++sy)for(unsigned sx=0;sx<scale;++sx)
+          CHECK(pixels[(y*scale+sy)*16*scale+x*scale+sx]==expected);
+      }
+    }
+  CHECK(memcmp(ui.menu_letters['X'-'A'],ui.tiles[0x27],64));
+  CHECK(memcmp(ui.menu_letters['Z'-'A'],ui.tiles[0x29],64));
+  const char *dump=getenv("FZERO_TEST_ALPHABET_DUMP");
+  if(dump) {
+    static uint32_t pixels[256*224];FzeroUiCanvas c={pixels,256,224,1};
+    FzeroUiCenter(&ui,c,8,"SELECT COURSE",FZERO_UI_MENU,FZERO_UI_YELLOW);
+    FzeroUiFrame(&ui,c,8,32,240,184);
+    FzeroUiText(&ui,c,24,48,"TENTH ZONE EAST SNAKE",FZERO_UI_MENU,FZERO_UI_CYAN);
+    FzeroUiText(&ui,c,24,80,"SYMBORZZ EXPLOSIVE",FZERO_UI_MENU,FZERO_UI_GREY);
+    FzeroUiText(&ui,c,24,112,"QUEEN LEAGUE",FZERO_UI_MENU,FZERO_UI_CYAN);
+    FzeroUiText(&ui,c,24,144,"ABCDEFGHIJKLM",FZERO_UI_MENU,FZERO_UI_CYAN);
+    FzeroUiText(&ui,c,24,168,"NOPQRSTUVWXYZ",FZERO_UI_MENU,FZERO_UI_CYAN);
+    FzeroUiText(&ui,c,24,196,"0123456789",FZERO_UI_MENU,FZERO_UI_YELLOW);
+    FILE *f=fopen(dump,"wb");CHECK(f);fprintf(f,"P6\n256 224\n255\n");
+    for(unsigned n=0;n<256*224;++n) {
+      uint8_t rgb[3]={(uint8_t)(pixels[n]>>16),(uint8_t)(pixels[n]>>8),(uint8_t)pixels[n]};
+      CHECK(fwrite(rgb,3,1,f)==1);
+    }
+    CHECK(!fclose(f));
+  }
+  puts("menu alphabet: all 26 letters match native sources at 1x/2x in all four palettes; clear K/X/Z retained");
+}
 static void test_menu_spin(void) {
   static FzeroNativeUi title_ui;
   CHECK(FzeroNativeUiInit(&title_ui,(FzeroActorTables){rom_read,NULL,0}));
@@ -1665,6 +1721,7 @@ int main(int argc, char **argv) {
   test_camera();
   test_display();
   test_player_display();
+  test_menu_alphabet();
   test_menu_spin();
   test_player_captures();
   test_sound();

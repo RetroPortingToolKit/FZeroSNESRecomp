@@ -7,6 +7,7 @@
 typedef struct FzeroNativeUi {
   uint8_t tiles[256][64], hud[56][64], machines[FZERO_MACHINE_COUNT][24*16];
   uint8_t menu_machines[FZERO_MACHINE_COUNT][40*24];
+  uint8_t menu_letters[26][128];
   uint8_t numbers[10][128], objects[256][64];
   uint16_t hud_map[128];
   uint32_t hud_palette[4][4];

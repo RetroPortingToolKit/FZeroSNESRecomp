@@ -34,6 +34,27 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
   /* $03:98EE expands these 256 three-plane menu tiles to native VRAM.
    * $03:8BD5 installs the four matching menu palettes. */
   for(unsigned i=0;i<256;++i)decode(ui->tiles[i],t,0x0ee800+i*24,3);
+  for(unsigned n=0;n<26;++n)for(unsigned half=0;half<2;++half)
+    memcpy(ui->menu_letters[n]+half*64,ui->tiles[n/16*32+n%16+half*16],64);
+  /* The tall cartridge K/X read as H, and Z has the hooked shape of 2.
+   * Use the complete native records alphabet for these silhouettes, doubling
+   * its seven rows inside the menu's shaded outline. I supplies the exact
+   * native outline/fill colors on each scanline, for every menu palette.
+   * Keep the raw atlas intact: information cards and frame tiles share it. */
+  static const unsigned clear_letters[]={'K','X','Z'};
+  for(unsigned i=0;i<sizeof(clear_letters)/sizeof(*clear_letters);++i) {
+    unsigned n=clear_letters[i]-'A';uint8_t source[64],stroke[16][8]={0};
+    decode(source,t,0x0edea0+n*16,2);
+    for(unsigned y=1;y<15;++y)for(unsigned x=0;x<8;++x)
+      stroke[y][x]=(source[(y-1)/2*8+x]&2)!=0;
+    for(int y=0;y<16;++y)for(int x=0;x<8;++x) {
+      bool edge=false;
+      for(int dy=-1;dy<=1;++dy)for(int dx=-1;dx<=1;++dx)
+        if(y+dy>=0 && y+dy<16 && x+dx>=0 && x+dx<8 && stroke[y+dy][x+dx])edge=true;
+      const uint8_t *shade=ui->tiles[8+y/8*16]+(y%8)*8;
+      ui->menu_letters[n][y*8+x]=stroke[y][x]?shade[2]:edge?shade[1]:0;
+    }
+  }
   for(unsigned p=0;p<4;++p)for(unsigned i=0;i<8;++i)
     ui->palette[p][i]=rgb(word(t,0x0ee100+p*32+i*2));
   /* $00:A6A3 uploads the original two-plane race digits, gauge and symbols. */
@@ -275,7 +296,7 @@ void FzeroUiText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char 
   for(unsigned i=0;i<8;++i)colors[i]=(ui->palette[ink][i]&0x00ffffff)?ui->palette[ink][i]:0;
   colors[0]=0;
   for(;*s;++s,x+=8) {
-    unsigned ch=(unsigned)toupper((unsigned char)*s),id=0xff;
+    unsigned ch=(unsigned)toupper((unsigned char)*s);
     if(ch==' ')continue;
     if(font!=FZERO_UI_MENU) {
       if(ch>='0' && ch<='9') {
@@ -284,7 +305,7 @@ void FzeroUiText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char 
         FzeroUiHudTile(ui,c,x,y,ch-'0',ink,false);
       }
       else if(ch>='A' && ch<='Z') {
-        id=ch=='A'?0xaf:ch=='B'?0xbf:ch=='M'?0xcf:ch=='N'?0xce:0xc4+ch-'C';
+        unsigned id=ch=='A'?0xaf:ch=='B'?0xbf:ch=='M'?0xcf:ch=='N'?0xce:0xc4+ch-'C';
         tile(ui->tiles[id],colors,c,x,y,false,false);
       } else if(ch==':') {
         FzeroUiRect(c,x+3,y+2,1,1,ui->palette[ink][2]);FzeroUiRect(c,x+3,y+5,1,1,ui->palette[ink][2]);
@@ -294,15 +315,17 @@ void FzeroUiText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char 
       } else if(ch=='-')FzeroUiRect(c,x+1,y+3,5,1,ui->palette[ink][2]);
       continue;
     }
-    if(ch>='A' && ch<='Z') {unsigned n=ch-'A';id=n/16*32+n%16;}
+    if(ch>='A' && ch<='Z') {
+      const uint8_t *glyph=ui->menu_letters[ch-'A'];
+      tile(glyph,colors,c,x,y,false,false);tile(glyph+64,colors,c,x,y+8,false,false);
+      continue;
+    }
     else if(ch>='0' && ch<='9') {
       const uint8_t *pixels=ui->numbers[ch-'0'];
       for(unsigned row=0;row<16;++row)for(unsigned col=0;col<8;++col)
         if(colors[pixels[row*8+col]])FzeroUiRect(c,x+(int)col,y+(int)row,1,1,colors[pixels[row*8+col]]);
       continue;
     }
-    if(id==0xff)continue;
-    tile(ui->tiles[id],colors,c,x,y,false,false);tile(ui->tiles[id+16],colors,c,x,y+8,false,false);
   }
 }
 void FzeroUiCenter(const FzeroNativeUi *ui,FzeroUiCanvas c,int y,const char *s,FzeroUiFont font,FzeroUiInk ink) {
@@ -623,9 +646,9 @@ void FzeroUiMachineSelectScroll(const FzeroNativeUi *ui,FzeroUiCanvas c,unsigned
     FzeroUiRect(c,left+112,30,120,18,0xff000000);
     const char *name=FzeroMachineName(machine);int x=left+172-(int)strlen(name)*4;
     for(;*name;++name,x+=8)if(*name>='A' && *name<='Z') {
-      unsigned n=(unsigned)(*name-'A'),id=n/16*32+n%16;
-      tile(ui->tiles[id],ui->information_palette[machine],c,x,31,false,false);
-      tile(ui->tiles[id+16],ui->information_palette[machine],c,x,39,false,false);
+      const uint8_t *glyph=ui->menu_letters[*name-'A'];
+      tile(glyph,ui->information_palette[machine],c,x,31,false,false);
+      tile(glyph+64,ui->information_palette[machine],c,x,39,false,false);
     } else if(*name=='.') {
       uint32_t colors[16]={0};colors[2]=colors[3]=ui->information_palette[machine][2];
       tile(ui->objects[0xa8],colors,c,x,31,false,false);
