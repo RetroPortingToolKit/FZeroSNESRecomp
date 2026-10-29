@@ -156,6 +156,7 @@ static uint64_t logic_hash(void) {
 }
 #include "../tests/fzero_local_catalog_test.h"
 #include "../tests/fzero_feedback_test.h"
+#include "../tests/fzero_lap_cues_test.h"
 
 static uint8_t *read_rom(const char *path, size_t *size_out,
                          uint8_t hash[32]) {
@@ -856,6 +857,7 @@ int main(int argc, char **argv) {
     }
     FzeroCaptureAfter();
     if(!feedback_check())return 10;
+    if(!lap_cues_check(frame))return 10;
     if(FzeroCaptureReplayFailed())return 11;
     /* Private UI regressions need the final composed frame, including host
      * course/records labels which are absent from the raw PPU captures. */

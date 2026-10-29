@@ -28,6 +28,10 @@ static uint32_t FzeroLocalTeleportFixture(FzeroVersus *session) {
     a->health=0x800;a->height=0x400;a->height_velocity=a->spin=a->no_control=0;
     a->state=0;a->recovery_active=0;
     if(i!=player)continue;
+    /* Presentation qualification holds each naturally awarded lap long
+     * enough to observe the native notice's complete display/flash period. */
+    if(getenv("FZERO_TEST_LAP_CUES") && race->racers[i].completed_laps &&
+        race->race_tick-race->racers[i].lap_start<180)continue;
     a->facing=a->momentum=(uint16_t)a->next_checkpoint_angle<<8;
     /* Stay on the strip for both halves even if native backwards boundary
      * sampling repays one surplus gate during the teleport approach. */

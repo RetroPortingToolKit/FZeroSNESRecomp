@@ -139,6 +139,15 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
   for(unsigned i=0;i<32 && byte(t,0xcd2e +i);++i) {
     ui->crash_text[i]=(uint8_t)byte(t,0xcd2e +i);++ui->crash_length;
   }
+  /* $ADE4 selects $AFF8's native message records. Bit4 is laps remaining;
+   * bit3 is FINAL LAP. Keep their OBJ alphabet, spaces and original alignment. */
+  for(unsigned final=0;final<2;++final) {
+    unsigned record=0xaffa+byte(t,0xafee + (final?3:4));
+    ui->lap_x[final]=(uint8_t)byte(t,record);
+    for(unsigned i=0;i<sizeof(ui->lap_text[final]) && byte(t,record+2+i);++i) {
+      ui->lap_text[final][i]=(uint8_t)byte(t,record+2+i);++ui->lap_length[final];
+    }
+  }
   for(unsigned i=0;i<8;++i) {
     unsigned at=0x0fc200+i*4;
     ui->sparks[i].x=(int)(int8_t)byte(t,at);ui->sparks[i].y=(int)(int8_t)byte(t,at+1);
@@ -416,6 +425,29 @@ void FzeroUiCrashOut(const FzeroNativeUi *ui,FzeroUiCanvas c,int y) {
     unsigned id=ui->crash_text[n];if(id==255)continue;
     tile(ui->objects[id],ui->crash_palette,c,x,y,false,false);
     tile(ui->objects[(id+16)&255],ui->crash_palette,c,x,y+8,false,false);
+  }
+}
+void FzeroUiLapNotice(const FzeroNativeUi *ui,FzeroUiCanvas c,unsigned completed,
+    uint64_t age,bool boost_awarded) {
+  if(!ui || !ui->valid || !c.scale || !completed || completed>=5)return;
+  int extra=(c.width/(int)c.scale-256)/2;
+  bool final=completed==4;
+  /* $AE5F holds the ordinary banner for128 ticks. $AEE3 holds FINAL LAP
+   * for160, hiding at countdown low bits10 and showing again at0. */
+  if((!final && age<128) || (final && age<160 && age%32<22)) {
+    for(unsigned n=0;n<ui->lap_length[final];++n) {
+      unsigned id=ui->lap_text[final][n];if(id==255)continue;
+      if(!final && !n)id=0x85-completed; /* $AE6C's laps-left digit. */
+      int x=extra+ui->lap_x[final]+(int)n*8;
+      tile(ui->objects[id],ui->crash_palette,c,x,72,false,false);
+      tile(ui->objects[(id+16)&255],ui->crash_palette,c,x,80,false,false);
+    }
+  }
+  /* $C782 installs two16x16 S OK objects, removing them when $CFE reaches1.
+   * A full stock boost inventory must not claim another boost was awarded. */
+  if(boost_awarded && age<31) {
+    pit_object(ui,c,extra,112,132,0x6c,0x31,16);
+    pit_object(ui,c,extra,128,132,0xa6,0x31,16);
   }
 }
 void FzeroUiSpark(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned distance,uint8_t phase) {

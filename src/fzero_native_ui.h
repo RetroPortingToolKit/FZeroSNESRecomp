@@ -24,6 +24,7 @@ typedef struct FzeroNativeUi {
   uint32_t crash_palette[16];
   uint8_t crash_text[32];
   unsigned crash_length;
+  uint8_t lap_text[2][24],lap_length[2],lap_x[2];
   struct {int x,y;unsigned tile,attr;} sparks[8];
   uint32_t palette[4][8], machine_palette[2][FZERO_MACHINE_COUNT][16];
   uint16_t information[4][1024];
@@ -67,6 +68,10 @@ void FzeroUiPlayerTag(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsign
 void FzeroUiRaceClock(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *clock);
 void FzeroUiRaceInstruments(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,uint16_t health,unsigned speed,uint64_t tick);
 void FzeroUiBoosts(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned count,bool active);
+/* Original remaining-laps/final-lap banner and S OK award, in simulation ticks
+ * since the validated crossing. No wall clock or renderer-owned event state. */
+void FzeroUiLapNotice(const FzeroNativeUi *ui,FzeroUiCanvas c,unsigned completed,
+    uint64_t age,bool boost_awarded);
 void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text,bool dim);
 
 /* A complete native machine pane, independent of participant count/layout.

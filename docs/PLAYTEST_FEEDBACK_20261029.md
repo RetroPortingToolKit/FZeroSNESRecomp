@@ -84,3 +84,37 @@ hidden and muted, with isolated settings/saves. No owner profile is modified.
 The exact intermittent audio dropout and oversized-object reports remain
 unconfirmed. Physical-controller/Steam acceptance from the earlier burndown is
 also separate; these automated checks do not establish it.
+
+## Follow-up: native lap visuals and shortcut capture
+
+The earlier lap port covered sound only. VS now also draws the cartridge's
+remaining-laps banner, flashing FINAL LAP banner and S OK boost-award graphic
+independently for each racer. Artwork, alignment, remaining-lap digits and
+show/hide timing come from the original `$ADE4`/`$C782` implementation. Nothing
+is displayed before completing a lap or after that racer finishes/crashes.
+Full boost inventory suppresses S OK as in the original. No voice assets added.
+
+The accepted crossing records whether it awarded a boost; that one-byte fact
+is serialized with the racer (VS rules11). Notice timing uses the saved lap
+start tick, without a wall clock or presentation event queue. Older disposable
+states are rejected; current-build rewind/rollback preserve the notification.
+
+Private evidence: `captures/lap-cues-20261029`. The independent original-CPU
+oracle compares 1,440 frames of exact OBJ output, including every flash boundary,
+expiry and digit, at native size and centered widescreen2x. Real ordered-gate
+teleports through stock course0 and Astra15 exercise all20 selected notice
+boundaries for both players, through their actual composed views; both racers
+finish. Astra save/load and the actual rewind ring reproduce ten frames across
+the final-lap hide boundary identically (RAM, SPC RAM, clock and race hash).
+The first Astra fixture stopped102 frames short of its second finish; its
+notice checks passed, and extending the fixture budget confirmed both finishes.
+
+The additional Quick Save/Load binding report was a shared recomp-ui routing
+bug: named shortcuts were displayed for native gameplay binding providers, but
+SDL input capture still required launcher-owned gameplay bindings. It fell
+through to action0/Up. The UI pin now routes both keyboard and controller
+shortcut capture by the named capture target, retaining the gameplay mapper.
+Model capture/commit/reload checks pass with both provider types. The real
+F-Zero launcher captures button2, trigger4, F5 and F6 into the named shortcuts
+while leaving native keyboard Up unchanged. Shared upstream PR:
+https://github.com/RetroPortingToolKit/recomp-ui/pull/123.

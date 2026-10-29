@@ -615,7 +615,7 @@ static void test_session_finishes(void) {
     FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
     const FzeroVersusSnapshot *v=FzeroVersusCompleted(s);
     bool one_finished=false,pending_seen=false;FzeroActor terminal={0};unsigned finished_player=0;
-    unsigned waypoint[2]={0};
+    unsigned waypoint[2]={0},laps[2]={0};
     for (unsigned i=0;i<24000 && v->phase!=FZERO_VS_RESULTS;++i) {
       /* Drive only ordinary pad words around an explicit synthetic rectangle;
        * no actor pose, gate, lap, time or terminal state is injected. */
@@ -638,6 +638,10 @@ static void test_session_finishes(void) {
         held[player]=(uint16_t)(0x8000|(error>1 && error<96?0x100:error>96 && error<191?0x200:0));
       }
       CHECK(FzeroVersusTick(s,held));
+      for(unsigned player=0;player<2;++player)if(laps[player]!=v->racers[player].completed_laps) {
+        const FzeroVersusRacer *r=&v->racers[player];laps[player]=r->completed_laps;
+        CHECK(r->lap_boost==(laps[player]<4)); /* No boosts spent: capped at3. */
+      }
       if (pending_seen) {
         CHECK(FzeroVersusTick(copy,held));
         if(i%120==0) CHECK(FzeroVersusHash(s)==FzeroVersusHash(copy));
@@ -1246,6 +1250,40 @@ static void test_native_hud(void) {
   }
   puts("native HUD: all2049 power levels match AA97 boundary/outline tiles, clock OAM and all available/burning/spent boost states match native output (text black backing omitted)");
 }
+static void test_native_lap_notices(void) {
+  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,NULL,original_profiles}));
+  static uint32_t actual[256*224],expected[256*224],wide[384*224*4];
+  for(unsigned completed=1;completed<5;++completed)for(unsigned boost=0;boost<2;++boost) {
+    memset(ram,0,sizeof(ram));
+    for(unsigned slot=0;slot<128;++slot)ram[0x201+slot*4]=240;
+    ram[0xb8]=completed==4?8:16;ram[0xbc]=255;ram[0xd40]=(uint8_t)completed;
+    ram[0xcfe]=boost?32:0;
+    for(unsigned age=0;age<180;++age) {
+      reference(0xade4);reference(0xc782);
+      memset(actual,0,sizeof(actual));memset(expected,0,sizeof(expected));
+      for(unsigned slot=0;slot<20;++slot)paint_native_obj(expected,&ui,slot,slot>=18?16:8,0);
+      FzeroUiLapNotice(&ui,(FzeroUiCanvas){actual,256,224,1},completed,age,boost!=0);
+      if(memcmp(actual,expected,sizeof(actual))) {
+        fprintf(stderr,"native lap notice mismatch completed=%u age=%u boost=%u timer=%u\n",completed,age,boost,ram[0xbb]);
+        CHECK(false);
+      }
+      /* The identical native pixels remain centered, unclipped and at the
+       * same scale in widescreen, independently of each player's pane. */
+      memset(wide,0,sizeof(wide));
+      FzeroUiLapNotice(&ui,(FzeroUiCanvas){wide,384*2,224*2,2},completed,age,boost!=0);
+      for(unsigned y=0;y<224;++y)for(unsigned x=0;x<384;++x) {
+        uint32_t pixel=x>=64 && x<320?expected[y*256+x-64]:0;
+        for(unsigned dy=0;dy<2;++dy)for(unsigned dx=0;dx<2;++dx)
+          CHECK(wide[(y*2+dy)*768+x*2+dx]==pixel);
+      }
+    }
+  }
+  memset(actual,0,sizeof(actual));
+  FzeroUiLapNotice(&ui,(FzeroUiCanvas){actual,256,224,1},0,0,true);
+  FzeroUiLapNotice(&ui,(FzeroUiCanvas){actual,256,224,1},5,0,true);
+  for(unsigned i=0;i<COUNT(actual);++i)CHECK(!actual[i]);
+  puts("native lap notices:1440 frames match ADE4/C782 OBJ pixels, remaining-lap digits, FINAL LAP flash cadence, S OK expiry and centered widescreen2x; no start/finish notices");
+}
 static void test_native_flash_colors(void) {
   static const unsigned surface[]={25,26,39};
   for(unsigned sample=0;sample<1000;++sample) {
@@ -1766,6 +1804,7 @@ int main(int argc, char **argv) {
   test_sound();
   test_transient_effects();
   test_native_hud();
+  test_native_lap_notices();
   test_native_flash_colors();
   test_stock_pits();
   test_native_pit_art();

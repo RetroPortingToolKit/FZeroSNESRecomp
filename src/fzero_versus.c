@@ -146,6 +146,7 @@ static void progress(FzeroVersus *s,unsigned player,int gates) {
   uint64_t crossed=r->crossing_tick;r->crossing_tick=0;r->gates-=s->world[0xad]+1;
   r->lap_ticks[r->completed_laps++]=crossed-r->lap_start;
   r->lap_start=crossed;a->lap=(uint8_t)(r->completed_laps+1);
+  r->lap_boost=(uint8_t)(r->completed_laps<FZERO_VERSUS_LAPS && a->boosts<3);
   if (r->completed_laps==FZERO_VERSUS_LAPS) {
     r->status=FZERO_VS_FINISHED;r->finish_tick=crossed;*a=r->crossing_pose;
     a->lap=FZERO_VERSUS_LAPS+1;a->held=a->pressed=a->released=0;
@@ -263,6 +264,7 @@ static size_t codec(Stream *x,const FzeroVersus *source,FzeroVersus *target) {
     bits=(uint32_t)scalar(x,bits,4);
     if (target) target->state.racers[i].gates=bits<=INT32_MAX?(int32_t)bits:-1-(int32_t)(UINT32_MAX-bits);
     S(state.racers[i].status,1);S(state.racers[i].completed_laps,1);S(state.racers[i].started,1);
+    S(state.racers[i].lap_boost,1);
     uint64_t hit=scalar(x,source?source->state.mines[i].hit:0,1);
     if (target) { if(hit>1)x->invalid=true;target->state.mines[i].hit=hit!=0; }
     S(state.mines[i].x,2);S(state.mines[i].y,2);S(state.mines[i].surface_id,1);
@@ -315,7 +317,9 @@ static bool valid(const FzeroVersus *s) {
     const FzeroVersusRacer *r=&v->racers[i];
     int32_t limit=((int32_t)s->world[0xad]+1)*6;
     if (!actor_valid(&s->spawns[i],s,i) || !actor_valid(&r->actor,s,i) || r->status>FZERO_VS_SURVIVED ||
-        r->completed_laps>FZERO_VERSUS_LAPS || r->started>1 || r->gates< -limit || r->gates>limit ||
+        r->completed_laps>FZERO_VERSUS_LAPS || r->started>1 || r->lap_boost>1 ||
+        (r->lap_boost && (!r->completed_laps || r->completed_laps==FZERO_VERSUS_LAPS)) ||
+        r->gates< -limit || r->gates>limit ||
         r->lap_start>v->race_tick || r->finish_tick>v->race_tick ||
         r->crossing_tick>v->race_tick ||
         (r->crossing_tick && (r->crossing_tick<r->lap_start || !r->started ||

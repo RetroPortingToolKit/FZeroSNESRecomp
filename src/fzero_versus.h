@@ -5,10 +5,10 @@
 
 /* A single game-owned authoritative race. Presentation and host device state
  * are deliberately absent. All time is measured in FZERO_SIMULATION_HZ ticks.
- * Rule 9: all twelve authored CGP profiles and shared native bumper traffic.
+ * Rule11: retain each lap's native boost-award notice across restore/rollback.
  * Two humans, five laps, movement then stable-ID contacts; never pauses.
  * This is a new simulation profile, not a claim of stock whole-frame parity. */
-#define FZERO_VERSUS_RULES 10u
+#define FZERO_VERSUS_RULES 11u
 #define FZERO_VERSUS_LAPS 5u
 #define FZERO_VERSUS_ARRIVAL 68u
 #define FZERO_VERSUS_REV_COUNTDOWN 180u
@@ -27,7 +27,7 @@ typedef struct FzeroVersusRacer {
    * DNF and SURVIVED must never be displayed/recorded as a completed race. */
   uint64_t finish_tick, lap_start, lap_ticks[FZERO_VERSUS_LAPS], crossing_tick;
   int32_t gates;
-  uint8_t status, completed_laps, started;
+  uint8_t status, completed_laps, started, lap_boost;
 } FzeroVersusRacer;
 
 /* Race completion counts the remaining field, rather than reacting to the

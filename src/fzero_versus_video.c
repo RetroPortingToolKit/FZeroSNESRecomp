@@ -254,6 +254,8 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     }
   }
   const char *message=NULL;
+  if(s->phase==FZERO_VS_RACING && r->status==FZERO_VS_ACTIVE)
+    FzeroUiLapNotice(ui,canvas,r->completed_laps,s->race_tick-r->lap_start,r->lap_boost!=0);
   if(s->phase==FZERO_VS_READY)message="READY";
   else if(s->phase==FZERO_VS_COUNTDOWN) {
     if(s->countdown<=FZERO_VERSUS_REV_COUNTDOWN) {
