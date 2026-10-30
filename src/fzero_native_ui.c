@@ -153,17 +153,39 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
     ui->sparks[i].x=(int)(int8_t)byte(t,at);ui->sparks[i].y=(int)(int8_t)byte(t,at+1);
     ui->sparks[i].tile=byte(t,at+2);ui->sparks[i].attr=byte(t,at+3);
   }
-  /* Reuse the complete authored menu alphabet, including MULTIPLAYER.
-   * Keep its exact letter silhouettes; only apply the title menu's existing
-   * scanline colors and black outlines. Index1 is the menu background. */
-  uint8_t title_i[128];
-  decode(title_i,t,0x0cf900,4);decode(title_i+64,t,0x0cfb00,4);
-  for(unsigned n=0;n<26;++n)for(unsigned y=0;y<16;++y)for(unsigned x=0;x<8;++x) {
-    unsigned source=ui->menu_letters[n][y*8+x];
-    unsigned fill=ui->menu_letters['I'-'A'][y*8+2];
-    if(source && source!=1)
-      ui->title_letters[n][y*8+x]=(y>0 && y<15 && source==fill)?
-          title_i[y*8+3]:5;
+  /* The title menu has its own 8x16 OBJ alphabet and green scanline shading,
+   * distinct from course introductions. These are the exact native word tiles
+   * uploaded at $120..$156. M/V are absent from those words. */
+  static const struct {char letter;unsigned address;} title_glyphs[]={
+    {'G',0x0cf800},{'R',0x0cf820},{'A',0x0cf840},{'N',0x0cf860},
+    {'D',0x0cf880},{'P',0x0cf8c0},{'I',0x0cf900},{'X',0x0cf920},
+    {'E',0x0cf960},{'C',0x0cf980},{'O',0x0cf9a0},{'T',0x0cfc40},{'S',0x0cfcc0}};
+  for(unsigned n=0;n<sizeof(title_glyphs)/sizeof(*title_glyphs);++n)
+    for(unsigned half=0;half<2;++half)
+      decode(ui->title_letters[title_glyphs[n].letter-'A']+half*64,t,title_glyphs[n].address+half*0x200,4);
+  /* M retains the cartridge silhouette with the title font's row shading. */
+  uint8_t *m=ui->title_letters['M'-'A'];
+  for(unsigned y=1;y<15;++y)for(unsigned x=0;x<8;++x) {
+    unsigned sy=3+(y-1)*10/14;
+    if(ui->objects[0x8a+(sy/8)*16][(sy&7)*8+x]==3)
+      m[y*8+x]=ui->title_letters['I'-'A'][y*8+3];
+  }
+  /* Match the native S cap, baseline, scanline colors and two-pixel stems.
+   * The odd width keeps both arms mirrored around a single centered tip. */
+  static const uint16_t v_strokes[16]={
+    0,0xc6,0xc6,0xc6,0xc6,0x6c,0x6c,0x6c,
+    0x6c,0x6c,0x6c,0x38,0x38,0x38,0x10,0
+  };
+  uint8_t *v=ui->title_v;
+  for(unsigned y=0;y<16;++y)for(unsigned x=0;x<9;++x)
+    if(v_strokes[y]&(0x100>>x))v[y*9+x]=ui->title_letters['I'-'A'][y*8+3];
+  for(unsigned n=0;n<2;++n) {
+    uint8_t *glyph=n?v:m;int width=n?9:8;
+    for(int y=0;y<16;++y)for(int x=0;x<width;++x)if(glyph[y*width+x] && glyph[y*width+x]!=5)
+      for(int dy=-1;dy<=1;++dy)for(int dx=-1;dx<=1;++dx) {
+        int xx=x+dx,yy=y+dy;
+        if(xx>=0 && xx<width && yy>=0 && yy<16 && !glyph[yy*width+xx])glyph[yy*width+xx]=5;
+      }
   }
   /* Native $ED6A..$EED1 explosion frames: the first four use big OBJ
    * offsets; the remaining six expand paired 16x16 layouts from $FED9. */
@@ -594,7 +616,15 @@ void FzeroUiBoosts(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned 
 }
 void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text,bool dim) {
   if(!ui || !ui->valid || !text)return;
-  for(;*text;++text,x+=8)if(*text>='A' && *text<='Z') {
+  for(;*text;x+=*text=='V'?10:8,++text)if(*text>='A' && *text<='Z') {
+    if(*text=='V') {
+      for(int row=0;row<16;++row)for(int col=0;col<9;++col) {
+        unsigned color=ui->title_v[row*9+col];
+        if(color && ui->title_palette[dim][color])
+          FzeroUiRect(c,x+col,y+row,1,1,ui->title_palette[dim][color]);
+      }
+      continue;
+    }
     const uint8_t *glyph=ui->title_letters[*text-'A'];
     tile(glyph,ui->title_palette[dim],c,x,y,false,false);
     tile(glyph+64,ui->title_palette[dim],c,x,y+8,false,false);
