@@ -163,40 +163,32 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
   for(unsigned n=0;n<sizeof(title_glyphs)/sizeof(*title_glyphs);++n)
     for(unsigned half=0;half<2;++half)
       decode(ui->title_letters[title_glyphs[n].letter-'A']+half*64,t,title_glyphs[n].address+half*0x200,4);
-  for(unsigned n=0;n<1;++n) {
-    unsigned letter=n?'V':'M',id=n?0xa3:0x8a;
-    uint8_t *glyph=ui->title_letters[letter-'A'];
-    for(unsigned y=1;y<15;++y)for(unsigned x=0;x<8;++x) {
-      /* V already fits eight pixels. Downsampling it to six skips its
-       * center column, deleting the taper and tip. Preserve every column. */
-      unsigned sy=n?y:3+(y-1)*10/14;
-      unsigned source=ui->objects[id+(sy/8)*16][(sy&7)*8+x];
-      /* V's taper/tip uses the highlight color after the inner stroke ends. */
-      bool stroke=source==3 || (n && source==2);
-      if(stroke)glyph[y*8+x]=ui->title_letters['I'-'A'][y*8+3];
-    }
-    /* Main-menu letters use a black outline rather than the introduction's
-     * bright left edge and drop shadow. Keep that same outline on M and V. */
+  /* M retains the cartridge silhouette with the title font's row shading. */
+  uint8_t *m=ui->title_letters['M'-'A'];
+  for(unsigned y=1;y<15;++y)for(unsigned x=0;x<8;++x) {
+    unsigned sy=3+(y-1)*10/14;
+    if(ui->objects[0x8a+(sy/8)*16][(sy&7)*8+x]==3)
+      m[y*8+x]=ui->title_letters['I'-'A'][y*8+3];
+  }
+  /* Use the same 8x16 cell, cap/baseline and scanline colors as S MODE.
+   * A wider V reads larger than the native condensed menu alphabet. */
+  uint8_t *v=ui->title_letters['V'-'A'];
+  for(unsigned y=1;y<15;++y)for(unsigned x=0;x<8;++x) {
+    /* Keep the cartridge V's actual taper. Its lower tip is drawn with
+     * the highlight index after the two-pixel inner strokes end. */
+    unsigned sy=2+(y-1)*11/14;
+    unsigned source=ui->objects[0xa3+(sy/8)*16][(sy&7)*8+x];
+    if(source==3 || (sy>=9 && source==2))
+      v[y*8+x]=ui->title_letters['I'-'A'][y*8+3];
+  }
+  for(unsigned n=0;n<2;++n) {
+    uint8_t *glyph=n?v:m;
     for(int y=0;y<16;++y)for(int x=0;x<8;++x)if(glyph[y*8+x] && glyph[y*8+x]!=5)
       for(int dy=-1;dy<=1;++dy)for(int dx=-1;dx<=1;++dx) {
         int xx=x+dx,yy=y+dy;
         if(xx>=0 && xx<8 && yy>=0 && yy<16 && !glyph[yy*8+xx])glyph[yy*8+xx]=5;
       }
   }
-  /* V needs room for two separate, two-pixel diagonal strokes. The intro
-   * glyph has a filled highlight that turned into a block at menu scale.
-   * Preserve the native letter height, scanline gradient and one-pixel black
-   * outline; give the taper its own width instead of crushing it into 8px. */
-  for(unsigned y=1;y<15;++y) {
-    unsigned left=1+(y-1)/3;
-    unsigned stroke[4]={left,left+1,10-left,11-left};
-    for(unsigned i=0;i<4;++i)ui->title_v[y*12+stroke[i]]=ui->title_letters['I'-'A'][y*8+3];
-  }
-  for(int y=0;y<16;++y)for(int x=0;x<12;++x)if(ui->title_v[y*12+x] && ui->title_v[y*12+x]!=5)
-    for(int dy=-1;dy<=1;++dy)for(int dx=-1;dx<=1;++dx) {
-      int xx=x+dx,yy=y+dy;
-      if(xx>=0 && xx<12 && yy>=0 && yy<16 && !ui->title_v[yy*12+xx])ui->title_v[yy*12+xx]=5;
-    }
   /* Native $ED6A..$EED1 explosion frames: the first four use big OBJ
    * offsets; the remaining six expand paired 16x16 layouts from $FED9. */
   for(unsigned i=0;i<20;++i) {
@@ -626,15 +618,7 @@ void FzeroUiBoosts(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned 
 }
 void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text,bool dim) {
   if(!ui || !ui->valid || !text)return;
-  for(;*text;x+=*text=='V'?14:8,++text)if(*text>='A' && *text<='Z') {
-    if(*text=='V') {
-      for(int row=0;row<16;++row)for(int col=0;col<12;++col) {
-        unsigned color=ui->title_v[row*12+col];
-        if(color && ui->title_palette[dim][color])
-          FzeroUiRect(c,x+col,y+row,1,1,ui->title_palette[dim][color]);
-      }
-      continue;
-    }
+  for(;*text;x+=*text=='V'?10:8,++text)if(*text>='A' && *text<='Z') {
     const uint8_t *glyph=ui->title_letters[*text-'A'];
     tile(glyph,ui->title_palette[dim],c,x,y,false,false);
     tile(glyph+64,ui->title_palette[dim],c,x,y+8,false,false);

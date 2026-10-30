@@ -20,7 +20,6 @@ typedef struct FzeroNativeUi {
   struct {int x,y;unsigned tile,attr;} explosion[10][64];
   unsigned explosion_count[10], explosion_frame[20], explosion_duration[20];
   uint8_t title_letters[26][128];
-  uint8_t title_v[12 * 16];
   uint32_t title_palette[2][16], effect_palette[16];
   uint32_t crash_palette[16];
   uint8_t crash_text[32];

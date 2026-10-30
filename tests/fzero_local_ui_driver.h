@@ -256,7 +256,8 @@ static void local_ui_presented(const FzeroPresenter *p) {
     }
   }
   if(!s) {
-    if(!directory || title_captured || g_ram[0x54] || g_ram[0x55]!=1 || g_ram[0xc3])return;
+    if(!directory || title_captured || g_ram[0x54] || g_ram[0x55]!=1 || g_ram[0xc3] ||
+       (g_snes->ppu->inidisp&15)!=15)return;
     /* Scene flags precede the first complete native title image. Wait for
      * the actual Grand Prix lettering rather than capturing a black frame
      * containing only our added row. */
