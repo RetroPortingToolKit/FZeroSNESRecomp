@@ -2188,10 +2188,16 @@ static int run_game(int argc, char **argv) {
         .settings = g_video, .viewport = viewport,
         .output_width = drawable_width, .output_height = drawable_height,
         .effective_scale = FzeroHdScale(), .target_hz = hz, .refresh_hz = actual_refresh,
+        .source_height = FzeroFrameHeight(),
         .render_workers = FzeroRendererWorkerCount(),
         .fullscreen = (SDL_GetWindowFlags(window) & SNESRECOMP_SDL_WINDOW_FULLSCREEN_DESKTOP) != 0,
         .suspended = suspended, .scene = g_ram[0x54], .subscene = g_ram[0x55]
       };
+      if (use_gl_renderer && gl_renderer.hd_gpu) {
+        SnesHdGpuReadStats(gl_renderer.hd_gpu,false,&diagnostic_frame.hd_gpu);
+        if (diagnostic_frame.hd_gpu.output_width)
+          diagnostic_frame.effective_scale=diagnostic_frame.hd_gpu.output_width/(unsigned)logical_width;
+      }
       diagnostic_frame.controller_attached=pad && SDL_GameControllerGetAttached(pad);
       if(diagnostic_frame.controller_attached) {
         diagnostic_frame.controller_id=(int)SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad));

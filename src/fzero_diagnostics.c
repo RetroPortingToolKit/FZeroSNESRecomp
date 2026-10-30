@@ -226,7 +226,8 @@ void FzeroDiagnosticsSample(const FzeroDiagnosticFrame *f, bool final) {
           "\"output_width\":%d,\"output_height\":%d,\"fullscreen\":%d,\"suspended\":%d,"
           "\"scene\":%u,\"subscene\":%u,\"render_workers\":%u,\"stages\":{",
           v->enhanced, f->viewport.enhanced, v->bs_deluxe, v->hd_mode7, v->hd_scale, f->effective_scale,
-          v->fps_enabled, v->fps, f->viewport.width * (int)f->effective_scale, FZERO_HEIGHT * (int)f->effective_scale,
+          v->fps_enabled, v->fps, f->viewport.width * (int)f->effective_scale,
+          (int)(f->source_height ? f->source_height : FZERO_HEIGHT) * (int)f->effective_scale,
           f->output_width, f->output_height, f->fullscreen, f->suspended, f->scene, f->subscene, f->render_workers);
   uint64_t accounted = 0;
   for (unsigned i = 0; i < FZERO_DIAG_STAGE_COUNT; ++i) {
@@ -235,7 +236,15 @@ void FzeroDiagnosticsSample(const FzeroDiagnosticFrame *f, bool final) {
             i ? "," : "", stage_names[i], (unsigned long long)t->calls, ms(t->ticks),
             t->calls ? ms(t->ticks) / t->calls : 0, ms(t->maximum));
   }
-  fprintf(log_file, "},\"unattributed_ms\":%.3f}\n", fmax(0, elapsed - ms(accounted)));
+  const SnesHdGpuStats *gpu = &f->hd_gpu;
+  fprintf(log_file, "},\"unattributed_ms\":%.3f,\"hd_gpu\":{\"frames\":%llu,\"timed_frame\":%llu,"
+      "\"upload_bytes\":%llu,\"upload_ms\":%.6f,\"draw_ms\":%.6f,\"source_bytes\":%llu,"
+      "\"target_bytes\":%llu,\"requested_width\":%u,\"requested_height\":%u,\"width\":%u,\"height\":%u}}\n",
+      fmax(0, elapsed - ms(accounted)), (unsigned long long)gpu->frames,
+      (unsigned long long)gpu->timed_frame, (unsigned long long)gpu->uploaded_bytes,
+      gpu->upload_gpu_ns / 1e6, gpu->draw_gpu_ns / 1e6, (unsigned long long)gpu->source_gpu_bytes,
+      (unsigned long long)gpu->target_bytes, gpu->requested_width, gpu->requested_height,
+      gpu->output_width, gpu->output_height);
   flush_log();
   sampled = now; previous_simulation = f->simulation;
   previous_presentations = f->presentations; previous_missed = f->missed;

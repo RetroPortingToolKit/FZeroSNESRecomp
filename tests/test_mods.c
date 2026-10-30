@@ -213,7 +213,7 @@ int main(void) {
   CHECK(p->feature_enable(NULL, diag.package_id, diag.id, 0) && !s.diagnostics);
   CHECK(p->commit(NULL, NULL) && FzeroVideoLoad(&loaded, "test-mods.ini") && !loaded.diagnostics);
   CHECK(p->feature_enable(NULL, hd.package_id, hd.id, 0));
-  CHECK(!s.hd_mode7 && s.hd_scale == 10 && s.enhanced);
+  CHECK(!s.hd_mode7 && s.hd_scale == 64 && s.enhanced);
   CHECK(p->feature_enable(NULL, deluxe.package_id, deluxe.id, 0));
   CHECK(!s.bs_deluxe && s.enhanced && !s.fps_enabled);
   /* One global title feature; no per-pack dropdowns or file pickers. */

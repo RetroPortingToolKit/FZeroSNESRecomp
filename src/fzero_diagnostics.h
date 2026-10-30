@@ -2,6 +2,7 @@
 
 #include "fzero_video.h"
 #include <stdint.h>
+#include "desktop/hd_gpu.h"
 
 /* Main-thread wall timings. No GPU fences or per-pixel instrumentation. */
 typedef enum FzeroDiagnosticStage {
@@ -32,6 +33,8 @@ typedef struct FzeroDiagnosticFrame {
   int controller_id,controller_x,controller_y;
   uint32_t controller_buttons;
   bool controller_attached;
+  unsigned source_height;
+  SnesHdGpuStats hd_gpu;
 } FzeroDiagnosticFrame;
 
 /* directory is resolved by the host (beside the executable/AppImage). */
