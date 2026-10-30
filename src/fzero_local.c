@@ -33,6 +33,7 @@ static uint8_t *machine_tables[3];
 bool FzeroLocalStockTables(const uint8_t *rom,size_t size) {
   if(!rom || size!=sizeof(stock_tables))return false;
   memcpy(stock_tables,rom,size);have_stock_tables=true;
+  memset(&ui,0,sizeof(ui));
   for(unsigned group=1;group<=3;++group) {
     free(machine_tables[group-1]);char error[192]={0};
     machine_tables[group-1]=FzeroVehicleVersusImage(rom,size,group,error,sizeof(error));
@@ -78,7 +79,17 @@ static void course_config(CpuState *cpu,uint32_t pc) {
 }
 bool FzeroLocalEnabled(void) {return enabled;}
 FzeroVersus *FzeroLocalSession(void) {return session;}
-const FzeroNativeUi *FzeroLocalUi(void) {return enabled && ui.valid?&ui:NULL;}
+const FzeroNativeUi *FzeroLocalUi(void) {
+  /* The car picker precedes race/profile activation so the actual title
+   * soundtrack can keep playing. Its immutable ROM artwork is independent
+   * of an enabled race session. */
+  if(!ui.valid && have_stock_tables) {
+    if(!FzeroNativeUiInit(&ui,tables()) || !FzeroNativeUiLoadMachines(&ui,tables())) {
+      memset(&ui,0,sizeof(ui));return NULL;
+    }
+  }
+  return ui.valid?&ui:NULL;
+}
 bool FzeroLocalMenuReady(void) {
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(session);if(!s)return false;
   return s->phase==FZERO_VS_RESULTS?FzeroVersusVideoResultsReady(s,result_ticks):menu_owner!=0;
@@ -102,7 +113,7 @@ bool FzeroLocalConfigure(FzeroVersusConfig c) {
   if(!FzeroLocalCourseLocation(c.course,NULL,NULL) || c.machine[0]>=FZERO_MACHINE_COUNT || c.machine[1]>=FZERO_MACHINE_COUNT)return false;
   if(!FzeroMachineAvailable(tables(),c.machine[0]) || !FzeroMachineAvailable(tables(),c.machine[1]))return false;
   FzeroLocalShutdown();config=c;enabled=fast_setup=true;++epoch;
-  if(!FzeroNativeUiInit(&ui,tables()) || !FzeroNativeUiLoadMachines(&ui,tables())) {FzeroLocalShutdown();return false;}
+  if(!FzeroLocalUi()) {FzeroLocalShutdown();return false;}
   /* Resource loader hooks are interpreted-opcode hooks. Keep native setup
    * on the byte interpreter so a compiled call cannot bypass configuration.
    * Gameplay never executes this CPU after the authoritative handoff. */
@@ -210,6 +221,11 @@ bool FzeroLocalDrawCombined(uint32_t *native,uint32_t *hd,size_t capacity,FzeroV
   FzeroVersusVideoLiveMenu(video,menu_owner);FzeroVersusVideoMenu(video,menu_selection,result_ticks);
   return session && FzeroVersusVideoDrawCombined(video,native,hd,capacity,viewport,alpha,scale,
       FzeroOnlineEnabled()?FzeroOnlineView():-1);
+}
+SnesHdFrame *FzeroLocalPrepareHd(uint32_t *native,FzeroViewport viewport,double alpha) {
+  FzeroVersusVideoLiveMenu(video,menu_owner);FzeroVersusVideoMenu(video,menu_selection,result_ticks);
+  return session ? FzeroVersusVideoPrepareHd(video,native,viewport,alpha,
+      FzeroOnlineEnabled()?FzeroOnlineView():-1) : NULL;
 }
 void FzeroLocalPublish(void) {
   FzeroVersusVideoMenu(video,menu_selection,result_ticks);

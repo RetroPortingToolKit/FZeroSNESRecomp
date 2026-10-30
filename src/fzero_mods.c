@@ -2,6 +2,7 @@
 #include "fzero_tracks_mods.h"
 #include "fzero_tracks.h"
 #include "fzero_title.h"
+#include "desktop/hd_mod.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,8 +14,8 @@ static char error_text[128];
 static const char *const aspects[] = {"16:9", "21:9", "32:9", "Fit"};
 static const char *const rates[] = {"Auto", "60", "90", "120", "144", "165", "240", "360"};
 #define COPY(field, value) snprintf(field, sizeof(field), "%s", value)
-static const char *const packages[] = {"fzero-widescreen", "fzero-presentation-fps", "bs-cars", "fzero-hd-mode7", "fzero-diagnostics", "bs-tracks"};
-static const char *const features[] = {"widescreen", "presentation-fps", "vehicles", "hd-mode7", "diagnostics", "tracks"};
+static const char *const packages[] = {"fzero-widescreen", "fzero-presentation-fps", "bs-cars", SNES_HD_PACKAGE, "fzero-diagnostics", "bs-tracks"};
+static const char *const features[] = {"widescreen", "presentation-fps", "vehicles", SNES_HD_FEATURE, "diagnostics", "tracks"};
 static const char *const names[] = {"Widescreen", "Presentation FPS", "BS Satellaview vehicles", "HD Mode 7", "Diagnostics", "BS Satellaview tracks"};
 static const char *const descriptions[] = {
   "Expand the race view and anchor the HUD at its outer edges.",
@@ -74,6 +75,7 @@ static int identity(const char *package, const char *feature) {
   return 0;
 }
 static int package_get(void *ctx, int index, RecompLauncherCModPackage *out) {
+  if (index == 3) return SnesHdModPackage(video->hd_mode7, out);
   if(index==LOCAL_INDEX && out) {
     memset(out,0,sizeof(*out));COPY(out->id,"fzero-local-2p");COPY(out->name,"Local 2 Player");
     COPY(out->version,"1");COPY(out->author,"FZeroSNESRecomp contributors");
@@ -117,6 +119,7 @@ static int package_get(void *ctx, int index, RecompLauncherCModPackage *out) {
   return 1;
 }
 static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
+  if (index == 3) return SnesHdModFeature(video->hd_mode7, out);
   if(index==LOCAL_INDEX && out) {
     memset(out,0,sizeof(*out));COPY(out->id,"local-2p");COPY(out->package_id,"fzero-local-2p");
     COPY(out->name,"Local 2 Player");COPY(out->package_name,out->name);COPY(out->package_version,"1");
@@ -176,13 +179,6 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
   else if(index!=4)snprintf(out->description,sizeof(out->description),"Single-player and versus. %s",descriptions[index]);
   out->enabled = index == 5 ? video->bs_tracks : index == 4 ? video->diagnostics : index == 3 ? video->hd_mode7 : index == 2 ? video->bs_deluxe : index ? video->fps_enabled : video->enhanced;
   COPY(out->status, out->enabled ? "Enabled" : "Disabled");
-  if (index == 3 && video->hd_scale > 4) {
-    snprintf(out->description, sizeof(out->description),
-        "%s\n\nWarning: %ux is extremely demanding and can cause severe slowdown, "
-        "especially with ultrawide views or high Presentation FPS. Use at your own risk. "
-        "Try 2x and 60 FPS if performance drops.", descriptions[index], video->hd_scale);
-    COPY(out->status, "Warning: high CPU and memory use above 4x");
-  }
   out->option_count = index == 2 || index == 4 || index == 5 ? 0 : 1;
   return 1;
 }
@@ -209,12 +205,7 @@ static int option_get(void *ctx, const char *package, const char *feature, int i
     COPY(out->default_value, FzeroAspectName(FZERO_ASPECT_FIT));
     out->choice_count = 4;
   } else if (kind == 4) {
-    COPY(out->id, "scale"); COPY(out->label, "Resolution multiplier (2-10)");
-    COPY(out->description, "Whole numbers from 2 to 10 per dimension. 2x recommended; above 4x can cause severe slowdown. Use at your own risk.");
-    snprintf(out->value, sizeof(out->value), "%u", video->hd_scale);
-    COPY(out->default_value, "2");
-    out->type = RECOMP_MOD_OPTION_INTEGER;
-    out->min_value = FZERO_HD_SCALE_MIN; out->max_value = FZERO_HD_SCALE_MAX;
+    return SnesHdModOption(video->hd_scale, index, out);
   } else {
     COPY(out->id, "fps"); COPY(out->label, "Presentation FPS");
     COPY(out->description, "Auto follows display refresh, up to 360 FPS.");
@@ -299,7 +290,7 @@ static int set_option(void *ctx, const char *package, const char *feature,
       return FzeroParseAspect(value, &video->aspect);
   } else if (identity(package, feature) == 4 && !strcmp(option, "scale")) {
     if (FzeroParseHdScale(value, &video->hd_scale)) { error_text[0] = 0; return 1; }
-    COPY(error_text, "HD Mode 7 resolution must be a whole number from 2 to 10.");
+    COPY(error_text, "HD Mode 7 resolution must be a whole number from 1 to 64.");
   } else if (identity(package, feature) == 2 && !strcmp(option, "fps")) {
     for (unsigned i = 0; i < 8; ++i) if (!strcmp(value, rates[i])) {
       video->fps = i ? (unsigned)atoi(value) : 0; return 1;

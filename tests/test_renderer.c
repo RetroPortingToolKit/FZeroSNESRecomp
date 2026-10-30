@@ -70,6 +70,28 @@ static uint32_t palette_rgb(unsigned c) {
          (((g << 3) | (g >> 2)) << 8) | ((b << 3) | (b >> 2));
 }
 
+static void check_prepared_jobs(FzeroRenderView *view, FzeroViewport v, double alpha) {
+  static uint32_t native[FZERO_MAX_WIDTH * 224], expected[FZERO_MAX_WIDTH * 224];
+  static uint32_t hd[FZERO_MAX_WIDTH * 224 * 9], row[FZERO_MAX_WIDTH * 3];
+  SnesHdFrame *jobs = view ? FzeroRenderViewPrepareHd(view, native, v, alpha) :
+      FzeroRendererPrepareHd(native, v, alpha);
+  CHECK(jobs && SnesHdFrameSeal(jobs));
+  CHECK(view ? FzeroRenderViewDraw(view, expected, v, alpha) : FzeroRendererDraw(expected, v, alpha));
+  CHECK(!memcmp(native, expected, (size_t)v.width * 224 * sizeof(*native)));
+  CHECK(view ? FzeroRenderViewDrawPresentation(view, NULL, hd, countof(hd), v, alpha, 3) :
+      FzeroRendererDrawPresentation(NULL, hd, countof(hd), v, alpha, 3));
+  for (unsigned y = 0; y < 224 * 3; ++y) {
+    CHECK(SnesHdFrameRenderRegion(jobs, 3, 0, y, v.width * 3, 1, row, sizeof(row)));
+    for (unsigned x = 0; x < (unsigned)v.width * 3; ++x) {
+      if (row[x] != hd[(size_t)y * v.width * 3 + x]) {
+        fprintf(stderr,"prepared mismatch width=%d alpha=%.17g at%u,%u actual=%06x expected=%06x\n",
+            v.width,alpha,x,y,row[x],hd[(size_t)y*v.width*3+x]); exit(1);
+      }
+    }
+  }
+  SnesHdFrameDestroy(jobs);
+}
+
 static void test_panorama(void) {
   /* Build an independently indexed, coloured panorama in the retail strip
    * layout. Leave padding past the stock-visible overlap empty: simply
@@ -853,6 +875,8 @@ static void test_full_course_interpolation(void) {
   static uint32_t hd[512*448];
   CHECK(FzeroRendererDrawPresentation(NULL,hd,512*448,v,0.5,2));
   CHECK(hd[200*512]==0x0000ff);
+  check_prepared_jobs(NULL, v, .5);
+  check_prepared_jobs(NULL, (FzeroViewport){684,214,32.0/9.0,true}, .004);
   CHECK(FzeroRendererDraw(out,v,1) && out[100*256]==0x00ff00);
 }
 
@@ -904,6 +928,7 @@ static void test_fractional_course_reference(void) {
         } else {
           CHECK(FzeroRenderViewDrawPresentation(views[0],NULL,reference,sizeof(reference)/4,v,alphas[phase],scale));
           CHECK(FzeroRenderViewDrawPresentation(views[1],NULL,actual,sizeof(actual)/4,v,alphas[phase],scale));
+          if (test == 0 && phase == 0) check_prepared_jobs(views[0], v, alphas[phase]);
         }
         unsigned differences=0;for(unsigned i=0;i<(unsigned)v.width*224*scale*scale;++i)differences+=reference[i]!=actual[i];
         if(differences)fprintf(stderr,"fractional reference: vs=%u case=%u width=%d scale=%u alpha=%.17g wrong=%u\n",vs,test,v.width,scale,alphas[phase],differences);

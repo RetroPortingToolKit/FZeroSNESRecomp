@@ -68,6 +68,7 @@ void FzeroVsMenuDraw(FzeroUiCanvas canvas,int extra,const uint8_t *ram) {
     }
     ui.title_palette[p][i]=color;
   }
+  /* Match the native options' left edge, letter height and row baseline. */
   FzeroUiTitleText(&ui,canvas,84+extra,104+20*(last(ram)+1),"VS MODE",selected && (ram[0x51]&4));
 }
 bool FzeroVsMenuSelected(void) {return selected;}

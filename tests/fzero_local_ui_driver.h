@@ -51,13 +51,23 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
   }
   switch(local_ui_stage) {
     case 1:
+      if(getenv("FZERO_TEST_MENU_MUSIC")) {
+        if(t==360) {fprintf(stderr,"menu-music: held native VS picker for360 UI ticks; samples=%ld\n",g_test_audio_output?ftell(g_test_audio_output)/4:0);return true;}
+        if(t>3)break;
+      }
       if(t<3)for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_START,true);
       if(getenv("FZERO_TEST_LOCAL_UI_ALT_MACHINES") && (t==4 || t==5))
         for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
       if(getenv("FZERO_TEST_LOCAL_UI_FULL_MACHINES") && (t==4 || t==5)) {
         local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_LEFT,true);local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_UP,true);
       }
-      if(t>(getenv("FZERO_TEST_LOCAL_UI_FULL_MACHINES")?24u:12u) && s) {if(!setup || s->tick)Die("UI preload advanced a human race");local_ui_stage=2;local_ui_step=0;}
+      if(t>(getenv("FZERO_TEST_LOCAL_UI_FULL_MACHINES")?24u:12u)) {
+        /* Title entry retains its real menu soundtrack and creates the race
+         * only at Ready. Direct/Change Race entry may already own a frozen
+         * countdown; neither path may advance a human race in this picker. */
+        if(!setup || (s && s->tick))Die("UI picker advanced a human race");
+        local_ui_stage=2;local_ui_step=0;
+      }
       break;
     case 2: case 8: {
       unsigned cup=getenv("FZERO_TEST_LOCAL_UI_CUP")?(unsigned)atoi(getenv("FZERO_TEST_LOCAL_UI_CUP")):0;
@@ -185,7 +195,8 @@ static void local_ui_images(const FzeroPresenter *p,const char *directory,const 
   char path[2048];snprintf(path,sizeof(path),"%s/%s-presenter.ppm",directory,label);dump_presenter(p,path);
   const uint32_t *frame=FzeroHdFrame();unsigned scale=FzeroHdScale();
   snprintf(path,sizeof(path),"%s/%s-frame.bmp",directory,label);
-  if(!write_frame_bmp(path,frame?(const uint8_t *)frame:p->pixels,p->logical_width*(int)scale,FzeroFrameHeight()*(int)scale))
+  if(!write_frame_bmp(path,frame?(const uint8_t *)frame:p->pixels,p->logical_width*(int)scale,
+      (p->host_height?p->host_height:FzeroFrameHeight())*(int)scale))
     Die("UI frame capture failed");
 }
 /* Observe the actual composed frame and real presenter before swap. The old
@@ -200,6 +211,11 @@ static void local_ui_presented(const FzeroPresenter *p) {
   }
   char label[64];
   if(local_ui_setup && !(local_ui_setup_shots&(1u<<local_ui_page))) {
+    const FzeroNativeUi *ui=FzeroLocalUi();
+    if(!ui || !ui->valid || !ui->information_valid || ui->machines_available!=4095)
+      Die("VS picker has no complete twelve-machine artwork before Ready");
+    if(FzeroGpuHdFrame() || FzeroHdFrame())Die("VS picker is using a retained game frame");
+    if(p->host_height!=448)Die("VS picker did not present both native player panes");
     local_ui_setup_shots|=1u<<local_ui_page;
     snprintf(label,sizeof(label),"setup-page-%u",local_ui_page);local_ui_images(p,directory,label);return;
   }
@@ -244,7 +260,8 @@ static void local_ui_presented(const FzeroPresenter *p) {
     }
   }
   if(!s) {
-    if(!directory || title_captured || g_ram[0x54] || g_ram[0x55]!=1 || g_ram[0xc3])return;
+    if(!directory || title_captured || g_ram[0x54] || g_ram[0x55]!=1 || g_ram[0xc3] ||
+       (g_snes->ppu->inidisp&15)!=15)return;
     /* Scene flags precede the first complete native title image. Wait for
      * the actual Grand Prix lettering rather than capturing a black frame
      * containing only our added row. */

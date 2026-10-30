@@ -131,12 +131,14 @@ bool FzeroVersusVideoResultsReady(const FzeroVersusSnapshot *s,unsigned result_t
 static void rect(uint32_t *p,FzeroViewport v,unsigned scale,int x,int y,int w,int h,uint32_t color) {
   FzeroUiRect((FzeroUiCanvas){p,v.width*(int)scale,224*(int)scale,scale},x,y,w,h,color);
 }
-static void fade_rect(uint32_t *p,FzeroViewport v,unsigned scale,int x,int y,int w,int h,uint32_t color,unsigned opacity) {
+static void fade_rect(uint32_t *p,FzeroViewport v,unsigned scale,int x,int y,int w,int h,uint32_t color,unsigned opacity,bool premultiplied) {
   if(!opacity)return;
   if(opacity==255) {rect(p,v,scale,x,y,w,h,color);return;}
   int x0=x<0?0:x,y0=y<0?0:y,x1=x+w>v.width?v.width:x+w,y1=y+h>224?224:y+h;
   for(int dy=y0*(int)scale;dy<y1*(int)scale;++dy)for(int dx=x0*(int)scale;dx<x1*(int)scale;++dx) {
-    uint32_t *pixel=&p[(size_t)dy*v.width*scale+dx],mixed=0xff000000;
+    uint32_t *pixel=&p[(size_t)dy*v.width*scale+dx];
+    unsigned a=premultiplied?opacity+(((*pixel>>24)*(255-opacity)+127)/255):255;
+    uint32_t mixed=a<<24;
     for(unsigned shift=0;shift<24;shift+=8)
       mixed|=((((color>>shift)&255)*opacity+((*pixel>>shift)&255)*(255-opacity)+127)/255)<<shift;
     *pixel=mixed;
@@ -147,7 +149,7 @@ static void time_text(char out[32],uint64_t tick) {
   snprintf(out,32,"%02u'%02u\"%02u",(unsigned)(centiseconds/6000)%100,
       (unsigned)(centiseconds/100)%60,(unsigned)(centiseconds%100));
 }
-static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsigned pane,double alpha,unsigned scale) {
+static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsigned pane,double alpha,unsigned scale,bool premultiplied) {
   static bool trace_ready,trace_traffic;static unsigned traced_panes;
   if(!trace_ready) {trace_ready=true;trace_traffic=getenv("FZERO_TEST_TRAFFIC_VISIBLE")!=NULL;}
   const FzeroVersusSnapshot *s=&v->state;
@@ -192,12 +194,12 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     if(ship->ground_y>=0 && ship->ground_y<224)
       for(int dy=-ry;dy<=ry;++dy)for(int dx=-rx;dx<=rx;++dx)
         if(dx*dx*ry*ry+dy*dy*rx*rx<=rx*rx*ry*ry)
-          fade_rect(p,viewport,scale,ship->ground_x+viewport.extra+dx,ship->ground_y-2+dy,1,1,0xff101018,opacity*160/255);
+          fade_rect(p,viewport,scale,ship->ground_x+viewport.extra+dx,ship->ground_y-2+dy,1,1,0xff101018,opacity*160/255,premultiplied);
     for(int sy=0;sy<64;++sy)for(int sx=0;sx<64;++sx) {
       uint32_t pixel=ship->pixels[sy*64+sx];if(!pixel)continue;
       int dx=x+sx+viewport.extra,dy=y+sy;
       if(dy<0 || dy>=224 || dx<0 || dx>=viewport.width)continue;
-      fade_rect(p,viewport,scale,dx,dy,1,1,pixel,opacity);
+      fade_rect(p,viewport,scale,dx,dy,1,1,pixel,opacity,premultiplied);
       if(npc && trace_traffic && !(traced_panes&(1u<<pane))) {
         traced_panes|=1u<<pane;
         fprintf(stderr,"[traffic-video] pane=%u npc=%u world=%u,%u visible\n",pane,i-2,s->traffic[i-2].actor.x,s->traffic[i-2].actor.y);
@@ -218,7 +220,7 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     else if(opacity<255 && y+2>=64) {
       uint32_t label[16*16]={0};FzeroUiPlayerTag(ui,(FzeroUiCanvas){label,16,16,1},0,0,i,ink[i]);
       for(unsigned ly=0;ly<16;++ly)for(unsigned lx=0;lx<16;++lx)if(label[ly*16+lx])
-        fade_rect(p,viewport,scale,ship->ground_x+viewport.extra-8+(int)lx,y+2+(int)ly,1,1,label[ly*16+lx],opacity);
+        fade_rect(p,viewport,scale,ship->ground_x+viewport.extra-8+(int)lx,y+2+(int)ly,1,1,label[ly*16+lx],opacity,premultiplied);
     }
   }
   if(r->status==FZERO_VS_ACTIVE)FzeroUiPit(ui,canvas,viewport.extra,&r->actor);
@@ -334,7 +336,7 @@ bool FzeroVersusVideoDraw(FzeroVersusVideo *v,uint32_t *out,size_t capacity,Fzer
     bool ok=scale==1?FzeroRenderViewDraw(v->views[i],p,viewport,alpha):
         FzeroRenderViewDrawPresentation(v->views[i],NULL,p,pane_size,viewport,alpha,scale);
     if(!ok)return false;
-    overlay(v,p,viewport,i,alpha,scale);
+    overlay(v,p,viewport,i,alpha,scale,false);
   }
   FzeroUiRect((FzeroUiCanvas){out,viewport.width*(int)scale,448*(int)scale,scale},
       0,223,viewport.width,1,0xff000000);
@@ -350,7 +352,7 @@ bool FzeroVersusVideoDrawPlayer(FzeroVersusVideo *v,uint32_t *out,size_t capacit
   bool ok=scale==1?FzeroRenderViewDraw(v->views[player],out,viewport,alpha):
       FzeroRenderViewDrawPresentation(v->views[player],NULL,out,count,viewport,alpha,scale);
   if(!ok)return false;
-  overlay(v,out,viewport,player,alpha,scale);menu(v,out,viewport,scale,(int)player);return true;
+  overlay(v,out,viewport,player,alpha,scale,false);menu(v,out,viewport,scale,(int)player);return true;
 }
 
 bool FzeroVersusVideoDrawCombined(FzeroVersusVideo *v,uint32_t *native,uint32_t *hd,size_t capacity,
@@ -365,12 +367,45 @@ bool FzeroVersusVideoDrawCombined(FzeroVersusVideo *v,uint32_t *native,uint32_t 
     unsigned camera=single?(unsigned)player:pane;
     uint32_t *small=native?native+pane*count:NULL,*large=hd+pane*hd_count;
     if(!FzeroRenderViewDrawPresentation(v->views[camera],small,large,hd_count,viewport,alpha,scale))return false;
-    overlay(v,large,viewport,camera,alpha,scale);
-    if(small)overlay(v,small,viewport,camera,alpha,1);
+    overlay(v,large,viewport,camera,alpha,scale,false);
+    if(small)overlay(v,small,viewport,camera,alpha,1,false);
   }
   if(!single) {
     FzeroUiRect((FzeroUiCanvas){hd,viewport.width*(int)scale,448*(int)scale,scale},0,223,viewport.width,1,0xff000000);
     if(native)FzeroUiRect((FzeroUiCanvas){native,viewport.width,448,1},0,223,viewport.width,1,0xff000000);
   }
   menu(v,hd,viewport,scale,player);if(native)menu(v,native,viewport,1,player);return true;
+}
+
+SnesHdFrame *FzeroVersusVideoPrepareHd(FzeroVersusVideo *v,uint32_t *native,
+    FzeroViewport viewport,double alpha,int player) {
+  if (!v || !v->valid || !native || player < -1 || player > 1) return NULL;
+  if (!isfinite(alpha) || alpha > 1 || !v->interpolate) alpha = 1;
+  if (alpha < 0) alpha = 0;
+  unsigned panes = player < 0 ? 2 : 1;
+  size_t count = (size_t)viewport.width * 224;
+  SnesHdFrame *jobs = SnesHdFrameCreate(viewport.width, 224 * panes);
+  uint32_t *foreground = calloc(count * panes, sizeof(*foreground));
+  if (!jobs || !foreground) goto fail;
+  for (unsigned pane = 0; pane < panes; ++pane) {
+    unsigned camera = player < 0 ? pane : (unsigned)player;
+    uint32_t *small = native + count * pane;
+    SnesHdFrame *row_jobs = FzeroRenderViewPrepareHd(v->views[camera],small,viewport,alpha);
+    bool ok = row_jobs && SnesHdFrameSeal(row_jobs) && SnesHdFrameCopyRows(jobs,pane*224,row_jobs);
+    SnesHdFrameDestroy(row_jobs);
+    if (!ok) goto fail;
+    overlay(v,small,viewport,camera,alpha,1,false);
+    overlay(v,foreground + pane * count,viewport,camera,alpha,1,true);
+  }
+  if (panes == 2) {
+    FzeroUiCanvas c = {native,viewport.width,448,1};
+    FzeroUiRect(c,0,223,viewport.width,1,0xff000000);
+    c.pixels = foreground; FzeroUiRect(c,0,223,viewport.width,1,0xff000000);
+  }
+  menu(v,native,viewport,1,player); menu(v,foreground,viewport,1,player);
+  if (!SnesHdFrameSetNative(jobs,native,viewport.width*4,NULL,0) ||
+      !SnesHdFrameSetOverlay(jobs,foreground,viewport.width*4)) goto fail;
+  free(foreground); return jobs;
+fail:
+  free(foreground); SnesHdFrameDestroy(jobs); return NULL;
 }

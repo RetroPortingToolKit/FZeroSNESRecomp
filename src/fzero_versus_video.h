@@ -8,6 +8,8 @@ void FzeroVersusVideoLiveMenu(FzeroVersusVideo *video,unsigned owner);
 void FzeroVersusVideoCourseHud(FzeroVersusVideo *video,const Ppu *ppu,const uint8_t *ram);
 bool FzeroVersusVideoDrawCombined(FzeroVersusVideo *video,uint32_t *native,uint32_t *hd,size_t capacity,
     FzeroViewport viewport,double alpha,unsigned scale,int player);
+SnesHdFrame *FzeroVersusVideoPrepareHd(FzeroVersusVideo *video, uint32_t *native,
+    FzeroViewport viewport, double alpha, int player);
 FzeroVersusVideo *FzeroVersusVideoCreate(void);
 void FzeroVersusVideoDestroy(FzeroVersusVideo *video);
 void FzeroVersusVideoReset(FzeroVersusVideo *video);

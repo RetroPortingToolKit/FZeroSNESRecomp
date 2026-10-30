@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## 0.13.0 - Shared GPU Mode 7 and VS menu music
+
+- Enable shared GPU Mode 7 at8x by default, selectable through64x, with native
+  fallback for unsupported presentation paths.
+- Keep the running main-menu SPC/MSU soundtrack and live audio queue while
+  choosing VS cars; start the selected race after Ready.
+- Preserve all CGP vehicles, rebalances, course packs, profiles and portable
+  course caches in both music editions.
+- Report a useful error when a save-root path cannot be selected.
+
 ## 0.12.1 - Lap visuals and shortcut binding fixes
 
 - Restore the original S OK boost-ready graphic, remaining-laps banner and

@@ -8,6 +8,11 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import array
+import math
+import json
+import hashlib
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -18,6 +23,8 @@ def main():
         p.add_argument('--' + key, type=Path, required=True)
     p.add_argument('--fps',type=int,default=60)
     p.add_argument('--native',action='store_true',help='Disable HD Mode 7 for this windowed run')
+    p.add_argument('--full-profile',action='store_true',help='Use all twelve CGP machines and stock rebalances')
+    p.add_argument('--menu-music',action='store_true',help='Capture muted real-device output across first VS entry')
     a = p.parse_args()
     build, runtime, rom, packs, out = (getattr(a, k).resolve() for k in ('build', 'runtime', 'rom', 'packs', 'out'))
     out.mkdir(parents=True, exist_ok=False)
@@ -31,11 +38,13 @@ def main():
     config = (runtime / 'config.ini').read_text()
     config = config.replace('SkipLauncher = 0', 'SkipLauncher = 1')
     config = config.replace('SkipLauncher=0', 'SkipLauncher=1')
+    if a.menu_music:
+        config=re.sub(r'(?m)^(\s*Volume\s*=).*$',r'\g<1>0',config)
     (stage / 'config.ini').write_text(config)
     shutil.copy2(runtime / 'keybinds.ini', stage)
     (stage / 'fzero-video.ini').write_text(
         f'[FZeroVideo]\nEnhancedRenderer=1\nAspect=Fit\nPresentationEnabled=1\nPresentationFPS={a.fps}\n'
-        f'HDMode7={int(not a.native)}\nHDMode7Scale=2\nBSVehicles=0\nBSTracks=0\nCGPCars=0\nCGPStockRebalance=0\n'
+        f'Mode7Enabled={int(not a.native)}\nMode7Scale=8\nBSVehicles=0\nBSTracks=0\nCGPCars={7 if a.full_profile else 0}\nCGPStockRebalance={15 if a.full_profile else 0}\n'
         'LocalTwoPlayer=1\nAlwaysShowRecords=1\nCrashReplay=1\nDiagnostics=1\n')
     shots = out / 'images'
     shots.mkdir()
@@ -48,10 +57,27 @@ def main():
                FZERO_PACKS_DIR=str(out / 'catalog'), FZERO_TRACK_PACKS=str(out / 'settings'), SNESRECOMP_SAVE_ROOT='s',
                SNESRECOMP_INPUT_SCRIPT='300-302:32,330-332:32,360-362:32,390-392:8',
                SNESRECOMP_AUTOCLOSE_FRAMES='5000')
+    if a.menu_music:
+        env.pop('SDL_AUDIODRIVER',None)
+        env.update(FZERO_TEST_MENU_MUSIC='1',FZERO_TEST_AUDIO_OUTPUT=str(out/'output.pcm'))
     with (out / 'game.log').open('w') as log:
         result = subprocess.run([str(stage / 'F-Zero Forever.exe'), str(rom)], cwd=stage,
                                 env=env, stdout=log, stderr=log, timeout=240)
     text = (out / 'game.log').read_text(errors='replace')
+    if a.menu_music:
+        assert result.returncode==0 and 'menu-music: held native VS picker' in text,text[-4000:]
+        entered=int(re.search(r'\[menu-music\].*samples=(\d+)',text)[1])
+        ended=int(re.search(r'held native VS picker.*samples=(\d+)',text)[1])
+        assert ended-entered>=32040*2,'Audio device stopped producing during car selection'
+        pcm=array.array('h');pcm.frombytes((out/'output.pcm').read_bytes())
+        samples=pcm[(ended-32040)*2:ended*2]
+        rms=math.sqrt(sum(s*s for s in samples)/max(1,len(samples)))
+        assert rms>20,'Silent car-selection output'
+        report=dict(sha256=hashlib.sha256((stage/'F-Zero Forever.exe').read_bytes()).hexdigest(),
+                    sample_rate=32040,entry_sample=entered,end_sample=ended,picker_rms=rms)
+        (out/'result.json').write_text(json.dumps(report,indent=2)+'\n')
+        print('PASS native title music: real-device audio continues through VS car selection',report)
+        return
     assert result.returncode == 0 and 'local-ui: PASS' in text, text[-4000:]
     assert (shots / 'live-menu-frame.bmp').exists(), 'Live menu was not displayed'
     assert '[traffic-video] pane=0 ' in text and '[traffic-video] pane=1 ' in text, 'Bumper pixels were not visible in both gameplay views'
