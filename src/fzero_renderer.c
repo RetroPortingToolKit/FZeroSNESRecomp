@@ -912,7 +912,7 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
              !in_window(scanout, 4, x, viewport.extra)) ? object_pixels[sx] : 0;
       }
       c->colors = NULL;
-      if (!(c->objects[0] | c->objects[1])) {
+      if (!batch->jobs && !(c->objects[0] | c->objects[1])) {
         unsigned key = c->flags;
         if (!(colors_ready & (1u << key))) {
           for (unsigned index = 0; index < 256; ++index)

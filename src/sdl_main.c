@@ -152,6 +152,7 @@ typedef struct FzeroGlRenderer {
   uint32_t *hd_portable;
   size_t hd_portable_capacity;
   bool hd_fallback_reported;
+  bool hd_visible_samples;
 } FzeroGlRenderer;
 
 static void fzero_gl_prepare_window(void) {
@@ -280,11 +281,15 @@ static bool fzero_gl_init(FzeroGlRenderer *glr, SDL_Window *window,
 }
 
 static bool fzero_gl_hd(FzeroGlRenderer *glr,const SnesHdFrame *jobs,
-    unsigned scale,GlTextureWithSize *output) {
+    unsigned scale,int display_width,int display_height,GlTextureWithSize *output) {
   SnesHdView v;
   if (!glr->hd_gpu || !jobs || !SnesHdFrameView(jobs,&v)) return false;
   unsigned w,h;
   if (!SnesHdGpuAdmit(glr->hd_gpu,v.width,v.height,scale,(size_t)2*1024*1024*1024,&w,&h)) return false;
+  glr->hd_visible_samples=!glr->shader && !g_config.linear_filtering && !getenv("FZERO_HD_FULL_TARGET");
+  if (glr->hd_visible_samples && display_width>0 && display_height>0) {
+    w=(unsigned)display_width;h=(unsigned)display_height;
+  }
   if (glr->hd_texture.width != w || glr->hd_texture.height != h) {
     if (!glr->hd_texture.gl_texture) glGenTextures(1,&glr->hd_texture.gl_texture);
     if (!glr->hd_framebuffer) glGenFramebuffers(1,&glr->hd_framebuffer);
@@ -303,8 +308,8 @@ static bool fzero_gl_hd(FzeroGlRenderer *glr,const SnesHdFrame *jobs,
       return false;
     }
     glr->hd_texture.width=w; glr->hd_texture.height=h;
-    fprintf(stderr,"[fzero-hd] requested=%ux %ux%u effective=%ux%u target-bytes=%llu\n",
-        scale,v.width*scale,v.height*scale,w,h,(unsigned long long)w*h*4);
+    fprintf(stderr,"[fzero-hd] mode=%s requested=%ux raster=%ux%u target=%ux%u target-bytes=%llu\n",
+        glr->hd_visible_samples?"visible-samples":"full-target",scale,v.width*scale,v.height*scale,w,h,(unsigned long long)w*h*4);
   }
   glBindFramebuffer(GL_FRAMEBUFFER,glr->hd_framebuffer);
   bool ok=SnesHdGpuDraw(glr->hd_gpu,jobs,scale,w,h);
@@ -318,7 +323,8 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
                             int drawable_width, int drawable_height) {
   uint64_t diagnostic_start = FzeroDiagnosticsBegin();
   GlTextureWithSize image=glr->texture;
-  bool hd=fzero_gl_hd(glr,FzeroGpuHdFrame(),glr->hd_requested_scale,&image);
+  FzeroRect rect = FzeroDestination(viewport, drawable_width, drawable_height);
+  bool hd=fzero_gl_hd(glr,FzeroGpuHdFrame(),glr->hd_requested_scale,rect.w,rect.h,&image);
   if (!hd) {
   SnesHdView job_view;
   const SnesHdFrame *jobs=FzeroGpuHdFrame();
@@ -354,7 +360,6 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
   diagnostic_start = FzeroDiagnosticsBegin();
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT);
-  FzeroRect rect = FzeroDestination(viewport, drawable_width, drawable_height);
   int viewport_y = drawable_height - rect.y - rect.h;
   glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D,image.gl_texture);
   if (glr->shader) {
@@ -2196,7 +2201,8 @@ static int run_game(int argc, char **argv) {
       if (use_gl_renderer && gl_renderer.hd_gpu) {
         SnesHdGpuReadStats(gl_renderer.hd_gpu,false,&diagnostic_frame.hd_gpu);
         if (diagnostic_frame.hd_gpu.output_width)
-          diagnostic_frame.effective_scale=diagnostic_frame.hd_gpu.output_width/(unsigned)logical_width;
+          diagnostic_frame.effective_scale=gl_renderer.hd_visible_samples?gl_renderer.hd_requested_scale:
+              diagnostic_frame.hd_gpu.output_width/(unsigned)logical_width;
       }
       diagnostic_frame.controller_attached=pad && SDL_GameControllerGetAttached(pad);
       if(diagnostic_frame.controller_attached) {
