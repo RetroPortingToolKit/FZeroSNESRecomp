@@ -51,6 +51,10 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
   }
   switch(local_ui_stage) {
     case 1:
+      if(getenv("FZERO_TEST_MENU_MUSIC")) {
+        if(t==360) {fprintf(stderr,"menu-music: held native VS picker for360 UI ticks; samples=%ld\n",g_test_audio_output?ftell(g_test_audio_output)/4:0);return true;}
+        if(t>3)break;
+      }
       if(t<3)for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_START,true);
       if(getenv("FZERO_TEST_LOCAL_UI_ALT_MACHINES") && (t==4 || t==5))
         for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);

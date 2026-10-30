@@ -29,12 +29,11 @@ Use the plain version without a `fzero-55-preview` label.
 
 ## Current release
 
-The current local tester bundles are **0.12.1**: native multiplayer lap/boost
-visuals and corrected Quick Save/Load shortcut capture, in addition to the
-0.12.0 minimaps, human ranks, sounds and compact live menu. Both variants retain
-per-pack music, prebuilt portable course caches and the qualified native runtime.
-Next fixes are 0.12.2; new features are 0.13.0.
-Tracked by `beads-8wg.5.115`; feedback work is `beads-iiw8`.
+The current local tester bundles are **0.13.0**: shared GPU Mode7 defaults to
+8x with settings through64x, and title music continues into VS car selection.
+Both editions retain all profiles, packs, credits and portable course caches.
+Next fixes are0.13.1; new features are0.14.0. Tracked by `beads-8wg.5.117`
+and the shared campaign `beads-2wy8.1`.
 
 ## Preparing a release
 

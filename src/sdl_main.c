@@ -785,6 +785,7 @@ static uint32_t controller_input(SDL_GameController *pad) {
  * than to the device, so it works identically on both SDL generations and on
  * whatever backend the player has. */
 static int g_audio_volume = 100;
+static FILE *g_test_audio_output;
 
 static void fill_audio(Uint8 *stream, int len) {
   if (!g_snes || len < 4) {
@@ -792,6 +793,8 @@ static void fill_audio(Uint8 *stream, int len) {
     return;
   }
   RtlRenderAudio((int16_t *)stream, len / 4, 2);
+  if(g_test_audio_output && ftell(g_test_audio_output)<16*1024*1024)
+    fwrite(stream,1,(size_t)len,g_test_audio_output);
   if (g_audio_volume < 100) {
     int16_t *samples = (int16_t *)stream;
     int count = len / (int)sizeof(int16_t);
@@ -2024,6 +2027,11 @@ static int run_game(int argc, char **argv) {
   if (g_audio_volume < 0 || g_audio_volume > 100) g_audio_volume = 100;
   wanted.format = AUDIO_S16SYS;
   wanted.channels = 2;
+  const char *audio_output=getenv("FZERO_TEST_AUDIO_OUTPUT");
+  if(audio_output && *audio_output) {
+    g_test_audio_output=fopen(audio_output,"wb");
+    if(!g_test_audio_output)Die("Cannot open test audio output");
+  }
   SDL_AudioDeviceID audio = 0;
 #if SNESRECOMP_SDL3
   /* SDL_AudioSpec has no `samples`/`callback` in SDL3: the device is opened as
@@ -2312,19 +2320,22 @@ static int run_game(int argc, char **argv) {
 
     if(local_ui_tick(local_controls,window)) {running=0;break;}
     if(!local_two_player && !FzeroCaptureReplayActive() && FzeroVsMenuRequested()) {
-      snesrecomp_sdl_pause_audio_device(audio,true);SDL_LockMutex(g_audio_mutex);
+      /* No machine or audio source changes here: retain the live device queue. */
+      SDL_LockMutex(g_audio_mutex);
       FzeroCaptureStop();snes_rewind_shutdown();FzeroStateGuardDisarm();
       /* Keep the actual menu/SPC/MSU stream alive while selecting. Replacing
        * the cartridge here reset its music before a car had been chosen. */
       title_picker=true; menu_audio_deadline=monotonic_seconds();
       FzeroSetMenuAudioOnly(true);
+      if(getenv("FZERO_TEST_MENU_MUSIC"))fprintf(stderr,"[menu-music] command=%02x ports=%02x,%02x,%02x,%02x master=%d,%d flags=%02x samples=%ld suspended=%d enabled=%d\n",g_ram[0x46],g_snes->apu->inPorts[0],g_snes->apu->inPorts[1],g_snes->apu->inPorts[2],g_snes->apu->inPorts[3],g_snes->apu->dsp->masterVolumeL,g_snes->apu->dsp->masterVolumeR,dsp_read(g_snes->apu->dsp,0x6c),g_test_audio_output?ftell(g_test_audio_output)/4:0,suspended,launcher_settings.enable_audio);
       local_two_player=true;debug_server_set_ram(g_snes->ram,0x20000);
       local_controls=FzeroLocalControlsCreate(local_config,false);
       if(!local_controls)Die("Cannot allocate local controls");
       FzeroLocalControlsAssign(local_controls,launcher_settings.player_src,launcher_settings.player_gamepad_guid);
       local_controls_generation=RtlStateGeneration();
       snes_rewind_configure();SDL_UnlockMutex(g_audio_mutex);
-      snesrecomp_sdl_pause_audio_device(audio,suspended || !launcher_settings.enable_audio);
+      suspended=false;
+      snesrecomp_sdl_pause_audio_device(audio,!launcher_settings.enable_audio);
       g_reset_presentation_clock=true;
     }
     if(local_controls) {
@@ -2724,6 +2735,7 @@ static int run_game(int argc, char **argv) {
 #else
   SDL_CloseAudioDevice(audio);
 #endif
+  if(g_test_audio_output) {fclose(g_test_audio_output);g_test_audio_output=NULL;}
   if (pad) SDL_GameControllerClose(pad);
   snes_rewind_shutdown();
   if (g_overlay_texture) {
