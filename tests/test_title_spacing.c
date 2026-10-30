@@ -13,16 +13,22 @@ static void native_title(const char *rom_path,const char *preview) {
   static FzeroNativeUi ui;
   CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,rom,0}));
   const uint8_t *v=ui.title_v,*s=ui.title_letters['S'-'A'];
-  unsigned vtop=16,vbottom=0,stop=16,sbottom=0;
+  unsigned vtop=16,vbottom=0,stop=16,sbottom=0,vink=0,sink=0;
   for(unsigned y=0;y<16;++y) {
-    for(unsigned x=0;x<8;++x)if(s[y*8+x]) {if(y<stop)stop=y;if(y>sbottom)sbottom=y;}
+    for(unsigned x=0;x<8;++x)if(s[y*8+x]) {
+      if(y<stop)stop=y;if(y>sbottom)sbottom=y;
+      if(s[y*8+x]!=5)++sink;
+    }
     for(unsigned x=0;x<9;++x) {
       if(v[y*9+x]) {if(y<vtop)vtop=y;if(y>vbottom)vbottom=y;}
       CHECK(v[y*9+x]==v[y*9+8-x]);
-      if(v[y*9+x] && v[y*9+x]!=5)CHECK(v[y*9+x]==ui.title_letters['I'-'A'][y*8+3]);
+      if(v[y*9+x] && v[y*9+x]!=5) {
+        ++vink;CHECK(v[y*9+x]==ui.title_letters['I'-'A'][y*8+3]);
+      }
     }
   }
-  CHECK(vtop==stop+1 && vbottom+1==sbottom);
+  CHECK(vtop==stop && vbottom==sbottom);
+  CHECK(vink*4>=sink*3 && vink*4<=sink*5);
   if(preview) {
     enum {width=144*4,height=88*4};
     uint32_t *pixels=malloc(width*height*4);CHECK(pixels);
@@ -37,7 +43,7 @@ static void native_title(const char *rom_path,const char *preview) {
     }
     fclose(f);free(pixels);
   }
-  free(rom);puts("PASS native title: symmetric V, inset cap/baseline and native row shading");
+  free(rom);printf("PASS native title: symmetric V; cap/baseline V=%u/%u S=%u/%u; ink V=%u S=%u; native row shading\n",vtop,vbottom,stop,sbottom,vink,sink);
 }
 int main(int argc,char **argv) {
   static FzeroNativeUi ui;ui.valid=true;

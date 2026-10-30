@@ -170,11 +170,11 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
     if(ui->objects[0x8a+(sy/8)*16][(sy&7)*8+x]==3)
       m[y*8+x]=ui->title_letters['I'-'A'][y*8+3];
   }
-  /* An odd-width V has a centered single-pixel tip and mirrored arms.
-   * Inset its visible cap/baseline by one row for optical alignment with S. */
+  /* Match the native S cap, baseline, scanline colors and two-pixel stems.
+   * The odd width keeps both arms mirrored around a single centered tip. */
   static const uint16_t v_strokes[16]={
-    0,0,0xc6,0xc6,0xc6,0x44,0x44,0x44,
-    0x28,0x28,0x28,0x28,0x38,0x10,0,0
+    0,0xc6,0xc6,0xc6,0xc6,0x6c,0x6c,0x6c,
+    0x6c,0x6c,0x6c,0x38,0x38,0x38,0x10,0
   };
   uint8_t *v=ui->title_v;
   for(unsigned y=0;y<16;++y)for(unsigned x=0;x<9;++x)
