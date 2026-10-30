@@ -46,13 +46,21 @@ const char *FzeroTracksActiveId(void) {
 const FzeroCourse *FzeroTracksCurrentCourse(void) {
   return course;
 }
-bool FzeroTracksCurrentMusic(char *out, size_t cap) {
+bool FzeroTracksCurrentMusicKey(char *pack, size_t cap, unsigned *index) {
+  if(!pack || !cap || !index)return false;
   if (course)
     for (unsigned i = 0; i < imported_count; ++i)
       for (unsigned t = 0; t < imported[i].pack->track_count; ++t)
-        if (course == &imported[i].courses[t])
-          return FzeroPacksCourseMusic(imported[i].pack->id, t, out, cap);
+        if (course == &imported[i].courses[t]) {
+          int n=snprintf(pack,cap,"%s",imported[i].pack->id);
+          if(n<0 || (size_t)n>=cap)return false;
+          *index=t;return true;
+        }
   return false;
+}
+bool FzeroTracksCurrentMusic(char *out, size_t cap) {
+  char pack[96];unsigned index;
+  return FzeroTracksCurrentMusicKey(pack,sizeof(pack),&index) && FzeroPacksCourseMusic(pack,index,out,cap);
 }
 unsigned FzeroTracksRequiredFeatures(void) {
   unsigned features = 0;

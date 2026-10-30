@@ -20,7 +20,10 @@ bool FzeroMsuApplyConfigured(uint8_t **rom, size_t *size);
 bool FzeroMsuActive(void);
 const char *FzeroMsuError(void);
 bool FzeroMsuSelectSaveRoot(void);
-void FzeroMsuRestoreAudio(const uint8_t *ram);
+enum { FZERO_MSU_AUDIO_STATE_SIZE=328 };
+void FzeroMsuSaveAudio(uint8_t out[FZERO_MSU_AUDIO_STATE_SIZE]);
+bool FzeroMsuAudioStateValid(const uint8_t state[FZERO_MSU_AUDIO_STATE_SIZE]);
+void FzeroMsuRestoreAudio(uint8_t *ram,const uint8_t state[FZERO_MSU_AUDIO_STATE_SIZE]);
 /* Course soundtrack namespaces coexist beside the user's selected primary
  * soundtrack. NULL source explicitly requests SNES fallback; empty = primary. */
 void FzeroMsuSelectTrackSource(const char *source, bool race);

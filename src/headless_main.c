@@ -157,6 +157,7 @@ static uint64_t logic_hash(void) {
 #include "../tests/fzero_local_catalog_test.h"
 #include "../tests/fzero_feedback_test.h"
 #include "../tests/fzero_lap_cues_test.h"
+#include "../tests/fzero_msu_state_test.h"
 
 static uint8_t *read_rom(const char *path, size_t *size_out,
                          uint8_t hash[32]) {
@@ -883,6 +884,7 @@ int main(int argc, char **argv) {
     memset(audio, 0, sizeof(audio));
     RtlRenderAudio(audio, audio_frames, 2);
     if(!feedback_audio(frame))return 10;
+    if(!msu_state_check(frame))return 10;
     if(dsp_trace) {
       uint8_t registers[128];
       for(unsigned i=0;i<128;++i)registers[i]=dsp_read(g_snes->apu->dsp,(uint8_t)i);

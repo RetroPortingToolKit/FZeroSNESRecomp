@@ -4,6 +4,8 @@
 const FzeroCourse *FzeroTracksCurrentCourse(void);
 const FzeroCourse *FzeroTracksCourseAt(unsigned cup, unsigned order);
 bool FzeroTracksCurrentMusic(char *out, size_t cap);
+/* Stable catalog key for music already selected by the resolver. */
+bool FzeroTracksCurrentMusicKey(char *pack, size_t cap, unsigned *index);
 unsigned FzeroTracksRequiredFeatures(void);
 void FzeroTracksRefreshCourse(void);
 void FzeroTracksInstallHooks(void);

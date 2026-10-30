@@ -92,9 +92,11 @@ hosts retain their existing MSU folder/custom soundtrack interface by default.
   `f-zero_msu1.ips` uses that adapter and its standard numbering. Without
   that patch a custom pack uses CGP numbering. Other patch versions are not
   supported. The legacy adapter is composed into each derived car image.
-- Save/load and rewind restart the restored song from the beginning. The
-  shared core does not serialize an exact PCM cursor. Game-state replay is
-  checked independently from audio position.
+- Save/load and rewind resume the saved song position, including loop and
+  resampling phase. States keep a small playback bookmark and catalog identity;
+  the recordings stay in the installed music folders. Missing recordings fall
+  back to native music. Online rollback preserves live music and excludes local
+  playback from canonical simulation snapshots.
 
 ## Burndown and validation
 

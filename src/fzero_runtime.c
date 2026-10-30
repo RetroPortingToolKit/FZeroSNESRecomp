@@ -731,7 +731,7 @@ static bool online_frame_begin(uint32_t *inputs) {
 
 enum {
   kFzeroStateMagic = 0x4f52465au, /* "zFRO" */
-  kFzeroStateVersion = 1u,
+  kFzeroStateVersion = 2u,
 };
 
 /* ── Snapshot mode guard ──────────────────────────────────────────────────
@@ -750,6 +750,7 @@ static bool s_state_guard_restoring;
 static uint8_t *s_state_guard_blob;
 static size_t s_state_guard_len;
 static size_t s_state_guard_cap;
+static uint8_t s_loaded_music[FZERO_MSU_AUDIO_STATE_SIZE];
 
 FzeroStateMode FzeroStateModeCurrent(void) {
   if (FzeroLocalEnabled()) return kFzeroStateModeLocalVersus;
@@ -784,6 +785,7 @@ typedef struct FzeroRuntimeState {
   uint8_t frame_high_oam_start[0x20];
   DmaChannel frame_dma_channels[8];
   FzeroIrqEvent irq_events[kMaximumIrqEventsPerFrame];
+  uint8_t music[FZERO_MSU_AUDIO_STATE_SIZE];
 } FzeroRuntimeState;
 
 static void fzero_state_save_extra(SaveLoadInfo *sli) {
@@ -804,6 +806,7 @@ static void fzero_state_save_extra(SaveLoadInfo *sli) {
   state.magic = kFzeroStateMagic;
   state.version = kFzeroStateVersion;
   state.mode = (uint8_t)FzeroStateModeCurrent();
+  FzeroMsuSaveAudio(state.music);
   FzeroTracksMenuState(state.reserved, false);
   if(FzeroVsMenuSelected())state.reserved[1]|=128;
   state.cpu = g_cpu;
@@ -858,8 +861,8 @@ static void fzero_state_load_extra(SaveLoadInfo *sli, uint32_t version) {
   memset(&state, 0, sizeof(state));
   sli->func(sli, &state, sizeof(state));
   s_loaded_runtime_state = state.magic == kFzeroStateMagic &&
-                           state.version == kFzeroStateVersion;
-  if (!s_loaded_runtime_state) {free(local);return;}
+                           state.version == kFzeroStateVersion && FzeroMsuAudioStateValid(state.music);
+  if (!s_loaded_runtime_state) {free(local);s_state_mode_refused=true;return;}
 
   uint8_t content_hash[32] = {0};
   if (state.mode == kFzeroStateModeTrackPack) sli->func(sli, content_hash, sizeof(content_hash));
@@ -919,6 +922,7 @@ static void fzero_state_load_extra(SaveLoadInfo *sli, uint32_t version) {
   memcpy(s_frame_dma_channels, state.frame_dma_channels,
          sizeof(s_frame_dma_channels));
   memcpy(s_irq_events, state.irq_events, sizeof(s_irq_events));
+  memcpy(s_loaded_music,state.music,sizeof(s_loaded_music));
 }
 
 static const FzeroStateTrailer kFzeroStateTrailer = {
@@ -947,6 +951,7 @@ static bool fzero_snapshot_preflight(const void *data,size_t size) {
       size==total-SNES_SNAPSHOT_GUARD_OVERHEAD && header[1]==version &&
       size>=guest+FzeroLocalSaveSize()+sizeof(FzeroRuntimeState) &&
       FzeroStateProbeBytes(data,size,&kFzeroStateTrailer,&mode) && mode==kFzeroStateModeLocalVersus &&
+      FzeroMsuAudioStateValid((const uint8_t *)data+size-sizeof(FzeroRuntimeState)+offsetof(FzeroRuntimeState,music)) &&
       FzeroLocalValidate((const uint8_t *)data+guest,FzeroLocalSaveSize());
 }
 /* File preflight also serves direct host loads. Every other engine entry
@@ -1071,7 +1076,7 @@ static void fzero_on_state_loaded(uint32_t version) {
   g_snes->beamMasterLast = g_cpu.master_cycles;
   interp_bridge_set_master_deadline(0);
   s_loaded_runtime_state = false;
-  FzeroMsuRestoreAudio(g_ram);
+  FzeroMsuRestoreAudio(g_ram,s_loaded_music);
   if (FzeroTracksStateActive() || FzeroLocalEnabled()) RtlApplyExecutionState();
 
   if(FzeroLocalEnabled()) {

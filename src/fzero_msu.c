@@ -24,6 +24,9 @@
 
 static bool active;
 static bool versus_music, versus_pcm, versus_loop;
+static bool versus_restored;
+static bool versus_seek_pending;
+static uint64_t versus_seek;
 static unsigned versus_command=~0u, versus_course=~0u;
 static uint64_t versus_master;
 static uint64_t versus_generation;
@@ -33,6 +36,12 @@ static char error[256];
 static FzeroMusicSources music_sources;
 static char selected_source[96], resolved_directory[1024];
 static bool selected_supported = true, selected_race, directory_loaded, directory_valid;
+typedef struct MsuRoute {
+  char source[96],pack[96];unsigned index;
+  bool supported,race,course_music;
+} MsuRoute;
+static MsuRoute loaded_route;
+static const MsuRoute *restoring_route;
 static bool versus_voices(uint8_t voices);
 
 void FzeroMsuSelectTrackSource(const char *source, bool race) {
@@ -45,7 +54,19 @@ static bool resolve_track(void *context, const char *base, uint16_t track, char 
   /* Course filenames identify installed race music without soundtrack IDs,
    * prefixes or a numeric song map. Non-course events use the pack defaults
    * and individual selections exposed in Mods. */
-  if (selected_race && FzeroTracksCurrentMusic(path, cap)) return true;
+  if(restoring_route) {
+    loaded_route=*restoring_route;
+    if(loaded_route.course_music)
+      return FzeroPacksCourseMusic(loaded_route.pack,loaded_route.index,path,cap);
+  } else {
+    memset(&loaded_route,0,sizeof(loaded_route));
+    snprintf(loaded_route.source,sizeof(loaded_route.source),"%s",selected_source);
+    loaded_route.supported=selected_supported;loaded_route.race=selected_race;
+    if(selected_race && FzeroTracksCurrentMusic(path,cap)) {
+      loaded_route.course_music=FzeroTracksCurrentMusicKey(loaded_route.pack,sizeof(loaded_route.pack),&loaded_route.index);
+      return true;
+    }
+  }
   if (!selected_race) return FzeroMenuMusicResolve(track, path, cap);
   const char *leaf = base;
   for (const char *p = base; *p; ++p) if (*p == '/' || *p == '\\') leaf = p + 1;
@@ -121,7 +142,8 @@ bool FzeroMsuHasLegacyPatch(const char *pack) {
 bool FzeroMsuConfigure(const char *pack, bool cgp, const char *rom_path) {
   /* A cold return to single-player must restore all native voices too. */
   (void)versus_voices(0xff);
-  versus_music=versus_pcm=false;versus_command=versus_course=~0u;versus_master=0;
+  versus_music=versus_pcm=versus_restored=versus_seek_pending=false;versus_command=versus_course=~0u;versus_master=0;
+  memset(&loaded_route,0,sizeof(loaded_route));restoring_route=NULL;
   active=false; legacy_pack[0]=0; error[0]=0;
   FzeroMsuSelectTrackSource("", false);
   directory_loaded = false;
@@ -169,6 +191,9 @@ static bool versus_voices(uint8_t voices) {
 }
 void FzeroMsuUpdateVersus(void) {
   if(!versus_music || !FzeroLocalEnabled() || !g_snes)return;
+  /* The load callback precedes the engine's generation increment. Acknowledge
+   * that one timeline change without reselecting the just-restored track. */
+  if(versus_restored) {versus_generation=RtlStateGeneration();versus_restored=false;}
   const FzeroVersusSnapshot *race=FzeroVersusCompleted(FzeroLocalSession());
   unsigned command=FzeroLocalMusicCommand();
   const FzeroOnlineState *online=FzeroOnlineCompleted();
@@ -193,6 +218,12 @@ void FzeroMsuUpdateVersus(void) {
         msu1_write(0x2006,255);msu1_write(0x2007,versus_loop?3:1);
       }
       fprintf(stderr,"[versus-msu] command=%u course=%u track=%u output=%s\n",song,course,track,versus_pcm?"PCM":"SPC");
+    }
+    if(versus_seek_pending) {
+      if(versus_pcm && !msu1_seek_playback(versus_seek)) {
+        versus_pcm=false;(void)versus_voices(0xff);
+      }
+      versus_seek_pending=false;
     }
   }
   if(!versus_pcm)return;
@@ -311,34 +342,72 @@ bool FzeroMsuSelectSaveRoot(void) {
   return true;
 }
 
-void FzeroMsuRestoreAudio(const uint8_t *ram) {
+static bool neutral_audio(const uint8_t *state) {
+  static const uint8_t empty[FZERO_MSU_AUDIO_STATE_SIZE];
+  return !memcmp(state,empty,sizeof(empty));
+}
+void FzeroMsuSaveAudio(uint8_t out[FZERO_MSU_AUDIO_STATE_SIZE]) {
+  memset(out,0,FZERO_MSU_AUDIO_STATE_SIZE);
+  if(RtlIsRollbackSave())return;
+  msu1_capture_playback(out);
+  snprintf((char *)out+32,96,"%s",selected_source);
+  snprintf((char *)out+128,96,"%s",loaded_route.source);
+  snprintf((char *)out+224,96,"%s",loaded_route.pack);
+  out[320]=(uint8_t)loaded_route.index;out[321]=(uint8_t)(loaded_route.index>>8);
+  out[322]=(uint8_t)(selected_supported | selected_race<<1 | loaded_route.supported<<2 |
+      loaded_route.race<<3 | loaded_route.course_music<<4);
+}
+bool FzeroMsuAudioStateValid(const uint8_t state[FZERO_MSU_AUDIO_STATE_SIZE]) {
+  if(neutral_audio(state))return true;
+  if(!msu1_playback_state_valid(state) || (state[322]&~31) ||
+      !memchr(state+32,0,96) || !memchr(state+128,0,96) || !memchr(state+224,0,96))return false;
+  for(unsigned i=323;i<FZERO_MSU_AUDIO_STATE_SIZE;++i)if(state[i])return false;
+  return !(state[322]&16) || ((state[322]&8) && state[224]);
+}
+void FzeroMsuRestoreAudio(uint8_t *ram,const uint8_t state[FZERO_MSU_AUDIO_STATE_SIZE]) {
+  if(RtlIsRollbackLoad())return; /* speculative replay never rewinds live audio */
+  if(neutral_audio(state))return;
+  MsuRoute route={0};
+  snprintf(route.source,sizeof(route.source),"%s",(const char *)state+128);
+  snprintf(route.pack,sizeof(route.pack),"%s",(const char *)state+224);
+  route.index=state[320]|(unsigned)state[321]<<8;
+  route.supported=(state[322]&4)!=0;route.race=(state[322]&8)!=0;route.course_music=(state[322]&16)!=0;
+  /* Reopen the actual saved course/namespace, including snapshots between
+   * music selection and the guest's ready check. Restore the pending selector
+   * afterwards. Only catalog identities travel in states, never audio paths. */
+  FzeroMsuSelectTrackSource(route.supported?route.source:NULL,route.race);
+  restoring_route=&route;
+  bool restored=msu1_restore_playback(state);
+  restoring_route=NULL;loaded_route=route;
+  FzeroMsuSelectTrackSource((state[322]&1)?(const char *)state+32:NULL,(state[322]&2)!=0);
+  bool pcm=restored && !(msu1_read(0x2000)&8) && (state[5]&1);
   if(versus_music && FzeroLocalEnabled()) {
-    /* Rollback restores are speculative: keep live audio playing. Actual
-     * online loads change RtlStateGeneration and restart at presentation. */
-    if(FzeroOnlineEnabled())return;
-    msu1_write(0x2007,0);(void)versus_voices(0xff);
-    versus_pcm=false;versus_command=versus_course=~0u;versus_master=0;return;
+    unsigned command=FzeroLocalMusicCommand();
+    const FzeroOnlineState *online=FzeroOnlineCompleted();
+    if(FzeroOnlineEnabled() && online->phase>=FZERO_ONLINE_MACHINES && online->phase<=FZERO_ONLINE_COURSE)command=5;
+    versus_command=command&7;versus_course=FzeroLocalConfig().course;
+    versus_pcm=versus_command && pcm;versus_loop=(state[5]&4)!=0;
+    versus_master=g_cpu.master_cycles;versus_restored=true;
+    versus_seek_pending=false;
+    if(versus_command && !(state[5]&1)) {
+      /* A native-music host has no PCM cursor to share. Retain this peer's
+       * MSU preference and align its own recording to the saved race clock. */
+      const FzeroVersusSnapshot *race=FzeroVersusCompleted(FzeroLocalSession());
+      uint64_t age=0;
+      if(race)age=race->phase==FZERO_VS_COUNTDOWN?
+          FZERO_VERSUS_COUNTDOWN-race->countdown:race->race_tick;
+      double frames=(double)age*44100/FZERO_SIMULATION_HZ;
+      versus_seek=frames>=(double)UINT64_MAX?UINT64_MAX:(uint64_t)frames;
+      versus_command=~0u;versus_seek_pending=true;
+    }
+    (void)versus_voices(versus_pcm?0xc0:0xff);
+  } else {
+    (void)versus_voices(0xff);
+    if((state[5]&1) && !pcm && (FzeroRuleEnabled(FZERO_RULE_MSU) || active)) {
+      /* A recording may have been removed after saving. Let the existing
+       * adapter take its native SPC fallback on the next guest music hook. */
+      ram[0x182]=1;ram[0x181]=0;
+      ram[0x46]=(ram[0x46]&0xf8)|(ram[0x180]&7);
+    }
   }
-  if (FzeroRuleEnabled(FZERO_RULE_MSU) && msu1_enabled()) {
-    msu1_write(0x2007,0);
-    unsigned command=ram[0x181] ? ram[0x46]&7 : ram[0x180];
-    if (!command || ram[0x182] || !ram[0x183]) return;
-    unsigned track=FzeroGameplayMusicTrack(command);
-    msu1_write(0x2004,(uint8_t)track); msu1_write(0x2005,(uint8_t)(track>>8));
-    msu1_write(0x2006,ram[0x181] ? 0 : ram[0x184]);
-    if (!ram[0x181]) msu1_write(0x2007,command<=3 ? 1 : 3);
-    return;
-  }
-  if (!active || !msu1_enabled()) return;
-  msu1_write(0x2007, 0);
-  /* v11 stores its selected PCM number and fallback flag in guest RAM.
-   * Restart the restored song; the shared core does not serialize its cursor. */
-  unsigned track = ram[0x183], command = ram[0x180];
-  if (!track || track > 31 || ram[0x182] == 1) return;
-  msu1_write(0x2004, (uint8_t)track); msu1_write(0x2005, 0);
-  /* A snapshot between selection and the guest's ready check must restore
-   * the selection too; the next guest call will start it at the right volume. */
-  if (ram[0x181] == 1) { msu1_write(0x2006, 0); return; }
-  msu1_write(0x2006, command == 8 ? 0 : 255);
-  msu1_write(0x2007, track < 4 ? 1 : 3);
 }
