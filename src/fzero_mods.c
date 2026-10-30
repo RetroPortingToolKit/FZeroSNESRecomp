@@ -178,10 +178,10 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
   COPY(out->status, out->enabled ? "Enabled" : "Disabled");
   if (index == 3 && video->hd_scale > 4) {
     snprintf(out->description, sizeof(out->description),
-        "%s\n\nWarning: %ux is extremely demanding and can cause severe slowdown, "
+        "%s\n\nWarning: %ux can require substantial GPU time and memory, "
         "especially with ultrawide views or high Presentation FPS. Use at your own risk. "
         "Try 2x and 60 FPS if performance drops.", descriptions[index], video->hd_scale);
-    COPY(out->status, "Warning: high CPU and memory use above 4x");
+    COPY(out->status, "Higher resolution: check available GPU headroom");
   }
   out->option_count = index == 2 || index == 4 || index == 5 ? 0 : 1;
   return 1;
@@ -209,12 +209,12 @@ static int option_get(void *ctx, const char *package, const char *feature, int i
     COPY(out->default_value, FzeroAspectName(FZERO_ASPECT_FIT));
     out->choice_count = 4;
   } else if (kind == 4) {
-    COPY(out->id, "scale"); COPY(out->label, "Resolution multiplier (2-10)");
-    COPY(out->description, "Whole numbers from 2 to 10 per dimension. 2x recommended; above 4x can cause severe slowdown. Use at your own risk.");
+    COPY(out->id, "scale"); COPY(out->label, "Resolution multiplier (2-64)");
+    COPY(out->description, "GPU sampling from 2x to 64x per dimension. Higher scales use more GPU time and memory. Device limits may reduce the effective resolution. Portable CPU rendering supports up to 10x.");
     snprintf(out->value, sizeof(out->value), "%u", video->hd_scale);
     COPY(out->default_value, "2");
     out->type = RECOMP_MOD_OPTION_INTEGER;
-    out->min_value = FZERO_HD_SCALE_MIN; out->max_value = FZERO_HD_SCALE_MAX;
+    out->min_value = FZERO_HD_SCALE_MIN; out->max_value = FZERO_GPU_HD_SCALE_MAX;
   } else {
     COPY(out->id, "fps"); COPY(out->label, "Presentation FPS");
     COPY(out->description, "Auto follows display refresh, up to 360 FPS.");
@@ -299,7 +299,7 @@ static int set_option(void *ctx, const char *package, const char *feature,
       return FzeroParseAspect(value, &video->aspect);
   } else if (identity(package, feature) == 4 && !strcmp(option, "scale")) {
     if (FzeroParseHdScale(value, &video->hd_scale)) { error_text[0] = 0; return 1; }
-    COPY(error_text, "HD Mode 7 resolution must be a whole number from 2 to 10.");
+    COPY(error_text, "HD Mode 7 resolution must be a whole number from 2 to 64.");
   } else if (identity(package, feature) == 2 && !strcmp(option, "fps")) {
     for (unsigned i = 0; i < 8; ++i) if (!strcmp(value, rates[i])) {
       video->fps = i ? (unsigned)atoi(value) : 0; return 1;

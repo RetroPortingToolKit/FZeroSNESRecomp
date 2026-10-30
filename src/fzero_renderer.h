@@ -24,6 +24,11 @@ bool FzeroRenderViewDraw(FzeroRenderView *view, uint32_t *output,
 bool FzeroRenderViewDrawPresentation(FzeroRenderView *view, uint32_t *native,
                                      uint32_t *hd, size_t hd_capacity,
                                      FzeroViewport viewport, double alpha, unsigned scale);
+/* Owned native-sized GPU jobs. Native output remains the rewind/debug image;
+ * the caller seals after adding any native overlays, then owns the frame. */
+SnesHdFrame *FzeroRenderViewPrepareHd(FzeroRenderView *view, uint32_t *native,
+                                     FzeroViewport viewport, double alpha);
+SnesHdFrame *FzeroRendererPrepareHd(uint32_t *native, FzeroViewport viewport, double alpha);
 bool FzeroRenderViewHasFrame(const FzeroRenderView *view);
 /* Build scenery for one versus camera from a completed stock race asset
  * capture and immutable shared world. NULL assets selects the legacy view.

@@ -7,6 +7,7 @@
 #include "common_cpu_infra.h"
 #include "fzero_video.h"
 #include "fzero_state_mode.h"
+#include "snes/hd_jobs.h"
 
 const RtlGameInfo *FzeroGameInfo(void);
 const RtlGameInfo *FzeroLocalGameInfo(void);
@@ -39,5 +40,7 @@ void FzeroSetViewport(FzeroViewport viewport);
 void FzeroPresent(double alpha);
 void FzeroSetDeferredPresentation(bool deferred);
 void FzeroSetMode7Hd(unsigned scale, uint32_t *pixels, size_t capacity);
+void FzeroSetGpuHd(bool enabled);
+const SnesHdFrame *FzeroGpuHdFrame(void);
 const uint32_t *FzeroHdFrame(void);
 unsigned FzeroHdScale(void);

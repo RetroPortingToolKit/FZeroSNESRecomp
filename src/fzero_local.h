@@ -24,6 +24,7 @@ void FzeroLocalCapture(void);
 void FzeroLocalPublish(void);
 bool FzeroLocalDraw(uint32_t *output,size_t capacity,FzeroViewport viewport,double alpha,unsigned scale);
 bool FzeroLocalDrawCombined(uint32_t *native,uint32_t *hd,size_t capacity,FzeroViewport viewport,double alpha,unsigned scale);
+SnesHdFrame *FzeroLocalPrepareHd(uint32_t *native,FzeroViewport viewport,double alpha);
 void FzeroLocalResetViews(void);
 bool FzeroLocalSelectSaveRoot(void);
 FzeroVersusConfig FzeroLocalConfig(void);

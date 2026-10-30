@@ -106,13 +106,13 @@ static void config_tests(void) {
   CHECK(FzeroVideoSave(&a, "test-video.ini")); /* atomic replacement */
   CHECK(FzeroVideoLoad(&b, "test-video.ini"));
   CHECK(b.aspect == FZERO_ASPECT_21_9 && b.fps == 0);
-  for (unsigned scale = 2; scale <= 10; ++scale) {
+  for (unsigned scale = 2; scale <= 64; ++scale) {
     char text[8]; snprintf(text, sizeof(text), "%u", scale);
     CHECK(FzeroParseHdScale(text, &a.hd_scale) && a.hd_scale == scale);
     CHECK(FzeroVideoSave(&a, "test-video.ini"));
     CHECK(FzeroVideoLoad(&b, "test-video.ini") && b.hd_scale == scale);
   }
-  const char *invalid[] = {"", "0", "1", "11", "-2", "+4", "4x", "6.5", "10junk", "4294967298", "999999999999999999999999"};
+  const char *invalid[] = {"", "0", "1", "65", "-2", "+4", "4x", "6.5", "10junk", "4294967298", "999999999999999999999999"};
   for (unsigned i = 0; i < sizeof(invalid) / sizeof(*invalid); ++i) {
     unsigned scale = 4;
     CHECK(!FzeroParseHdScale(invalid[i], &scale) && scale == 4);

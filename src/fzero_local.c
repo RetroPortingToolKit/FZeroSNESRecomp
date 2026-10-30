@@ -211,6 +211,11 @@ bool FzeroLocalDrawCombined(uint32_t *native,uint32_t *hd,size_t capacity,FzeroV
   return session && FzeroVersusVideoDrawCombined(video,native,hd,capacity,viewport,alpha,scale,
       FzeroOnlineEnabled()?FzeroOnlineView():-1);
 }
+SnesHdFrame *FzeroLocalPrepareHd(uint32_t *native,FzeroViewport viewport,double alpha) {
+  FzeroVersusVideoLiveMenu(video,menu_owner);FzeroVersusVideoMenu(video,menu_selection,result_ticks);
+  return session ? FzeroVersusVideoPrepareHd(video,native,viewport,alpha,
+      FzeroOnlineEnabled()?FzeroOnlineView():-1) : NULL;
+}
 void FzeroLocalPublish(void) {
   FzeroVersusVideoMenu(video,menu_selection,result_ticks);
   if(video) {

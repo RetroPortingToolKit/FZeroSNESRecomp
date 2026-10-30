@@ -32,6 +32,8 @@ struct FzeroRenderView {
   SnesRenderWorkers *render_workers;
   Ppu *worker_scratch;
   bool workers_attempted;
+  uint8_t *course_map, *course_bank, *course_dependencies;
+  unsigned course_grid;
 };
 static FzeroRenderView single_player;
 static void race_color_math(Ppu *p);
@@ -56,6 +58,8 @@ static void shutdown_view(FzeroRenderView *view) {
   view->render_workers = NULL;
   free(view->worker_scratch); view->worker_scratch = NULL;
   view->workers_attempted = false;
+  free(view->course_map); free(view->course_bank); free(view->course_dependencies);
+  view->course_map = view->course_bank = view->course_dependencies = NULL;
 }
 FzeroRenderView *FzeroRenderViewCreate(void) { return calloc(1, sizeof(FzeroRenderView)); }
 void FzeroRenderViewDestroy(FzeroRenderView *view) {
@@ -413,6 +417,41 @@ static unsigned course_tile(const FzeroCourse *course, int world_x, int world_y)
                        ((world_y >> 3) & 1)) & 0xffff];
 }
 
+/* Decode the native character map only when an address it actually used
+ * changes. Streaming scratch elsewhere in bank7F does not invalidate it.
+ * The resulting 1024x512 bytes are source data, independent of HD scale. */
+static const uint8_t *course_map(FzeroRenderView *view, const FzeroCourse *course) {
+  bool changed = !view->course_map || view->course_grid != course->grid;
+  if (!changed) for (unsigned i = 0; i < 65536; ++i)
+    if (view->course_dependencies[i] && view->course_bank[i] != course->bank[i]) { changed = true; break; }
+  if (!changed) return view->course_map;
+  if (!view->course_map) {
+    view->course_map = malloc(1024 * 512); view->course_bank = malloc(65536);
+    view->course_dependencies = malloc(65536);
+    if (!view->course_map || !view->course_bank || !view->course_dependencies) {
+      free(view->course_map); free(view->course_bank); free(view->course_dependencies);
+      view->course_map = view->course_bank = view->course_dependencies = NULL; return NULL;
+    }
+  }
+  uint8_t *used = view->course_dependencies;
+  memset(used, 0, 65536);
+  for (unsigned cy = 0; cy < 512; ++cy) for (unsigned cx = 0; cx < 1024; ++cx) {
+    unsigned x = cx * 8, y = cy * 8;
+    unsigned cell = (course->grid + (y >> 8) * 32 + (x >> 8)) & 65535;
+    unsigned block = course->bank[cell]; used[cell] = 1;
+    unsigned row_address = (0x5000 + block * 32 + ((y >> 4) & 15) * 2) & 65535;
+    used[row_address] = used[(row_address + 1) & 65535] = 1;
+    unsigned row = course_word(course, row_address);
+    unsigned group_address = (row + ((x >> 4) & 15) * 2) & 65535;
+    used[group_address] = used[(group_address + 1) & 65535] = 1;
+    unsigned group = course_word(course, group_address);
+    unsigned tile = (group + ((x >> 3) & 1) * 2 + ((y >> 3) & 1)) & 65535;
+    used[tile] = 1; view->course_map[cy * 1024 + cx] = course->bank[tile];
+  }
+  memcpy(view->course_bank, course->bank, 65536); view->course_grid = course->grid;
+  return view->course_map;
+}
+
 /* Tile number for one Mode 7 texel, or -1 to keep the live tilemap. The
  * transform is centred on the camera, so the texel's offset from the 13-bit
  * centre is exact even where the wrapped coordinate is ambiguous. */
@@ -693,10 +732,19 @@ typedef struct FzeroRenderBatch {
   double alpha, sample_offset[FZERO_HD_SCALE_MAX];
   unsigned scale;
   bool scenery, results, result_scenery, world, race_hud, interpolate;
+  SnesHdFrame *jobs;
+  int picture, tilemap;
+  bool jobs_ok;
 } FzeroRenderBatch;
 
+static bool publish_native(SnesHdFrame *jobs, unsigned y, const uint32_t *row, unsigned width) {
+  SnesHdLine j = {0}; j.kind = kSnesHdNative;
+  memcpy(j.native, row, width * sizeof(*row));
+  return SnesHdFrameSetLine(jobs, y, &j);
+}
+
 static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) {
-  const FzeroRenderBatch *batch = opaque;
+  FzeroRenderBatch *batch = opaque;
   const FzeroSourceFrame *f = batch->frame, *previous = batch->previous;
   uint32_t *out = batch->out, *native = batch->native;
   Ppu *scanout = &batch->scratch[slot];
@@ -713,7 +761,10 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
   for (int y = (int)begin; y < (int)end; ++y) {
     const FzeroRasterLine *l = &f->lines[y];
     memcpy(scanout, l->registers, PPU_SAVESTATE_REGS_SIZE);
-    if (scanout->inidisp & 128) continue;
+    if (scanout->inidisp & 128) {
+      if (batch->jobs && !publish_native(batch->jobs, y, out + (size_t)y * viewport.width, viewport.width)) batch->jobs_ok = false;
+      continue;
+    }
     int mode = scanout->bgmode & 7;
     if(mode==7 && (world || result_scenery) && !(scanout->cgadsub&128)) {
       bool full_row=true;
@@ -732,6 +783,7 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
       memcpy(row + viewport.extra, f->stock + y * 256, 256 * sizeof(*out));
       expand_line(out, row, y, viewport.width, scale);
       if (native) memcpy(native + y * viewport.width, row, viewport.width * sizeof(*native));
+      if (batch->jobs && !publish_native(batch->jobs, y, row, viewport.width)) batch->jobs_ok = false;
       continue;
     }
     FzeroMode7Line transform = FzeroMode7Transform(scanout->m7matrix, scanout->m7sel, y + 1);
@@ -768,12 +820,12 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
       memset(object_pixels, 0, (size_t)viewport.width * sizeof(*object_pixels));
     /* Successful results retain the frozen course. Its spatial sampling
      * stays HD even though actor/camera interpolation has stopped. */
-    bool hd_line = scale > 1 && (world || result_scenery) && mode == 7 &&
+    bool hd_line = (scale > 1 || batch->jobs) && (world || result_scenery) && mode == 7 &&
         !((scanout->mosaic & 1) && (scanout->mosaic >> 4)) &&
         !(scanout->setini & 0x49) && !(scanout->cgwsel & 1);
     uint32_t colors[8][256];
     unsigned colors_ready=0;
-    if (!hd_line || native) {
+    if (!hd_line || native || batch->jobs) {
       for (int sx = 0; sx < viewport.width; ++sx) {
         int x = sx - viewport.extra;
         uint16_t screens[2] = {0x500, 0x500};
@@ -834,9 +886,12 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
         memcpy(row + viewport.extra,
                f->stock + y * 256, 256 * sizeof(*out));
       if (native) memcpy(native + y * viewport.width, row, viewport.width * sizeof(*native));
-      if (!hd_line) expand_line(out, row, y, viewport.width, scale);
+      if (!hd_line || batch->jobs) expand_line(out, row, y, viewport.width, scale);
     }
-    if (!hd_line) continue;
+    if (!hd_line) {
+      if (batch->jobs && !publish_native(batch->jobs, y, row, viewport.width)) batch->jobs_ok = false;
+      continue;
+    }
 
     /* Window membership and sprite priority are native-pixel properties.
      * Resolve them once for all subpixels. In columns without sprites, the
@@ -887,6 +942,32 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
     }
     SnesMode7HdTransform affine = SnesMode7HdMakeTransform(
         scanout->m7matrix, scanout->m7sel, (unsigned)y + 1);
+    if (batch->jobs) {
+      SnesHdLine j = {0}; j.kind = kSnesHdAffine;
+      j.source = (uint16_t)batch->picture;
+      j.tilemap = batch->tilemap < 0 ? 0 : (uint16_t)(batch->tilemap + 1);
+      j.map_offset_x = reference.offset_x; j.map_offset_y = reference.offset_y;
+      j.affine[0] = hd.origin_x; j.affine[1] = hd.origin_y;
+      j.affine[2] = hd.step_x; j.affine[3] = hd.step_y;
+      j.affine[4] = adjacent ? next.origin_x - hd.origin_x : affine.row_x * 256;
+      j.affine[5] = adjacent ? next.origin_y - hd.origin_y : affine.row_y * 256;
+      j.affine[6] = adjacent ? next.step_x - hd.step_x : 0;
+      j.affine[7] = adjacent ? next.step_y - hd.step_y : 0;
+      j.screen_left = -viewport.extra; j.active_left = -viewport.extra;
+      j.active_right = 256 + viewport.extra; j.control = hd.control;
+      j.fixed_color = scanout->fixedColor; j.brightness = scanout->inidisp & 15;
+      j.cgwsel = scanout->cgwsel; j.cgadsub = scanout->cgadsub;
+      memcpy(j.palette, l->palette, sizeof(j.palette));
+      memcpy(j.native, row, viewport.width * sizeof(*row));
+      for (int sx = 0; sx < viewport.width; ++sx) {
+        const FzeroHdPixelContext *c = &contexts[sx];
+        j.object[sx] = object_pixels[sx]; j.object_color[sx] = l->palette[object_pixels[sx] & 255];
+        j.visibility[sx] = (c->flags & 3) | ((c->flags & 4) << 2) |
+            (c->objects[0] ? 4 : 0) | (c->objects[1] ? 8 : 0);
+      }
+      if (!SnesHdFrameSetLine(batch->jobs, y, &j)) batch->jobs_ok = false;
+      continue;
+    }
     for (unsigned sy = 0; sy < scale; ++sy) {
       double fraction = (double)sy / scale;
       FzeroMode7Line subline = hd;
@@ -942,7 +1023,7 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
 }
 
 static bool render_frame(FzeroRenderView *view, uint32_t *out, FzeroViewport viewport, double alpha,
-                          unsigned scale, uint32_t *native) {
+                          unsigned scale, uint32_t *native, SnesHdFrame *jobs) {
   if (!view) return false;
   const FzeroSourceFrame *f = &view->frames[view->current];
   const FzeroSourceFrame *previous = &view->frames[view->current ^ 1];
@@ -993,6 +1074,15 @@ static bool render_frame(FzeroRenderView *view, uint32_t *out, FzeroViewport vie
   /* Resolve the full course for every race/aspect. The guest's 1024-unit
    * VRAM streaming square is a cache, never the maximum visible distance. */
   course.complete = race || world || result_scenery;
+  int picture = -1, tilemap = -1;
+  if (jobs) {
+    picture = SnesHdFrameAddPicture(jobs, f->vram);
+    if (picture < 0) return false;
+    if (course.valid) {
+      const uint8_t *map = course_map(view, &course);
+      if (!map || (tilemap = SnesHdFrameAddTilemap(jobs, map, 1024, 512)) < 0) return false;
+    }
+  }
   /* Only substantial HD scenery uses workers. Native composition and flat
    * menus stay serial. The call joins before another source frame, state load,
    * rewind action or shutdown can replace the immutable snapshot. */
@@ -1006,15 +1096,16 @@ static bool render_frame(FzeroRenderView *view, uint32_t *out, FzeroViewport vie
     .scratch = pool ? view->worker_scratch : scanout,
     .viewport = viewport, .course = course, .alpha = alpha, .scale = scale,
     .scenery = scenery, .results = results, .result_scenery = result_scenery,
-    .world = world, .race_hud = race_hud, .interpolate = interpolate
+    .world = world, .race_hud = race_hud, .interpolate = interpolate,
+    .jobs = jobs, .picture = picture, .tilemap = tilemap, .jobs_ok = true
   };
   for (unsigned sample = 0; sample < scale; ++sample)
     batch.sample_offset[sample] = (double)sample / scale;
-  return SnesRenderWorkersRun(pool, 224, 8, render_lines, &batch);
+  return SnesRenderWorkersRun(pool, 224, 8, render_lines, &batch) && batch.jobs_ok;
 }
 
 bool FzeroRenderViewDraw(FzeroRenderView *view, uint32_t *out, FzeroViewport viewport, double alpha) {
-  return render_frame(view, out, viewport, alpha, 1, NULL);
+  return render_frame(view, out, viewport, alpha, 1, NULL, NULL);
 }
 
 bool FzeroRendererDrawHd(uint32_t *out, size_t capacity,
@@ -1027,7 +1118,18 @@ bool FzeroRenderViewDrawPresentation(FzeroRenderView *view, uint32_t *native, ui
   if (!FzeroValidHdScale(scale) || viewport.width < 256 ||
       viewport.width > FZERO_MAX_WIDTH ||
       capacity < (size_t)viewport.width * 224 * scale * scale) return false;
-  return render_frame(view, out, viewport, alpha, scale, native);
+  return render_frame(view, out, viewport, alpha, scale, native, NULL);
+}
+
+SnesHdFrame *FzeroRenderViewPrepareHd(FzeroRenderView *view, uint32_t *native,
+                                     FzeroViewport viewport, double alpha) {
+  if (!native) return NULL;
+  SnesHdFrame *jobs = SnesHdFrameCreate(viewport.width, 224);
+  if (jobs && render_frame(view, native, viewport, alpha, 1, NULL, jobs)) return jobs;
+  SnesHdFrameDestroy(jobs); return NULL;
+}
+SnesHdFrame *FzeroRendererPrepareHd(uint32_t *native, FzeroViewport viewport, double alpha) {
+  return FzeroRenderViewPrepareHd(&single_player, native, viewport, alpha);
 }
 
 void FzeroRendererReset(void) { FzeroRenderViewReset(&single_player); }

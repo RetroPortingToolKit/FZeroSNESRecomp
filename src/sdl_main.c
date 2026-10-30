@@ -53,6 +53,7 @@
 #include "glsl_shader.h"
 #include "desktop/config.h"
 #include "desktop/sdl_compat.h"
+#include "desktop/hd_gpu.h"
 
 #include <stdarg.h>
 #include <stdio.h>
@@ -144,6 +145,13 @@ typedef struct FzeroGlRenderer {
   GlTextureWithSize texture;
   GlTextureWithSize overlay;
   GlslShader *shader;
+  SnesHdGpu *hd_gpu;
+  GlTextureWithSize hd_texture;
+  uint hd_framebuffer;
+  unsigned hd_requested_scale;
+  uint32_t *hd_portable;
+  size_t hd_portable_capacity;
+  bool hd_fallback_reported;
 } FzeroGlRenderer;
 
 static void fzero_gl_prepare_window(void) {
@@ -271,10 +279,63 @@ static bool fzero_gl_init(FzeroGlRenderer *glr, SDL_Window *window,
   return true;
 }
 
+static bool fzero_gl_hd(FzeroGlRenderer *glr,const SnesHdFrame *jobs,
+    unsigned scale,GlTextureWithSize *output) {
+  SnesHdView v;
+  if (!glr->hd_gpu || !jobs || !SnesHdFrameView(jobs,&v)) return false;
+  unsigned w,h;
+  if (!SnesHdGpuAdmit(glr->hd_gpu,v.width,v.height,scale,(size_t)2*1024*1024*1024,&w,&h)) return false;
+  if (glr->hd_texture.width != w || glr->hd_texture.height != h) {
+    if (!glr->hd_texture.gl_texture) glGenTextures(1,&glr->hd_texture.gl_texture);
+    if (!glr->hd_framebuffer) glGenFramebuffers(1,&glr->hd_framebuffer);
+    glBindTexture(GL_TEXTURE_2D,glr->hd_texture.gl_texture);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,w,h,0,GL_RGBA,GL_UNSIGNED_BYTE,NULL);
+    glBindFramebuffer(GL_FRAMEBUFFER,glr->hd_framebuffer);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,glr->hd_texture.gl_texture,0);
+    bool ok=glCheckFramebufferStatus(GL_FRAMEBUFFER)==GL_FRAMEBUFFER_COMPLETE && glGetError()==GL_NO_ERROR;
+    glBindFramebuffer(GL_FRAMEBUFFER,0);
+    if (!ok) {
+      fprintf(stderr,"[fzero-hd] GPU target allocation failed; using native output\n");
+      return false;
+    }
+    glr->hd_texture.width=w; glr->hd_texture.height=h;
+    fprintf(stderr,"[fzero-hd] requested=%ux %ux%u effective=%ux%u target-bytes=%llu\n",
+        scale,v.width*scale,v.height*scale,w,h,(unsigned long long)w*h*4);
+  }
+  glBindFramebuffer(GL_FRAMEBUFFER,glr->hd_framebuffer);
+  bool ok=SnesHdGpuDraw(glr->hd_gpu,jobs,scale,w,h);
+  glBindFramebuffer(GL_FRAMEBUFFER,0);
+  if (ok) *output=glr->hd_texture;
+  return ok;
+}
+
 static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
                             int logical_width, int logical_height, FzeroViewport viewport,
                             int drawable_width, int drawable_height) {
   uint64_t diagnostic_start = FzeroDiagnosticsBegin();
+  GlTextureWithSize image=glr->texture;
+  bool hd=fzero_gl_hd(glr,FzeroGpuHdFrame(),glr->hd_requested_scale,&image);
+  if (!hd) {
+  SnesHdView job_view;
+  const SnesHdFrame *jobs=FzeroGpuHdFrame();
+  if (jobs && SnesHdFrameView(jobs,&job_view)) {
+    unsigned fallback_scale=glr->hd_requested_scale>4?4:glr->hd_requested_scale;
+    size_t count=(size_t)job_view.width*job_view.height*fallback_scale*fallback_scale;
+    if (count>glr->hd_portable_capacity) {
+      uint32_t *buffer=realloc(glr->hd_portable,count*4);
+      if (buffer) {glr->hd_portable=buffer;glr->hd_portable_capacity=count;}
+    }
+    unsigned w=job_view.width*fallback_scale,h=job_view.height*fallback_scale;
+    if (glr->hd_portable_capacity>=count && SnesHdFrameRenderRegion(jobs,fallback_scale,0,0,w,h,glr->hd_portable,w*4)) {
+      pixels=(const uint8_t *)glr->hd_portable;logical_width=w;logical_height=h;
+      if (!glr->hd_fallback_reported) fprintf(stderr,"[fzero-hd] requested=%ux portable effective=%ux (%ux%u)\n",glr->hd_requested_scale,fallback_scale,w,h);
+      glr->hd_fallback_reported=true;
+    }
+  }
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, glr->texture.gl_texture);
   if (glr->texture.width == logical_width && glr->texture.height == logical_height) {
@@ -286,6 +347,8 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, logical_width, logical_height, 0,
                  GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
   }
+  image=glr->texture;
+  }
 
   FzeroDiagnosticsEnd(FZERO_DIAG_UPLOAD, diagnostic_start);
   diagnostic_start = FzeroDiagnosticsBegin();
@@ -293,9 +356,10 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
   glClear(GL_COLOR_BUFFER_BIT);
   FzeroRect rect = FzeroDestination(viewport, drawable_width, drawable_height);
   int viewport_y = drawable_height - rect.y - rect.h;
+  glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D,image.gl_texture);
   if (glr->shader) {
     glBindVertexArray(glr->vao);
-    GlslShader_Render(glr->shader, &glr->texture, rect.x, viewport_y, rect.w,
+    GlslShader_Render(glr->shader, &image, rect.x, viewport_y, rect.w,
                       rect.h);
     glBindVertexArray(0);
   } else {
@@ -353,6 +417,10 @@ static void fzero_gl_draw_overlay(FzeroGlRenderer *glr, const uint32_t *panel,
 }
 
 static void fzero_gl_destroy(FzeroGlRenderer *glr) {
+  SnesHdGpuDestroy(glr->hd_gpu);
+  free(glr->hd_portable);
+  if (glr->hd_texture.gl_texture) glDeleteTextures(1,&glr->hd_texture.gl_texture);
+  if (glr->hd_framebuffer) glDeleteFramebuffers(1,&glr->hd_framebuffer);
   if (glr->shader) GlslShader_Destroy(glr->shader);
   if (glr->overlay.gl_texture) glDeleteTextures(1, &glr->overlay.gl_texture);
   glDeleteTextures(1, &glr->texture.gl_texture);
@@ -1865,8 +1933,11 @@ static int run_game(int argc, char **argv) {
 #else
   const Uint32 kHighDpiFlag = SDL_WINDOW_ALLOW_HIGHDPI;
 #endif
-  bool use_gl_renderer = launcher_settings.shader_path[0] != 0;
+  const char *gpu_choice=getenv("FZERO_HD_GPU");
+  bool want_gpu=g_video.hd_mode7 && (!gpu_choice || strcmp(gpu_choice,"0"));
+  bool use_gl_renderer = launcher_settings.shader_path[0] != 0 || want_gpu;
   if (use_gl_renderer) fzero_gl_prepare_window();
+  if (want_gpu) { SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,4); SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,0); }
   /* Window scale is a real row on the Settings page, so it has to size the
    * window: it was drawn, saved and then ignored in favour of a hardcoded
    * 768x576 -- which is exactly the 3x this still falls back to. */
@@ -1887,15 +1958,30 @@ static int run_game(int argc, char **argv) {
   SDL_Texture *texture = NULL;
   unsigned texture_scale = g_video.hd_mode7 ? g_video.hd_scale : 1;
   const unsigned requested_texture_scale = texture_scale;
+  bool gpu_hd=false;
   if (use_gl_renderer) {
-    if (!fzero_gl_init(&gl_renderer, window, launcher_settings.shader_path))
-      Die("Unable to initialize the OpenGL shader renderer");
+    bool gl_ok=fzero_gl_init(&gl_renderer,window,launcher_settings.shader_path);
+    if (!gl_ok && want_gpu && !gl_renderer.context) {
+      fzero_gl_prepare_window();
+      gl_ok=fzero_gl_init(&gl_renderer,window,launcher_settings.shader_path);
+    }
+    if (!gl_ok) Die("Unable to initialize the OpenGL renderer");
+    if (want_gpu) {
+      gl_renderer.hd_gpu=SnesHdGpuCreate();
+      if (!SnesHdGpuSupportsAffine(gl_renderer.hd_gpu)) {
+        SnesHdGpuDestroy(gl_renderer.hd_gpu); gl_renderer.hd_gpu=NULL;
+      }
+      gpu_hd=gl_renderer.hd_gpu!=NULL;
+      gl_renderer.hd_requested_scale=g_video.hd_scale;
+    }
+    if (!gpu_hd && texture_scale>FZERO_HD_SCALE_MAX) texture_scale=FZERO_HD_SCALE_MAX;
     GLint max_texture_size = 0;
     glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
-    while (texture_scale > 1 && max_texture_size > 0 &&
+    while (!gpu_hd && texture_scale > 1 && max_texture_size > 0 &&
            FZERO_MAX_WIDTH * texture_scale > (unsigned)max_texture_size)
       texture_scale = texture_scale > 4 ? 4 : texture_scale > 2 ? 2 : 1;
   } else {
+    if (texture_scale>FZERO_HD_SCALE_MAX) texture_scale=FZERO_HD_SCALE_MAX;
     renderer = snesrecomp_sdl_create_renderer(window, false, false);
     if (!renderer) renderer = snesrecomp_sdl_create_renderer(window, true, false);
     if (!renderer) Die("Unable to create the game renderer");
@@ -1927,11 +2013,12 @@ static int run_game(int argc, char **argv) {
   static uint8_t pixels[FZERO_MAX_WIDTH * kFrameHeight * 2 * kBytesPerPixel];
   uint32_t *hd_pixels = NULL;
   size_t hd_capacity = (size_t)FZERO_MAX_WIDTH * (local_available?448:FzeroFrameHeight()) * texture_scale * texture_scale;
-  if (texture_scale > 1) {
+  if (texture_scale > 1 && !gpu_hd) {
     hd_pixels = calloc(hd_capacity, sizeof(*hd_pixels));
     if (!hd_pixels) Die("Unable to allocate HD Mode 7 frame");
   }
   FzeroSetMode7Hd(texture_scale > 1 ? texture_scale : 0, hd_pixels, hd_capacity);
+  FzeroSetGpuHd(gpu_hd);
   int drawable_width = 256 * window_scale, drawable_height = 192 * window_scale;
   if (use_gl_renderer)
     snesrecomp_sdl_get_drawable_size(window, &drawable_width, &drawable_height);
@@ -2597,6 +2684,7 @@ static int run_game(int argc, char **argv) {
   if(!online)RtlWriteSram();
   if(online)FzeroNetplayStop();
   FzeroSetMode7Hd(0, NULL, 0);
+  FzeroSetGpuHd(false);
   FzeroRendererShutdown();
   FzeroLocalControlsDestroy(local_controls);FzeroLocalShutdown();FzeroLocalModeShutdown();
   free(hd_pixels);

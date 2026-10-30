@@ -91,6 +91,9 @@ static uint32_t *s_hd_pixels;
 static size_t s_hd_capacity;
 static unsigned s_hd_scale;
 static bool s_hd_ready;
+static bool s_gpu_hd;
+static SnesHdFrame *s_hd_jobs;
+static void discard_hd_jobs(void) { SnesHdFrameDestroy(s_hd_jobs); s_hd_jobs = NULL; }
 
 static void widened_projection(CpuState *cpu, uint32_t pc) {
   (void)pc;
@@ -416,11 +419,13 @@ void FzeroSetViewport(FzeroViewport viewport) {
      * A viewport change invalidates presentation, not those immutable assets. */
     if(!FzeroLocalSession())FzeroRendererReset();
     s_hd_ready = false;
+    discard_hd_jobs();
   }
   s_viewport = viewport;
 }
 
 void FzeroPresent(double alpha) {
+  discard_hd_jobs();
   if(FzeroOnlineEnabled() && FzeroOnlineCompleted()->phase!=FZERO_ONLINE_RACE &&
       FzeroOnlineCompleted()->phase!=FZERO_ONLINE_TITLE) {
     s_hd_ready=false;
@@ -442,10 +447,30 @@ void FzeroPresent(double alpha) {
     return;
   }
   if(FzeroLocalSession()) {
+    if (s_gpu_hd && s_output_pixels) {
+      s_hd_jobs = FzeroLocalPrepareHd((uint32_t *)s_output_pixels,s_viewport,alpha);
+      if (s_hd_jobs && SnesHdFrameSeal(s_hd_jobs)) { s_hd_ready = false; return; }
+      discard_hd_jobs();
+    }
     s_hd_ready=s_hd_scale && s_hd_pixels &&
         FzeroLocalDrawCombined((uint32_t *)s_output_pixels,s_hd_pixels,s_hd_capacity,s_viewport,alpha,s_hd_scale);
     if(!s_hd_ready && s_output_pixels)FzeroLocalDraw((uint32_t *)s_output_pixels,(size_t)s_viewport.width*FzeroFrameHeight(),s_viewport,alpha,1);
     return;
+  }
+  if (s_gpu_hd && s_output_pixels) {
+    s_hd_jobs = FzeroRendererPrepareHd((uint32_t *)s_output_pixels,s_viewport,alpha);
+    uint32_t *foreground = s_hd_jobs ? calloc((size_t)s_viewport.width * 224,4) : NULL;
+    if (foreground) {
+      FzeroTracksOverlay(foreground,s_viewport.width,224,s_viewport.width*4,s_published_ram);
+      FzeroVsMenuDraw((FzeroUiCanvas){foreground,s_viewport.width,224,1},s_viewport.extra,s_published_ram);
+      FzeroTracksOverlay((uint32_t *)s_output_pixels,s_viewport.width,224,s_output_pitch,s_published_ram);
+      FzeroVsMenuDraw((FzeroUiCanvas){(uint32_t *)s_output_pixels,s_viewport.width,224,1},s_viewport.extra,s_published_ram);
+      bool ok = SnesHdFrameSetNative(s_hd_jobs,(uint32_t *)s_output_pixels,s_output_pitch,NULL,0) &&
+          SnesHdFrameSetOverlay(s_hd_jobs,foreground,s_viewport.width*4) && SnesHdFrameSeal(s_hd_jobs);
+      free(foreground);
+      if (ok) { s_hd_ready = false; return; }
+    }
+    discard_hd_jobs();
   }
   s_hd_ready = s_hd_scale && s_hd_pixels &&
       FzeroRendererDrawPresentation((uint32_t *)s_output_pixels,
@@ -458,6 +483,8 @@ void FzeroPresent(double alpha) {
   else if(s_output_pixels)FzeroVsMenuDraw((FzeroUiCanvas){(uint32_t *)s_output_pixels,s_viewport.width,224,1},s_viewport.extra,s_published_ram);
 }
 void FzeroSetDeferredPresentation(bool deferred) { s_deferred_presentation = deferred; }
+void FzeroSetGpuHd(bool enabled) { s_gpu_hd = enabled; discard_hd_jobs(); }
+const SnesHdFrame *FzeroGpuHdFrame(void) { return s_hd_jobs; }
 
 void FzeroSetMode7Hd(unsigned scale, uint32_t *pixels, size_t capacity) {
   if (!pixels || !FzeroValidHdScale(scale)) scale = 0;
@@ -494,7 +521,7 @@ static void hdma_write_bus(void *context, uint8_t reg, uint8_t value) {
 
 void FzeroDrawPpuFrame(void) {
   if(FzeroLocalSession() && !s_restoring_local_assets) {if(!s_deferred_presentation)FzeroPresent(1);return;}
-  const bool capture = FzeroLocalEnabled() || s_viewport.enhanced || s_hd_scale || getenv("FZERO_CAPTURE_FRAME") != NULL ||
+  const bool capture = FzeroLocalEnabled() || s_viewport.enhanced || s_hd_scale || s_gpu_hd || getenv("FZERO_CAPTURE_FRAME") != NULL ||
                        getenv("FZERO_CAPTURE_FRAMES") != NULL;
   if (capture) {
     FzeroRendererBeginFrame(s_published_ram, s_host_frames);
@@ -1040,6 +1067,7 @@ int FzeroStateGuardTripped(void) {
 }
 
 static void fzero_on_state_loaded(uint32_t version) {
+  discard_hd_jobs();
   FzeroRendererReset();
   (void)version;
 

@@ -54,9 +54,9 @@ bool FzeroParseHdScale(const char *text, unsigned *scale) {
   for (; *text; ++text) {
     if (*text < '0' || *text > '9') return false;
     value = value * 10 + (unsigned)(*text - '0');
-    if (value > FZERO_HD_SCALE_MAX) return false;
+    if (value > FZERO_GPU_HD_SCALE_MAX) return false;
   }
-  if (!FzeroValidHdScale(value)) return false;
+  if (value < FZERO_HD_SCALE_MIN) return false;
   *scale = value;
   return true;
 }
@@ -204,7 +204,7 @@ bool FzeroVideoSave(const FzeroVideoSettings *s, const char *path) {
                     s->enhanced, FzeroAspectName(s->aspect), s->fps_enabled, s->fps, s->bs_deluxe, s->bs_tracks, s->gameplay.enabled & FZERO_RULE_SELECTABLE_MASK,
                     s->gameplay.tuning, s->gameplay.boost, s->gameplay.exhaust,
                     s->gameplay.vehicle_packs ? 7u : 0u,s->gameplay.stock_rebalance ? 15u : 0u,
-                    s->hd_mode7, FzeroValidHdScale(s->hd_scale) ? s->hd_scale : 2u, s->diagnostics) > 0;
+                    s->hd_mode7, s->hd_scale >= FZERO_HD_SCALE_MIN && s->hd_scale <= FZERO_GPU_HD_SCALE_MAX ? s->hd_scale : 2u, s->diagnostics) > 0;
   if (fprintf(f, "AlwaysShowRecords=%d\n", s->gameplay.always_records) < 0) ok = false;
   if (fprintf(f, "CrashReplay=%d\n", s->crash_replay) < 0) ok = false;
   if (fprintf(f,"LocalTwoPlayer=%d\n",s->local_two_player)<0)ok=false;
