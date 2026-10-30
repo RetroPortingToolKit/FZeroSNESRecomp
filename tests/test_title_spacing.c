@@ -12,14 +12,17 @@ static void native_title(const char *rom_path,const char *preview) {
   CHECK(fread(rom,1,0x80000,f)==0x80000);fclose(f);
   static FzeroNativeUi ui;
   CHECK(FzeroNativeUiInit(&ui,(FzeroActorTables){rom_read,rom,0}));
-  const uint8_t *v=ui.title_letters['V'-'A'],*s=ui.title_letters['S'-'A'];
+  const uint8_t *v=ui.title_v,*s=ui.title_letters['S'-'A'];
   unsigned vtop=16,vbottom=0,stop=16,sbottom=0;
-  for(unsigned y=0;y<16;++y)for(unsigned x=0;x<8;++x) {
-    if(v[y*8+x]) {if(y<vtop)vtop=y;if(y>vbottom)vbottom=y;}
-    if(s[y*8+x]) {if(y<stop)stop=y;if(y>sbottom)sbottom=y;}
-    if(v[y*8+x] && v[y*8+x]!=5)CHECK(v[y*8+x]==ui.title_letters['I'-'A'][y*8+3]);
+  for(unsigned y=0;y<16;++y) {
+    for(unsigned x=0;x<8;++x)if(s[y*8+x]) {if(y<stop)stop=y;if(y>sbottom)sbottom=y;}
+    for(unsigned x=0;x<9;++x) {
+      if(v[y*9+x]) {if(y<vtop)vtop=y;if(y>vbottom)vbottom=y;}
+      CHECK(v[y*9+x]==v[y*9+8-x]);
+      if(v[y*9+x] && v[y*9+x]!=5)CHECK(v[y*9+x]==ui.title_letters['I'-'A'][y*8+3]);
+    }
   }
-  CHECK(vtop==stop && vbottom==sbottom);
+  CHECK(vtop==stop+1 && vbottom+1==sbottom);
   if(preview) {
     enum {width=144*4,height=88*4};
     uint32_t *pixels=malloc(width*height*4);CHECK(pixels);
@@ -34,11 +37,11 @@ static void native_title(const char *rom_path,const char *preview) {
     }
     fclose(f);free(pixels);
   }
-  free(rom);puts("PASS native title: V/S cap, baseline, cell width and row shading");
+  free(rom);puts("PASS native title: symmetric V, inset cap/baseline and native row shading");
 }
 int main(int argc,char **argv) {
   static FzeroNativeUi ui;ui.valid=true;
-  memset(ui.title_letters['V'-'A'],1,128);
+  memset(ui.title_v,1,sizeof(ui.title_v));
   memset(ui.title_letters['S'-'A'],2,128);
   ui.title_palette[0][1]=0xff00ff00;ui.title_palette[0][2]=0xffff0000;
   for(unsigned scale=1;scale<=4;scale*=2) {
@@ -46,13 +49,13 @@ int main(int argc,char **argv) {
     for(unsigned i=0;i<w*h;++i)pixels[i]=0x11223344;
     FzeroUiTitleText(&ui,(FzeroUiCanvas){pixels,(int)w,(int)h,scale},0,0,"VS",false);
     for(unsigned y=0;y<h;++y)for(unsigned x=0;x<w;++x) {
-      uint32_t expected=x<8*scale?0xff00ff00:x<10*scale?0x11223344:x<18*scale?0xffff0000:0x11223344;
+      uint32_t expected=x<9*scale?0xff00ff00:x<10*scale?0x11223344:x<18*scale?0xffff0000:0x11223344;
       CHECK(pixels[y*w+x]==expected);
     }
     for(unsigned i=0;i<w*h;++i)pixels[i]=0x11223344;
     FzeroUiTitleText(&ui,(FzeroUiCanvas){pixels,(int)w,(int)h,scale},0,0,"SV",false);
     for(unsigned y=0;y<h;++y)for(unsigned x=0;x<w;++x)
-      CHECK(pixels[y*w+x]==(x<8*scale?0xffff0000:x<16*scale?0xff00ff00:0x11223344));
+      CHECK(pixels[y*w+x]==(x<8*scale?0xffff0000:x<17*scale?0xff00ff00:0x11223344));
     free(pixels);
   }
   puts("PASS title lettering: VS gap and current-glyph advances at 1/2/4x");

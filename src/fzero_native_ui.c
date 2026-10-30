@@ -170,23 +170,21 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
     if(ui->objects[0x8a+(sy/8)*16][(sy&7)*8+x]==3)
       m[y*8+x]=ui->title_letters['I'-'A'][y*8+3];
   }
-  /* Use the same 8x16 cell, cap/baseline and scanline colors as S MODE.
-   * A wider V reads larger than the native condensed menu alphabet. */
-  uint8_t *v=ui->title_letters['V'-'A'];
-  for(unsigned y=1;y<15;++y)for(unsigned x=0;x<8;++x) {
-    /* Keep the cartridge V's actual taper. Its lower tip is drawn with
-     * the highlight index after the two-pixel inner strokes end. */
-    unsigned sy=2+(y-1)*11/14;
-    unsigned source=ui->objects[0xa3+(sy/8)*16][(sy&7)*8+x];
-    if(source==3 || (sy>=9 && source==2))
-      v[y*8+x]=ui->title_letters['I'-'A'][y*8+3];
-  }
+  /* An odd-width V has a centered single-pixel tip and mirrored arms.
+   * Inset its visible cap/baseline by one row for optical alignment with S. */
+  static const uint16_t v_strokes[16]={
+    0,0,0xc6,0xc6,0xc6,0x44,0x44,0x44,
+    0x28,0x28,0x28,0x28,0x38,0x10,0,0
+  };
+  uint8_t *v=ui->title_v;
+  for(unsigned y=0;y<16;++y)for(unsigned x=0;x<9;++x)
+    if(v_strokes[y]&(0x100>>x))v[y*9+x]=ui->title_letters['I'-'A'][y*8+3];
   for(unsigned n=0;n<2;++n) {
-    uint8_t *glyph=n?v:m;
-    for(int y=0;y<16;++y)for(int x=0;x<8;++x)if(glyph[y*8+x] && glyph[y*8+x]!=5)
+    uint8_t *glyph=n?v:m;int width=n?9:8;
+    for(int y=0;y<16;++y)for(int x=0;x<width;++x)if(glyph[y*width+x] && glyph[y*width+x]!=5)
       for(int dy=-1;dy<=1;++dy)for(int dx=-1;dx<=1;++dx) {
         int xx=x+dx,yy=y+dy;
-        if(xx>=0 && xx<8 && yy>=0 && yy<16 && !glyph[yy*8+xx])glyph[yy*8+xx]=5;
+        if(xx>=0 && xx<width && yy>=0 && yy<16 && !glyph[yy*width+xx])glyph[yy*width+xx]=5;
       }
   }
   /* Native $ED6A..$EED1 explosion frames: the first four use big OBJ
@@ -619,6 +617,14 @@ void FzeroUiBoosts(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned 
 void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text,bool dim) {
   if(!ui || !ui->valid || !text)return;
   for(;*text;x+=*text=='V'?10:8,++text)if(*text>='A' && *text<='Z') {
+    if(*text=='V') {
+      for(int row=0;row<16;++row)for(int col=0;col<9;++col) {
+        unsigned color=ui->title_v[row*9+col];
+        if(color && ui->title_palette[dim][color])
+          FzeroUiRect(c,x+col,y+row,1,1,ui->title_palette[dim][color]);
+      }
+      continue;
+    }
     const uint8_t *glyph=ui->title_letters[*text-'A'];
     tile(glyph,ui->title_palette[dim],c,x,y,false,false);
     tile(glyph+64,ui->title_palette[dim],c,x,y+8,false,false);
