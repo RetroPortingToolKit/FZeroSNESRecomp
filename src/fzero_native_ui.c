@@ -155,8 +155,7 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
   }
   /* The title menu has its own 8x16 OBJ alphabet and green scanline shading,
    * distinct from course introductions. These are the exact native word tiles
-   * uploaded at $120..$156. M/V are absent from those words; retain their
-   * cartridge shapes with the title menu's row colors and black outline. */
+   * uploaded at $120..$156. M/V are absent from those words. */
   static const struct {char letter;unsigned address;} title_glyphs[]={
     {'G',0x0cf800},{'R',0x0cf820},{'A',0x0cf840},{'N',0x0cf860},
     {'D',0x0cf880},{'P',0x0cf8c0},{'I',0x0cf900},{'X',0x0cf920},
@@ -164,7 +163,7 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
   for(unsigned n=0;n<sizeof(title_glyphs)/sizeof(*title_glyphs);++n)
     for(unsigned half=0;half<2;++half)
       decode(ui->title_letters[title_glyphs[n].letter-'A']+half*64,t,title_glyphs[n].address+half*0x200,4);
-  for(unsigned n=0;n<2;++n) {
+  for(unsigned n=0;n<1;++n) {
     unsigned letter=n?'V':'M',id=n?0xa3:0x8a;
     uint8_t *glyph=ui->title_letters[letter-'A'];
     for(unsigned y=1;y<15;++y)for(unsigned x=0;x<8;++x) {
@@ -184,6 +183,20 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
         if(xx>=0 && xx<8 && yy>=0 && yy<16 && !glyph[yy*8+xx])glyph[yy*8+xx]=5;
       }
   }
+  /* V needs room for two separate, two-pixel diagonal strokes. The intro
+   * glyph has a filled highlight that turned into a block at menu scale.
+   * Preserve the native letter height, scanline gradient and one-pixel black
+   * outline; give the taper its own width instead of crushing it into 8px. */
+  for(unsigned y=1;y<15;++y) {
+    unsigned left=1+(y-1)/3;
+    unsigned stroke[4]={left,left+1,10-left,11-left};
+    for(unsigned i=0;i<4;++i)ui->title_v[y*12+stroke[i]]=ui->title_letters['I'-'A'][y*8+3];
+  }
+  for(int y=0;y<16;++y)for(int x=0;x<12;++x)if(ui->title_v[y*12+x] && ui->title_v[y*12+x]!=5)
+    for(int dy=-1;dy<=1;++dy)for(int dx=-1;dx<=1;++dx) {
+      int xx=x+dx,yy=y+dy;
+      if(xx>=0 && xx<12 && yy>=0 && yy<16 && !ui->title_v[yy*12+xx])ui->title_v[yy*12+xx]=5;
+    }
   /* Native $ED6A..$EED1 explosion frames: the first four use big OBJ
    * offsets; the remaining six expand paired 16x16 layouts from $FED9. */
   for(unsigned i=0;i<20;++i) {
@@ -613,7 +626,15 @@ void FzeroUiBoosts(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned 
 }
 void FzeroUiTitleText(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *text,bool dim) {
   if(!ui || !ui->valid || !text)return;
-  for(;*text;++text,x+=8)if(*text>='A' && *text<='Z') {
+  for(;*text;x+=*text=='V'?14:8,++text)if(*text>='A' && *text<='Z') {
+    if(*text=='V') {
+      for(int row=0;row<16;++row)for(int col=0;col<12;++col) {
+        unsigned color=ui->title_v[row*12+col];
+        if(color && ui->title_palette[dim][color])
+          FzeroUiRect(c,x+col,y+row,1,1,ui->title_palette[dim][color]);
+      }
+      continue;
+    }
     const uint8_t *glyph=ui->title_letters[*text-'A'];
     tile(glyph,ui->title_palette[dim],c,x,y,false,false);
     tile(glyph+64,ui->title_palette[dim],c,x,y+8,false,false);

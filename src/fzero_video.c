@@ -11,13 +11,13 @@
 
 static const char *const aspect_names[] = {"4:3", "16:9", "21:9", "32:9", "Fit"};
 
-/* CGP car rebalances and local VS default on; HD Mode 7 is opt-in. Aspect follows
+/* CGP car rebalances, local VS and GPU Mode 7 default on. Aspect follows
  * the window, presentation rate follows the display. Hosts that need the
  * stock baseline (headless captures, tools) call FzeroVideoStock(). */
 void FzeroVideoDefaults(FzeroVideoSettings *s) {
   *s = (FzeroVideoSettings){.enhanced = true, .aspect = FZERO_ASPECT_FIT,
                             .fps = 0, .fps_enabled = true, .local_two_player = true,
-                            .hd_scale = 2, .diagnostics = false, .crash_replay = true,
+                            .hd_mode7 = true, .hd_scale = kSnesHdDefaultScale, .diagnostics = false, .crash_replay = true,
                             .gameplay = {.enabled=FZERO_RULE_DEFAULT_MASK, .tuning=2, .boost=2, .exhaust=2, .stock_rebalance=15, .always_records=true}};
 }
 
@@ -45,7 +45,9 @@ bool FzeroValidFps(unsigned fps) {
 }
 
 bool FzeroValidHdScale(unsigned scale) {
-  return scale >= FZERO_HD_SCALE_MIN && scale <= FZERO_HD_SCALE_MAX;
+  /* Legacy CPU oracle remains a 2..10x developer path. The shared GPU/UI
+   * accepts 1..64x; 1x uses the exact native frame without a second pass. */
+  return scale >= 2 && scale <= FZERO_HD_SCALE_MAX;
 }
 
 bool FzeroParseHdScale(const char *text, unsigned *scale) {
@@ -111,7 +113,7 @@ bool FzeroVideoLoad(FzeroVideoSettings *s, const char *path) {
   while (fgets(line, sizeof(line), f)) {
     int fields = sscanf(line, " %63[^= \t] = %63s", key, value);
     if (fields != 2) {
-      if (fields == 1 && !strcmp(key, "HDMode7Scale")) valid = false;
+      if (fields == 1 && !strcmp(key, "Mode7Scale")) valid = false;
       continue;
     }
     if (!strcmp(key, "EnhancedRenderer")) {
@@ -121,10 +123,10 @@ bool FzeroVideoLoad(FzeroVideoSettings *s, const char *path) {
       has_fps_toggle = true;
       if (!strcmp(value, "0") || !strcmp(value, "1")) s->fps_enabled = value[0] == '1';
       else valid = false;
-    } else if (!strcmp(key, "HDMode7")) {
+    } else if (!strcmp(key, "Mode7Enabled")) {
       if (!strcmp(value, "0") || !strcmp(value, "1")) s->hd_mode7 = value[0] == '1';
       else valid = false;
-    } else if (!strcmp(key, "HDMode7Scale")) {
+    } else if (!strcmp(key, "Mode7Scale")) {
       if (!FzeroParseHdScale(value, &s->hd_scale)) valid = false;
     } else if (!strcmp(key,"LocalTwoPlayer")) {
       if(!strcmp(value,"0") || !strcmp(value,"1"))s->local_two_player=value[0]=='1';
@@ -200,11 +202,11 @@ bool FzeroVideoSave(const FzeroVideoSettings *s, const char *path) {
   if (snprintf(temporary, sizeof(temporary), "%s.tmp", path) >= (int)sizeof(temporary)) return false;
   FILE *f = fopen(temporary, "w");
   if (!f) return false;
-  bool ok = fprintf(f, "[FZeroVideo]\nEnhancedRenderer=%d\nAspect=%s\nPresentationEnabled=%d\nPresentationFPS=%u\nBSVehicles=%d\nBSTracks=%d\nCGPRules=%u\nCGPTuning=%u\nCGPBoost=%u\nCGPExhaust=%u\nCGPCars=%u\nCGPStockRebalance=%u\nHDMode7=%d\nHDMode7Scale=%u\nDiagnostics=%d\n",
+  bool ok = fprintf(f, "[FZeroVideo]\nEnhancedRenderer=%d\nAspect=%s\nPresentationEnabled=%d\nPresentationFPS=%u\nBSVehicles=%d\nBSTracks=%d\nCGPRules=%u\nCGPTuning=%u\nCGPBoost=%u\nCGPExhaust=%u\nCGPCars=%u\nCGPStockRebalance=%u\nMode7Enabled=%d\nMode7Scale=%u\nDiagnostics=%d\n",
                     s->enhanced, FzeroAspectName(s->aspect), s->fps_enabled, s->fps, s->bs_deluxe, s->bs_tracks, s->gameplay.enabled & FZERO_RULE_SELECTABLE_MASK,
                     s->gameplay.tuning, s->gameplay.boost, s->gameplay.exhaust,
                     s->gameplay.vehicle_packs ? 7u : 0u,s->gameplay.stock_rebalance ? 15u : 0u,
-                    s->hd_mode7, s->hd_scale >= FZERO_HD_SCALE_MIN && s->hd_scale <= FZERO_GPU_HD_SCALE_MAX ? s->hd_scale : 2u, s->diagnostics) > 0;
+                    s->hd_mode7, s->hd_scale >= FZERO_HD_SCALE_MIN && s->hd_scale <= FZERO_GPU_HD_SCALE_MAX ? s->hd_scale : (unsigned)kSnesHdDefaultScale, s->diagnostics) > 0;
   if (fprintf(f, "AlwaysShowRecords=%d\n", s->gameplay.always_records) < 0) ok = false;
   if (fprintf(f, "CrashReplay=%d\n", s->crash_replay) < 0) ok = false;
   if (fprintf(f,"LocalTwoPlayer=%d\n",s->local_two_player)<0)ok=false;

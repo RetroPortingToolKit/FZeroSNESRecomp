@@ -146,8 +146,6 @@ typedef struct FzeroGlRenderer {
   GlTextureWithSize overlay;
   GlslShader *shader;
   SnesHdGpu *hd_gpu;
-  GlTextureWithSize hd_texture;
-  uint hd_framebuffer;
   unsigned hd_requested_scale;
   uint32_t *hd_portable;
   size_t hd_portable_capacity;
@@ -282,40 +280,14 @@ static bool fzero_gl_init(FzeroGlRenderer *glr, SDL_Window *window,
 
 static bool fzero_gl_hd(FzeroGlRenderer *glr,const SnesHdFrame *jobs,
     unsigned scale,int display_width,int display_height,GlTextureWithSize *output) {
-  SnesHdView v;
-  if (!glr->hd_gpu || !jobs || !SnesHdFrameView(jobs,&v)) return false;
-  unsigned w,h;
-  if (!SnesHdGpuAdmit(glr->hd_gpu,v.width,v.height,scale,(size_t)2*1024*1024*1024,&w,&h)) return false;
-  glr->hd_visible_samples=!glr->shader && !g_config.linear_filtering && !getenv("FZERO_HD_FULL_TARGET");
-  if (glr->hd_visible_samples && display_width>0 && display_height>0) {
-    w=(unsigned)display_width;h=(unsigned)display_height;
-  }
-  if (glr->hd_texture.width != w || glr->hd_texture.height != h) {
-    if (!glr->hd_texture.gl_texture) glGenTextures(1,&glr->hd_texture.gl_texture);
-    if (!glr->hd_framebuffer) glGenFramebuffers(1,&glr->hd_framebuffer);
-    glBindTexture(GL_TEXTURE_2D,glr->hd_texture.gl_texture);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
-    glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,w,h,0,GL_RGBA,GL_UNSIGNED_BYTE,NULL);
-    glBindFramebuffer(GL_FRAMEBUFFER,glr->hd_framebuffer);
-    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,glr->hd_texture.gl_texture,0);
-    bool ok=glCheckFramebufferStatus(GL_FRAMEBUFFER)==GL_FRAMEBUFFER_COMPLETE && glGetError()==GL_NO_ERROR;
-    glBindFramebuffer(GL_FRAMEBUFFER,0);
-    if (!ok) {
-      fprintf(stderr,"[fzero-hd] GPU target allocation failed; using native output\n");
-      return false;
-    }
-    glr->hd_texture.width=w; glr->hd_texture.height=h;
-    fprintf(stderr,"[fzero-hd] mode=%s requested=%ux raster=%ux%u target=%ux%u target-bytes=%llu\n",
-        glr->hd_visible_samples?"visible-samples":"full-target",scale,v.width*scale,v.height*scale,w,h,(unsigned long long)w*h*4);
-  }
-  glBindFramebuffer(GL_FRAMEBUFFER,glr->hd_framebuffer);
-  bool ok=SnesHdGpuDraw(glr->hd_gpu,jobs,scale,w,h);
-  glBindFramebuffer(GL_FRAMEBUFFER,0);
-  if (ok) *output=glr->hd_texture;
-  return ok;
+  SnesHdGpuImage image;
+  bool visible=!glr->shader && !g_config.linear_filtering && !getenv("FZERO_HD_FULL_TARGET");
+  if (!SnesHdGpuRender(glr->hd_gpu,jobs,scale,(unsigned)display_width,
+      (unsigned)display_height,visible,(size_t)2*1024*1024*1024,
+      NULL,0,NULL,0,&image)) return false;
+  glr->hd_visible_samples=image.visible_samples;
+  *output=(GlTextureWithSize){image.texture,image.width,image.height};
+  return true;
 }
 
 static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
@@ -324,23 +296,14 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
   uint64_t diagnostic_start = FzeroDiagnosticsBegin();
   GlTextureWithSize image=glr->texture;
   FzeroRect rect = FzeroDestination(viewport, drawable_width, drawable_height);
-  bool hd=fzero_gl_hd(glr,FzeroGpuHdFrame(),glr->hd_requested_scale,rect.w,rect.h,&image);
+  const SnesHdFrame *jobs=FzeroGpuHdFrame();SnesHdView job_view;
+  bool hd=jobs && SnesHdFrameView(jobs,&job_view) &&
+      job_view.width==(unsigned)logical_width && job_view.height==(unsigned)logical_height &&
+      fzero_gl_hd(glr,jobs,glr->hd_requested_scale,rect.w,rect.h,&image);
   if (!hd) {
-  SnesHdView job_view;
-  const SnesHdFrame *jobs=FzeroGpuHdFrame();
-  if (jobs && SnesHdFrameView(jobs,&job_view)) {
-    unsigned fallback_scale=glr->hd_requested_scale>4?4:glr->hd_requested_scale;
-    size_t count=(size_t)job_view.width*job_view.height*fallback_scale*fallback_scale;
-    if (count>glr->hd_portable_capacity) {
-      uint32_t *buffer=realloc(glr->hd_portable,count*4);
-      if (buffer) {glr->hd_portable=buffer;glr->hd_portable_capacity=count;}
-    }
-    unsigned w=job_view.width*fallback_scale,h=job_view.height*fallback_scale;
-    if (glr->hd_portable_capacity>=count && SnesHdFrameRenderRegion(jobs,fallback_scale,0,0,w,h,glr->hd_portable,w*4)) {
-      pixels=(const uint8_t *)glr->hd_portable;logical_width=w;logical_height=h;
-      if (!glr->hd_fallback_reported) fprintf(stderr,"[fzero-hd] requested=%ux portable effective=%ux (%ux%u)\n",glr->hd_requested_scale,fallback_scale,w,h);
-      glr->hd_fallback_reported=true;
-    }
+  if (FzeroGpuHdFrame() && !glr->hd_fallback_reported) {
+    fprintf(stderr,"[fzero-hd] GPU jobs unavailable; native presentation for this session\n");
+    glr->hd_fallback_reported=true;
   }
   glActiveTexture(GL_TEXTURE0);
   glBindTexture(GL_TEXTURE_2D, glr->texture.gl_texture);
@@ -422,10 +385,9 @@ static void fzero_gl_draw_overlay(FzeroGlRenderer *glr, const uint32_t *panel,
 }
 
 static void fzero_gl_destroy(FzeroGlRenderer *glr) {
+  if (!glr->context) { free(glr->hd_portable); memset(glr,0,sizeof(*glr)); return; }
   SnesHdGpuDestroy(glr->hd_gpu);
   free(glr->hd_portable);
-  if (glr->hd_texture.gl_texture) glDeleteTextures(1,&glr->hd_texture.gl_texture);
-  if (glr->hd_framebuffer) glDeleteFramebuffers(1,&glr->hd_framebuffer);
   if (glr->shader) GlslShader_Destroy(glr->shader);
   if (glr->overlay.gl_texture) glDeleteTextures(1, &glr->overlay.gl_texture);
   glDeleteTextures(1, &glr->texture.gl_texture);
@@ -1121,6 +1083,7 @@ typedef struct FzeroPresenter {
   FzeroGlRenderer *gl;    /* NULL on the SDL_Renderer path */
   const uint8_t *pixels;
   int logical_width;
+  int host_height; /* explicit native host UI; zero follows the guest frame */
   FzeroViewport viewport;
   int drawable_width, drawable_height;
 } FzeroPresenter;
@@ -1220,9 +1183,9 @@ static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
   unsigned scale = FzeroHdScale();
   const uint8_t *pixels = hd_frame ? (const uint8_t *)hd_frame : p->pixels;
   int width = p->logical_width * (int)scale;
-  int height = FzeroFrameHeight() * (int)scale;
+  int height = (p->host_height ? p->host_height : FzeroFrameHeight()) * (int)scale;
   FzeroViewport display_viewport=p->viewport;
-  if(FzeroLocalEnabled() && !FzeroOnlineEnabled())display_viewport.aspect/=2;
+  if((FzeroLocalEnabled() || p->host_height==448) && !FzeroOnlineEnabled())display_viewport.aspect/=2;
   if (p->gl) {
     fzero_gl_render(p->gl, pixels, width, height, display_viewport,
                     p->drawable_width, p->drawable_height);
@@ -1914,7 +1877,8 @@ static int run_game(int argc, char **argv) {
     if(!FzeroLocalConfigure(local_config))Die("Cannot initialize stock local versus");
     if(!FzeroLocalSelectSaveRoot())Die("Local versus save path is too long");
   }
-  if (!FzeroTracksSelectSaveRoot()) Die(FzeroDeluxeError());
+  if (!FzeroTracksSelectSaveRoot())
+    Die(*FzeroTracksError() ? FzeroTracksError() : "Cannot create the selected profile's save directory. Use a shorter save root.");
   if (!FzeroMsuSelectSaveRoot()) Die(FzeroMsuError());
   RtlReadSram();
   /* Same opt-in transport log as Mega Man X's diagnostic recording. Respect
@@ -1939,7 +1903,8 @@ static int run_game(int argc, char **argv) {
   const Uint32 kHighDpiFlag = SDL_WINDOW_ALLOW_HIGHDPI;
 #endif
   const char *gpu_choice=getenv("FZERO_HD_GPU");
-  bool want_gpu=g_video.hd_mode7 && (!gpu_choice || strcmp(gpu_choice,"0"));
+  bool cpu_hd=g_video.hd_mode7 && gpu_choice && !strcmp(gpu_choice,"0"); /* developer reference */
+  bool want_gpu=g_video.hd_mode7 && !cpu_hd;
   bool use_gl_renderer = launcher_settings.shader_path[0] != 0 || want_gpu;
   if (use_gl_renderer) fzero_gl_prepare_window();
   if (want_gpu) { SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,4); SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,0); }
@@ -1970,8 +1935,17 @@ static int run_game(int argc, char **argv) {
       fzero_gl_prepare_window();
       gl_ok=fzero_gl_init(&gl_renderer,window,launcher_settings.shader_path);
     }
-    if (!gl_ok) Die("Unable to initialize the OpenGL renderer");
-    if (want_gpu) {
+    if (!gl_ok) {
+      fprintf(stderr,"[fzero-hd] Desktop GL unavailable; using native SDL presentation\n");
+      fzero_gl_destroy(&gl_renderer);
+      SDL_DestroyWindow(window);
+      use_gl_renderer=false;
+      window=snesrecomp_sdl_create_window(kWindowTitle,initial_width,initial_height,
+          SDL_WINDOW_RESIZABLE | kHighDpiFlag | (getenv("FZERO_TEST_LOCAL_UI_HIDDEN")?SDL_WINDOW_HIDDEN:0));
+      if(!window)Die("Unable to create the native game window");
+      if(launcher_settings.fullscreen)snesrecomp_sdl_set_fullscreen(window,true);
+    }
+    if (gl_ok && want_gpu) {
       gl_renderer.hd_gpu=SnesHdGpuCreate();
       if (!SnesHdGpuSupportsAffine(gl_renderer.hd_gpu)) {
         SnesHdGpuDestroy(gl_renderer.hd_gpu); gl_renderer.hd_gpu=NULL;
@@ -1979,13 +1953,16 @@ static int run_game(int argc, char **argv) {
       gpu_hd=gl_renderer.hd_gpu!=NULL;
       gl_renderer.hd_requested_scale=g_video.hd_scale;
     }
+    if (!gpu_hd && !cpu_hd) texture_scale=1;
     if (!gpu_hd && texture_scale>FZERO_HD_SCALE_MAX) texture_scale=FZERO_HD_SCALE_MAX;
     GLint max_texture_size = 0;
-    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
+    if(gl_ok)glGetIntegerv(GL_MAX_TEXTURE_SIZE, &max_texture_size);
     while (!gpu_hd && texture_scale > 1 && max_texture_size > 0 &&
            FZERO_MAX_WIDTH * texture_scale > (unsigned)max_texture_size)
       texture_scale = texture_scale > 4 ? 4 : texture_scale > 2 ? 2 : 1;
-  } else {
+  }
+  if (!use_gl_renderer) {
+    if(!cpu_hd)texture_scale=1;
     if (texture_scale>FZERO_HD_SCALE_MAX) texture_scale=FZERO_HD_SCALE_MAX;
     renderer = snesrecomp_sdl_create_renderer(window, false, false);
     if (!renderer) renderer = snesrecomp_sdl_create_renderer(window, true, false);
@@ -2009,10 +1986,10 @@ static int run_game(int argc, char **argv) {
     char message[256];
     snprintf(message, sizeof(message),
         "This renderer could not create the %ux HD Mode 7 texture. Using %ux for this session. "
-        "Choose a lower resolution in Mods > HD Mode 7 if this persists.",
+        "Choose a lower resolution in Mods > High-resolution Mode 7 if this persists.",
         requested_texture_scale, texture_scale);
     fprintf(stderr, "[fzero-hd] %s\n", message);
-    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_WARNING, "HD Mode 7 resolution", message, window);
+    /* Hardware fallback is informational; native gameplay remains available. */
   }
 
   static uint8_t pixels[FZERO_MAX_WIDTH * kFrameHeight * 2 * kBytesPerPixel];
@@ -2079,6 +2056,8 @@ static int run_game(int argc, char **argv) {
   if(online)fprintf(stderr,"[fzero-input] online source=%s\n",g_gameplay_gamepad?"gamepad":g_gameplay_keyboard?"keyboard":"none");
   FzeroLocalControls *local_controls=local_two_player && !online?
       FzeroLocalControlsCreate(local_config,getenv("FZERO_TEST_LOCAL_READY")!=NULL):NULL;
+  bool title_picker = false;
+  double menu_audio_deadline = 0;
   if(local_two_player && !online && !local_controls)Die("Cannot allocate local two-player controls");
   if(local_controls)FzeroLocalControlsAssign(local_controls,launcher_settings.player_src,launcher_settings.player_gamepad_guid);
   uint64_t local_controls_generation=RtlStateGeneration();
@@ -2301,6 +2280,11 @@ static int run_game(int argc, char **argv) {
             break;
           case SDLK_r:
             if (!online && (mod & KMOD_CTRL)) {
+              if(title_picker) {
+                FzeroSetMenuAudioOnly(false);title_picker=false;
+                FzeroLocalControlsDestroy(local_controls);local_controls=NULL;local_two_player=false;
+                FzeroSetGpuHd(gpu_hd);
+              }
               FzeroTracksSavesFinish();
               RtlReset(1);
               FzeroGameInfo()->session_reset();
@@ -2330,7 +2314,10 @@ static int run_game(int argc, char **argv) {
     if(!local_two_player && !FzeroCaptureReplayActive() && FzeroVsMenuRequested()) {
       snesrecomp_sdl_pause_audio_device(audio,true);SDL_LockMutex(g_audio_mutex);
       FzeroCaptureStop();snes_rewind_shutdown();FzeroStateGuardDisarm();
-      if(!FzeroLocalModeEnter(local_config))Die("Cannot enter local versus");
+      /* Keep the actual menu/SPC/MSU stream alive while selecting. Replacing
+       * the cartridge here reset its music before a car had been chosen. */
+      title_picker=true; menu_audio_deadline=monotonic_seconds();
+      FzeroSetMenuAudioOnly(true);
       local_two_player=true;debug_server_set_ram(g_snes->ram,0x20000);
       local_controls=FzeroLocalControlsCreate(local_config,false);
       if(!local_controls)Die("Cannot allocate local controls");
@@ -2348,8 +2335,10 @@ static int run_game(int argc, char **argv) {
       if(action&FZERO_LOCAL_MAIN) {
         snesrecomp_sdl_pause_audio_device(audio,true);SDL_LockMutex(g_audio_mutex);
         FzeroCaptureStop();snes_rewind_shutdown();FzeroStateGuardDisarm();
-        if(!FzeroLocalModeReturn())Die("Cannot return to single-player menu");
-        FzeroLocalControlsDestroy(local_controls);local_controls=NULL;local_two_player=false;sp_release=true;FzeroSetMode7Hd(texture_scale>1?texture_scale:0,hd_pixels,hd_capacity);restart_mode_capture();
+        FzeroSetMenuAudioOnly(false);
+        if(title_picker) { title_picker=false; FzeroVsMenuRestore(true); }
+        else if(!FzeroLocalModeReturn())Die("Cannot return to single-player menu");
+        FzeroLocalControlsDestroy(local_controls);local_controls=NULL;local_two_player=false;sp_release=true;FzeroSetGpuHd(gpu_hd);FzeroSetMode7Hd(texture_scale>1?texture_scale:0,hd_pixels,hd_capacity);restart_mode_capture();
         debug_server_set_ram(g_snes->ram,0x20000);snes_rewind_configure();
         SDL_UnlockMutex(g_audio_mutex);
         snesrecomp_sdl_pause_audio_device(audio,suspended || !launcher_settings.enable_audio);
@@ -2369,6 +2358,12 @@ static int run_game(int argc, char **argv) {
       }
       if(action&FZERO_LOCAL_START) {
         snesrecomp_sdl_pause_audio_device(audio,true);SDL_LockMutex(g_audio_mutex);
+        FzeroSetMenuAudioOnly(false);
+        if(title_picker) {
+          if(!FzeroLocalModeEnter(FzeroLocalControlsConfig(local_controls)))Die("Cannot enter selected local versus");
+          title_picker=false; local_controls_generation=RtlStateGeneration();
+          debug_server_set_ram(g_snes->ram,0x20000);
+        }
         FzeroVersusConfig chosen=FzeroLocalControlsConfig(local_controls),loaded=FzeroLocalConfig();
         if(memcmp(&chosen,&loaded,sizeof(chosen))) {
           if(!FzeroLocalModeSetup()) {RtlReset(1);FzeroGameInfo()->session_reset();}
@@ -2388,13 +2383,28 @@ static int run_game(int argc, char **argv) {
         }
         if(!FzeroLocalSession())Die("Native versus setup did not reach the starting grid");
         fprintf(stderr,"[local-versus] setup %.3f seconds (%u native frames)\n",monotonic_seconds()-setup_start,setup_frames);
+        FzeroSetGpuHd(gpu_hd);
         FzeroSetMode7Hd(texture_scale>1?texture_scale:0,hd_pixels,hd_capacity);restart_mode_capture();
         SDL_UnlockMutex(g_audio_mutex);snes_rewind_shutdown();snes_rewind_configure();
         snesrecomp_sdl_pause_audio_device(audio,suspended || !launcher_settings.enable_audio);
         g_reset_presentation_clock=true;
       }
       if(FzeroLocalControlsSetup(local_controls)) {
+        /* This is a native host UI, not the retained world packet. It owns
+         * every presented pixel until Ready or Back restores game rendering. */
+        FzeroSetGpuHd(false);
         FzeroSetMode7Hd(0,NULL,0);
+        if(title_picker) {
+          /* One normal audio-producing frame per NTSC tick, not one per UI
+           * repaint. CPU/gameplay remain parked and PCM never restarts. */
+          double menu_now=monotonic_seconds(); unsigned ticks=0;
+          while(menu_now>=menu_audio_deadline && ticks++<4) {
+            (void)RtlRunFrame(0);
+            menu_audio_deadline+=1.0/FZERO_SIMULATION_HZ;
+          }
+          if(menu_audio_deadline<menu_now-1.0/FZERO_SIMULATION_HZ)
+            menu_audio_deadline=menu_now;
+        } else {
         /* Prepare the selected real course while people join and choose cars.
          * This freezes at the authoritative countdown; Ready starts the race,
          * it never runs a hidden human simulation behind the selection UI. */
@@ -2411,12 +2421,13 @@ static int run_game(int argc, char **argv) {
           int16_t discarded[1068];RtlRenderAudio(discarded,534,2);
         }
         SDL_UnlockMutex(g_audio_mutex);
+        }
         if(use_gl_renderer)snesrecomp_sdl_get_drawable_size(window,&drawable_width,&drawable_height);
         else snesrecomp_sdl_get_render_output_size(renderer,&drawable_width,&drawable_height);
         viewport=FzeroNetplayViewport(&g_video,drawable_width,drawable_height/2);logical_width=viewport.width;
         FzeroSetViewport(viewport);FzeroBeginDrawing(pixels,(size_t)logical_width*kBytesPerPixel);
         FzeroLocalControlsDraw(local_controls,(uint32_t *)pixels,logical_width,448);
-        presenter.logical_width=logical_width;presenter.viewport=viewport;
+        presenter.logical_width=logical_width;presenter.host_height=448;presenter.viewport=viewport;
         presenter.drawable_width=drawable_width;presenter.drawable_height=drawable_height;
         present_frame(&presenter,NULL,0,0,0);SDL_Delay(10);g_reset_presentation_clock=true;continue;
       }
@@ -2595,6 +2606,7 @@ static int run_game(int argc, char **argv) {
     }
 
     presenter.logical_width = logical_width;
+    presenter.host_height = 0;
     presenter.viewport = viewport;
     presenter.drawable_width = drawable_width;
     presenter.drawable_height = drawable_height;

@@ -78,6 +78,10 @@ static unsigned s_host_frames;
 static bool s_restoring_local_assets;
 static bool s_online_bootstrap,s_online_menu_bootstrap;
 static int s_last_lle_result = 1;
+static bool s_menu_audio_only;
+void FzeroSetMenuAudioOnly(bool enabled) {
+  s_menu_audio_only = enabled && !FzeroOnlineEnabled();
+}
 static uint8_t s_frame_hdmaen;
 static bool s_loaded_runtime_state;
 static uint8_t *s_output_pixels;
@@ -221,6 +225,13 @@ static bool run_main_slice(uint64_t deadline) {
 }
 
 static void run_one_frame(void) {
+  if (s_menu_audio_only && !FzeroOnlineEnabled()) {
+    g_cpu.master_cycles += kMasterClocksPerFrame;
+    synchronize_hardware();
+    s_next_frame_master = g_cpu.master_cycles + kMasterClocksPerFrame;
+    ++s_host_frames;
+    return;
+  }
   uint32_t pads=(uint32_t)g_snes->input1_currentState|((uint32_t)g_snes->input2_currentState<<12);
   FzeroOnlineState menu_before=*FzeroOnlineCompleted();
   if(!s_online_bootstrap && FzeroOnlineTick(&pads)) {

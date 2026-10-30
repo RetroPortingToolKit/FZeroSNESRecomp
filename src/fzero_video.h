@@ -3,9 +3,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include "fzero_gameplay.h"
+#include "snes/hd_jobs.h"
 
 enum { FZERO_HEIGHT = 224, FZERO_STOCK_WIDTH = 256, FZERO_MAX_WIDTH = 684 };
-enum { FZERO_HD_SCALE_MIN = 2, FZERO_HD_SCALE_MAX = 10 };
+enum { FZERO_HD_SCALE_MIN = 1, FZERO_HD_SCALE_MAX = 10 };
 enum { FZERO_GPU_HD_SCALE_MAX = 64 };
 #define FZERO_SIMULATION_HZ 60.098811862
 
@@ -26,8 +27,8 @@ typedef struct FzeroVideoSettings {
   bool bs_deluxe; /* BS vehicles; legacy field name retained for callers. */
   bool bs_tracks; /* Original BS courses, exclusive with CGP's corrected set. */
   FzeroGameplaySettings gameplay; /* Author's rules are all opt-in. */
-  bool hd_mode7; /* Independent, opt-in spatial resolution enhancement. */
-  unsigned hd_scale; /* Integer 2..10; retained while disabled. */
+  bool hd_mode7; /* Shared GPU enhancement, default on. */
+  unsigned hd_scale; /* Integer 1..64; retained while disabled. */
   bool diagnostics; /* Opt-in local performance reports; off by default. */
   bool crash_replay; /* Automatic local crash/replay capture; defaults on. */
   bool local_two_player; /* Launcher game mode; stock rules apply per session. */
@@ -41,7 +42,7 @@ typedef struct FzeroViewport {
 
 typedef struct FzeroRect { int x, y, w, h; } FzeroRect;
 
-void FzeroVideoDefaults(FzeroVideoSettings *settings); /* shipped: Fit; HD Mode 7 opt-in */
+void FzeroVideoDefaults(FzeroVideoSettings *settings); /* shipped: Fit; GPU Mode 7 on at 8x */
 void FzeroVideoStock(FzeroVideoSettings *settings);    /* stock 4:3, no mods */
 const char *FzeroAspectName(FzeroAspect aspect);
 bool FzeroParseAspect(const char *text, FzeroAspect *aspect);

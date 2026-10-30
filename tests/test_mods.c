@@ -182,15 +182,15 @@ int main(void) {
     CHECK(p->feature_set_option(NULL, hd.package_id, hd.id, "scale", text));
     CHECK(s.hd_scale == scale);
     CHECK(p->feature_get(NULL, 3, &hd));
-    CHECK(strstr(hd.description, "Warning:") && strstr(hd.description, "own risk"));
+    CHECK(!strstr(hd.description, "Warning:"));
     CHECK(!hd.has_error); /* high-cost values remain usable */
   }
   CHECK(!p->feature_set_option(NULL, hd.package_id, hd.id, "scale", "65"));
   CHECK(!p->feature_set_option(NULL, hd.package_id, hd.id, "scale", "6.5"));
-  CHECK(s.hd_scale == 64 && strstr(p->last_error(NULL), "2 to 64"));
+  CHECK(s.hd_scale == 64 && strstr(p->last_error(NULL), "1 to 64"));
   CHECK(p->feature_option_get(NULL, hd.package_id, hd.id, 0, &option));
-  CHECK(!strcmp(option.value, "64") && !strcmp(option.default_value, "2"));
-  CHECK(option.type == RECOMP_MOD_OPTION_INTEGER && option.min_value == 2 && option.max_value == 64);
+  CHECK(!strcmp(option.value, "64") && !strcmp(option.default_value, "8"));
+  CHECK(option.type == RECOMP_MOD_OPTION_INTEGER && option.min_value == 1 && option.max_value == 64);
   RecompLauncherCModFeature deluxe;
   CHECK(p->feature_get(NULL, 2, &deluxe) && deluxe.option_count == 0);
   CHECK(p->feature_enable(NULL, deluxe.package_id, deluxe.id, 1));
