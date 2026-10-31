@@ -245,6 +245,9 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "The folder contains recent inputs, game checkpoints, settings, records and crash evidence, never your ROM file.\n"
     "See MODS.md for details.\n\n"
     "Mods > Always show Records defaults on, making Records available before setting a time.\n\n"
+    "Mods > Lap voice callouts is optional and requires your own boost-power and final-lap WAV files.\n"
+    "Choose both recordings before enabling it. The final-lap recording replaces boost power on the last lap.\n"
+    "No callout recordings are included. See MODS.md.\n\n"
     + ("CGP and Astra audio are included in their mods/packs/<pack>/music folders.\n" if bundled_music else "Audio is not included; you can add it to each pack's music folder.\n") +
     "Course ZIPs contain editable projects; example.zip contains example.fzm and uses music/example.pcm.\n"
     "Bundled courses include a ready-to-use cache in mods/packs/.cache.\n"

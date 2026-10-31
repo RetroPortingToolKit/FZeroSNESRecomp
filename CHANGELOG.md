@@ -1,5 +1,16 @@
 ﻿# Changelog
 
+## 0.14.0 - Optional lap voice callouts
+
+- Add one opt-in Lap voice callouts mod with two required user-supplied WAV
+  recordings. Ordinary laps use the boost-power clip; entering the final lap
+  uses the final-lap clip instead. Recordings are not included.
+- Support single-player, local split-screen and online VS. Online announces
+  your own laps; simultaneous local events favor the final-lap announcement.
+- Use the existing engine sound-effect mixer alongside SNES or MSU music,
+  with load/reset handling and rollback-safe lap acknowledgements.
+- Retain the bundled courses, credits and ready-to-use caches in both editions.
+
 ## 0.13.0 - Shared GPU Mode 7 and VS menu music
 
 - Enable shared GPU Mode 7 at8x by default, selectable through64x, with native
