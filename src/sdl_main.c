@@ -12,6 +12,7 @@
 #include "fzero_hotkeys.h"
 #include "fzero_gamepad.h"
 #include "fzero_msu.h"
+#include "fzero_callouts.h"
 #include "fzero_replay.h"
 #include "fzero_state_mode.h"
 #include "fzero_diagnostics.h"
@@ -2025,6 +2026,8 @@ static int run_game(int argc, char **argv) {
   RtlSetAudioOutputRate(audio_freq);
   g_audio_volume = launcher_settings.volume;
   if (g_audio_volume < 0 || g_audio_volume > 100) g_audio_volume = 100;
+  if(!FzeroCalloutsConfigure(g_video.lap_callouts,g_video.lap_boost_wav,g_video.final_lap_wav))
+    fputs("[lap-callouts] Both WAV recordings are required; callouts disabled.\n",stderr);
   wanted.format = AUDIO_S16SYS;
   wanted.channels = 2;
   const char *audio_output=getenv("FZERO_TEST_AUDIO_OUTPUT");
@@ -2605,6 +2608,7 @@ static int run_game(int argc, char **argv) {
       FzeroDrawPpuFrame();
       if(online)FzeroNetplayFinish();
       FzeroMsuUpdateVersus();
+      FzeroCalloutsUpdate();
       FzeroDiagnosticsEnd(FZERO_DIAG_PPU, diagnostic_start);
       FzeroCaptureAfter();
       if(FzeroCaptureReplayFailed()) {g_selftest_failed=1;running=0;break;}
@@ -2735,6 +2739,7 @@ static int run_game(int argc, char **argv) {
 #else
   SDL_CloseAudioDevice(audio);
 #endif
+  FzeroCalloutsShutdown();
   if(g_test_audio_output) {fclose(g_test_audio_output);g_test_audio_output=NULL;}
   if (pad) SDL_GameControllerClose(pad);
   snes_rewind_shutdown();

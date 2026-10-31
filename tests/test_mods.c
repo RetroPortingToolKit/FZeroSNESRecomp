@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #define CHECK(e) do { if (!(e)) { fprintf(stderr, "%d: %s\n", __LINE__, #e); exit(1); } } while (0)
-int main(void) {
+int main(int argc,char **argv) {
   remove("test-mod-tracks/loader.cfg");
   CHECK(FzeroTracksInit("test-mod-tracks", true));
   FzeroVideoSettings s, loaded; FzeroVideoStock(&s); /* start from nothing enabled to test each toggle */
@@ -13,7 +13,7 @@ int main(void) {
   RecompLauncherCModFeature w, f;
   RecompLauncherCModOption option;
   const CpCatalog *catalog = FzeroTracksCatalog();
-  CHECK(p->package_count(NULL) == 5 + FZERO_RULE_COUNT && p->feature_count(NULL) == p->package_count(NULL));
+  CHECK(p->package_count(NULL) == 6 + FZERO_RULE_COUNT && p->feature_count(NULL) == p->package_count(NULL));
   for(int i=0;i<p->feature_count(NULL);++i) {
     RecompLauncherCModPackage package;
     CHECK(p->package_get(NULL,i,&package) && p->feature_get(NULL,i,&f));
@@ -32,6 +32,29 @@ int main(void) {
     RecompLauncherCModFeature pack;
     RecompLauncherCModPackage package;
     CHECK(p->feature_get(NULL, i, &pack) && p->package_get(NULL, i, &package));
+    if(!strcmp(pack.id,"lap-callouts")) {
+      CHECK(!pack.enabled && !pack.option_count && !s.lap_callouts);
+      CHECK(p->feature_resource_count(NULL,pack.package_id,pack.id)==2);
+      CHECK(!p->feature_enable(NULL,pack.package_id,pack.id,1));
+      for(int cue=0;cue<2;++cue) {
+        RecompLauncherCModResource resource;
+        CHECK(p->feature_resource_get(NULL,pack.package_id,pack.id,cue,&resource));
+        CHECK(resource.required && !resource.verified && !strcmp(resource.file_patterns,"*.wav"));
+        CHECK(!p->feature_resource_set_path(NULL,pack.package_id,pack.id,resource.id,"missing.wav"));
+        CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,resource.id,""));
+      }
+      if(argc==3) {
+        CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,"boost-power",argv[1]));
+        CHECK(!p->feature_enable(NULL,pack.package_id,pack.id,1));
+        CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,"final-lap",argv[2]));
+        CHECK(p->feature_enable(NULL,pack.package_id,pack.id,1) && s.lap_callouts);
+        CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini"));
+        CHECK(loaded.lap_callouts && !strcmp(loaded.lap_boost_wav,argv[1]) && !strcmp(loaded.final_lap_wav,argv[2]));
+        CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,"boost-power","") && !s.lap_callouts);
+        CHECK(!p->feature_enable(NULL,pack.package_id,pack.id,1));
+      }
+      CHECK(p->feature_enable(NULL,pack.package_id,pack.id,0));continue;
+    }
     if(!strcmp(pack.id,"local-2p")) {
       CHECK(!strcmp(pack.package_id,"fzero-local-2p") && !strcmp(pack.group,"Game Modes"));
       CHECK(p->feature_enable(NULL,pack.package_id,pack.id,1));

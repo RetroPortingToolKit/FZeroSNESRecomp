@@ -106,17 +106,29 @@ bool FzeroVideoLoad(FzeroVideoSettings *s, const char *path) {
   FzeroVideoDefaults(s);
   FILE *f = fopen(path, "r");
   if (!f) return errno == ENOENT;
-  char line[256], key[64], value[64], tail;
+  char line[4096], key[64], value[64], tail;
   bool valid = true;
   bool has_fps_toggle = false, has_cars = false, has_tracks = false, has_legacy_bs = false;
   bool legacy_bs = s->bs_deluxe;
   while (fgets(line, sizeof(line), f)) {
+    /* File-picker paths may contain spaces; never parse them as INI words. */
+    const char *text=NULL;char *path=NULL;
+    if(!strncmp(line,"LapBoostWav=",12)){text=line+12;path=s->lap_boost_wav;}
+    if(!strncmp(line,"FinalLapWav=",12)){text=line+12;path=s->final_lap_wav;}
+    if(path) {
+      size_t n=strcspn(text,"\r\n");
+      if(n>=sizeof(s->lap_boost_wav)){valid=false;continue;}
+      memcpy(path,text,n);path[n]=0;continue;
+    }
     int fields = sscanf(line, " %63[^= \t] = %63s", key, value);
     if (fields != 2) {
       if (fields == 1 && !strcmp(key, "Mode7Scale")) valid = false;
       continue;
     }
-    if (!strcmp(key, "EnhancedRenderer")) {
+    if (!strcmp(key,"LapCallouts")) {
+      if(!strcmp(value,"0") || !strcmp(value,"1"))s->lap_callouts=value[0]=='1';
+      else valid=false;
+    } else if (!strcmp(key, "EnhancedRenderer")) {
       if (!strcmp(value, "0") || !strcmp(value, "1")) s->enhanced = value[0] == '1';
       else valid = false;
     } else if (!strcmp(key, "PresentationEnabled")) {
@@ -198,6 +210,9 @@ bool FzeroVideoLoad(FzeroVideoSettings *s, const char *path) {
 }
 
 bool FzeroVideoSave(const FzeroVideoSettings *s, const char *path) {
+  if(!memchr(s->lap_boost_wav,0,sizeof(s->lap_boost_wav)) ||
+      !memchr(s->final_lap_wav,0,sizeof(s->final_lap_wav)) ||
+      strpbrk(s->lap_boost_wav,"\r\n") || strpbrk(s->final_lap_wav,"\r\n"))return false;
   char temporary[1024];
   if (snprintf(temporary, sizeof(temporary), "%s.tmp", path) >= (int)sizeof(temporary)) return false;
   FILE *f = fopen(temporary, "w");
@@ -210,6 +225,8 @@ bool FzeroVideoSave(const FzeroVideoSettings *s, const char *path) {
   if (fprintf(f, "AlwaysShowRecords=%d\n", s->gameplay.always_records) < 0) ok = false;
   if (fprintf(f, "CrashReplay=%d\n", s->crash_replay) < 0) ok = false;
   if (fprintf(f,"LocalTwoPlayer=%d\n",s->local_two_player)<0)ok=false;
+  if(fprintf(f,"LapCallouts=%d\nLapBoostWav=%s\nFinalLapWav=%s\n",
+      s->lap_callouts,s->lap_boost_wav,s->final_lap_wav)<0)ok=false;
   if (fclose(f)) ok = false;
   if (ok) {
 #ifdef _WIN32

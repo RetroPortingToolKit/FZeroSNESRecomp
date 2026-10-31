@@ -1,5 +1,21 @@
 # Mods and differences from the source games
 
+## Lap voice callouts
+
+In **Mods**, open **Lap voice callouts**. Choose your **Boost power WAV** and
+**Final lap WAV**, then enable the mod. Both recordings are required; no voice
+files are included with the game. Use WAV recordings up to 30 seconds long.
+
+Your boost recording plays when each new lap begins. When the final lap begins,
+the final-lap recording plays instead. There is no callout at the starting line
+or after finishing the race. This works in Grand Prix, Practice and VS, with
+either SNES or MSU music. Online, you hear your own lap announcements; in local
+split-screen, either player's crossing can announce a lap.
+
+Keep the selected files where they are. Clearing either recording turns the
+mod off; if a file becomes unavailable, callouts stay silent. Other game audio
+continues normally.
+
 ## Online VS
 
 For online VS, the rules are automatic and do not have a switch in Lobby Mods.

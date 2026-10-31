@@ -16,6 +16,7 @@
 #include "fzero_tracks.h"
 #include "fzero_course_runtime.h"
 #include "fzero_msu.h"
+#include "fzero_callouts.h"
 #include "fzero_state_mode.h"
 #include "fzero_replay.h"
 #include "fzero_capture.h"
@@ -438,6 +439,7 @@ int main(int argc, char **argv) {
   bool configured_music=versus?FzeroMsuConfigureVersus(music,
       !FzeroMsuHasLegacyPatch(music),argv[1]):
       FzeroMsuConfigure(music,FzeroRuleEnabled(FZERO_RULE_MSU),argv[1]);
+  if(!FzeroCalloutsConfigure(capture_video.lap_callouts,capture_video.lap_boost_wav,capture_video.final_lap_wav))return 11;
   if(versus && music_requested)
     capture_video.gameplay.enabled|=1u<<FZERO_RULE_MSU;
   if (!configured_music) {
@@ -849,6 +851,7 @@ int main(int argc, char **argv) {
     if(mode_test || getenv("FZERO_TEST_VS_MENU"))FzeroPresent(1);
     if(versus && present_every>1 && frame%present_every==0)FzeroPresent(1);
     FzeroMsuUpdateVersus();
+    FzeroCalloutsUpdate();
     if(online_menu_test) {
       static unsigned last_phase=255,last_owner=255;
       unsigned phase=FzeroOnlineCompleted()->phase,owner=FzeroLocalMenuOwner();

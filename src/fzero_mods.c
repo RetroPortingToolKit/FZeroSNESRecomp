@@ -2,6 +2,7 @@
 #include "fzero_tracks_mods.h"
 #include "fzero_tracks.h"
 #include "fzero_title.h"
+#include "fzero_callouts.h"
 #include "desktop/hd_mod.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,8 +32,15 @@ static const FzeroRule menu_rules[] = {
   FZERO_RULE_RED_BUMPER, FZERO_RULE_HITBOX
 };
 enum { VEHICLE_COUNT=2, VEHICLE_START=6+sizeof(menu_rules)/sizeof(*menu_rules), TITLE_INDEX=VEHICLE_START+VEHICLE_COUNT,
-       RECORDS_INDEX=TITLE_INDEX+1, CRASH_INDEX=RECORDS_INDEX+1, LOCAL_INDEX=CRASH_INDEX+1, TRACK_START=LOCAL_INDEX+1,
-       TITLE_KIND=200, RECORDS_KIND=201, CRASH_KIND=202, LOCAL_KIND=203 };
+       RECORDS_INDEX=TITLE_INDEX+1, CRASH_INDEX=RECORDS_INDEX+1, LOCAL_INDEX=CRASH_INDEX+1, CALLOUT_INDEX=LOCAL_INDEX+1,
+       TRACK_START=CALLOUT_INDEX+1, TITLE_KIND=200, RECORDS_KIND=201, CRASH_KIND=202, LOCAL_KIND=203, CALLOUT_KIND=204 };
+static const char callout_description[]=
+  "Play your boost-power WAV when starting each new lap, and your final-lap WAV instead when the last lap begins. "
+  "Single-player and VS; online announces your own laps. Supply both WAV recordings below to enable. "
+  "No recordings are included. WAV files must be 30 seconds or shorter.";
+static bool callouts_ready(void) {
+  return FzeroCalloutsValid(video->lap_boost_wav) && FzeroCalloutsValid(video->final_lap_wav);
+}
 static const char local_description[]="Enabled by default. Add VS MODE to the main menu. Two humans race on one shared course with top/bottom split-screen. Choose from all twelve machines and the installed single-player course catalog. All twelve ships use their authored CGP artwork, handling, energy boosts and exhaust. Your single-player content settings are retained.";
 static const char crash_description[] =
   "Automatically keep recent inputs and checkpoints in diagnostics beside the game. "
@@ -61,6 +69,7 @@ static bool vehicle_enabled(unsigned i) {
 }
 static int count(void *ctx) { (void)ctx; return TRACK_START + FzeroTrackModsProvider()->feature_count(ctx); }
 static int identity(const char *package, const char *feature) {
+  if(package && feature && !strcmp(package,"fzero-lap-callouts") && !strcmp(feature,"lap-callouts"))return CALLOUT_KIND;
   if(package && feature && !strcmp(package,"fzero-local-2p") && !strcmp(feature,"local-2p"))return LOCAL_KIND;
   if (package && feature && !strcmp(package,"fzero-crash-replay") && !strcmp(feature,"crash-replay")) return CRASH_KIND;
   if (package && feature && !strcmp(package,"fzero-always-records") && !strcmp(feature,"always-records")) return RECORDS_KIND;
@@ -75,6 +84,11 @@ static int identity(const char *package, const char *feature) {
   return 0;
 }
 static int package_get(void *ctx, int index, RecompLauncherCModPackage *out) {
+  if(index==CALLOUT_INDEX && out) {
+    memset(out,0,sizeof(*out));COPY(out->id,"fzero-lap-callouts");COPY(out->name,"Lap voice callouts");
+    COPY(out->version,"1");COPY(out->author,"User-supplied recordings");COPY(out->description,callout_description);
+    out->enabled=video->lap_callouts && callouts_ready();return 1;
+  }
   if (index == 3) return SnesHdModPackage(video->hd_mode7, out);
   if(index==LOCAL_INDEX && out) {
     memset(out,0,sizeof(*out));COPY(out->id,"fzero-local-2p");COPY(out->name,"Local 2 Player");
@@ -119,6 +133,13 @@ static int package_get(void *ctx, int index, RecompLauncherCModPackage *out) {
   return 1;
 }
 static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
+  if(index==CALLOUT_INDEX && out) {
+    memset(out,0,sizeof(*out));COPY(out->id,"lap-callouts");COPY(out->package_id,"fzero-lap-callouts");
+    COPY(out->name,"Lap voice callouts");COPY(out->package_name,out->name);COPY(out->package_version,"1");
+    COPY(out->group,"Audio");COPY(out->author,"User-supplied recordings");COPY(out->description,callout_description);
+    bool ready=callouts_ready();out->enabled=video->lap_callouts && ready;
+    COPY(out->status,!ready?"Choose both WAV recordings":out->enabled?"Enabled":"Ready to enable");return 1;
+  }
   if (index == 3) return SnesHdModFeature(video->hd_mode7, out);
   if(index==LOCAL_INDEX && out) {
     memset(out,0,sizeof(*out));COPY(out->id,"local-2p");COPY(out->package_id,"fzero-local-2p");
@@ -234,6 +255,12 @@ static int choice_get(void *ctx, const char *package, const char *feature,
   return 1;
 }
 static int enable(void *ctx, const char *package, const char *feature, int enabled) {
+  if(identity(package,feature)==CALLOUT_KIND) {
+    if(enabled && !callouts_ready()) {
+      COPY(error_text,"Choose valid boost-power and final-lap WAV files before enabling this mod.");return 0;
+    }
+    video->lap_callouts=enabled!=0;error_text[0]=0;return 1;
+  }
   if(package && feature && !strcmp(package,"fzero-local-2p") && !strcmp(feature,"local-2p")) {
     video->local_two_player=enabled!=0;return 1;
   }
@@ -306,6 +333,30 @@ static int commit(void *ctx, const char *image) {
   COPY(error_text, "Unable to save fzero-video.ini"); return 0;
 }
 static const char *last_error(void *ctx) { (void)ctx; return *error_text ? error_text : FzeroTrackModsProvider()->last_error(ctx); }
+static int resources(void *ctx,const char *p,const char *f) {
+  return identity(p,f)==CALLOUT_KIND?2:FzeroTrackModsProvider()->feature_resource_count(ctx,p,f);
+}
+static int resource_get(void *ctx,const char *p,const char *f,int i,RecompLauncherCModResource *out) {
+  if(identity(p,f)!=CALLOUT_KIND)return FzeroTrackModsProvider()->feature_resource_get(ctx,p,f,i,out);
+  if(!out || i<0 || i>1)return 0;
+  memset(out,0,sizeof(*out));COPY(out->id,i?"final-lap":"boost-power");
+  COPY(out->label,i?"Final lap WAV":"Boost power WAV");
+  COPY(out->description,i?"Plays instead of boost power when the final lap begins.":"Plays when each ordinary new lap begins.");
+  COPY(out->path,i?video->final_lap_wav:video->lap_boost_wav);
+  COPY(out->file_patterns,"*.wav");COPY(out->file_description,"WAV audio (up to 30 seconds)");
+  out->required=1;out->verified=FzeroCalloutsValid(out->path);
+  COPY(out->status,out->verified?"Ready":out->path[0]?"WAV unavailable or unsupported":"Choose a WAV recording");return 1;
+}
+static int resource_set(void *ctx,const char *p,const char *f,const char *id,const char *path) {
+  if(identity(p,f)!=CALLOUT_KIND)return FzeroTrackModsProvider()->feature_resource_set_path(ctx,p,f,id,path);
+  if(!id || !path || strlen(path)>=sizeof(video->lap_boost_wav) || strpbrk(path,"\r\n"))return 0;
+  char *target=!strcmp(id,"boost-power")?video->lap_boost_wav:!strcmp(id,"final-lap")?video->final_lap_wav:NULL;
+  if(!target)return 0;
+  if(*path && !FzeroCalloutsValid(path)) {
+    COPY(error_text,"Choose a readable WAV recording up to 30 seconds long (8-192 kHz), or Clear.");return 0;
+  }
+  strcpy(target,path);if(!*path)video->lap_callouts=false;error_text[0]=0;return 1;
+}
 
 static const RecompLauncherCModPreset presets[] = {
   {"vanilla", "Vanilla", "Original cars, rules, title and SNES music. Turns off Track Pack Loader and BS content. Personal settings stay as selected."},
@@ -382,9 +433,9 @@ const RecompLauncherCModProvider *FzeroModsProvider(FzeroVideoSettings *settings
   provider.preset_count = preset_count; provider.preset_get = preset_get;
   provider.preset_current = preset_current; provider.preset_apply = preset_apply;
   const RecompLauncherCModProvider *tracks = FzeroTrackModsProvider();
-  provider.feature_resource_count = tracks->feature_resource_count;
-  provider.feature_resource_get = tracks->feature_resource_get;
-  provider.feature_resource_set_path = tracks->feature_resource_set_path;
+  provider.feature_resource_count = resources;
+  provider.feature_resource_get = resource_get;
+  provider.feature_resource_set_path = resource_set;
   provider.catalog_diagnostic_count = tracks->catalog_diagnostic_count;
   provider.catalog_diagnostic_get = tracks->catalog_diagnostic_get;
   return &provider;
