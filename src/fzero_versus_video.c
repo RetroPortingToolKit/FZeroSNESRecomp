@@ -215,8 +215,6 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     /* Far-car labels must not paint across the native timer/power HUD. */
     if(opacity==255 && y+2>=64) {
       FzeroUiPlayerTag(ui,canvas,ship->ground_x+viewport.extra-8,y+2,i,ink[i]);
-      if(i!=pane)FzeroUiText(ui,canvas,ship->ground_x+viewport.extra+10,y+5,
-          (const char *[]){"", "1ST","2ND","3RD","4TH"}[FzeroVersusRank(s,i)],FZERO_UI_SMALL,ink[i]);
     }
     else if(opacity<255 && y+2>=64) {
       uint32_t label[16*16]={0};FzeroUiPlayerTag(ui,(FzeroUiCanvas){label,16,16,1},0,0,i,ink[i]);
