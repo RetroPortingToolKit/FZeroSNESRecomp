@@ -220,6 +220,20 @@ int main(void) {
     for(unsigned other=0;other<4;++other)CHECK((input[other]!=0)==(other==p));
     CHECK(SDL_SetJoystickVirtualButton(four_pads[p],SDL_GAMEPAD_BUTTON_DPAD_UP,false));poll(c,0);
   }
+  /* Loading a larger current-build race must rescan configured extra seats,
+   * even without a device-added event or a new Start press. */
+  FzeroLocalControlsDestroy(c);
+  c=FzeroLocalControlsCreate((FzeroVersusConfig){0,{0,1,2,3},2},false);CHECK(c);
+  int four_sources[4]={2,2,2,2};char four_guids[4][40]={{0}};
+  FzeroLocalControlsAssignPlayers(c,four_sources,four_guids,4);poll(c,0);
+  FzeroActor four_spawns[4]={{.x=256,.y=256},{.x=320,.y=256},{.x=384,.y=256},{.x=448,.y=256}};
+  race=FzeroVersusCreate((FzeroVersusConfig){0,{0,1,2,3},4},world,four_spawns,(FzeroActorTables){empty_table,NULL,0});CHECK(race);
+  FzeroLocalControlsLoaded(c);poll(c,0);
+  CHECK(SDL_SetJoystickVirtualButton(four_pads[3],SDL_GAMEPAD_BUTTON_SOUTH,true));poll(c,0);
+  uint16_t restored[4];FzeroLocalControlsInputs(c,restored);
+  CHECK(restored[3] && !restored[0] && !restored[1] && !restored[2]);
+  CHECK(SDL_SetJoystickVirtualButton(four_pads[3],SDL_GAMEPAD_BUTTON_SOUTH,false));poll(c,0);
+  FzeroVersusDestroy(race);race=NULL;
   CHECK(SDL_DetachVirtualJoystick(four_ids[3]));poll(c,0);uint16_t disconnected[4];FzeroLocalControlsInputs(c,disconnected);CHECK(!disconnected[3]);
   FzeroLocalControlsDestroy(c);
   for(unsigned p=0;p<4;++p) {SDL_CloseJoystick(four_pads[p]);if(p<3)CHECK(SDL_DetachVirtualJoystick(four_ids[p]));}

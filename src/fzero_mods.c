@@ -41,7 +41,7 @@ static const char callout_description[]=
 static bool callouts_ready(void) {
   return FzeroCalloutsValid(video->lap_boost_wav) && FzeroCalloutsValid(video->final_lap_wav);
 }
-static const char local_description[]="Enabled by default. Add VS MODE to the main menu. Two humans race on one shared course with top/bottom split-screen. Choose from all twelve machines and the installed single-player course catalog. All twelve ships use their authored CGP artwork, handling, energy boosts and exhaust. Your single-player content settings are retained.";
+static const char local_description[]="Enabled by default. Add VS MODE to the main menu. Two to four humans race on one shared course. Two players use top/bottom views; three or four use a four-view grid. Press Y on P1's machine-selection page to choose the player count. Choose from all twelve machines and the installed single-player course catalog. All twelve ships use their authored CGP artwork, handling, energy boosts and exhaust. Your single-player content settings are retained.";
 static const char crash_description[] =
   "Automatically keep recent inputs and checkpoints in diagnostics beside the game. "
   "Enabled by default for testing, including online play and existing installations. "
@@ -91,7 +91,7 @@ static int package_get(void *ctx, int index, RecompLauncherCModPackage *out) {
   }
   if (index == 3) return SnesHdModPackage(video->hd_mode7, out);
   if(index==LOCAL_INDEX && out) {
-    memset(out,0,sizeof(*out));COPY(out->id,"fzero-local-2p");COPY(out->name,"Local 2 Player");
+    memset(out,0,sizeof(*out));COPY(out->id,"fzero-local-2p");COPY(out->name,"Local Multiplayer");
     COPY(out->version,"1");COPY(out->author,"FZeroSNESRecomp contributors");
     COPY(out->description,local_description);out->enabled=video->local_two_player;return 1;
   }
@@ -143,7 +143,7 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
   if (index == 3) return SnesHdModFeature(video->hd_mode7, out);
   if(index==LOCAL_INDEX && out) {
     memset(out,0,sizeof(*out));COPY(out->id,"local-2p");COPY(out->package_id,"fzero-local-2p");
-    COPY(out->name,"Local 2 Player");COPY(out->package_name,out->name);COPY(out->package_version,"1");
+    COPY(out->name,"Local Multiplayer");COPY(out->package_name,out->name);COPY(out->package_version,"1");
     COPY(out->group,"Game Modes");COPY(out->author,"FZeroSNESRecomp contributors");
     COPY(out->description,local_description);out->enabled=video->local_two_player;
     COPY(out->status,out->enabled?"VS MODE on main menu":"Single player");return 1;

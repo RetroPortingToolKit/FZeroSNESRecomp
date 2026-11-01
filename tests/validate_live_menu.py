@@ -1,4 +1,4 @@
-"""Muted desktop qualification through native VS entry and two SDL devices.
+"""Muted desktop qualification through native VS entry and two to four SDL devices.
 
 Exercises the live Restart/Change/Main Menu actions, continued simulation,
 resizing and the combined native/HD presentation. Uses a fresh installation.
@@ -21,6 +21,12 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     for key in ('build', 'runtime', 'rom', 'packs', 'out'):
         p.add_argument('--' + key, type=Path, required=True)
+    p.add_argument('--players',type=int,choices=(2,3,4),default=2)
+    p.add_argument('--hd-scale',type=int,default=8)
+    p.add_argument('--stock-only',action='store_true',help='Qualify native courses without the optional Astra import')
+    p.add_argument('--cup',type=int,default=0)
+    p.add_argument('--bs-tracks',action='store_true')
+    p.add_argument('--no-contact-fixture',action='store_true',help='Content/menu smoke only; stock run separately qualifies prepared traffic contacts')
     p.add_argument('--fps',type=int,default=60)
     p.add_argument('--native',action='store_true',help='Disable HD Mode 7 for this windowed run')
     p.add_argument('--full-profile',action='store_true',help='Use all twelve CGP machines and stock rebalances')
@@ -34,7 +40,9 @@ def main():
     for dll in runtime.glob('*.dll'):
         shutil.copy2(dll, stage)
     shutil.copytree(ROOT / 'assets', stage / 'assets')
-    shutil.copytree(packs / 'astra-front', out / 'catalog/astra-front', ignore=shutil.ignore_patterns('music', '.cache'))
+    (out / 'catalog').mkdir()
+    if not a.stock_only:
+        shutil.copytree(packs / 'astra-front', out / 'catalog/astra-front', ignore=shutil.ignore_patterns('music', '.cache'))
     config = (runtime / 'config.ini').read_text()
     config = config.replace('SkipLauncher = 0', 'SkipLauncher = 1')
     config = config.replace('SkipLauncher=0', 'SkipLauncher=1')
@@ -44,19 +52,20 @@ def main():
     shutil.copy2(runtime / 'keybinds.ini', stage)
     (stage / 'fzero-video.ini').write_text(
         f'[FZeroVideo]\nEnhancedRenderer=1\nAspect=Fit\nPresentationEnabled=1\nPresentationFPS={a.fps}\n'
-        f'Mode7Enabled={int(not a.native)}\nMode7Scale=8\nBSVehicles=0\nBSTracks=0\nCGPCars={7 if a.full_profile else 0}\nCGPStockRebalance={15 if a.full_profile else 0}\n'
+        f'Mode7Enabled={int(not a.native)}\nMode7Scale={a.hd_scale}\nBSVehicles=0\nBSTracks={int(a.bs_tracks)}\nCGPCars={7 if a.full_profile else 0}\nCGPStockRebalance={15 if a.full_profile else 0}\n'
         'LocalTwoPlayer=1\nAlwaysShowRecords=1\nCrashReplay=1\nDiagnostics=1\n')
     shots = out / 'images'
     shots.mkdir()
     clean = {k: v for k, v in os.environ.items() if not k.startswith(
         ('FZERO_', 'SNESRECOMP_', 'SDL_', 'LNG_', 'SNES_NET_', 'RNET_'))}
     env = dict(clean, SDL_AUDIODRIVER='dummy', SNESRECOMP_MSU1='off',
-               FZERO_TEST_TRAFFIC_VISIBLE='1',
-               FZERO_TEST_LOCAL_UI='1', FZERO_TEST_LOCAL_UI_HIDDEN='1', FZERO_TEST_LOCAL_UI_LIVE='1',
+               FZERO_TEST_TRAFFIC_VISIBLE='1', FZERO_PACK_LOADER=str(int(not a.bs_tracks)),
+               FZERO_TEST_LOCAL_UI='1', FZERO_TEST_LOCAL_UI_CUP=str(a.cup), FZERO_TEST_LOCAL_PLAYERS=str(a.players), FZERO_TEST_LOCAL_UI_HIDDEN='1', FZERO_TEST_LOCAL_UI_LIVE='1',
                FZERO_TEST_LOCAL_UI_RESIZE='1', FZERO_TEST_LOCAL_UI_DRIVE='1', FZERO_TEST_LOCAL_UI_DUMP=str(shots),
                FZERO_PACKS_DIR=str(out / 'catalog'), FZERO_TRACK_PACKS=str(out / 'settings'), SNESRECOMP_SAVE_ROOT='s',
                SNESRECOMP_INPUT_SCRIPT='300-302:32,330-332:32,360-362:32,390-392:8',
                SNESRECOMP_AUTOCLOSE_FRAMES='5000')
+    if not a.no_contact_fixture:env['FZERO_TEST_TRAFFIC_CONTACT']='1'
     if a.menu_music:
         env.pop('SDL_AUDIODRIVER',None)
         env.update(FZERO_TEST_MENU_MUSIC='1',FZERO_TEST_AUDIO_OUTPUT=str(out/'output.pcm'))
@@ -80,9 +89,14 @@ def main():
         return
     assert result.returncode == 0 and 'local-ui: PASS' in text, text[-4000:]
     assert (shots / 'live-menu-frame.bmp').exists(), 'Live menu was not displayed'
-    assert '[traffic-video] pane=0 ' in text and '[traffic-video] pane=1 ' in text, 'Bumper pixels were not visible in both gameplay views'
-    assert 'traffic-encounter: both human impacts PASS' in text, 'Prepared bumper contacts did not reach both humans'
-    print('PASS live menu: two SDL devices, prepared bumper impacts/views, restart/change/exit, resized HD/native presentation', flush=True)
+    if not a.no_contact_fixture:
+        assert all(f'[traffic-video] pane={p} ' in text for p in range(a.players)), 'Bumper pixels missing from a gameplay view'
+        assert 'traffic-encounter: all human impacts PASS' in text, 'Prepared bumper contacts did not reach every human'
+    assert 'local-ui-reconnect: neutral disconnect, continuing peers, same-seat recovery PASS' in text
+    report=dict(passed=True,observed_scales=sorted({int(n) for n in re.findall(r'local-ui-image:.* scale=(\d+)',text)}),players=a.players,cup=a.cup,native=a.native,hd_scale=a.hd_scale,bs_tracks=a.bs_tracks,contact_fixture=not a.no_contact_fixture,
+                sha256=hashlib.sha256((stage/'F-Zero Forever.exe').read_bytes()).hexdigest())
+    (out/'result.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
+    print(f'PASS live menu: {a.players} SDL devices, traffic fixture={not a.no_contact_fixture}, restart/change/exit, resized HD/native presentation', flush=True)
 
 
 if __name__ == '__main__':

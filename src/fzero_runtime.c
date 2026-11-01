@@ -506,7 +506,7 @@ void FzeroSetMode7Hd(unsigned scale, uint32_t *pixels, size_t capacity) {
   s_hd_capacity = scale ? capacity : 0;
 }
 const uint32_t *FzeroHdFrame(void) {
-  return s_hd_ready && FzeroRendererHasFrame() ? s_hd_pixels : NULL;
+  return s_hd_ready && (FzeroLocalSession() || FzeroRendererHasFrame()) ? s_hd_pixels : NULL;
 }
 unsigned FzeroHdScale(void) { return FzeroHdFrame() ? s_hd_scale : 1; }
 

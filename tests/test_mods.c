@@ -1,11 +1,56 @@
 #include "fzero_mods.h"
 #include "fzero_netplay_mods.h"
 #include "fzero_tracks.h"
+#include "fzero_course_file.h"
+#include "sha256.h"
+#ifdef _WIN32
+#include <direct.h>
+#define MODS_MKDIR(p) _mkdir(p)
+#else
+#include <sys/stat.h>
+#define MODS_MKDIR(p) mkdir(p,0755)
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #define CHECK(e) do { if (!(e)) { fprintf(stderr, "%d: %s\n", __LINE__, #e); exit(1); } } while (0)
+/* The launcher reads installed data packs, not the retired global artwork
+ * list. Give this ROM-free settings test a small authored installed catalog. */
+static void fixture_write(const char *path,const void *data,size_t size) {
+  FILE *f=fopen(path,"wb");CHECK(f);CHECK(fwrite(data,1,size,f)==size);CHECK(!fclose(f));
+}
+static void fixture_packs(void) {
+  MODS_MKDIR("test-mod-packs");
+  const char *ids[]={"cgp","max-league","bower-league"};
+  FzeroCourse course={0};course.block_size=544;course.grid_size=36;course.shortcuts[1]=0x80;
+  for(unsigned i=0;i<16;++i)course.blocks[512+i*2+1]=0x70;
+  for(unsigned i=0;i<3;++i) {
+    char folder[128],path[160],index[1024],envelope[1024],error[256],hex[65];uint8_t hash[32];
+    snprintf(folder,sizeof(folder),"test-mod-packs/%s",ids[i]);MODS_MKDIR(folder);
+    snprintf(path,sizeof(path),"%s/course.fzc",folder);CHECK(FzeroCourseFileWrite(path,&course,error,sizeof(error)));
+    uint8_t title[0x1489]={0};memcpy(title,"FZTITLE\1\0",9);
+    snprintf(path,sizeof(path),"%s/title.bin",folder);fixture_write(path,title,sizeof(title));
+    char titles[160]={0};
+    if(i<2)snprintf(titles,sizeof(titles),",\"titles\":[{\"id\":\"%s\",\"name\":\"%s\",\"source\":\"title.bin\"}]",ids[i],ids[i]);
+    snprintf(index,sizeof(index),"{\"format\":1,\"id\":\"%s\",\"name\":\"%s\",\"author\":\"Test\",\"order\":%u,"
+        "\"cups\":[{\"id\":\"solo\",\"name\":\"Solo\",\"courses\":[\"course\"]}],"
+        "\"courses\":[{\"id\":\"course\",\"name\":\"Course\",\"source\":\"course.fzc\"}]%s}",ids[i],ids[i],i,titles);
+    snprintf(path,sizeof(path),"%s/courses.json",folder);fixture_write(path,index,strlen(index));
+    sha256_compute((const uint8_t *)index,strlen(index),hash);
+    for(unsigned b=0;b<32;++b)snprintf(hex+b*2,3,"%02x",hash[b]);
+    snprintf(envelope,sizeof(envelope),"{\"format\":\"snesrecomp.data-pack\",\"version\":1,\"game\":\"f-zero\","
+        "\"id\":\"%s\",\"title\":\"%s\",\"base_rom_sha256\":\"bf16c3c867c58e2ab061c70de9295b6930d63f29f81cc986f5ecae03e0ad18d2\","
+        "\"payload\":{\"format\":\"fzero.course-index\",\"file\":\"courses.json\",\"sha256\":\"%s\"}}",ids[i],ids[i],hex);
+    snprintf(path,sizeof(path),"%s/pack.json",folder);fixture_write(path,envelope,strlen(envelope));
+  }
+#ifdef _WIN32
+  _putenv_s("FZERO_PACKS_DIR","test-mod-packs");
+#else
+  setenv("FZERO_PACKS_DIR","test-mod-packs",1);
+#endif
+}
 int main(int argc,char **argv) {
+  fixture_packs();
   remove("test-mod-tracks/loader.cfg");
   CHECK(FzeroTracksInit("test-mod-tracks", true));
   FzeroVideoSettings s, loaded; FzeroVideoStock(&s); /* start from nothing enabled to test each toggle */

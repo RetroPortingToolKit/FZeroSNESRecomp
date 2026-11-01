@@ -263,7 +263,7 @@ unsigned FzeroLocalControlsKeyboardPlayer(const FzeroLocalControls *c) {
 }
 void FzeroLocalControlsLoaded(FzeroLocalControls *c) {
   if(!c)return;
-  c->config=FzeroLocalConfig();c->setup=false;c->menu_tag=menu_tag();
+  c->config=FzeroLocalConfig();c->setup=false;c->menu_tag=menu_tag();c->scan=true;
   memset(c->previous,0,sizeof(c->previous));memset(c->input,0,sizeof(c->input));
   for(unsigned p=0;p<FZERO_MAX_PLAYERS;++p)c->release[p]=true;
 }

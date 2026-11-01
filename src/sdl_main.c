@@ -1836,8 +1836,10 @@ static int run_game(int argc, char **argv) {
   }
   const char *save_root = getenv("SNESRECOMP_SAVE_ROOT");
   if (save_root && *save_root) RtlSetSaveRoot(save_root);
+  host_report_breadcrumb("Preparing local-versus resources");
   if(local_available && !FzeroLocalModeInit(rom,rom_size,rom_path,
       deluxe_override?deluxe_override:deluxe_path,session_msu_pack,use_cgp_music))Die("Cannot prepare local mode transitions");
+  host_report_breadcrumb("Local-versus resources ready; preparing cartridge profile");
   FzeroGameplaySettings active_gameplay=local_two_player?(FzeroGameplaySettings){0}:g_video.gameplay;
   FzeroGameplayConfigure(&active_gameplay,local_two_player?false:g_video.bs_deluxe,g_video.bs_tracks);
   if (!FzeroTracksPrepare(&rom, &rom_size, local_two_player?false:g_video.bs_deluxe,
@@ -1851,6 +1853,7 @@ static int run_game(int argc, char **argv) {
     FzeroGameplayConfigure(&g_video.gameplay,false,false);
     if (!FzeroTracksPrepare(&rom, &rom_size, false, NULL)) { free(rom); return 2; }
   }
+  host_report_breadcrumb("Cartridge profile ready");
   /* Match the shared host: keep gamepads live through launcher/game focus
    * transitions and host overlays (SDL otherwise suppresses their state). */
   SDL_SetHint(SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS, "1");
@@ -2188,6 +2191,7 @@ static int run_game(int argc, char **argv) {
 
   while (running) {
     const FzeroVersusSnapshot *race_state=FzeroVersusCompleted(FzeroLocalSession());
+    if(local_two_player && !online && race_state)g_local_players=FzeroVersusPlayers(race_state->config);
     bool race_running=local_two_player && (!race_state || race_state->phase!=FZERO_VS_RESULTS);
     if (diagnostics_enabled) {
       diagnostic_frame = (FzeroDiagnosticFrame){
@@ -2201,7 +2205,7 @@ static int run_game(int argc, char **argv) {
         .fullscreen = (SDL_GetWindowFlags(window) & SNESRECOMP_SDL_WINDOW_FULLSCREEN_DESKTOP) != 0,
         .suspended = suspended, .scene = g_ram[0x54], .subscene = g_ram[0x55]
       };
-      if (use_gl_renderer && gl_renderer.hd_gpu) {
+      if (use_gl_renderer && gl_renderer.hd_gpu && FzeroGpuHdFrame()) {
         SnesHdGpuReadStats(gl_renderer.hd_gpu,false,&diagnostic_frame.hd_gpu);
         if (diagnostic_frame.hd_gpu.output_width)
           diagnostic_frame.effective_scale=gl_renderer.hd_visible_samples?gl_renderer.hd_requested_scale:
@@ -2336,6 +2340,7 @@ static int run_game(int argc, char **argv) {
 
     if(local_ui_tick(local_controls,window)) {running=0;break;}
     if(!local_two_player && !FzeroCaptureReplayActive() && FzeroVsMenuRequested()) {
+      if(getenv("FZERO_TEST_LOCAL_UI"))host_report_breadcrumb("Entering title VS picker");
       /* No machine or audio source changes here: retain the live device queue. */
       SDL_LockMutex(g_audio_mutex);
       FzeroCaptureStop();snes_rewind_shutdown();FzeroStateGuardDisarm();
@@ -2349,6 +2354,7 @@ static int run_game(int argc, char **argv) {
       if(!local_controls)Die("Cannot allocate local controls");
       FzeroLocalControlsAssignPlayers(local_controls,launcher_settings.player_src,launcher_settings.player_gamepad_guid,4);
       local_controls_generation=RtlStateGeneration();
+      if(getenv("FZERO_TEST_LOCAL_UI"))host_report_breadcrumb("Title VS controls ready");
       snes_rewind_configure();SDL_UnlockMutex(g_audio_mutex);
       suspended=false;
       snesrecomp_sdl_pause_audio_device(audio,!launcher_settings.enable_audio);
@@ -2410,6 +2416,9 @@ static int run_game(int argc, char **argv) {
         }
         if(!FzeroLocalSession())Die("Native versus setup did not reach the starting grid");
         fprintf(stderr,"[local-versus] setup %.3f seconds (%u native frames)\n",monotonic_seconds()-setup_start,setup_frames);
+        /* Native course setup resets the runtime viewport. Rebind the host
+         * layout even when its dimensions have not changed in the window. */
+        FzeroSetViewport(viewport);FzeroBeginDrawing(pixels,(size_t)logical_width*kBytesPerPixel);
         FzeroSetGpuHd(gpu_hd);
         FzeroSetMode7Hd(cpu_scale>1?cpu_scale:0,hd_pixels,cpu_capacity);restart_mode_capture();
         SDL_UnlockMutex(g_audio_mutex);snes_rewind_shutdown();snes_rewind_configure();
@@ -2676,6 +2685,11 @@ static int run_game(int argc, char **argv) {
 
     if (benchmark || FzeroClockPresentationDue(&clock, now)) {
       uint64_t diagnostic_start = FzeroDiagnosticsBegin();
+      /* Grid views use the portable renderer until GPU packets can carry
+       * multiple cameras per row. Bound their raster cost independently of
+       * the requested single-camera GPU scale. */
+      unsigned presentation_scale=!online && g_local_players>2 && local_two_player && cpu_scale>2?2:cpu_scale;
+      FzeroSetMode7Hd(presentation_scale>1?presentation_scale:0,hd_pixels,cpu_capacity);
       FzeroPresent(benchmark ? 1.0 : FzeroClockAlpha(&clock, now));
       FzeroDiagnosticsEnd(FZERO_DIAG_COMPOSITION, diagnostic_start);
       if(online && snes_savestate_menu_is_open())present_overlay(&presenter,1);
