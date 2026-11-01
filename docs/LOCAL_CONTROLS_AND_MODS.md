@@ -2,9 +2,15 @@
 
 Choose each player's input source in the launcher's **Controls** page before
 playing: for example, P1 Keyboard and P2 the selected Switch Pro controller.
-**Local 2 Player** defaults on in Mods. Press Play and select **VS MODE** on the
-title screen. Each device controls only its assigned player's car selection
-and race. Assign different controllers when both players use gamepads.
+**Local Multiplayer** defaults on in Mods. Press Play, select **VS MODE**, and
+choose two, three or four players before confirming the machines. Two racers
+use top/bottom views; three or four use a 2x2 grid, with the fourth cell black
+in 3P. Each player selects and readies their own machine.
+
+Gamepads have one owner. To play without four gamepads, set several players to
+**Keyboard** in Controls. Give them separate bindings, or repeat the same
+bindings so one set of keys controls several racers. Automatic keyboard joining
+claims only one seat; shared keyboard seats must be assigned explicitly.
 
 If Steam Input maps a controller to keyboard keys, those keys are ordinary
 keyboard input to the game. Disable Steam desktop keyboard mappings or run
@@ -12,9 +18,9 @@ outside Steam when using a separate keyboard player. The game cannot identify
 which physical device generated an operating-system keyboard event.
 
 Multiplayer never pauses. Start opens a live menu: Continue, Restart Race,
-Change Race or Main Menu. The race and the other player's controls continue;
+Change Race or Main Menu. The race and the other players' controls continue;
 the player operating the menu sends neutral driving input. B closes the menu.
-Focus loss and disconnects never freeze the other player. A disconnected seat
+Focus loss and disconnects never freeze the other players. A disconnected seat
 sends neutral input until its assigned device returns.
 After the race, use **Race Again**, **Change Race**, or **Main Menu** locally;
 the online host selects Race Again or Change Race. Save/rewind browser hotkeys
@@ -22,7 +28,7 @@ and quick saves/loads cannot interrupt a multiplayer race. Single-player keeps
 its normal pause behavior.
 
 VS rules are always active and hidden. Lobby Mods lists the shared course
-catalog. Change it in the main Mods screen before entering a lobby; both players
+catalog. Change it in the main Mods screen before entering a lobby; all players
 must match. Presentation and music are local choices, and single-player
 handling switches do not change the fixed VS machine roster. All twelve VS
 machines use their CGP artwork, handling, energy boost and exhaust, including
@@ -30,11 +36,11 @@ the original four cars.
 
 VS also includes four shared NPC bumpers, automatically in local and online
 races. They follow the course's original CPU driving lines and can collide
-with either player. Both cameras see the same cars. They are traffic obstacles,
-not ranked entrants: only the two human players determine laps and results.
+with any player. All cameras see the same cars. They are traffic obstacles,
+not ranked entrants: only the human players determine laps and results.
 Regular traffic uses the brown bumper artwork; every fourth accepted spawn
-is a red explosive bumper. Both humans can trigger its native damage, stun
-and airborne response. Passed traffic is replenished outside both views,
+is a red explosive bumper. All humans can trigger its native damage, stun
+and airborne response. Passed traffic is replenished outside all views,
 with spacing between spawns, so later laps retain traffic. Bumpers sample
 the course's jumps, magnets and lethal terrain. Ranked CPU rivals are absent.
 
@@ -50,7 +56,7 @@ CGP original-car rebalances default on for single-player; conflicting BS
 vehicles default off. Saved settings take precedence. Extra CGP vehicles remain
 a separate choice.
 
-Full-course rendering is always active in races, including 4:3 and both local
+Full-course rendering is always active in races, including 4:3 and all local
 views. It does not depend on widescreen. The renderer resolves beyond the
 original streamed tilemap and removes stepped distance haze. Track textures
 always use original sharp pixel sampling. The former texture-smoothing mod was

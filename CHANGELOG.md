@@ -1,5 +1,21 @@
 ﻿# Changelog
 
+## 0.15.0 - Four-player versus
+
+- Extend local and online VS to two, three or four human racers. Local 3P/4P
+  uses a 2x2 view grid; the unused 3P view stays black.
+- Allow multiple players to share the keyboard, with separate layouts or
+  mirrored bindings that control several racers together.
+- Enable four-seat LAN and Direct IP waiting rooms and preserve the negotiated
+  player count when launching the match. Online rooms also offer four seats.
+- Keep floating racer labels as P1/P2/P3/P4, without place ordinals.
+- Add optional boost-power timing that announces only the first lap-2 crossing
+  of a race. Final-lap announcements retain their existing timing.
+- Retain the approved courses, credits, MSU music and ready-to-use caches in
+  both editions. Local 3P/4P HD uses the portable renderer at up to2x.
+- Review native/32x/48x/64x presentation and add real-frame GPU pixel checks;
+  the reported high-scale corruption was not reproduced in those checks.
+
 ## 0.14.0 - Optional lap voice callouts
 
 - Add one opt-in Lap voice callouts mod with two required user-supplied WAV

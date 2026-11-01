@@ -170,6 +170,8 @@ Online dense loss plus forced rollback still fails shared baseline checks
 historical forced-correction experiments are not current-build qualification.
 Linux/cross-platform and WAN/ICE checks are outside this offline handoff.
 
-No merge, public release or delivery-folder replacement was performed. Keep the
-current build, useful raw evidence and human profile until validation is resolved;
-clean the disposable playtest afterwards without touching owner saves.
+The owner authorized main integration and Nextcloud delivery on 2026-11-01.
+Version 0.15.0 carries this implementation in both Windows music editions.
+Keep useful raw evidence and the human profile; the release authorization does
+not turn unrecorded human observations into passed checks. Delivery and source
+identities are recorded in the owning issue, `beads-8wg.5.120`.

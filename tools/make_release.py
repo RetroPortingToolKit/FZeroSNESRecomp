@@ -31,6 +31,10 @@ p.add_argument("--profile", choices=("player", "developer"), default="player",
 p.add_argument("--packs", type=Path, required=True, help="Reviewed exported course packs; never copy arbitrary installed packs")
 p.add_argument("--deluxe-mods", type=Path, default=ROOT / "captures/bs-deluxe/mods",
                help="Imported Deluxe directory; its credits and provenance ship with the build")
+p.add_argument("--cgp-music", type=Path, default=ROOT / "music/cgp",
+               help="Verified CGP soundtrack source (reuses existing imports)")
+p.add_argument("--astra-music", type=Path, default=ROOT / "music/astra-front",
+               help="Verified Astra soundtrack source (reuses existing imports)")
 a = p.parse_args()
 bundled_music = a.music == "bundled"
 developer = a.profile == "developer"
@@ -137,11 +141,11 @@ print(f"Prebuilt {len(compiled_courses)} courses and {len(extracted_sources)} so
 for filename in ("screens.txt","fzero-55.ips"):
     shutil.copy2(ROOT/"assets/track-packs/presentation"/filename,stage/"assets/track-packs/presentation"/filename)
 # Reviewed author soundtracks only; never copy arbitrary user music from a build.
-music = ROOT / "music/cgp"
+music = a.cgp_music
 if bundled_music:
     music_manifest = verify_music(music)
     stage_course_music(music, stage / "mods/packs/cgp")
-    stage_astra_music(ROOT / "music/astra-front", stage / "mods/packs/astra-front")
+    stage_astra_music(a.astra_music, stage / "mods/packs/astra-front")
 (stage / "assets/music").mkdir(parents=True, exist_ok=True)
 if developer:
     shutil.copy2(ROOT / "assets/music/cgp.json", stage / "assets/music/cgp.json")
@@ -214,14 +218,15 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.ps1", stage / "Collect diagnostic
 shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostics.cmd")
 (stage/"README.txt").write_text(
     f"F-Zero Forever {release_version} - Windows x64\n\n"
-    "Local 2 Player defaults on; choose VS MODE on the title screen for local split-screen.\n"
+    "Local Multiplayer defaults on; choose VS MODE and select 2, 3 or 4 racers.\n"
     "CGP original-car rebalances default on; conflicting BS vehicles default off. Saved choices are respected.\n"
-    "Assign a different keyboard/controller source to each player in Controls before playing.\n"
+    "Assign inputs in Controls: gamepads are unique; keyboard seats may use separate or repeated bindings.\n"
+    "Two players use top/bottom views; three or four use a 2x2 grid. Local 3P/4P HD is capped at 2x.\n"
     "Multiplayer never pauses. Start opens a live menu to continue, restart, change race or exit.\n"
     "See docs/LOCAL_CONTROLS_AND_MODS.md for Steam Input and which mods apply in each mode.\n"
     "Recomp-ui Netplay starts online play and includes VS MODE automatically.\n"
     "Online players get independent full screens; host chooses 4:3, 16:9 or 21:9.\n"
-    "Both peers need this build and matching enabled course packs. Online rewind is disabled.\n"
+    "All peers need this build and matching enabled course packs. Online rewind is disabled.\n"
     "MSU-1 replacement music works in single-player, local VS and online VS; missing songs use SNES music.\n"
     "Music choices and recordings are local to each player; course catalogs must match.\n\n"
     "For a bug report: quit the game, run Collect diagnostics.cmd, and send the ZIP it selects.\n"
@@ -246,7 +251,8 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "See MODS.md for details.\n\n"
     "Mods > Always show Records defaults on, making Records available before setting a time.\n\n"
     "Mods > Lap voice callouts is optional and requires your own boost-power and final-lap WAV files.\n"
-    "Choose both recordings before enabling it. The final-lap recording replaces boost power on the last lap.\n"
+    "Choose both recordings before enabling it. Boost-power timing offers Lap 2 only (once per race).\n"
+    "The final-lap recording retains its separate timing.\n"
     "No callout recordings are included. See MODS.md.\n\n"
     + ("CGP and Astra audio are included in their mods/packs/<pack>/music folders.\n" if bundled_music else "Audio is not included; you can add it to each pack's music folder.\n") +
     "Course ZIPs contain editable projects; example.zip contains example.fzm and uses music/example.pcm.\n"

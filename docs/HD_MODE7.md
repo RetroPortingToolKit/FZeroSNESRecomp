@@ -24,6 +24,10 @@ sampling. Selecting 64x does not allocate a giant CPU image or upload one every
 frame. Linear filtering and shader presets can require larger bounded GPU
 targets; hardware limits may reduce their effective resolution.
 
+Local three/four-player views use the portable CPU renderer at up to2x; this
+cap preserves responsiveness while the shared GPU packet supports full-width
+cameras only. Two-player and single-player GPU scales still reach64x.
+
 Unsupported scenes and devices retain native rendering. The old 2..10x CPU
 sampler remains an internal developer/reference path (`FZERO_HD_GPU=0`), not
 another launcher mod. It is not the automatic fallback for the new default.

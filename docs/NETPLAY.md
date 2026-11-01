@@ -4,20 +4,22 @@ Open recomp-ui, choose **Netplay**, then use the existing **LAN / Direct IP**
 or **Online Netplay** flow. This uses the same shared lobby, account, ICE,
 transport and rollback implementation as the other recomp titles. LAN rooms
 are discoverable; Direct IP uses the host's waiting-room address and port.
-Online rooms use the shared service and its existing account flow.
+Online rooms use the shared service and its existing account flow. All three
+room types offer two to four player seats; every occupied seat must be ready
+and accept the current room settings before launch.
 
-Two humans race in one authoritative VS simulation. Each computer displays its
+Two to four humans race in one authoritative VS simulation. Each computer displays its
 own participant's complete viewport. The host chooses **Viewport** in lobby
 settings: **4:3**, **16:9**, or **21:9**, default **16:9**. The choice is fixed
-for the match and shown read-only to the guest. Window size, HD rendering and
-presentation cadence remain local. Local multiplayer keeps top/bottom views;
+for the match and shown read-only to the guests. Window size, HD rendering and
+presentation cadence remain local. Local two-player uses top/bottom views; local three/four-player uses a 2x2 grid;
 ordinary single-player still opens at the original title menu with VS MODE.
 
 Starting the match opens the original F-Zero title screen on every client.
 Player 1 navigates to **VS MODE** with ordinary game controls. Each person then
 gets an independent full-screen machine selector, with the original rotating
 car, information panel, numerical stats and acceleration graph. The other
-participant's current car/readiness appears below it. Selection does not divide
+participants' current cars/readiness appear below it. Selection does not divide
 the viewport; the same pane renderer accepts a local seat or an online seat,
 so increasing the online field does not require smaller selection panes.
 
@@ -26,8 +28,8 @@ Each online instance honors its configured Player 1 input source. A keyboard-onl
 instance does not open or read gamepads, including newly connected devices;
 a gamepad instance does not merge keyboard gameplay input. This permits two
 instances on one computer to use one controller and one keyboard independently.
-After both are ready, the host chooses league and course. The same enabled
-course catalog as single-player is available, including custom imports. Both
+After everyone is ready, the host chooses league and course. The same enabled
+course catalog as single-player is available, including custom imports. All
 participants need the same build and enabled course packs. Automatic transfer
 of F-Zero imports is not implemented; an exact catalog mismatch refuses the
 match before its first simulation tick. The catalog identity includes stable
@@ -42,13 +44,13 @@ Each actor binds its own immutable profile, including mixed-cohort collisions;
 selecting another ship never swaps the shared guest cartridge.
 
 Four shared NPC bumpers follow each course's authored CPU lines,
-including imported opponent data. Both humans can hit them, and both views
+including imported opponent data. All humans can hit them, and all views
 render the same field. Traffic is automatic in VS and never contributes laps
 or places to the human result. Regular bumpers are brown, with one red
 explosive per four accepted spawns. Ranked CPU rivals are not implemented.
 
 VS rules are mandatory and hidden in Lobby Mods. The shared course catalog is
-still listed there and checked before play. Both players always use the same
+still listed there and checked before play. All players always use the same
 VS roster, regardless of their single-player car switches. The HUD uses CGP's
 lightning emblem and one boost indicator beside the energy bar.
 
@@ -66,10 +68,10 @@ coast and fade using the local VS presentation. A crash uses the native
 explosion; when only one non-crashed participant remains, that participant wins.
 Results distinguish FINISHED, CRASHED OUT and SURVIVED. Non-finish times are
 dashes. The completion predicate counts the remaining field for later expansion;
-this frontend currently supports two seats.
+this frontend supports two to four seats.
 
-The save-state browser is available after the race only and synchronizes both peers on the same confirmed frame.
-The host selects, saves, loads and closes it; the guest mirrors the menu.
+The save-state browser is available after the race only and synchronizes all peers on the same confirmed frame.
+The host selects, saves, loads and closes it; the guests mirror the menu.
 Quick saves/loads also use shared state synchronization and are unavailable during a race. Online slots live under
 `saves/netplay/fzero`; offline single-player and local VS slots remain separate.
 Rewind and diagnostic local replay remain offline features. Rewind is disabled
@@ -117,11 +119,9 @@ The launcher uses a short discovery version within the shared 32-byte LAN field.
 This does not replace the full pre-race identity check. New UI is either existing
 recomp-ui lobby UI or the same native F-Zero assets used by local VS.
 
-Rules10 (`FZVS010`) corrects terrain/population and adds explosive bumpers to the canonical field;
-online protocol3 still carries stable machine identities and independent
-selector slide/spin state. The snapshot namespaces are
-`fzero-local-2p-v2` and `fzero-online-v3`; earlier VS snapshots are intentionally
-incompatible. Build identity includes the reviewed generated mechanics/exhaust
+The canonical field stores every active human racer, shared traffic, machine
+identity, selector animation and contact latch. Snapshots and diagnostic replays
+are build-specific; older VS snapshots are intentionally incompatible. Build identity includes the reviewed generated mechanics/exhaust
 tables and verified vehicle art manifests/payloads, alongside the existing
 source/dependency fingerprint. This does not relax exact-build admission.
 
@@ -130,17 +130,17 @@ steering and physics routines through the engine's portable callback CPU.
 Calls are bounded and isolated from the live CPU, PPU, APU, host clock and
 devices. The resource-only seed retains course/class/lane tables; multiplayer
 owns a four-car field and contacts. Spawn positions are screened
-against both humans' maximum view frustums; cars keep driving when distant
-and passed cars are replenished only when distant and outside both views.
+against all humans' maximum view frustums; cars keep driving when distant
+and passed cars are replenished only when distant and outside all views.
 Spawn candidates avoid unsafe ground and are separated by 360 world units.
 The native pre-physics terrain pass samples the full course, independent of
-either camera; imported landing/up-magnet behavior reuses the human adapter.
+any camera; imported landing/up-magnet behavior reuses the human adapter.
 Grounded cars on lethal terrain and cars landing in void are removed.
 Native generic NPC art and palettes are captured once at the starting grid;
 brown/red palette attributes follow each car's variant. There is one shared traffic
 image, not a game instance per player. Its private RAM, reset seed and contact
 latches are serialized and hashed; presentation poses are derived after load.
-Red contact is evaluated for both humans before removing the bumper. It
+Red contact is evaluated for all humans before removing the bumper. It
 reuses the cartridge's mine-damage table and explosive-bumper stun/height/spin
 response, preserving speed. An explosion does not create a mine crater.
 

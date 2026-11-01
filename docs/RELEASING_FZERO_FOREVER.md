@@ -29,11 +29,11 @@ Use the plain version without a `fzero-55-preview` label.
 
 ## Current release
 
-The current local tester bundles are **0.13.0**: shared GPU Mode7 defaults to
-8x with settings through64x, and title music continues into VS car selection.
-Both editions retain all profiles, packs, credits and portable course caches.
-Next fixes are0.13.1; new features are0.14.0. Tracked by `beads-8wg.5.117`
-and the shared campaign `beads-2wy8.1`.
+The current local tester bundles are **0.15.0**: two-to-four-player local and
+online VS, shared keyboards, four-seat LAN/Direct IP rooms and optional
+lap-2-only boost voice timing. Both editions retain all profiles, packs, credits,
+approved music choices and portable course caches. Next fixes are 0.15.1; new
+features are 0.16.0. Tracked by `beads-8wg.5.120`.
 
 ## Preparing a release
 

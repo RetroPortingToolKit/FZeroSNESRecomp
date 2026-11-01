@@ -2,7 +2,7 @@
 
 A native PC build of *F-Zero* for SNES.
 
-The `f-zero-forever` branch includes **Track Pack Loader**, enabled by default
+This build includes **Track Pack Loader**, enabled by default
 and freely switchable in Mods.
 Its bundled CGP, Astra Front, Bower and MAX packs add **75 course versions in
 15 cups**, alongside the untouched original 15 courses. Drop a compatible
@@ -11,7 +11,7 @@ BS Satellaview Tracks excludes the loader; vehicle options remain independent.
 Optional race music uses the same filename as the course source, in its pack's
 `music/` folder: `courses/example.fzc` or `example.fzm` uses `music/example.pcm`.
 MSU-1 and **Installed pack music** default on for fresh settings; missing songs use the SNES soundtrack. Explicit saved choices are respected.
-**CGP original-car rebalances** and **Local 2 Player** also default on. Choose
+**CGP original-car rebalances** and **Local Multiplayer** also default on. Choose
 VS MODE on the title menu for local split-screen. BS vehicles are a separate,
 conflicting opt-in; saved choices remain respected.
 
@@ -21,7 +21,7 @@ See [pack authoring and music](docs/PACK_FORMAT.md) for JSON manifests,
 raw FZEdit exports, extracted course resources and separate audio packs.
 [Mods and source-game differences](MODS.md) describes scoped mechanics.
 
-The current local tester release is **0.12.1**. Future fixes advance the patch
+The current local tester release is **0.15.0**. Future fixes advance the patch
 version; new features advance the minor version. All bundle variants share
 that version. See [the release policy](docs/RELEASING_FZERO_FOREVER.md).
 
@@ -40,10 +40,10 @@ You bring your own legally dumped *F-Zero (USA)* ROM. No ROM is included.
 ## Features
 
 - Play *F-Zero* as a native app.
-- Local two-player racing: enable Local Two Player, then choose **VS MODE** on the original title menu. Independent top/bottom views share one race and collisions.
-- [Versus netplay](docs/NETPLAY.md) through recomp-ui and recomp-net: each participant gets a full viewport; the host selects 4:3, 16:9 (default), or 21:9.
+- Local two-to-four-player racing: enable Local Multiplayer, then choose **VS MODE** on the original title menu. Two players use top/bottom views; three or four use a 2x2 grid. Keyboard layouts may be separate or shared.
+- [Versus netplay](docs/NETPLAY.md) through recomp-ui and recomp-net: two to four participants each get a full viewport; the host selects 4:3, 16:9 (default), or 21:9.
 - Widescreen modes: 16:9, 21:9, 32:9, and Fit.
-- Optional [HD Mode 7](docs/HD_MODE7.md): 2x through 10x track rendering, independent of widescreen and presentation FPS.
+- Optional [HD Mode 7](docs/HD_MODE7.md): 1x through 64x GPU track rendering (local 3P/4P uses the CPU fallback at up to2x), independent of widescreen and presentation FPS.
 - High refresh presentation: 60, 90, 120, 144, 165, 240, or 360 FPS.
 - Display shaders: CRT Soft, LCD Grid, Sharp, Warm Composite, or your own GLSL shader.
 - Save states with a slot browser and thumbnails, opened with **F7** or **Select + R**.
