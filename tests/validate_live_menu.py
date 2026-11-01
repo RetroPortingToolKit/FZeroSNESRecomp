@@ -23,6 +23,7 @@ def main():
         p.add_argument('--' + key, type=Path, required=True)
     p.add_argument('--players',type=int,choices=(2,3,4),default=2)
     p.add_argument('--keyboard',action='store_true',help='Exercise four distinct keybinds.ini layouts through the host keyboard path')
+    p.add_argument('--hd-parity',action='store_true',help='Compare sampled actual GPU output pixels against the portable renderer')
     p.add_argument('--hd-scale',type=int,default=8)
     p.add_argument('--stock-only',action='store_true',help='Qualify native courses without the optional Astra import')
     p.add_argument('--cup',type=int,default=0)
@@ -73,6 +74,7 @@ def main():
                FZERO_PACKS_DIR=str(out / 'catalog'), FZERO_TRACK_PACKS=str(out / 'settings'), SNESRECOMP_SAVE_ROOT='s',
                SNESRECOMP_INPUT_SCRIPT='300-302:32,330-332:32,360-362:32,390-392:8',
                SNESRECOMP_AUTOCLOSE_FRAMES='5000')
+    if a.hd_parity:env['FZERO_TEST_HD_PARITY']='1'
     if a.keyboard:env['FZERO_TEST_LOCAL_UI_KEYBOARD']='1'
     if not a.no_contact_fixture:env['FZERO_TEST_TRAFFIC_CONTACT']='1'
     if a.menu_music:
@@ -96,6 +98,9 @@ def main():
         (out/'result.json').write_text(json.dumps(report,indent=2)+'\n')
         print('PASS native title music: real-device audio continues through VS car selection',report)
         return
+    if a.hd_parity:
+        checks=re.findall(r'\[fzero-hd-parity\].*mismatches=(\d+)',text)
+        assert checks and all(int(n)==0 for n in checks),'Actual game CPU/GPU pixel parity failed'
     assert result.returncode == 0 and 'local-ui: PASS' in text, text[-4000:]
     assert (shots / 'live-menu-frame.bmp').exists(), 'Live menu was not displayed'
     if not a.no_contact_fixture:

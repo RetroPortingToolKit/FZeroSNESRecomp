@@ -14,6 +14,7 @@ joins, chooses a machine and readies independently. Gamepads have one owner.
 Explicit keyboard assignments can use separate
 `keybinds.ini` player1..player4 layouts, or repeat a layout to control multiple
 racers with the same keys. Automatic keyboard joining still claims only one seat.
+Floating labels show only P1/P2/P3/P4; HUD and results rankings remain available.
 Duplicate machines remain legal. League
 and course selection retain a shared cursor. Start opens a live menu while the
 other racers continue; multiplayer races do not pause.
@@ -34,8 +35,10 @@ legacy configuration/package IDs are retained.
 
 Online supports two to four PCs with one player and camera per PC. Mixed couch/
 online play, spectators and mid-race joins are outside this change. The shared
-launcher still limits LAN/Direct IP room UI to two seats. Original engine/UI pins
-are retained; rejected rollback experiments are not included in this branch.
+launcher offers two to four seats for online, LAN and Direct IP rooms. F-Zero
+opts into the shared revisioned four-seat LAN adapter; legacy consumers keep
+their two-seat default. All occupied seats must accept the current room settings
+and be ready before launch. Rejected rollback experiments are not included.
 
 ## Build and run
 
@@ -66,6 +69,11 @@ are distinct states.
 | 2P HD desktop regression | `captures/offline2-regression/` | Pass |
 | 4P BS, machines 4..7: save/load, rewind, fresh-process continuation, changing viewports, exact replay, divergent/corrupt state rejection, native-save isolation | `captures/bs4/results.json` | Pass |
 | 4P imported course, machines 8..11: same state/replay lifecycle | `captures/imp4/results.json` | Pass |
+| Four-seat LAN/Direct IP room, real readiness/launch record, common execution profile before frame 0, four independent players driving | `captures/followup-final/lobbies/lan4-fixed/` | Pass; 1,453 matching trace ticks, all four reach tick 1,460 with zero desyncs |
+| Two-seat lobby regression through the same opted-in adapter | `captures/followup-final/lobbies/lan2-fixed/` | Pass; 1,459 matching trace ticks |
+| Shared LAN room/lobby/rematch/beacon tests and launcher backend/seat selector | `captures/net-lobby/build-retry.log` | Pass; four UDP sockets, readiness, seat moves and launch handoff; opt-in LAN ceiling four |
+| GPU affine/Mode 7 pixel oracle, including large non-periodic maps and intermediate scales above 32x | `captures/high-scale/validate-game.log` | 576 ROI comparisons pass through 64x on RTX 3080 Ti |
+| Real single-camera native/32x/48x/64x and two-camera 32x/48x/64x across the three stock leagues, resize/live-menu flow, plus native 4P | `captures/followup-final/summary.json` and `graphics/` | Pass on GTX 760; 61,149 sampled GPU pixels match the portable consumer; actual presenter captures visually reviewed |
 | Stock 3/4P state lifecycle | `captures/state3/`, `captures/state4-final/` | Pass |
 | 4P five real lap awards, results, rematch, quick slot and rewind | `captures/finish4/results.json` | Pass using explicit pose/health teleport fixture; outcomes/laps were not set |
 
@@ -82,6 +90,30 @@ omits that prepared encounter. Stock 4P retains the separate all-human NPC
 impact/view gate; BS driving and interactions remain part of human validation.
 The keyboard config/menu gate also omits this unrelated pose fixture, retaining
 the existing stock SDL-device contact coverage.
+
+## High-scale graphics follow-up
+
+32x/48x/64x select the HD Mode 7 spatial sampling scale. The game keeps native
+simulation and sprite/HUD artwork; the default nearest presenter evaluates a
+bounded window-sized surface rather than allocating the entire requested raster.
+Local 3/4P still uses the separate 2x CPU fallback described above.
+
+No corruption was reproduced in the representative real-game scenes above.
+The suspected Q16 overflow was rejected by measurement: the existing affine
+fast-path guard already bounds its intermediates. The production shader remains
+unchanged. New coverage exercises both signs near that guard, steeper fallback
+rows, large maps, non-power-of-two scales and actual game-frame pixel samples.
+The original 64x two-camera run on this PC is retained in
+`captures/high-scale/baseline64/`; SERVER supplied the additional GTX 760 checks
+with its smaller 16K texture limit. These were default nearest/unfiltered checks,
+not qualification of every course, custom shader, filtering preset or GPU driver.
+
+Four-seat lobby qualification also found and fixed a real shared bridge defect:
+`snes_host_app_apply_launch` now copies the settled player count, rather than
+leaving the two-seat default. The game test removes direct-connect environment
+overrides and consumes the actual room session ID, endpoints and slot count.
+It qualifies loopback waiting rooms and normal driving; WAN/ICE and dense forced
+rollback remain separate acceptance gaps.
 
 ## Runtime cost
 

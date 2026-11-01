@@ -20,17 +20,17 @@ static int feature(void *ctx,int index,RecompLauncherCModFeature *out) {
     COPY(out->name,"Online VS rules and machines");COPY(out->package_name,out->name);
     COPY(out->package_version,"9");COPY(out->group,"Network gameplay");out->enabled=1;out->hidden=1;
     COPY(out->status,"Required for netplay");
-    COPY(out->description,"Both players use the same fixed VS rules, four shared NPC bumpers and all twelve CGP machines with their authored handling and energy boost. Traffic is an obstacle, not a race entrant. Single-player switches do not change VS. Start opens a menu while racing continues. These rules are automatic.");
+    COPY(out->description,"All players use the same fixed VS rules, four shared NPC bumpers and all twelve CGP machines with their authored handling and energy boost. Traffic is an obstacle, not a race entrant. Single-player switches do not change VS. Start opens a menu while racing continues. These rules are automatic.");
     return 1;
   }
   const char *wanted=index==1?"track-pack-loader":"bs-tracks";
   for(int i=0;i<source->feature_count(ctx);++i) {
     if(source->feature_get(ctx,i,out) && !strcmp(out->package_id,wanted)) {
       COPY(out->group,"Network course catalog");out->option_count=0;out->hidden=0;
-      COPY(out->status,out->enabled?"Enabled; must match both players":"Disabled; must match both players");
+      COPY(out->status,out->enabled?"Enabled; must match all players":"Disabled; must match all players");
       COPY(out->description,index==1?
-          "Installed track packs are available in online VS. Both players must have the same enabled course catalog; it is verified before the match starts. Change installed packs or the loader in the main Mods screen before entering a lobby. Music and graphics settings stay local and are not lobby gameplay mods.":
-          "The original BS course set is part of the shared catalog when enabled. Both players must match. Change this in the main Mods screen before entering a lobby. The imported track loader includes corrected BS courses and is mutually exclusive with this legacy set.");
+          "Installed track packs are available in online VS. All players must have the same enabled course catalog; it is verified before the match starts. Change installed packs or the loader in the main Mods screen before entering a lobby. Music and graphics settings stay local and are not lobby gameplay mods.":
+          "The original BS course set is part of the shared catalog when enabled. All players must match. Change this in the main Mods screen before entering a lobby. The imported track loader includes corrected BS courses and is mutually exclusive with this legacy set.");
       return 1;
     }
   }
@@ -42,7 +42,7 @@ static int package(void *ctx,int index,RecompLauncherCModPackage *out) {
   memset(out,0,sizeof(*out));COPY(out->id,f.package_id);COPY(out->name,f.name);
   COPY(out->version,f.package_version);COPY(out->description,f.description);out->enabled=f.enabled;return 1;
 }
-static int blocked(void) {error="VS rules are fixed. Change the shared course catalog in the main Mods screen before entering a lobby; both players must match.";return 0;}
+static int blocked(void) {error="VS rules are fixed. Change the shared course catalog in the main Mods screen before entering a lobby; all players must match.";return 0;}
 static int enable(void *ctx,const char *p,const char *f,int value) {
   return online?blocked():source->feature_enable(ctx,p,f,value);
 }

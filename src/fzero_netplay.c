@@ -70,6 +70,7 @@ void FzeroNetplayLauncher(RecompLauncherCGameInfo *info) {
     RecompNetplayHostHooks h={0};h.game_name="F-Zero Forever";h.game_version=lobby_version;
     h.platform="snes";h.legacy_env_prefix="SNES_NET_";h.default_lobby_name="F-Zero Forever VS";
     h.lan_registry_path="fzero-netplay-lan.txt";h.max_players=4;h.netplay_max_players=4;
+    h.lan_max_players=4;
     h.slot_policy=RECOMP_NETPLAY_SLOTS_HOST_FIRST;h.input_player=RECOMP_NETPLAY_INPUT_AUTO;
     h.exe_dir_path=path;h.name_store=store_name;h.name_load=load_name;
     h.caps_codec=snes_lobby_caps_codec();h.fill_match_caps=fill_caps;h.last_fork=fork;
@@ -93,6 +94,42 @@ void FzeroNetplayLauncher(RecompLauncherCGameInfo *info) {
   if(resume) {
     info->resume_netplay_room=1;info->resume_netplay_endpoint=recomp_netplay_host_resume_endpoint();resume=false;
   }
+}
+/* Muted multi-process QA drives the real launcher callbacks and consumes the
+ * real launch record. Normal launches never enter this path. */
+bool FzeroNetplayTestLobby(RecompLauncherCSettings *settings) {
+  const char *role=getenv("FZERO_TEST_LOBBY"),*endpoint=getenv("FZERO_TEST_LOBBY_ENDPOINT");
+  const char *slots=getenv("FZERO_TEST_LOBBY_PLAYERS");
+  if(!role)return true;
+  int count=slots?atoi(slots):4,host=!strcmp(role,"host"),requested=0,announced=0;
+  if(!initialized || !endpoint || count<2 || count>4 || (!host && strcmp(role,"join")))return false;
+  char address[128];snprintf(address,sizeof(address),"%s",endpoint);
+  int result=host?callbacks.create(callbacks.ctx,"F-Zero QA",address,"",settings,1,count):
+      callbacks.join(callbacks.ctx,address,"","127.0.0.1:0");
+  if(result)return false;
+  Uint64 deadline=SDL_GetTicks()+30000;
+  while(SDL_GetTicks()<deadline) {
+    callbacks.pump(callbacks.ctx);
+    callbacks.local_launch_gate_set(callbacks.ctx,1);
+    if(!announced)for(int i=0;i<callbacks.member_count(callbacks.ctx);++i) {
+      RecompLauncherCNetplayMember member;
+      if(callbacks.member_get(callbacks.ctx,i,&member) && member.is_local) {
+        fprintf(stderr,"[fzero-lobby-test] joined seat=%d cap=%d\n",member.slot,count);fflush(stderr);announced=1;break;
+      }
+    }
+    if(host && !requested && callbacks.member_count(callbacks.ctx)==count && callbacks.all_ready(callbacks.ctx)) {
+      if(callbacks.request_start(callbacks.ctx,settings)!=0)return false;
+      requested=1;
+    }
+    if(callbacks.launch_pending(callbacks.ctx) && callbacks.fill_launch(callbacks.ctx,&settings->netplay_launch)) {
+      const RecompLauncherCNetplayLaunch *l=&settings->netplay_launch;
+      fprintf(stderr,"[fzero-lobby-test] launch slot=%d players=%d mask=%x host=%d rollback=%d\n",
+          l->local_slot,l->player_count,l->occupied_mask,l->transport_host,l->rollback);
+      fflush(stderr);return l->player_count==count;
+    }
+    SDL_Delay(2);
+  }
+  fprintf(stderr,"[fzero-lobby-test] timed out\n");return false;
 }
 bool FzeroNetplayResume(void) {return resume;}
 bool FzeroNetplayWanted(const RecompLauncherCSettings *s) {
@@ -229,5 +266,5 @@ void FzeroNetplayStop(void) {
   if(writer_error)fprintf(stderr,"[fzero-netplay] trace incomplete: %s\n",writer_error);
   snes_netplay_shutdown();snes_state_digest_set_extra(NULL);
   snes_netplay_set_profile_caps(0,0,0,0,0,NULL);FzeroOnlineEnd();
-  if(keep) {recomp_netplay_host_prepare_rematch();resume=true;}
+  if(keep) {recomp_netplay_host_prepare_rematch();resume=getenv("FZERO_TEST_LOBBY")==NULL;}
 }

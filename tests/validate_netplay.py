@@ -26,6 +26,7 @@ def main():
     p.add_argument('--cup', type=int, default=0, help='Select this enabled league through synchronized menu inputs')
     p.add_argument('--course-order', type=int, default=1, help='Zero-based course within the selected league')
     p.add_argument('--aspect', choices=(0, 1, 2), type=int, default=1)
+    p.add_argument('--lan-lobby', action='store_true', help='Create/join a real LAN/Direct IP waiting room before consuming its launch record')
     p.add_argument('--loss', action='store_true')
     p.add_argument('--hd-peer', action='store_true')
     p.add_argument('--rematch', action='store_true', help='Start another race after the finish fixture results')
@@ -107,6 +108,12 @@ def main():
                        SNESRECOMP_FRAME_BMP=str(folder / 'final.bmp'),
                        FZERO_VIEWPORT_SCRIPT=('450:4:3@600x800,550:16:9@1342x1378,650:Fit@1280x720,750:32:9@1600x600,850:21:9@768x576' if slot == 0 else
                                               '450:Fit@1600x600,550:32:9@600x800,650:4:3@1342x1378,750:16:9@1280x720,850:Fit@768x576'))
+            if a.lan_lobby:
+                env.update(FZERO_TEST_LOBBY='host' if slot==0 else 'join',
+                           FZERO_TEST_LOBBY_PLAYERS=str(len(a.machines)),
+                           FZERO_TEST_LOBBY_ENDPOINT=('127.0.0.1:%d' if slot==0 else 'lr4:127.0.0.1:%d') % a.port)
+                for key in ('SNES_NET_ENABLE','SNES_NET_SLOT','SNES_NET_SLOTS','SNES_NET_BIND','SNES_NET_PEER','SNES_NET_SESSION_ID','SNES_NET_MODE'):
+                    env.pop(key,None)
             inputs = '60-62:1' if a.scenario == 'titleback' else '' if a.scenario == 'selection' else '20-22:8'
             if a.scenario == 'devices':
                 env['FZERO_TEST_ONLINE_SOURCE'] = '1'
@@ -176,7 +183,14 @@ def main():
         # Copying assets for peer1 after peer0 starts can consume its deadline.
         for command, options in launches:
             processes.append(subprocess.Popen(command, **options))
-            time.sleep(.2)
+            if a.lan_lobby:
+                path = a.out / ('peer%d/game.log' % (len(processes)-1))
+                ready_by=time.monotonic()+25
+                while '[fzero-lobby-test] joined seat=' not in path.read_text(errors='replace'):
+                    assert processes[-1].poll() is None and time.monotonic()<ready_by, path.read_text(errors='replace')[-3000:]
+                    time.sleep(.05)
+            else:
+                time.sleep(.2)
         # Lifecycle runs can be much longer than selection. This is a logic
         # gate, not a sustained-performance qualification on a busy desktop.
         deadline = time.monotonic() + max(100, frames / 15 + 30)
@@ -198,13 +212,16 @@ def main():
         finally:
             lock.unlink()
     text = [(a.out / ('peer%d/game.log' % i)).read_text(errors='replace') for i in range(len(a.machines))]
-    report = dict(scenario=a.scenario, machines=a.machines, cup=a.cup, course_order=a.course_order,
+    report = dict(lan_lobby=a.lan_lobby, scenario=a.scenario, machines=a.machines, cup=a.cup, course_order=a.course_order,
                   music=[a.music0, a.music1],
                   aspect=a.aspect, loss=a.loss, hd_peer=a.hd_peer,
                   force_mispredict=a.force_mispredict,
                   peer_installation=str(a.peers_dir),
                   executable_sha256=hashlib.sha256((a.build / 'F-Zero Forever.exe').read_bytes()).hexdigest(),
                   seconds=round(time.monotonic() - started, 3), exits=[proc.returncode for proc in processes])
+    if a.lan_lobby:
+        for slot,s in enumerate(text):
+            assert f'[fzero-lobby-test] launch slot={slot} players={len(a.machines)} mask={(1<<len(a.machines))-1:x}' in s,'lobby launch roster differs'
     if a.scenario in ('reject', 'reject-catalog'):
         assert all('mod_set_mismatch' in s for s in text), 'expected exact identity refusal'
         assert all('simulation=0' in s for s in text), 'incompatible peer admitted a simulation frame'

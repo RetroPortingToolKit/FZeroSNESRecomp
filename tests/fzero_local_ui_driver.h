@@ -260,6 +260,11 @@ static void local_ui_images(const FzeroPresenter *p,const char *directory,const 
 /* Observe the actual composed frame and real presenter before swap. The old
  * fixture proved menu transitions while accepting a completely corrupt image. */
 static void local_ui_presented(const FzeroPresenter *p) {
+  static unsigned solo_presentations;
+  const char *solo=getenv("FZERO_TEST_SOLO_PRESENTER_DUMP");
+  if(solo && !FzeroLocalSession() && g_ram[0x54]==2 && g_ram[0x55]==3 && ++solo_presentations==90) {
+    dump_presenter(p,solo);fprintf(stderr,"solo-presenter: captured real race\n");
+  }
   if(!local_ui_pads[0])return;
   const char *directory=getenv("FZERO_TEST_LOCAL_UI_DUMP");
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(FzeroLocalSession());

@@ -3,6 +3,7 @@
 #include "recomp_launcher.h"
 
 void FzeroNetplayLauncher(RecompLauncherCGameInfo *info);
+bool FzeroNetplayTestLobby(RecompLauncherCSettings *settings);
 bool FzeroNetplayWanted(const RecompLauncherCSettings *settings);
 bool FzeroNetplayStart(const RecompLauncherCSettings *settings);
 /* Full negotiated viewport, independent of the drawable and offline prefs. */

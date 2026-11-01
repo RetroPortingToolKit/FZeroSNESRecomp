@@ -279,6 +279,39 @@ static bool fzero_gl_init(FzeroGlRenderer *glr, SDL_Window *window,
   return true;
 }
 
+static int g_selftest_failed;
+
+/* Sparse real-game CPU/GPU oracle, enabled only during explicit automated QA.
+ * Read back the bounded presenter texture, never the requested64x raster. */
+static bool fzero_gl_hd_check(const SnesHdFrame *jobs,const SnesHdGpuImage *image,unsigned scale) {
+  static unsigned frames;
+  if(!getenv("FZERO_TEST_HD_PARITY") || frames++%90)return true;
+  SnesHdView v;if(!SnesHdFrameView(jobs,&v))return false;
+  size_t bytes=(size_t)image->width*image->height*4;
+  uint32_t *pixels=malloc(bytes);if(!pixels)return false;
+  GLint active,binding,pack,row,alignment;
+  glGetIntegerv(GL_ACTIVE_TEXTURE,&active);glActiveTexture(GL_TEXTURE0);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D,&binding);glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING,&pack);
+  glGetIntegerv(GL_PACK_ROW_LENGTH,&row);glGetIntegerv(GL_PACK_ALIGNMENT,&alignment);
+  glBindBuffer(GL_PIXEL_PACK_BUFFER,0);glPixelStorei(GL_PACK_ROW_LENGTH,0);glPixelStorei(GL_PACK_ALIGNMENT,4);
+  glBindTexture(GL_TEXTURE_2D,image->texture);glGetTexImage(GL_TEXTURE_2D,0,GL_BGRA,GL_UNSIGNED_BYTE,pixels);
+  glBindTexture(GL_TEXTURE_2D,(GLuint)binding);glBindBuffer(GL_PIXEL_PACK_BUFFER,(GLuint)pack);
+  glPixelStorei(GL_PACK_ROW_LENGTH,row);glPixelStorei(GL_PACK_ALIGNMENT,alignment);glActiveTexture((GLenum)active);
+  unsigned checked=0,bad=0;
+  for(unsigned gy=0;gy<=16;++gy)for(unsigned gx=0;gx<=32;++gx) {
+    unsigned x=gx*(image->width-1)/32,y=gy*(image->height-1)/16;
+    unsigned px=(unsigned)(((uint64_t)x*2+1)*v.width*scale/(image->width*2));
+    unsigned py=(unsigned)(((uint64_t)y*2+1)*v.height*scale/(image->height*2));
+    uint32_t expected=0;
+    bool ok=SnesHdFrameRenderRegion(jobs,scale,px,py,1,1,&expected,4);
+    if(!ok || (pixels[(size_t)y*image->width+x]&0xffffff)!=(expected&0xffffff))++bad;
+    ++checked;
+  }
+  fprintf(stderr,"[fzero-hd-parity] scale=%u source=%ux%u target=%ux%u checked=%u mismatches=%u\n",
+      scale,v.width,v.height,image->width,image->height,checked,bad);
+  free(pixels);if(bad)g_selftest_failed=1;return bad==0;
+}
+
 static bool fzero_gl_hd(FzeroGlRenderer *glr,const SnesHdFrame *jobs,
     unsigned scale,int display_width,int display_height,GlTextureWithSize *output) {
   SnesHdGpuImage image;
@@ -286,6 +319,7 @@ static bool fzero_gl_hd(FzeroGlRenderer *glr,const SnesHdFrame *jobs,
   if (!SnesHdGpuRender(glr->hd_gpu,jobs,scale,(unsigned)display_width,
       (unsigned)display_height,visible,(size_t)2*1024*1024*1024,
       NULL,0,NULL,0,&image)) return false;
+  if(!fzero_gl_hd_check(jobs,&image,scale))return false;
   glr->hd_visible_samples=image.visible_samples;
   *output=(GlTextureWithSize){image.texture,image.width,image.height};
   return true;
@@ -644,6 +678,11 @@ static int resolve_rom(const char *executable, const char *explicit_rom,
   game.assist_binding_count = 2;
   FzeroNetplayLauncher(&game);
   if (explicit_rom && !force_launcher) {
+    if(getenv("FZERO_TEST_LOBBY")) {
+      size_t size=0;uint8_t *rom=read_rom(explicit_rom,&size);
+      bool valid=rom && verify_rom(rom,size);free(rom);
+      if(!valid || !FzeroNetplayTestLobby(settings))return -1;
+    }
     snprintf(path,path_size,"%s",explicit_rom);return 1;
   }
 
@@ -1393,7 +1432,6 @@ static int g_selftest_via_keyboard;
 /* bit 0 browser from the pad, bit 1 rewind from the pad, bit 2 browser from
  * the keyboard. */
 static int g_selftest_opened;
-static int g_selftest_failed;
 
 static void selftest_set(int button, int down) {
   if (!g_selftest_pad) return;
