@@ -232,9 +232,10 @@ static void run_one_frame(void) {
     ++s_host_frames;
     return;
   }
-  uint32_t pads=(uint32_t)g_snes->input1_currentState|((uint32_t)g_snes->input2_currentState<<12);
+  uint16_t pads[FZERO_MAX_PLAYERS];
+  for(unsigned i=0;i<FZERO_MAX_PLAYERS;++i)pads[i]=RtlGetPadState((int)i);
   FzeroOnlineState menu_before=*FzeroOnlineCompleted();
-  if(!s_online_bootstrap && FzeroOnlineTick(&pads)) {
+  if(!s_online_bootstrap && FzeroOnlineTickInputs(pads)) {
     const FzeroOnlineState *menu=FzeroOnlineCompleted();
     if(menu->phase==FZERO_ONLINE_TITLE && menu_before.phase!=FZERO_ONLINE_TITLE) {
       /* Change Race may leave a previous native course behind the picker.
@@ -260,7 +261,7 @@ static void run_one_frame(void) {
     if(fixture && !strcmp(fixture,"teleport"))FzeroLocalTeleportFixture(FzeroLocalSession());
     else if(fixture && !strcmp(fixture,"crash"))FzeroLocalCrashFixture(FzeroLocalSession());
   }
-  if(FzeroLocalTick(pads)) {
+  if(FzeroLocalTickInputs(pads)) {
     /* One host tick advances one shared race. Keep SPC/beam clocks running
      * for the single soundtrack; neither camera invokes a guest frame. */
     g_cpu.master_cycles+=kMasterClocksPerFrame;
@@ -968,7 +969,7 @@ static const FzeroStateTrailer kFzeroStateTrailer = {
     kFzeroStateMagic, kFzeroStateVersion};
 
 static const char *fzero_snapshot_identity(void) {
-  return FzeroOnlineEnabled()?"fzero-online-v3":FzeroLocalEnabled()?"fzero-local-2p-v2":NULL;
+  return FzeroOnlineEnabled()?"fzero-online-v4":FzeroLocalEnabled()?"fzero-local-v3":NULL;
 }
 static bool fzero_snapshot_preflight(const void *data,size_t size) {
   if(!FzeroLocalEnabled())return true;
@@ -978,10 +979,10 @@ static bool fzero_snapshot_preflight(const void *data,size_t size) {
   size_t total=RtlSaveSnapshotToMemory(NULL,0);
   if(FzeroOnlineEnabled()) {
     if(size<guest+FZERO_ONLINE_STATE_SIZE+FzeroLocalSaveSize() || !FzeroOnlineValidate((const uint8_t *)data+guest) ||
-        ((const uint8_t *)data)[guest+40]!=FzeroOnlineCompleted()->aspect)return false;
+        (((const uint8_t *)data)[guest+40]!=FzeroOnlineCompleted()->aspect || ((const uint8_t *)data)[guest+63]!=FzeroOnlineCompleted()->config.player_count))return false;
     const uint8_t *online=(const uint8_t *)data+guest,*local=online+FZERO_ONLINE_STATE_SIZE;
     if(online[38]==FZERO_ONLINE_LOADING || online[38]==FZERO_ONLINE_RACE) {
-      if(memcmp(online+28,local+24,4) || (online[38]==FZERO_ONLINE_RACE && !local[29]))return false;
+      if(memcmp(online+28,local+24,4) || online[63]!=local[37] || online[64]!=local[38] || online[76]!=local[39] || (online[38]==FZERO_ONLINE_RACE && !local[29]))return false;
     }
     guest+=FZERO_ONLINE_STATE_SIZE;
   }

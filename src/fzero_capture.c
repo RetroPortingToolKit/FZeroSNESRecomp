@@ -193,13 +193,13 @@ bool FzeroCaptureStart(bool enabled, const char *directory_path, const FzeroVide
   if (!FzeroVideoSave(s,path)) return false;
   snprintf(path,sizeof(path),"%s/session.json",root);
   FILE *f=fopen(path,"w"); if (!f) return false;
-  fputs("{\"format\":2,\"game\":\"fzero-usa\",\"revision\":",f); quoted(f,FZERO_SOURCE_REVISION);
+  fputs("{\"format\":3,\"game\":\"fzero-usa\",\"revision\":",f); quoted(f,FZERO_SOURCE_REVISION);
   fputs(",\"framework\":",f); quoted(f,FZERO_FRAMEWORK_REVISION);
   fputs(",\"ui\":",f); quoted(f,FZERO_UI_REVISION);
   fputs(",\"version\":",f); quoted(f,SNESRECOMP_BUILD_VERSION);
   fputs(",\"build\":",f); quoted(f,FZERO_REPLAY_BUILD_ID);
   fprintf(f,",\"mode\":\"%s\",\"players\":%u,\"versus_rules\":%u",
-      FzeroOnlineEnabled()?"online":FzeroLocalEnabled()?"local-2p":"single-player",FzeroLocalEnabled()?2:1,FzeroLocalEnabled()?FZERO_VERSUS_RULES:0);
+      FzeroOnlineEnabled()?"online":FzeroLocalEnabled()?"local-2p":"single-player",FzeroLocalEnabled()?FzeroVersusPlayers(FzeroLocalConfig()):1,FzeroLocalEnabled()?FZERO_VERSUS_RULES:0);
   if(FzeroOnlineEnabled())fprintf(f,",\"online_view\":%d,\"online_aspect\":%u",FzeroOnlineView(),FzeroOnlineCompleted()->aspect);
   fputs(",\"save_namespace\":",f); quoted(f,FzeroLocalEnabled()?"local-2p":FzeroTracksSaveNamespace());
   fputs(",\"content_signature\":\"",f);
@@ -229,7 +229,7 @@ void FzeroCaptureBefore(uint32_t input, FzeroViewport v) {
   if (fprintf(inputs,"%" PRIu64 " %u %" PRIu64 " %u %u %d %d %.17g %u",
       frame,input,g_cpu.master_cycles,FzeroResumePc(),crc32_compute(g_ram,0x2000),
       v.width,v.extra,v.aspect,v.enhanced?1:0)<0 ||
-      (FzeroLocalEnabled() && fprintf(inputs," %" PRIu64,FzeroVersusHash(FzeroLocalSession()))<0) ||
+      (FzeroLocalEnabled() && fprintf(inputs," %" PRIu64 " %u %u",FzeroVersusHash(FzeroLocalSession()),RtlGetPadState(2),RtlGetPadState(3))<0) ||
       fputc('\n',inputs)==EOF || fflush(inputs)) { disable(); return; }
   pending=true; update_report("recording");
 }
@@ -310,8 +310,9 @@ bool FzeroCaptureReplayLoad(void) {
   const char *online=getenv("FZERO_REPLAY_ONLINE");
   if(online) {
     unsigned aspect,view;char extra;
-    if(!FzeroLocalEnabled() || sscanf(online,"%u:%u%c",&aspect,&view,&extra)!=2 || aspect>2 || view>1)return false;
-    FzeroOnlineBegin(aspect,view);RtlRegisterGame(FzeroLocalGameInfo());
+    if(!FzeroLocalEnabled() || sscanf(online,"%u:%u%c",&aspect,&view,&extra)!=2 || aspect>2 || view>3)return false;
+    const char *players=getenv("FZERO_REPLAY_PLAYERS");
+    FzeroOnlineBeginPlayers(aspect,view,players?(unsigned)strtoul(players,NULL,10):2);RtlRegisterGame(FzeroLocalGameInfo());
   }
   const char *expected=getenv("FZERO_REPLAY_CONTENT_HASH");
   if (expected) {
@@ -332,14 +333,14 @@ bool FzeroCaptureReplayLoad(void) {
 }
 int FzeroCaptureReplayNext(uint32_t *input, FzeroViewport *v) {
   if (!replay || replay_failed) return -1;
-  char line[256], tail; uint64_t seq, master,hash=0; unsigned pc,crc,enhanced;int used=0;
+  char line[256], tail; uint64_t seq, master,hash=0; unsigned pc,crc,enhanced,p3=0,p4=0;int used=0;
   if (!fgets(line,sizeof(line),replay)) return ferror(replay)?-1:0;
   int columns=sscanf(line,"%" SCNu64 " %u %" SCNu64 " %u %u %d %d %lf %u %n",
       &seq,input,&master,&pc,&crc,&v->width,&v->extra,&v->aspect,&enhanced,&used);
-  bool suffix=FzeroLocalEnabled()?sscanf(line+used,"%" SCNu64 " %c",&hash,&tail)==1:
+  bool suffix=FzeroLocalEnabled()?sscanf(line+used,"%" SCNu64 " %u %u %c",&hash,&p3,&p4,&tail)==3 && p3<=4095 && p4<=4095:
       sscanf(line+used," %c",&tail)==EOF;
   if (columns!=9 || !suffix || (*input&~(FzeroLocalEnabled()?0xc0ffffffu:0xc0000fffu)) ||
-      v->width<256 || v->width>FZERO_MAX_WIDTH || v->extra!=(v->width-256)/2 ||
+      v->width<256 || v->width>FZERO_MAX_WIDTH*(FzeroLocalEnabled() && !FzeroOnlineEnabled() && FzeroVersusPlayers(FzeroLocalConfig())>2?2:1) || v->extra!=(v->width-256)/2 ||
       enhanced>1 || !(v->aspect>0 && v->aspect<=4) ||
       (replay_has_sequence && seq!=replay_sequence+1)) {
     fprintf(stderr,"[fzero-replay] Malformed input row.\n"); return -1;
@@ -359,6 +360,7 @@ int FzeroCaptureReplayNext(uint32_t *input, FzeroViewport *v) {
     }
     return -1;
   }
+  RtlSetPadState(2,(uint16_t)p3);RtlSetPadState(3,(uint16_t)p4);
   v->enhanced=enhanced!=0;
   return 1;
 }

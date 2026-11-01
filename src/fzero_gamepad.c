@@ -59,7 +59,8 @@ static void load_map(SDL_GameController *pad,uint32_t out[12],int *deadzone,int 
   FzeroIniReadString(s_config, section, "Controls", controls, sizeof(controls));
   /* The launcher's two active seat maps may differ even for identical GUIDs.
    * Keep the single-player device-profile order unchanged. */
-  if(player>=0)FzeroIniReadString(s_config,"GamepadMap",player?"ControlsP2":"Controls",controls,sizeof(controls));
+  if(player>=0) {char key[24];snprintf(key,sizeof(key),"ControlsP%d",player+1);
+    FzeroIniReadString(s_config,"GamepadMap",player?key:"Controls",controls,sizeof(controls));}
   char local_section[32];snprintf(local_section,sizeof(local_section),"Local2P.P%d",player+1);
   if(player>=0)FzeroIniReadString(s_config,local_section,"Controls",controls,sizeof(controls));
   char *comment = strpbrk(controls, "#;");
@@ -200,8 +201,8 @@ uint32_t FzeroGamepadReadShortcuts(SDL_GameController *pad,const int *bindings,u
   return read_map(pad,s_bind,s_deadzone,bindings,count,active);
 }
 uint32_t FzeroGamepadReadPlayer(SDL_GameController *pad,unsigned player) {
-  if(player>=2 || !pad || !SDL_GameControllerGetAttached(pad))return 0;
-  static struct {SDL_JoystickID id;uint32_t map[12];int deadzone;bool valid;unsigned generation;} profiles[2];
+  if(player>=4 || !pad || !SDL_GameControllerGetAttached(pad))return 0;
+  static struct {SDL_JoystickID id;uint32_t map[12];int deadzone;bool valid;unsigned generation;} profiles[4];
   SDL_JoystickID id=SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad));
   if(!profiles[player].valid || profiles[player].id!=id || profiles[player].generation!=s_profile_generation) {
     load_map(pad,profiles[player].map,&profiles[player].deadzone,(int)player);profiles[player].id=id;profiles[player].valid=true;

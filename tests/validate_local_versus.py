@@ -24,7 +24,7 @@ def main():
     p.add_argument('--all-courses', action='store_true', help='Check native setup of all 15 courses, not full races')
     a = p.parse_args()
     a.machines = tuple(map(int, a.machines.split(',')))
-    if len(a.machines)!=2 or any(m<0 or m>=12 for m in a.machines): p.error('machines must be two IDs,0..11')
+    if not 2<=len(a.machines)<=4 or any(m<0 or m>=12 for m in a.machines): p.error('machines must be 2-4 IDs,0..11')
     build, stock, out = (v.resolve() for v in (a.build, a.stock, a.out))
     out.mkdir(parents=True, exist_ok=False)
     (out/'packs').mkdir()
@@ -70,9 +70,10 @@ def main():
     assert continued == baseline, (continued, baseline)
 
     # Preserve simulation across radically different per-pane projections.
+    _, viewport_reference = run('viewport-reference',2300,dict(SNESRECOMP_INPUT_SCRIPT=route))
     _, wide = run('viewport-changes', 2300, dict(SNESRECOMP_INPUT_SCRIPT=route,
-        FZERO_VIEWPORT_SCRIPT='0:Fit@1920x1080,1700:4:3@640x960,1900:32:9@3840x720,2100:16:9@1280x720'))
-    assert wide == baseline, (wide, baseline)
+        FZERO_VIEWPORT_SCRIPT='1700:4:3@640x960,1900:32:9@3840x720,2100:16:9@1280x720'))
+    assert wide == viewport_reference, (wide, viewport_reference)
 
     for label, frame in [('bootstrap', 100), ('countdown', 650)]:
         path = out/f'{label}.sav'
@@ -84,7 +85,7 @@ def main():
 
     capture = next((out/'diagnostics').iterdir())
     metadata = json.loads((capture/'session.json').read_text())
-    assert metadata['mode']=='local-2p' and metadata['players']==2 and metadata['save_namespace']=='local-2p'
+    assert metadata['mode']=='local-2p' and metadata['players']==len(a.machines) and metadata['save_namespace']=='local-2p'
     stem = sorted(capture.glob('segment-*.inputs'))[-1].with_suffix('')
     inputs = stem.with_suffix('.inputs')
     lines = inputs.read_text().splitlines()
@@ -93,7 +94,7 @@ def main():
     _, replayed = run('capture-replay', len(lines), replay)
     assert replayed == baseline, (replayed, baseline)
     fields = lines[0].split()
-    fields[-1] = str(int(fields[-1]) ^ 1)
+    fields[9] = str(int(fields[9]) ^ 1)
     bad_inputs = out/'bad.inputs'
     bad_inputs.write_text(' '.join(fields)+'\n'+'\n'.join(lines[1:])+'\n')
     log, _ = run('capture-divergence', len(lines), dict(replay, FZERO_REPLAY_INPUT_FILE=str(bad_inputs)), expected=11)

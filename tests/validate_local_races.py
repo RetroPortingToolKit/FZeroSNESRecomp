@@ -23,6 +23,7 @@ def main():
     p.add_argument('--out',type=Path,required=True)
     p.add_argument('--courses',default=','.join(str(i) for i in range(15)))
     p.add_argument('--present-every',type=int,default=8,help='Presentation cadence; simulation always advances once per tick')
+    p.add_argument('--players',type=int,choices=(2,3,4),default=2)
     p.add_argument('--frames',type=int,default=40000)
     p.add_argument('--teleport-fixture',action='store_true',
                    help='Explicit lifecycle-only fixture: forced poses/health, actual gate/lap/finish handling; not driving validation')
@@ -45,7 +46,7 @@ def main():
     results=[]
     for course in courses:
         directory=out/f'course-{course:02}';directory.mkdir()
-        machines=(course%4,course%4 if course%2 else (course+1)%4)
+        machines=tuple((course+i)%4 for i in range(a.players))
         run_env=dict(env,SNESRECOMP_SAVE_ROOT=f'lr-{os.getpid()}-{course}',
                      FZERO_LOCAL_DRIVER_CHECKPOINTS=str(directory))
         print(f'course={course} machines={machines} presentation=1/{a.present_every}',flush=True)
@@ -55,7 +56,7 @@ def main():
                              cwd=build,env=run_env,stdout=log,stderr=log,timeout=600)
         log=(directory/'race.log').read_text(encoding='utf-8',errors='replace')
         final=re.search(r'local-versus: tick=(\d+) phase=(\d+) race=(\d+) hash=([0-9a-f]+).*status=(\d+).*status=(\d+)',log)
-        finished=all(f'player={i} laps=5 status=1' in log for i in (1,2))
+        finished=all(f'player={i} laps=5 status=1' in log for i in range(1,a.players+1))
         phases=sorted(int(i) for i in re.findall(r'lifecycle event=(\d+)',log))
         ok=r.returncode==0 and finished and all(i in phases for i in (0,1,3,4)) and 'quick-slot:' in log
         if a.teleport_fixture:ok=ok and 'qa-teleport: rematch countdown and full results restore PASS' in log

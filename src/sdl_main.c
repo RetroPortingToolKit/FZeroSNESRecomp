@@ -502,7 +502,7 @@ static void load_launcher_settings(RecompLauncherCSettings *settings) {
   if (FzeroIniReadInt(g_config_path, "Sound", "Msu1Enabled", &value))
     settings->msu1_enabled = value != 0;
 
-  for (unsigned player=0;player<2;++player) {
+  for (unsigned player=0;player<4;++player) {
     char key[24];snprintf(key,sizeof(key),"GuidP%u",player+1);
     if (FzeroIniReadString(g_config_path,"Controller",key,text,sizeof(text))) {
       trim_ini_value(text);
@@ -561,7 +561,7 @@ static void save_launcher_settings(const RecompLauncherCSettings *settings) {
   snprintf(number, sizeof(number), "%d", settings->msu1_enabled ? 1 : 0);
   launcher_ini_kv_write(g_config_path, "Sound", "Msu1Enabled", number);
 
-  for (unsigned player=0;player<2;++player) {
+  for (unsigned player=0;player<4;++player) {
     char key[24];snprintf(key,sizeof(key),"GuidP%u",player+1);
     launcher_ini_kv_write(g_config_path,"Controller",key,settings->player_gamepad_guid[player]);
     snprintf(key,sizeof(key),"SourceP%u",player+1);
@@ -618,7 +618,7 @@ static int resolve_rom(const char *executable, const char *explicit_rom,
   game.num_known_sha1 = 1;
   game.known_sha256 = &kFzeroSha256;
   game.num_known_sha256 = 1;
-  game.num_players = 2;
+  game.num_players = 4;
   game.sram_path = "saves/fzero.srm";
   game.widescreen_supported = 0;
   game.adaptive_view_supported = 0;
@@ -1080,6 +1080,13 @@ static int hotkey_matches(const FzeroHotkey *hk, SDL_Keycode key, Uint16 mod) {
  * The guest is FROZEN while a panel is up: the modal loops below never call
  * RtlRunFrame, which is the only way "save right here" names a definite point
  * in time. */
+static unsigned g_local_players=2;
+static FzeroViewport local_viewport(const FzeroVideoSettings *s,int w,int h,bool local) {
+  unsigned columns=local && g_local_players>2?2:1;
+  FzeroViewport v=FzeroNetplayViewport(s,w/(int)columns,local?h/2:h);
+  if(columns==2) {v.width*=2;v.extra=(v.width-256)/2;}
+  return v;
+}
 typedef struct FzeroPresenter {
   SDL_Window *window;
   SDL_Renderer *renderer; /* NULL on the GL path */
@@ -1189,7 +1196,7 @@ static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
   int width = p->logical_width * (int)scale;
   int height = (p->host_height ? p->host_height : FzeroFrameHeight()) * (int)scale;
   FzeroViewport display_viewport=p->viewport;
-  if((FzeroLocalEnabled() || p->host_height==448) && !FzeroOnlineEnabled())display_viewport.aspect/=2;
+  if((FzeroLocalEnabled() || p->host_height==448) && !FzeroOnlineEnabled())display_viewport.aspect*=g_local_players>2?1.0:0.5;
   if (p->gl) {
     fzero_gl_render(p->gl, pixels, width, height, display_viewport,
                     p->drawable_width, p->drawable_height);
@@ -1695,22 +1702,27 @@ static int run_game(int argc, char **argv) {
   bool force_launcher = false, positional_only = false, profile_mode7 = false;
   force_launcher=FzeroNetplayResume();
   bool local_two_player=false;
-  FzeroVersusConfig local_config={0,{0,1}};
+  FzeroVersusConfig local_config={0,{0,1,2,3},2};
   for (int i = 1; i < argc; ++i) {
     if (!positional_only && !strcmp(argv[i], "--")) { positional_only = true; continue; }
     if (!positional_only && !strcmp(argv[i], "--launcher")) { force_launcher = true; continue; }
     if (!positional_only && !strcmp(argv[i], "--profile-mode7")) { profile_mode7 = true; continue; }
+    if(!positional_only && !strcmp(argv[i],"--players") && i+1<argc) {
+      char *end;unsigned long n=strtoul(argv[++i],&end,10);
+      if(*end || n<2 || n>4)return 2;
+      local_config.player_count=(uint8_t)n;g_local_players=(unsigned)n;local_two_player=true;continue;
+    }
     if(!positional_only && !strcmp(argv[i],"--local-2p")) {local_two_player=true;continue;}
-    if(!positional_only && (!strcmp(argv[i],"--course") || !strcmp(argv[i],"--p1-machine") || !strcmp(argv[i],"--p2-machine")) && i+1<argc) {
+    if(!positional_only && (!strcmp(argv[i],"--course") || !strcmp(argv[i],"--p1-machine") || !strcmp(argv[i],"--p2-machine") || !strcmp(argv[i],"--p3-machine") || !strcmp(argv[i],"--p4-machine")) && i+1<argc) {
       const char *option=argv[i++];char *end;unsigned long value=strtoul(argv[i],&end,10);
       bool course=!strcmp(option,"--course");
-      if(!argv[i][0] || *end || value>=(course?UINT16_MAX:4u)) {fputs("Invalid local race selection\n",stderr);return 2;}
+      if(!argv[i][0] || *end || value>=(course?UINT16_MAX:FZERO_MACHINE_COUNT)) {fputs("Invalid local race selection\n",stderr);return 2;}
       if(course)local_config.course=(uint16_t)value;
-      else local_config.machine[!strcmp(option,"--p2-machine")]=(uint8_t)value;
+      else local_config.machine[(unsigned)(option[3]-'1')]=(uint8_t)value;
       continue;
     }
     if (explicit_rom || (!positional_only && argv[i][0] == '-')) {
-      fprintf(stderr, "usage: FZeroSNESRecomp [--launcher] [--profile-mode7] [--local-2p [--course ID] [--p1-machine 0..3] [--p2-machine 0..3]] [path-to-rom.sfc]\n");
+      fprintf(stderr, "usage: FZeroSNESRecomp [--launcher] [--profile-mode7] [--players 2..4 | --local-2p] [--course ID] [--p1-machine ID ... --p4-machine ID] [path-to-rom.sfc]\n");
       return 2;
     }
     explicit_rom = argv[i];
@@ -1973,7 +1985,7 @@ static int run_game(int argc, char **argv) {
     if (!renderer) Die("Unable to create the game renderer");
     for (;;) {
       texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888,
-                                  SDL_TEXTUREACCESS_STREAMING, FZERO_MAX_WIDTH * texture_scale,
+                                  SDL_TEXTUREACCESS_STREAMING, FZERO_MAX_WIDTH * 2 * texture_scale,
                                   (local_available?448:FzeroFrameHeight()) * texture_scale);
       if (texture || texture_scale == 1) break;
       texture_scale = texture_scale > 4 ? 4 : texture_scale > 2 ? 2 : 1;
@@ -1996,21 +2008,22 @@ static int run_game(int argc, char **argv) {
     /* Hardware fallback is informational; native gameplay remains available. */
   }
 
-  static uint8_t pixels[FZERO_MAX_WIDTH * kFrameHeight * 2 * kBytesPerPixel];
+  static uint8_t pixels[FZERO_MAX_WIDTH * kFrameHeight * 4 * kBytesPerPixel];
   uint32_t *hd_pixels = NULL;
-  size_t hd_capacity = (size_t)FZERO_MAX_WIDTH * (local_available?448:FzeroFrameHeight()) * texture_scale * texture_scale;
-  if (texture_scale > 1 && !gpu_hd) {
-    hd_pixels = calloc(hd_capacity, sizeof(*hd_pixels));
+  unsigned cpu_scale=gpu_hd?(texture_scale>4?4:texture_scale):texture_scale;
+  size_t cpu_capacity=(size_t)FZERO_MAX_WIDTH*2*(local_available?448:FzeroFrameHeight())*cpu_scale*cpu_scale;
+  if (cpu_scale > 1) {
+    hd_pixels = calloc(cpu_capacity, sizeof(*hd_pixels));
     if (!hd_pixels) Die("Unable to allocate HD Mode 7 frame");
   }
-  FzeroSetMode7Hd(texture_scale > 1 ? texture_scale : 0, hd_pixels, hd_capacity);
+  FzeroSetMode7Hd(cpu_scale > 1 ? cpu_scale : 0, hd_pixels, cpu_capacity);
   FzeroSetGpuHd(gpu_hd);
   int drawable_width = 256 * window_scale, drawable_height = 192 * window_scale;
   if (use_gl_renderer)
     snesrecomp_sdl_get_drawable_size(window, &drawable_width, &drawable_height);
   else
     snesrecomp_sdl_get_render_output_size(renderer, &drawable_width, &drawable_height);
-  FzeroViewport viewport = FzeroNetplayViewport(&g_video, drawable_width, local_two_player && !online?drawable_height/2:drawable_height);
+  FzeroViewport viewport = local_viewport(&g_video,drawable_width,drawable_height,local_two_player && !online);
   FzeroSetViewport(viewport);
   FzeroSetDeferredPresentation(true);
   int logical_width = viewport.width;
@@ -2070,7 +2083,7 @@ static int run_game(int argc, char **argv) {
   bool title_picker = false;
   double menu_audio_deadline = 0;
   if(local_two_player && !online && !local_controls)Die("Cannot allocate local two-player controls");
-  if(local_controls)FzeroLocalControlsAssign(local_controls,launcher_settings.player_src,launcher_settings.player_gamepad_guid);
+  if(local_controls)FzeroLocalControlsAssignPlayers(local_controls,launcher_settings.player_src,launcher_settings.player_gamepad_guid,4);
   uint64_t local_controls_generation=RtlStateGeneration();
 
   bool sp_release=false;
@@ -2334,7 +2347,7 @@ static int run_game(int argc, char **argv) {
       local_two_player=true;debug_server_set_ram(g_snes->ram,0x20000);
       local_controls=FzeroLocalControlsCreate(local_config,false);
       if(!local_controls)Die("Cannot allocate local controls");
-      FzeroLocalControlsAssign(local_controls,launcher_settings.player_src,launcher_settings.player_gamepad_guid);
+      FzeroLocalControlsAssignPlayers(local_controls,launcher_settings.player_src,launcher_settings.player_gamepad_guid,4);
       local_controls_generation=RtlStateGeneration();
       snes_rewind_configure();SDL_UnlockMutex(g_audio_mutex);
       suspended=false;
@@ -2352,7 +2365,7 @@ static int run_game(int argc, char **argv) {
         FzeroSetMenuAudioOnly(false);
         if(title_picker) { title_picker=false; FzeroVsMenuRestore(true); }
         else if(!FzeroLocalModeReturn())Die("Cannot return to single-player menu");
-        FzeroLocalControlsDestroy(local_controls);local_controls=NULL;local_two_player=false;sp_release=true;FzeroSetGpuHd(gpu_hd);FzeroSetMode7Hd(texture_scale>1?texture_scale:0,hd_pixels,hd_capacity);restart_mode_capture();
+        FzeroLocalControlsDestroy(local_controls);local_controls=NULL;local_two_player=false;sp_release=true;FzeroSetGpuHd(gpu_hd);FzeroSetMode7Hd(cpu_scale>1?cpu_scale:0,hd_pixels,cpu_capacity);restart_mode_capture();
         debug_server_set_ram(g_snes->ram,0x20000);snes_rewind_configure();
         SDL_UnlockMutex(g_audio_mutex);
         snesrecomp_sdl_pause_audio_device(audio,suspended || !launcher_settings.enable_audio);
@@ -2398,7 +2411,7 @@ static int run_game(int argc, char **argv) {
         if(!FzeroLocalSession())Die("Native versus setup did not reach the starting grid");
         fprintf(stderr,"[local-versus] setup %.3f seconds (%u native frames)\n",monotonic_seconds()-setup_start,setup_frames);
         FzeroSetGpuHd(gpu_hd);
-        FzeroSetMode7Hd(texture_scale>1?texture_scale:0,hd_pixels,hd_capacity);restart_mode_capture();
+        FzeroSetMode7Hd(cpu_scale>1?cpu_scale:0,hd_pixels,cpu_capacity);restart_mode_capture();
         SDL_UnlockMutex(g_audio_mutex);snes_rewind_shutdown();snes_rewind_configure();
         snesrecomp_sdl_pause_audio_device(audio,suspended || !launcher_settings.enable_audio);
         g_reset_presentation_clock=true;
@@ -2438,8 +2451,11 @@ static int run_game(int argc, char **argv) {
         }
         if(use_gl_renderer)snesrecomp_sdl_get_drawable_size(window,&drawable_width,&drawable_height);
         else snesrecomp_sdl_get_render_output_size(renderer,&drawable_width,&drawable_height);
-        viewport=FzeroNetplayViewport(&g_video,drawable_width,drawable_height/2);logical_width=viewport.width;
+        viewport=local_viewport(&g_video,drawable_width,drawable_height,true);logical_width=viewport.width;
         FzeroSetViewport(viewport);FzeroBeginDrawing(pixels,(size_t)logical_width*kBytesPerPixel);
+        g_local_players=FzeroVersusPlayers(FzeroLocalControlsConfig(local_controls));
+        viewport=local_viewport(&g_video,drawable_width,drawable_height,true);logical_width=viewport.width;
+        FzeroSetViewport(viewport);
         FzeroLocalControlsDraw(local_controls,(uint32_t *)pixels,logical_width,448);
         presenter.logical_width=logical_width;presenter.host_height=448;presenter.viewport=viewport;
         presenter.drawable_width=drawable_width;presenter.drawable_height=drawable_height;
@@ -2543,7 +2559,7 @@ static int run_game(int argc, char **argv) {
         snesrecomp_sdl_get_drawable_size(window, &drawable_width, &drawable_height);
       else
         snesrecomp_sdl_get_render_output_size(renderer, &drawable_width, &drawable_height);
-      FzeroViewport next = FzeroNetplayViewport(&g_video, drawable_width, local_two_player && !online?drawable_height/2:drawable_height);
+      FzeroViewport next = local_viewport(&g_video,drawable_width,drawable_height,local_two_player && !online);
       if (next.width != viewport.width || next.aspect != viewport.aspect) {
         viewport = next;
         FzeroSetViewport(viewport);
@@ -2554,7 +2570,11 @@ static int run_game(int argc, char **argv) {
                        FzeroGamepadReadShortcuts(pad, g_quick_pads, 2, NULL) |
                        debug_server_get_controller_inputs() | (1u << 30) |
                        debug_server_get_controller_active_mask();
-      if(local_controls)input=FzeroLocalControlsInput(local_controls);
+      if(local_controls) {
+        uint16_t seats[FZERO_MAX_PLAYERS];FzeroLocalControlsInputs(local_controls,seats);
+        for(unsigned i=2;i<FZERO_MAX_PLAYERS;++i)RtlSetPadState((int)i,seats[i]);
+        input=seats[0]|((uint32_t)seats[1]<<12);
+      }
       else if(sp_release) {if(!(input&4095))sp_release=false;input&=~4095u;}
       if (FzeroReplayHasInput() && !g_menu_pad_replay) input = FzeroReplayInput((unsigned)frames);
       /* Seat 0's word, before the guest sees it: the overlays are a player-1

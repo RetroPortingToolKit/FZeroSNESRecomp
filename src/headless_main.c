@@ -366,26 +366,31 @@ static bool local_state_atomic_test(void) {
   return ok;
 }
 
+static FzeroViewport headless_viewport(const FzeroVideoSettings *settings,int width,int height,bool versus,unsigned players) {
+  FzeroViewport v=FzeroCalculateViewport(settings,versus && players>2?width/2:width,versus?height/2:height);
+  if(versus && players>2) {v.width*=2;v.extra=(v.width-256)/2;}
+  return v;
+}
 int main(int argc, char **argv) {
   /* Preserve the last guest-frame diagnostic if a soak terminates abnormally
    * while stderr is redirected to a qualification log. */
   setvbuf(stderr, NULL, _IONBF, 0);
   headless_install_exception_filter();
-  bool versus=argc==7 && !strcmp(argv[3],"--versus");
+  bool versus=argc>=7 && argc<=9 && !strcmp(argv[3],"--versus");
   bool online_menu_test=getenv("FZERO_TEST_ONLINE_MENU")!=NULL;
   if (argc < 2 || (argc > 3 && !versus)) {
-    fprintf(stderr, "usage: FZeroSNESRecompHeadless <fzero.sfc> [frames [--versus COURSE P1 P2]]\n");
+    fprintf(stderr, "usage: FZeroSNESRecompHeadless <fzero.sfc> [frames [--versus COURSE P1 P2 [P3 [P4]]]]\n");
     return 2;
   }
   FzeroVersusConfig versus_config={0};
   if(versus) {
-    unsigned values[3];
-    for(unsigned i=0;i<3;++i) {
+    unsigned values[5]={0};
+    for(unsigned i=0;i<(unsigned)argc-4;++i) {
       char *end;unsigned long value=strtoul(argv[4+i],&end,10);
       if(!argv[4+i][0] || *end || value>=(i?12u:UINT16_MAX)) {fputs("Invalid versus configuration\n",stderr);return 2;}
       values[i]=(unsigned)value;
     }
-    versus_config=(FzeroVersusConfig){(uint16_t)values[0],{(uint8_t)values[1],(uint8_t)values[2]}};
+    versus_config=(FzeroVersusConfig){(uint16_t)values[0],{(uint8_t)values[1],(uint8_t)values[2],(uint8_t)values[3],(uint8_t)values[4]},(uint8_t)(argc-5)};
   }
   long frame_limit = argc >= 3 ? strtol(argv[2], NULL, 10) : 3600;
   if (frame_limit < 1 || frame_limit > 1000000) {
@@ -515,9 +520,9 @@ int main(int argc, char **argv) {
 
   int frame_width = FzeroFrameWidth();
   int drawable_width = 768, drawable_height = 576;
-  FzeroSetViewport(FzeroCalculateViewport(&replay_video, drawable_width, versus?drawable_height/2:drawable_height));
+  FzeroSetViewport(headless_viewport(&replay_video,drawable_width,drawable_height,versus,FzeroVersusPlayers(FzeroLocalConfig())));
   frame_width = FzeroFrameWidth();
-  static uint8_t pixels[FZERO_MAX_WIDTH * 448u * 4u];
+  static uint8_t pixels[FZERO_MAX_WIDTH * 2u * 448u * 4u];
   int16_t audio[600 * 2];
   FzeroBeginDrawing(pixels, (size_t)frame_width * 4u);
   const char *present_text=getenv("FZERO_TEST_PRESENT_EVERY");
@@ -550,7 +555,7 @@ int main(int argc, char **argv) {
   bool local_driver=versus && (getenv("FZERO_TEST_LOCAL_DRIVER")!=NULL || teleport_fixture);
   if(teleport_fixture)fputs("qa-teleport: lifecycle fixture; forced poses/health, real gates/laps/finish/results; NOT natural driving validation\n",stderr);
   bool driver_lifecycle=local_driver && getenv("FZERO_LOCAL_DRIVER_LIFECYCLE")!=NULL;
-  unsigned driver_checked=0,driver_laps[2]={0,0},driver_status[2]={0,0};
+  unsigned driver_checked=0,driver_laps[FZERO_MAX_PLAYERS]={0,0},driver_status[FZERO_MAX_PLAYERS]={0,0};
   if(driver_lifecycle)lifecycle="1";
   /* Private records QA: cross each course's actual finish line on the final
    * lap. Native finish, record-writing and cup-completion code still runs. */
@@ -584,14 +589,14 @@ int main(int argc, char **argv) {
       FzeroVehiclesLoaded();
       memcpy(menu_ram,g_ram,sizeof(menu_ram));snprintf(menu_root,sizeof(menu_root),"%s",RtlSaveRoot());
       menu_rules=*FzeroGameplaySettingsCurrent();
-      if(!FzeroLocalModeEnter((FzeroVersusConfig){0,{0,1}}))return 12;
+      if(!FzeroLocalModeEnter((FzeroVersusConfig){0,{0,1},2}))return 12;
       mode_stage=1;FzeroSetViewport(FzeroCalculateViewport(&replay_video,768,288));
       frame_width=FzeroFrameWidth();FzeroBeginDrawing(pixels,(size_t)frame_width*4);
       fprintf(stderr,"mode-flow: entered VS at frame=%ld\n",frame);
     }
     if(mode_test && (mode_stage==1 || mode_stage==2) && FzeroLocalSession() && FzeroVersusCompleted(FzeroLocalSession())->tick>=200) {
       if(mode_stage==1) {
-        if(!FzeroLocalModeSetup() || !FzeroLocalConfigure((FzeroVersusConfig){1,{2,3}}))return 12;
+        if(!FzeroLocalModeSetup() || !FzeroLocalConfigure((FzeroVersusConfig){1,{2,3},2}))return 12;
         mode_stage=2;fprintf(stderr,"mode-flow: changed course/machines at frame=%ld\n",frame);
       } else {
         if(!FzeroLocalModeReturn() || memcmp(menu_ram,g_ram,sizeof(menu_ram)) || strcmp(menu_root,RtlSaveRoot()) ||
@@ -788,7 +793,7 @@ int main(int argc, char **argv) {
     }
     if (FzeroReplayViewport((unsigned)frame, &replay_video)) {
       FzeroReplayWindow((unsigned)frame, &drawable_width, &drawable_height);
-      FzeroViewport viewport = FzeroCalculateViewport(&replay_video, drawable_width, versus?drawable_height/2:drawable_height);
+      FzeroViewport viewport = headless_viewport(&replay_video,drawable_width,drawable_height,versus,FzeroVersusPlayers(FzeroLocalConfig()));
       FzeroSetViewport(viewport);
       frame_width = viewport.width;
       FzeroBeginDrawing(pixels, (size_t)frame_width * 4u);
@@ -796,7 +801,11 @@ int main(int argc, char **argv) {
     }
     uint32_t frame_input = scripted_input(input_spans, input_span_count, frame);
     if(teleport_fixture)frame_input=FzeroLocalTeleportFixture(FzeroLocalSession());
-    else if(local_driver)frame_input=FzeroLocalDriverInput(FzeroLocalSession());
+    else if(local_driver) {
+      frame_input=FzeroLocalDriverInput(FzeroLocalSession());
+      const FzeroVersusSnapshot *race=FzeroVersusCompleted(FzeroLocalSession());
+      if(race)for(unsigned i=2;i<race->config.player_count;++i)RtlSetPadState((int)i,(uint16_t)local_driver_player(FzeroLocalSession(),i));
+    }
     if (records_racing) frame_input |= 1;
     if (records_test && g_ram[0x54] == 3 && g_ram[0x55] == 1 &&
         g_ram[0x56] == 3 && !(frame & 15))
@@ -821,7 +830,7 @@ int main(int argc, char **argv) {
       FzeroVersusResume(FzeroLocalSession());FzeroLocalControlChanged();
       fprintf(stderr,"audio-fixture: resumed VS at frame=%ld\n",frame);
     }
-    FzeroCaptureBefore(frame_input,FzeroCalculateViewport(&replay_video,drawable_width,versus?drawable_height/2:drawable_height));
+    FzeroCaptureBefore(frame_input,headless_viewport(&replay_video,drawable_width,drawable_height,versus,FzeroVersusPlayers(FzeroLocalConfig())));
     (void)RtlRunFrame(frame_input);
     if (wram_trace && fwrite(g_ram, 1, 0x2000, wram_trace) != 0x2000) return 10;
     if (getenv("FZERO_SCENE_TRACE"))
@@ -903,7 +912,7 @@ int main(int argc, char **argv) {
     }
     if(local_driver && FzeroLocalSession()) {
       const FzeroVersusSnapshot *race=FzeroVersusCompleted(FzeroLocalSession());
-      for(unsigned i=0;i<2;++i)if(driver_laps[i]!=race->racers[i].completed_laps || driver_status[i]!=race->racers[i].status) {
+      for(unsigned i=0;i<race->config.player_count;++i)if(driver_laps[i]!=race->racers[i].completed_laps || driver_status[i]!=race->racers[i].status) {
         driver_laps[i]=race->racers[i].completed_laps;driver_status[i]=race->racers[i].status;
         fprintf(stderr,"local-driver: frame=%ld player=%u laps=%u status=%u race=%llu\n",frame,i+1,
             driver_laps[i],driver_status[i],(unsigned long long)race->race_tick);
@@ -996,8 +1005,10 @@ int main(int argc, char **argv) {
   if(versus) {
     const FzeroVersusSnapshot *v=FzeroVersusCompleted(FzeroLocalSession());
     qualified=qualified && (v!=NULL || online_menu_test || (FzeroOnlineEnabled() && FzeroCaptureReplayActive()));
-    if(local_driver)qualified=qualified && v && v->phase==FZERO_VS_RESULTS &&
-        v->racers[0].status==FZERO_VS_FINISHED && v->racers[1].status==FZERO_VS_FINISHED;
+    if(local_driver) {
+      qualified=qualified && v && v->phase==FZERO_VS_RESULTS;
+      if(v)for(unsigned i=0;i<v->config.player_count;++i)qualified=qualified && v->racers[i].status==FZERO_VS_FINISHED;
+    }
     if(v)fprintf(stderr,"local-versus: tick=%llu phase=%u race=%llu hash=%016llx p1=%u,%u status=%u p2=%u,%u status=%u pause=%u\n",
         (unsigned long long)v->tick,v->phase,(unsigned long long)v->race_tick,
         (unsigned long long)FzeroVersusHash(FzeroLocalSession()),v->racers[0].actor.x,v->racers[0].actor.y,
@@ -1010,8 +1021,8 @@ int main(int argc, char **argv) {
       ok=ok && fresh->phase==FZERO_VS_READY && !fresh->tick && !fresh->race_tick &&
           !fresh->racers[0].completed_laps && !fresh->racers[1].completed_laps &&
           fresh->racers[0].status==FZERO_VS_ACTIVE && fresh->racers[1].status==FZERO_VS_ACTIVE;
-      FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
-      for(unsigned tick=0;ok && tick<FZERO_VERSUS_COUNTDOWN;++tick)ok=FzeroVersusTick(race,(uint16_t[2]){0,0});
+      for(unsigned i=0;i<FzeroVersusPlayers(FzeroVersusCompleted(race)->config);++i)FzeroVersusReady(race,i,true);
+      for(unsigned tick=0;ok && tick<FZERO_VERSUS_COUNTDOWN;++tick)ok=FzeroVersusTick(race,(uint16_t[FZERO_MAX_PLAYERS]){0});
       ok=ok && fresh->phase==FZERO_VS_RACING && !fresh->race_tick &&
           RtlLoadSnapshotFromMemory(result,size) && FzeroVersusHash(FzeroLocalSession())==result_hash;
       free(result);qualified=qualified && ok;

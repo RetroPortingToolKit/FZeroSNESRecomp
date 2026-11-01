@@ -30,7 +30,7 @@ unsigned FzeroLocalMenuSelection(void) {return selection;}
 void FzeroLocalSetMenuSelection(unsigned n) {selection=n;}
 bool FzeroLocalMenuReady(void) {return true;}
 bool FzeroOnlineLoadCourse(FzeroVersusConfig config) {
-  static const uint8_t world[0x20000];FzeroActor spawn[2]={{0},{0}};spawn[1].x=64;
+  static const uint8_t world[0x20000];FzeroActor spawn[4]={{0}};for(unsigned i=0;i<4;++i)spawn[i].x=(uint16_t)(i*64);
   FzeroVersusDestroy(race);race=FzeroVersusCreate(config,world,spawn,(FzeroActorTables){table,NULL,0});
   ++loads;return race!=NULL;
 }
@@ -100,7 +100,7 @@ int main(void) {
     CHECK(!FzeroOnlineRestore(bad));image(saved);CHECK(!memcmp(same,saved,sizeof(same)));
     memcpy(bad,same,sizeof(bad));bad[38]=255;CHECK(!FzeroOnlineValidate(bad));
     memcpy(bad,same,sizeof(bad));bad[28]=0xff;bad[29]=0xff;CHECK(!FzeroOnlineValidate(bad));
-    for(unsigned offset=41;offset<96;++offset)if(offset==41 || offset==42 || offset>62) {
+    for(unsigned offset=41;offset<FZERO_ONLINE_STATE_SIZE;++offset)if(offset==41 || offset==42 || offset>=88) {
       memcpy(bad,same,sizeof(bad));bad[offset]=1;CHECK(!FzeroOnlineValidate(bad));
     }
     memcpy(bad,same,sizeof(bad));memset(bad+44,255,8);CHECK(!FzeroOnlineValidate(bad));
@@ -135,6 +135,21 @@ int main(void) {
     CHECK(FzeroOnlineRestore(initial));image(same);CHECK(!memcmp(initial,same,sizeof(same)));
     FzeroOnlineEnd();CHECK(!FzeroOnlineEnabled());CHECK(FzeroOnlineView()==-1);
     CHECK(!FzeroOnlineRestore(initial));FzeroVersusDestroy(race);race=NULL;
+  }
+  for(unsigned n=3;n<=4;++n) {
+    FzeroOnlineEnd();FzeroOnlineBeginPlayers(1,n-1,n);FzeroOnlineEnterVs();
+    uint16_t all[4]={0};FzeroOnlineTickInputs(all);
+    for(unsigned p=0;p<n-1;++p) {all[p]=8;FzeroOnlineTickInputs(all);all[p]=0;FzeroOnlineTickInputs(all);}
+    CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_MACHINES);
+    all[n-1]=8;FzeroOnlineTickInputs(all);memset(all,0,sizeof(all));FzeroOnlineTickInputs(all);
+    CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_CUP);
+    image(saved);memcpy(bad,saved,sizeof(bad));bad[63]=5;CHECK(!FzeroOnlineValidate(bad));
+    all[0]=8;FzeroOnlineTickInputs(all);memset(all,0,sizeof(all));FzeroOnlineTickInputs(all);
+    all[0]=8;FzeroOnlineTickInputs(all);memset(all,0,sizeof(all));FzeroOnlineTickInputs(all);
+    CHECK(FzeroOnlineCompleted()->phase==FZERO_ONLINE_RACE);
+    CHECK(FzeroVersusCompleted(race)->config.player_count==n);
+    CHECK(FzeroOnlineRestore(saved));image(same);CHECK(!memcmp(saved,same,sizeof(same)));
+    FzeroVersusDestroy(race);race=NULL;
   }
   puts("online: authoritative menu inputs, late courses, rollback images, rematch and menu wrap PASS");return 0;
 }

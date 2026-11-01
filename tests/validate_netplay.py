@@ -40,9 +40,9 @@ def main():
         p.error('course-order must be nonnegative')
     try:
         a.machines = [int(n) for n in a.machines.split(',')]
-        assert len(a.machines) == 2 and all(0 <= n < 12 for n in a.machines)
+        assert 2 <= len(a.machines) <= 4 and all(0 <= n < 12 for n in a.machines)
     except (ValueError, AssertionError):
-        p.error('--machines needs two IDs in0..11')
+        p.error('--machines needs 2-4 IDs in0..11')
     for name in ('build', 'runtime', 'rom', 'packs', 'settings', 'video', 'out'):
         setattr(a, name, getattr(a, name).resolve())
     a.peers_dir = (a.peers_dir or a.build / 'qa-peers').resolve()
@@ -64,11 +64,11 @@ def main():
     os.close(lock_fd)
     frames = dict(selection=550, devices=700, titleback=600, titlestate=1000, driving=1000, finish=2850 if a.rematch else 2280, crash=700, state=1300, reject=300, **{'reject-catalog':300}, menuwrap=1000, pause=1000, change=1300)[a.scenario]
     if a.scenario != 'selection':
-        frames += 460  # Real native boot/title and the synchronized VS action.
+        frames += 460 + (len(a.machines)-2)*900 if a.scenario == 'finish' else 460  # Real native boot/title and the synchronized VS action.
     processes, logs, launches = [], [], []
     started = time.monotonic()
     try:
-        for slot in range(2):
+        for slot in range(len(a.machines)):
             folder = a.out / ('peer%d' % slot)
             folder.mkdir()
             install = a.peers_dir / ('peer%d' % slot)
@@ -97,10 +97,10 @@ def main():
                 ('FZERO_', 'SNESRECOMP_', 'SDL_', 'SNES_NET_', 'SNES_RB', 'RNET_', 'LNG_'))}
             env.update(SDL_AUDIODRIVER='dummy', FZERO_TEST_LOCAL_UI_HIDDEN='1',
                        FZERO_VIDEO_CONFIG=str(folder / 'video.ini'), FZERO_PACKS_DIR=str(a.packs1.resolve() if slot == 1 and a.packs1 else a.packs),
-                       FZERO_TRACK_PACKS=str(a.settings), FZERO_PACK_LOADER='1', SNESRECOMP_MSU1=(a.music0, a.music1)[slot],
-                       SNES_NET_ENABLE='1', SNES_NET_SLOT=str(slot), SNES_NET_MODE='rollback',
+                       FZERO_TRACK_PACKS=str(a.settings), FZERO_PACK_LOADER='1', SNESRECOMP_MSU1=(a.music0, a.music1)[slot%2],
+                       SNES_NET_ENABLE='1', SNES_NET_SLOT=str(slot), SNES_NET_SLOTS=str(len(a.machines)), SNES_NET_MODE='rollback',
                        SNES_NET_BIND='127.0.0.1:%d' % (a.port + slot),
-                       SNES_NET_PEER='127.0.0.1:%d' % (a.port + 1 - slot),
+                       SNES_NET_PEER='127.0.0.1:%d' % (a.port + 1 - slot if len(a.machines)==2 else a.port),
                        SNES_NET_SESSION_ID='18644', FZERO_NET_ASPECT=str(a.aspect),
                        FZERO_TEST_NET_TRACE=str(folder / 'sim'), SNESRECOMP_AUTOCLOSE_FRAMES=str(frames),
                        FZERO_TEST_DSP_DUMP=str(folder / 'dsp.bin'),
@@ -159,7 +159,7 @@ def main():
                 shifted.append('%d-%d:%s' % (first+460,last+460,button))
             boot = '300-302:32,330-332:32,360-362:32,390-392:8,' if slot == 0 else ''
             roster = [4,6,5,7,0,2,8,9,10,11,1,3]
-            before, after = roster.index((0,1)[slot]), roster.index(a.machines[slot])
+            before, after = roster.index(slot), roster.index(a.machines[slot])
             moves = []
             delta = (after//4 - before//4) % 3
             if delta:
@@ -191,13 +191,13 @@ def main():
         for log in logs:
             log.close()
         try:
-            for slot in range(2):
+            for slot in range(len(a.machines)):
                 saves = a.peers_dir / ('peer%d/saves' % slot)
                 if saves.exists():
                     shutil.copytree(saves, a.out / ('peer%d/saves' % slot))
         finally:
             lock.unlink()
-    text = [(a.out / ('peer%d/game.log' % i)).read_text(errors='replace') for i in range(2)]
+    text = [(a.out / ('peer%d/game.log' % i)).read_text(errors='replace') for i in range(len(a.machines))]
     report = dict(scenario=a.scenario, machines=a.machines, cup=a.cup, course_order=a.course_order,
                   music=[a.music0, a.music1],
                   aspect=a.aspect, loss=a.loss, hd_peer=a.hd_peer,
@@ -209,7 +209,7 @@ def main():
         assert all('mod_set_mismatch' in s for s in text), 'expected exact identity refusal'
         assert all('simulation=0' in s for s in text), 'incompatible peer admitted a simulation frame'
     else:
-        assert report['exits'] == [0, 0], report
+        assert report['exits'] == [0] * len(a.machines), report
         assert all('desync=0' in s for s in text), 'desync or missing final report'
         assert all('starting UNVERIFIED' not in s for s in text), 'startup state verification timed out'
         if a.force_mispredict:
@@ -219,7 +219,7 @@ def main():
                     if music != 'off':
                         assert len(re.findall(r'\[versus-msu\] command=6 ', text[slot])) == 1, 'rollback restarted the live race soundtrack'
         rows, last_ticks = [], []
-        for i in range(2):
+        for i in range(len(a.machines)):
             found = sorted((a.out / ('peer%d' % i)).glob('sim*.csv'))
             assert found, 'missing authoritative trace'
             data = {}
@@ -236,19 +236,20 @@ def main():
         # Use the actual confirmed frontier, never compare predicted tails.
         # Loading creates a new wire epoch rooted at a saved game tick.
         offsets, ends = [], []
-        for i in range(2):
+        for i in range(len(a.machines)):
             match = re.search(r'final tick=(\d+) confirmed=(\d+)', text[i])
             assert match, 'missing final confirmed frontier'
             tip, confirmed = map(int, match.groups())
+            assert tip-confirmed<=64, "confirmed frontier stalled outside rollback history"
             last_tick = last_ticks[i]
             offset = last_tick - (tip - 1)
             offsets.append(offset)
             ends.append(offset + confirmed)
-        assert offsets[0] == offsets[1], 'wire epochs differ'
-        common = sorted(tick for tick in rows[0].keys() & rows[1].keys()
+        assert len(set(offsets)) == 1, 'wire epochs differ'
+        common = sorted(tick for tick in set.intersection(*(set(row) for row in rows))
                         if offsets[0] <= tick <= min(ends))
         assert len(common) > (300 if a.scenario == 'state' else 400), 'insufficient confirmed simulation'
-        mismatches = [tick for tick in common if rows[0][tick] != rows[1][tick]]
+        mismatches = [tick for tick in common if any(rows[0][tick] != row[tick] for row in rows[1:])]
         assert not mismatches, 'authoritative differences: %s' % mismatches[:10]
         report['matching_ticks'] = len(common)
         shared = [rows[0][tick] for tick in common]
@@ -258,21 +259,23 @@ def main():
             assert shared[-1]['phase'] == '0', 'Back did not restore title'
         elif a.scenario == 'selection':
             assert shared[-1]['phase'] == '1', 'did not remain in independent selection'
-            assert [int(shared[-1]['p1']), int(shared[-1]['p2'])] == a.machines, 'independent choices missing'
+            assert [int(shared[-1]['p%d' % (p+1)]) for p in range(len(a.machines))] == a.machines, 'independent choices missing'
         elif a.scenario == 'devices':
             assert shared[-1]['phase'] == '1', 'one controller confirmed both participants'
             assert [int(shared[-1]['p1']), int(shared[-1]['p2'])] == [2, 1], 'controller reached keyboard-only client'
             assert all('online-source-test: one controller moves/confirms only its configured client PASS' in t for t in text), 'actual SDL device test incomplete'
         else:
             assert any(row['phase'] == '5' for row in shared), 'did not enter race'
-            assert all([int(row['p1']), int(row['p2'])] == a.machines for row in shared if row['phase'] == '5'), 'race machine identities differ'
+            assert all([int(row['p%d' % (p+1)]) for p in range(len(a.machines))] == a.machines for row in shared if row['phase'] == '5'), 'race machine identities differ'
             racing=[row for row in shared if row['phase']=='5' and row['stage']=='2']
+            if a.scenario == 'driving':
+                assert racing, 'no confirmed racing ticks'
             if racing:
                 assert any(int(row['npcs'])>0 for row in racing), 'shared bumper field missing'
                 assert len({(row['npc0x'],row['npc0y']) for row in racing})>1, 'bumper field did not move'
         if a.scenario == 'finish':
             results = [row for row in shared if row['stage'] == '3']
-            assert results and all(row['lap1'] == row['lap2'] == '5' for row in results), 'two real five-lap finishes missing'
+            assert results and all(all(row['lap%d' % (p+1)] == '5' for p in range(len(a.machines))) for row in results), 'two real five-lap finishes missing'
             if a.rematch:
                 assert any(int(row['tick']) > 2803 and row['stage'] == '1' for row in shared), 'rematch countdown missing'
         if a.scenario == 'crash':
@@ -285,7 +288,7 @@ def main():
             assert not pauses, 'Start must never pause multiplayer'
             assert any(row['menu'] != '0' for row in shared), 'live Start menu was never opened'
             assert shared[-1]['stage'] == '2', 'race did not continue through Start inputs'
-            for slot in range(2):
+            for slot in range(len(a.machines)):
                 dsp = (a.out / ('peer%d/dsp.bin' % slot)).read_bytes()
                 assert [dsp[0x0c], dsp[0x1c]] == [0x54, 0x54], 'music master did not survive pause'
                 assert sum(dsp[i*16+8] > 0 for i in range(6)) >= 2, 'music voices silent after resume'
@@ -297,7 +300,7 @@ def main():
                 assert 'online-menu-test:' in text[0], 'real keyboard browser flow incomplete'
             assert all('hard_resync' in s or 'hard resync' in s for s in text), 'synchronized load epoch missing'
             for slot in ((0, 4) if a.scenario == 'state' else (4,)):
-                files = [a.out / ('peer%d/saves/netplay/fzero/fzero-local-2p%d.sav' % (i, slot)) for i in range(2)]
+                files = [a.out / ('peer%d/saves/netplay/fzero/fzero-local-2p%d.sav' % (i, slot)) for i in range(len(a.machines))]
                 assert all(f.exists() for f in files), 'missing synchronized slot'
                 assert files[0].read_bytes() == files[1].read_bytes(), 'slot bytes differ'
     report['passed'] = True

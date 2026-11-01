@@ -130,16 +130,19 @@ static bool in_view(const FzeroActor *a,const FzeroActor *human,FzeroActorTables
    * host's viewport/settings. Do not visibly spawn/recycle in a wide view. */
   return p.projectable && p.x>=-320 && p.x<=576;
 }
-static bool spawn(Bus *b,unsigned id,const FzeroActor humans[2]) {
+static bool visible(const FzeroActor *body,const FzeroActor humans[],unsigned count,unsigned radius,FzeroActorTables tables) {
+  for(unsigned p=0;p<count;++p)if(near(body,&humans[p],radius) || in_view(body,&humans[p],tables))return true;
+  return false;
+}
+static bool spawn(Bus *b,unsigned id,const FzeroActor humans[],unsigned humans_count) {
   FzeroTraffic *t=b->traffic;uint8_t *p=t->ram;unsigned slot=2+id*2,count=(unsigned)p[0xad]+1;
-  const FzeroActor *anchor=&humans[id&1];
+  const FzeroActor *anchor=&humans[id%humans_count];
   for(unsigned delta=2+id;delta<count && delta<32;++delta) {
     p[0x1130+slot]=(uint8_t)(id%3);p[0xb01+slot]=8;
     unsigned gate=(anchor->checkpoint+delta)%count;
     if(!call(b,0xe309,slot,gate))return false;
     FzeroActor candidate={0};candidate.x=(uint16_t)word(p,0x1080+slot);candidate.y=(uint16_t)word(p,0x108e +slot);
-    if(candidate.x>=8192 || candidate.y>=4096 || near(&candidate,&humans[0],680) || near(&candidate,&humans[1],680) ||
-        in_view(&candidate,&humans[0],b->tables) || in_view(&candidate,&humans[1],b->tables))continue;
+    if(candidate.x>=8192 || candidate.y>=4096 || visible(&candidate,humans,humans_count,680,b->tables))continue;
     bool occupied=false;
     for(unsigned j=0;j<FZERO_TRAFFIC_COUNT;++j)if(t->present&(1u<<j)) {
       FzeroActor other=pose(t,j);if(near(&candidate,&other,360))occupied=true;
@@ -157,12 +160,13 @@ static bool spawn(Bus *b,unsigned id,const FzeroActor humans[2]) {
     p[0xb00+slot]=explosive?0xe1:0xc1;p[0xc41+slot]=explosive?6:4;
     p[0x1140+slot]=0;p[0xd51+slot]=0;p[0xcc0+slot]=p[0xcc1+slot]=0;p[0xd40+slot]=1;
     p[0xb10+slot]=0x80;p[0xd71+slot]=0x94;p[0xd00+slot]=(uint8_t)gate;
-    t->present|=(uint8_t)(1u<<id);t->contacts[0][id]=t->contacts[1][id]=0;
+    t->present|=(uint8_t)(1u<<id);for(unsigned p=0;p<4;++p)t->contacts[p][id]=0;
     return true;
   }
   return !b->invalid;
 }
-bool FzeroTrafficTick(FzeroTraffic *t,uint8_t world[0x20000],const FzeroActor humans[2],uint64_t tick,FzeroActorTables tables) {
+bool FzeroTrafficTickPlayers(FzeroTraffic *t,uint8_t world[0x20000],const FzeroActor humans[],unsigned count,uint64_t tick,FzeroActorTables tables) {
+  if(!humans || count<2 || count>4)return false;
   if(!t->enabled)return true;
   Bus b={.traffic=t,.world=world,.tables=tables};uint8_t *p=t->ram;
   /* A deterministic reference for native speed tables, never a camera. Both
@@ -174,15 +178,14 @@ bool FzeroTrafficTick(FzeroTraffic *t,uint8_t world[0x20000],const FzeroActor hu
     unsigned slot=2+i*2;
     /* Replenish PASSED traffic out of both views, rather than waiting until
      * the humans lap a fixed four-car field. Ahead traffic keeps moving. */
-    FzeroActor body=pose(t,i);const FzeroActor *anchor=&humans[i&1];
-    unsigned count=(unsigned)p[0xad]+1,behind=(anchor->checkpoint+count-body.checkpoint)%count;
-    bool passed=behind && behind<count/2 && !near(&body,&humans[0],900) && !near(&body,&humans[1],900) &&
-        !in_view(&body,&humans[0],tables) && !in_view(&body,&humans[1],tables);
+    FzeroActor body=pose(t,i);const FzeroActor *anchor=&humans[i%count];
+    unsigned checkpoints=(unsigned)p[0xad]+1,behind=(anchor->checkpoint+checkpoints-body.checkpoint)%checkpoints;
+    bool passed=behind && behind<checkpoints/2 && !visible(&body,humans,count,900,tables);
     if((t->present&(1u<<i)) && (!(p[0xb00+slot]&128) || p[0x1140+slot] || passed)) {
       t->present&=(uint8_t)~(1u<<i);p[0xb00+slot]=p[0x1140+slot]=0;
-      t->contacts[0][i]=t->contacts[1][i]=0;
+      for(unsigned p=0;p<4;++p)t->contacts[p][i]=0;
     }
-    if(!(t->present&(1u<<i)) && !spawn(&b,i,humans))return false;
+    if(!(t->present&(1u<<i)) && !spawn(&b,i,humans,count))return false;
     if(!(t->present&(1u<<i)))continue;
     /* The native frame does this before its physics hub. Without this pass
      * CD0/D50 stay zero: every road, jump, wall and magnet looks identical. */
@@ -207,7 +210,7 @@ bool FzeroTrafficTick(FzeroTraffic *t,uint8_t world[0x20000],const FzeroActor hu
   return true;
 }
 void FzeroTrafficContact(FzeroTraffic *t,unsigned player,FzeroActor *human,FzeroActorTables tables) {
-  if(!t || !human || player>=2 || !tables.read)return;
+  if(!t || !human || player>=4 || !tables.read)return;
   for(unsigned i=0;i<FZERO_TRAFFIC_COUNT;++i) {
     if(!t->enabled || !(t->present&(1u<<i)) || !(t->ram[0xb02+i*2]&128)) {t->contacts[player][i]=0;continue;}
     FzeroActor body=pose(t,i);
@@ -233,7 +236,7 @@ bool FzeroTrafficValid(const FzeroTraffic *t,const uint8_t world[0x20000]) {
   if(t->ram[0xb00] || t->ram[0xb0a])return false;
   for(unsigned slot=0;slot<12;slot+=2)if(t->seed[0xb00+slot])return false;
   for(unsigned i=0;i<FZERO_TRAFFIC_COUNT;++i) {
-    if(t->contacts[0][i]>2 || t->contacts[1][i]>2)return false;
+    for(unsigned p=0;p<4;++p)if(t->contacts[p][i]>2)return false;
     if(t->ram[0x1142+i*2]>1 || (t->ram[0x1142+i*2] && !(t->ram[0xb02+i*2]&32)))return false;
     if(t->present&(1u<<i)) {
       FzeroActor a=pose(t,i);
@@ -241,4 +244,8 @@ bool FzeroTrafficValid(const FzeroTraffic *t,const uint8_t world[0x20000]) {
     }
   }
   return true;
+}
+
+bool FzeroTrafficTick(FzeroTraffic *t,uint8_t world[0x20000],const FzeroActor humans[2],uint64_t tick,FzeroActorTables tables) {
+  return FzeroTrafficTickPlayers(t,world,humans,2,tick,tables);
 }

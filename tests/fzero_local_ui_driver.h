@@ -3,7 +3,7 @@
  * public human control path. Results are requested through EndRace only to
  * exercise menu routing; this fixture does not certify natural race finishes. */
 #if SNESRECOMP_SDL3
-static SDL_Joystick *local_ui_pads[2];
+static SDL_Joystick *local_ui_pads[FZERO_MAX_PLAYERS];
 static unsigned local_ui_stage,local_ui_step,local_ui_resizes,local_ui_captured;
 static unsigned local_ui_countdowns;
 static unsigned local_ui_setup_shots,local_ui_page;
@@ -13,14 +13,18 @@ static unsigned local_ui_cup;
 static bool local_ui_racing;
 static bool local_ui_live_captured;
 static unsigned local_ui_drive_captured;
-static uint16_t local_ui_drive_start[2][2];
+static uint16_t local_ui_drive_start[FZERO_MAX_PLAYERS][2];
 static uint64_t local_ui_traffic_tick;
 static unsigned local_ui_traffic_contacts;
 static const unsigned local_ui_resize_ticks[]={10,65,125,220,260};
 static const int local_ui_sizes[][2]={{600,800},{1342,1378},{1280,720},{1600,600},{768,576}};
+static unsigned local_ui_players(void) {
+  const char *n=getenv("FZERO_TEST_LOCAL_PLAYERS");unsigned count=n?(unsigned)atoi(n):2;
+  return count>=2 && count<=4?count:2;
+}
 static void local_ui_attach(void) {
   if(!getenv("FZERO_TEST_LOCAL_UI"))return;
-  for(unsigned p=0;p<2;++p) {
+  for(unsigned p=0;p<local_ui_players();++p) {
     SDL_VirtualJoystickDesc desc;SDL_INIT_INTERFACE(&desc);
     desc.type=SDL_JOYSTICK_TYPE_GAMEPAD;desc.naxes=SDL_GAMEPAD_AXIS_COUNT;desc.nbuttons=15;
     desc.name=p?"F-Zero UI validation P2":"F-Zero UI validation P1";
@@ -36,7 +40,7 @@ static void local_ui_button(unsigned player,SDL_GamepadButton button,bool held) 
 }
 static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
   if(!local_ui_pads[0])return false;
-  for(unsigned p=0;p<2;++p)for(unsigned b=0;b<15;++b)local_ui_button(p,(SDL_GamepadButton)b,false);
+  for(unsigned p=0;p<local_ui_players();++p)for(unsigned b=0;b<15;++b)local_ui_button(p,(SDL_GamepadButton)b,false);
   const FzeroVersusSnapshot *s=FzeroVersusCompleted(FzeroLocalSession());
   bool setup=FzeroLocalControlsSetup(controls);unsigned t=local_ui_step++;
   local_ui_setup=setup;local_ui_page=FzeroLocalControlsPage(controls);
@@ -44,20 +48,32 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
     /* Native menu input was an ordinary script. From here the virtual pads
      * exclusively drive joining, selection, pause and mode transitions. */
     if(!FzeroReplayConfigurePlayers(NULL,getenv("FZERO_VIEWPORT_SCRIPT"),2))Die("UI validation replay setup failed");
-    int sources[2]={2,2};char guids[2][40];
-    for(unsigned i=0;i<2;++i)SDL_GUIDToString(SDL_GetJoystickGUID(local_ui_pads[i]),guids[i],40);
-    FzeroLocalControlsAssign(controls,sources,guids);
-    local_ui_stage=1;local_ui_step=0;t=0;
+    int sources[4]={2,2,2,2};char guids[4][40];
+    for(unsigned i=0;i<local_ui_players();++i)SDL_GUIDToString(SDL_GetJoystickGUID(local_ui_pads[i]),guids[i],40);
+    FzeroLocalControlsAssignPlayers(controls,sources,guids,local_ui_players());
+    local_ui_stage=FzeroVersusPlayers(FzeroLocalControlsConfig(controls))==local_ui_players()?1:12;local_ui_step=0;t=0;
   }
   switch(local_ui_stage) {
+    case 12:
+      if(t==4 || t==5)local_ui_button(0,SDL_GAMEPAD_BUTTON_NORTH,true);
+      if(t==8 || t==9 || (local_ui_players()==4 && (t==12 || t==13)))local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_RIGHT,true);
+      if(t==16 || t==17)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
+      if(t>20) {
+        if(FzeroVersusPlayers(FzeroLocalControlsConfig(controls))!=local_ui_players() || FzeroLocalControlsPage(controls)!=FZERO_LOCAL_MACHINES)Die("UI player-count selection failed");
+        int sources[4]={2,2,2,2};char guids[4][40];
+        for(unsigned i=0;i<local_ui_players();++i)SDL_GUIDToString(SDL_GetJoystickGUID(local_ui_pads[i]),guids[i],40);
+        FzeroLocalControlsAssignPlayers(controls,sources,guids,local_ui_players());
+        local_ui_stage=1;local_ui_step=0;
+      }
+      break;
     case 1:
       if(getenv("FZERO_TEST_MENU_MUSIC")) {
         if(t==360) {fprintf(stderr,"menu-music: held native VS picker for360 UI ticks; samples=%ld\n",g_test_audio_output?ftell(g_test_audio_output)/4:0);return true;}
         if(t>3)break;
       }
-      if(t<3)for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_START,true);
+      if(t<3)for(unsigned p=0;p<local_ui_players();++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_START,true);
       if(getenv("FZERO_TEST_LOCAL_UI_ALT_MACHINES") && (t==4 || t==5))
-        for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
+        for(unsigned p=0;p<local_ui_players();++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
       if(getenv("FZERO_TEST_LOCAL_UI_FULL_MACHINES") && (t==4 || t==5)) {
         local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_LEFT,true);local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_UP,true);
       }
@@ -76,7 +92,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
       if(local_ui_stage==2 && ((t==select && !(local_ui_catalog_shots&1)) ||
           (t==select+12 && !(local_ui_catalog_shots&2)))) {local_ui_step=t;break;}
       if(local_ui_stage==2 && t>=6 && t<6+cup*4 && ((t-6)%4)<2)local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
-      if(t<3)for(unsigned p=0;p<2;++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_START,true);
+      if(t<3)for(unsigned p=0;p<local_ui_players();++p)local_ui_button(p,SDL_GAMEPAD_BUTTON_START,true);
       if(t==select || t==select+1)local_ui_button(1,SDL_GAMEPAD_BUTTON_START,true);
       if(local_ui_stage==8 && (t==select+6 || t==select+7))local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_DOWN,true);
       if(t==select+12 || t==select+13)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
@@ -88,7 +104,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
     }
     case 3: case 5: case 9:
       if(local_ui_stage==3 && s && getenv("FZERO_TEST_LOCAL_UI_DRIVE")) {
-        for(unsigned p=0;p<2;++p) {
+        for(unsigned p=0;p<local_ui_players();++p) {
           if(s->phase==FZERO_VS_RACING)local_ui_button(p,SDL_GAMEPAD_BUTTON_SOUTH,true);
           else {local_ui_drive_start[p][0]=s->racers[p].actor.x;local_ui_drive_start[p][1]=s->racers[p].actor.y;}
         }
@@ -98,7 +114,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
            * Place each human on a different moving NPC with fresh health and
            * contact cooldown. Do not set race progress, status or results. */
           FzeroVersusSnapshot *race=(FzeroVersusSnapshot *)(void *)s;
-          for(unsigned p=0;p<2;++p) {
+          for(unsigned p=0;p<local_ui_players();++p) {
             if(!s->traffic[p].active || s->racers[p].status!=FZERO_VS_ACTIVE)Die("Traffic encounter unavailable");
             const FzeroActor *npc=&s->traffic[p].actor;FzeroActor *a=&race->racers[p].actor;
             a->x=npc->x;a->y=npc->y;a->x_fraction=a->y_fraction=0;
@@ -111,7 +127,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
           local_ui_traffic_tick=s->race_tick;
           fputs("traffic-encounter: position/motion/health fixture; native contacts and rendering remain active\n",stderr);
         } else if(local_ui_traffic_tick && tick>local_ui_traffic_tick && local_ui_traffic_contacts!=3) {
-          for(unsigned p=0;p<2;++p)if(s->racers[p].actor.health<0x800 && s->racers[p].actor.damage_cooldown)
+          for(unsigned p=0;p<local_ui_players();++p)if(s->racers[p].actor.health<0x800 && s->racers[p].actor.damage_cooldown)
             local_ui_traffic_contacts|=1u<<p;
           if(local_ui_traffic_contacts==3)fputs("traffic-encounter: both human impacts PASS\n",stderr);
           else if(tick>local_ui_traffic_tick+5)Die("Traffic encounter did not hit both humans");
@@ -119,7 +135,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
         /* Presenter readback can consume several simulation ticks in HD.
          * Hold each input until its image is observed before releasing it. */
         if((tick>=30 && !(local_ui_drive_captured&2)) ||
-           (tick>=100 && (local_ui_drive_captured&4) && !(local_ui_drive_captured&8)))for(unsigned p=0;p<2;++p)
+           (tick>=100 && (local_ui_drive_captured&4) && !(local_ui_drive_captured&8)))for(unsigned p=0;p<local_ui_players();++p)
           local_ui_button(p,((!(local_ui_drive_captured&2))^p)?SDL_GAMEPAD_BUTTON_LEFT_SHOULDER:SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER,true);
         if(tick>=155 && (local_ui_drive_captured&8) && !(local_ui_drive_captured&16)) {
           local_ui_button(0,SDL_GAMEPAD_BUTTON_DPAD_LEFT,true);local_ui_button(1,SDL_GAMEPAD_BUTTON_DPAD_RIGHT,true);
@@ -180,10 +196,10 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
         if(getenv("FZERO_TEST_LOCAL_UI_LIVE") && !local_ui_live_captured)Die("Live menu was never presented");
         if(getenv("FZERO_TEST_LOCAL_UI_RESIZE") &&
            (local_ui_captured!=31 || local_ui_countdowns!=14 || !local_ui_racing))Die("UI resize/countdown presentation coverage incomplete");
-        if(local_ui_setup_shots!=7)Die("UI setup-page presentation coverage incomplete");
+        if(local_ui_setup_shots!=(local_ui_players()>2?15u:7u))Die("UI setup-page presentation coverage incomplete");
         if(local_ui_arrival_shots!=7 || local_ui_catalog_shots!=3)Die("UI arrival/catalog presentation coverage incomplete");
         if(getenv("FZERO_TEST_LOCAL_UI_DRIVE") && local_ui_drive_captured!=63)Die("UI drive animation coverage incomplete");
-        fprintf(stderr,"local-ui: PASS native VS entry, two SDL devices, preload/Ready, live/results Restart/Change/Main Menu and single-player return\n");return true;}
+        fprintf(stderr,"local-ui: PASS native VS entry, independent SDL devices, preload/Ready, live/results Restart/Change/Main Menu and single-player return\n");return true;}
       break;
     default:break;
   }

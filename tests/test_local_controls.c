@@ -45,7 +45,7 @@ int main(void) {
   FILE *f=fopen("local-controls-test.ini","w");CHECK(f);
   fputs("[Local2P.P2]\nControls=DpadUp,DpadDown,DpadLeft,DpadRight,Back,Start,B,X,Y,A,Lb,Rb\n",f);fclose(f);
   FzeroGamepadConfigure("local-controls-test.ini","",25);
-  FzeroLocalControls *probe=FzeroLocalControlsCreate((FzeroVersusConfig){0,{0,1}},false);CHECK(probe);
+  FzeroLocalControls *probe=FzeroLocalControlsCreate((FzeroVersusConfig){0,{0,1},2},false);CHECK(probe);
   CHECK(FzeroLocalControlsKeyboardPlayer(probe)==0);poll(probe,0);
   CHECK(SDL_SetJoystickVirtualButton(pads[0],SDL_GAMEPAD_BUTTON_START,true));poll(probe,0);
   CHECK(FzeroLocalControlsKeyboardPlayer(probe)==1);
@@ -53,7 +53,7 @@ int main(void) {
   poll(probe,8);poll(probe,0);CHECK(FzeroLocalControlsKeyboardPlayer(probe)==1);
   poll(probe,256);CHECK(FzeroLocalControlsInput(probe)==1048576); /* keyboard's actual P2 seat */
   FzeroLocalControlsDestroy(probe);
-  probe=FzeroLocalControlsCreate((FzeroVersusConfig){0,{0,1}},false);CHECK(probe);
+  probe=FzeroLocalControlsCreate((FzeroVersusConfig){0,{0,1},2},false);CHECK(probe);
   int sources[2]={1,2};char guids[2][40]={{0},{0}};
   SDL_GUIDToString(SDL_GetJoystickGUID(pads[1]),guids[1],40);
   FzeroLocalControlsAssign(probe,sources,guids);poll(probe,0);
@@ -63,7 +63,7 @@ int main(void) {
   CHECK(SDL_SetJoystickVirtualButton(pads[1],SDL_GAMEPAD_BUTTON_DPAD_DOWN,false));poll(probe,0);
   poll(probe,0x20);CHECK(FzeroLocalControlsConfig(probe).machine[0]==2 && FzeroLocalControlsConfig(probe).machine[1]==3);
   poll(probe,0);FzeroLocalControlsDestroy(probe);
-  FzeroLocalControls *c=FzeroLocalControlsCreate((FzeroVersusConfig){0,{0,1}},false);CHECK(c);
+  FzeroLocalControls *c=FzeroLocalControlsCreate((FzeroVersusConfig){0,{0,1},2},false);CHECK(c);
   poll(c,0);
   for(unsigned i=0;i<2;++i)CHECK(SDL_SetJoystickVirtualButton(pads[i],SDL_GAMEPAD_BUTTON_START,true));
   CHECK(!poll(c,0));
@@ -198,6 +198,31 @@ int main(void) {
   FzeroVersusDestroy(race);race=NULL;
   FzeroLocalControlsDestroy(c);
   SDL_CloseJoystick(pads[0]);SDL_CloseJoystick(pads[1]);
+  /* The count selector uses the same input edge/release reducer as people. */
+  c=FzeroLocalControlsCreate((FzeroVersusConfig){0,{0,1,2,3},2},false);CHECK(c);
+  poll(c,0);poll(c,8);poll(c,0);poll(c,0x200);poll(c,0);
+  CHECK(FzeroLocalControlsPage(c)==FZERO_LOCAL_COUNT);
+  poll(c,0x80);poll(c,0);CHECK(FzeroLocalControlsConfig(c).player_count==3);
+  poll(c,0x80);poll(c,0);CHECK(FzeroLocalControlsConfig(c).player_count==4);
+  poll(c,8);poll(c,0);CHECK(FzeroLocalControlsPage(c)==FZERO_LOCAL_MACHINES);
+  FzeroLocalControlsDestroy(c);
+  SDL_JoystickID four_ids[4];SDL_Joystick *four_pads[4];
+  for(unsigned p=0;p<4;++p) {four_ids[p]=attach("four-player isolation");four_pads[p]=SDL_OpenJoystick(four_ids[p]);CHECK(four_pads[p]);}
+  c=FzeroLocalControlsCreate((FzeroVersusConfig){0,{0,1,2,3},4},false);CHECK(c);poll(c,0);
+  for(unsigned p=0;p<4;++p) {
+    CHECK(SDL_SetJoystickVirtualButton(four_pads[p],SDL_GAMEPAD_BUTTON_START,true));poll(c,0);
+    CHECK(SDL_SetJoystickVirtualButton(four_pads[p],SDL_GAMEPAD_BUTTON_START,false));poll(c,0);
+  }
+  for(unsigned p=0;p<4;++p) {
+    uint16_t input[4];
+    CHECK(SDL_SetJoystickVirtualButton(four_pads[p],SDL_GAMEPAD_BUTTON_DPAD_UP,true));poll(c,0);
+    FzeroLocalControlsInputs(c,input);
+    for(unsigned other=0;other<4;++other)CHECK((input[other]!=0)==(other==p));
+    CHECK(SDL_SetJoystickVirtualButton(four_pads[p],SDL_GAMEPAD_BUTTON_DPAD_UP,false));poll(c,0);
+  }
+  CHECK(SDL_DetachVirtualJoystick(four_ids[3]));poll(c,0);uint16_t disconnected[4];FzeroLocalControlsInputs(c,disconnected);CHECK(!disconnected[3]);
+  FzeroLocalControlsDestroy(c);
+  for(unsigned p=0;p<4;++p) {SDL_CloseJoystick(four_pads[p]);if(p<3)CHECK(SDL_DetachVirtualJoystick(four_ids[p]));}
   SDL_Quit();remove("local-controls-test.ini");
   puts("local controls: distinct devices/bindings, ready, duplicate machines, launcher assignments, uninterrupted focus/device loss, end/rematch/change/load/reset/disconnect passed");return 0;
 }

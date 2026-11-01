@@ -9,27 +9,30 @@ typedef struct LocalPad {SDL_GameController *handle;SDL_JoystickID id;bool start
 struct FzeroLocalControls {
   LocalPad pads[MAX_PADS];
   FzeroVersusConfig config;
-  int seat[2];
-  int source[2];
-  char guid[2][40];
+  int seat[FZERO_MAX_PLAYERS];
+  int source[FZERO_MAX_PLAYERS];
+  char guid[FZERO_MAX_PLAYERS][40];
   bool assigned;
-  uint32_t previous[2],input[2],keyboard;
-  bool setup,ready[2],release[2],scan,scripted,back;
+  uint32_t previous[FZERO_MAX_PLAYERS],input[FZERO_MAX_PLAYERS],keyboard;
+  bool setup,ready[FZERO_MAX_PLAYERS],release[FZERO_MAX_PLAYERS],scan,scripted,back;
   unsigned menu_tag;
   FzeroLocalPage page;
-  unsigned cup,menu_ticks,selection_tick[2];
-  int slide[2];
+  unsigned cup,menu_ticks,selection_tick[FZERO_MAX_PLAYERS];
+  int slide[FZERO_MAX_PLAYERS];
 };
 FzeroLocalControls *FzeroLocalControlsCreate(FzeroVersusConfig config,bool scripted) {
+  if(FzeroVersusPlayers(config)<2 || FzeroVersusPlayers(config)>FZERO_MAX_PLAYERS)return NULL;
   FzeroLocalControls *c=calloc(1,sizeof(*c));if(!c)return NULL;
-  c->config=config;FzeroLocalCourseLocation(config.course,&c->cup,NULL);c->seat[0]=c->seat[1]=NO_DEVICE;c->setup=!scripted;c->scripted=scripted;c->scan=true;return c;
+  config.player_count=(uint8_t)FzeroVersusPlayers(config);c->config=config;FzeroLocalCourseLocation(config.course,&c->cup,NULL);for(unsigned p=0;p<FZERO_MAX_PLAYERS;++p)c->seat[p]=NO_DEVICE;c->setup=!scripted;c->scripted=scripted;c->scan=true;return c;
 }
-void FzeroLocalControlsAssign(FzeroLocalControls *c,const int sources[2],const char guids[2][40]) {
-  if(!c || c->scripted)return;
+void FzeroLocalControlsAssignPlayers(FzeroLocalControls *c,const int sources[],const char guids[][40],unsigned count) {
+  if(!c || c->scripted || count>FZERO_MAX_PLAYERS)return;
   c->assigned=true;c->scan=true;
-  for(unsigned p=0;p<2;++p) {
+  for(unsigned p=0;p<FZERO_MAX_PLAYERS;++p) {
+    if(p>=count) {c->source[p]=0;continue;}
     c->source[p]=sources[p];snprintf(c->guid[p],sizeof(c->guid[p]),"%s",guids[p]);
-    c->seat[p]=sources[p]==1 && (!p || sources[0]!=1)?KEYBOARD:NO_DEVICE;
+    bool keyboard_used=false;for(unsigned i=0;i<p;++i)if(c->seat[i]==KEYBOARD)keyboard_used=true;
+    c->seat[p]=p<c->config.player_count && sources[p]==1 && !keyboard_used?KEYBOARD:NO_DEVICE;
     c->previous[p]=c->input[p]=0;c->release[p]=true;
   }
 }
@@ -52,7 +55,7 @@ void FzeroLocalControlsEvent(FzeroLocalControls *c,const SDL_Event *event) {
 static void scan_pads(FzeroLocalControls *c) {
   for(unsigned i=0;i<MAX_PADS;++i)if(c->pads[i].handle && !SDL_GameControllerGetAttached(c->pads[i].handle)) {
     SDL_GameControllerClose(c->pads[i].handle);c->pads[i].handle=NULL;c->pads[i].start=false;
-    for(unsigned p=0;p<2;++p)if(c->seat[p]==(int)i) {
+    for(unsigned p=0;p<c->config.player_count;++p)if(c->seat[p]==(int)i) {
       c->seat[p]=NO_DEVICE;c->ready[p]=false;c->input[p]=0;c->release[p]=true;
       if(c->setup)c->page=FZERO_LOCAL_MACHINES;
       if(FzeroLocalSession())FzeroLocalControlChanged();
@@ -87,8 +90,14 @@ static void scan_pads(FzeroLocalControls *c) {
   SDL_free(ids);
 #endif
   c->scan=false;
-  if(c->assigned)for(unsigned p=0;p<2;++p)if(c->source[p]==2 && c->seat[p]==NO_DEVICE) {
-    for(unsigned i=0;i<MAX_PADS;++i)if(c->pads[i].handle && c->seat[1-p]!=(int)i) {
+  if(c->assigned)for(unsigned p=0;p<c->config.player_count;++p)if(c->source[p]==1 && c->seat[p]==NO_DEVICE) {
+    bool used=false;for(unsigned other=0;other<c->config.player_count;++other)if(c->seat[other]==KEYBOARD)used=true;
+    if(!used) {c->seat[p]=KEYBOARD;c->release[p]=true;}
+  }
+  if(c->assigned)for(unsigned p=0;p<c->config.player_count;++p)if(c->source[p]==2 && c->seat[p]==NO_DEVICE) {
+    for(unsigned i=0;i<MAX_PADS;++i)if(c->pads[i].handle && true) {
+      bool used=false;for(unsigned other=0;other<c->config.player_count;++other)if(c->seat[other]==(int)i)used=true;
+      if(used)continue;
       char guid[40];
 #if SNESRECOMP_SDL3
       SDL_GUIDToString(SDL_GetJoystickGUID(SDL_GetGamepadJoystick(c->pads[i].handle)),guid,sizeof(guid));
@@ -101,9 +110,8 @@ static void scan_pads(FzeroLocalControls *c) {
   }
 }
 static void join(FzeroLocalControls *c,int device) {
-  if(c->assigned)return;
-  for(unsigned p=0;p<2;++p)if(c->seat[p]==device)return;
-  for(unsigned p=0;p<2;++p)if(c->seat[p]==NO_DEVICE) {
+  for(unsigned p=0;p<c->config.player_count;++p)if(c->seat[p]==device)return;
+  for(unsigned p=0;p<c->config.player_count;++p)if(c->seat[p]==NO_DEVICE) {
     c->seat[p]=device;c->ready[p]=false;c->release[p]=true;break;
   }
 }
@@ -112,8 +120,8 @@ static unsigned menu_tag(void) {
   return s && s->phase==FZERO_VS_RESULTS?2:FzeroLocalMenuOwner()?1:0;
 }
 static void release_inputs(FzeroLocalControls *c) {
-  c->release[0]=c->release[1]=true;
-  c->previous[0]=c->previous[1]=c->input[0]=c->input[1]=0;
+  for(unsigned p=0;p<FZERO_MAX_PLAYERS;++p)c->release[p]=true;
+  memset(c->previous,0,sizeof(c->previous));memset(c->input,0,sizeof(c->input));
 }
 static unsigned activate(FzeroLocalControls *c,unsigned choice) {
   FzeroVersus *race=FzeroLocalSession();
@@ -122,16 +130,16 @@ static unsigned activate(FzeroLocalControls *c,unsigned choice) {
   FzeroLocalSetMenuOwner(0);
   if(live) {
     if(choice==0) {
-      if(owner && owner<=2) {c->release[owner-1]=true;c->input[owner-1]=0;}
+      if(owner && owner<=c->config.player_count) {c->release[owner-1]=true;c->input[owner-1]=0;}
       return 0;
     }
     --choice;
   }
   if(choice==0) {
     if(live)FzeroVersusRestart(race);else FzeroVersusRematch(race);
-    FzeroVersusReady(race,0,true);FzeroVersusReady(race,1,true);
+    for(unsigned p=0;p<c->config.player_count;++p)FzeroVersusReady(race,p,true);
   } else if(choice==1) {
-    c->setup=true;c->page=FZERO_LOCAL_MACHINES;FzeroLocalCourseLocation(c->config.course,&c->cup,NULL);c->ready[0]=c->ready[1]=false;
+    c->setup=true;c->page=FZERO_LOCAL_MACHINES;FzeroLocalCourseLocation(c->config.course,&c->cup,NULL);memset(c->ready,0,sizeof(c->ready));
     release_inputs(c);return FZERO_LOCAL_CHANGE;
   } else {release_inputs(c);return FZERO_LOCAL_MAIN;}
   FzeroLocalSetMenuSelection(0);FzeroLocalControlChanged();release_inputs(c);return 0;
@@ -139,7 +147,10 @@ static unsigned activate(FzeroLocalControls *c,unsigned choice) {
 void FzeroLocalControlsBack(FzeroLocalControls *c) {if(c)c->back=true;}
 static unsigned setup_back(FzeroLocalControls *c) {
   if(c->page==FZERO_LOCAL_COURSE)c->page=FZERO_LOCAL_CUP;
-  else if(c->page==FZERO_LOCAL_CUP) {c->page=FZERO_LOCAL_MACHINES;c->ready[0]=c->ready[1]=false;}
+  else if(c->page==FZERO_LOCAL_COUNT) {c->page=FZERO_LOCAL_MACHINES;
+    c->config.player_count=2;
+  }
+  else if(c->page==FZERO_LOCAL_CUP) {c->page=FZERO_LOCAL_MACHINES;memset(c->ready,0,sizeof(c->ready));}
   else {release_inputs(c);return FZERO_LOCAL_MAIN;}
   release_inputs(c);return 0;
 }
@@ -164,13 +175,16 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
     if(FzeroLocalSession())FzeroLocalSetMenuOwner(tag?0:FzeroLocalControlsKeyboardPlayer(c)+1);
     return 0;
   }
-  for(unsigned p=0;p<2;++p) {
+  for(unsigned p=0;p<c->config.player_count;++p) {
     int device=c->seat[p];
     uint32_t held=device==KEYBOARD?keyboard:device>=0?FzeroGamepadReadPlayer(c->pads[device].handle,p):0;
     if(c->release[p]) {if(!held)c->release[p]=false;held=0;}
     uint32_t pressed=held&~c->previous[p];c->previous[p]=held;c->input[p]=held;
     if(c->setup) {
       if(c->page==FZERO_LOCAL_MACHINES) {
+        if(p==0 && !c->ready[0] && (pressed&0x200)) {
+          c->page=FZERO_LOCAL_COUNT;release_inputs(c);return 0;
+        }
         if(pressed&1) {
           if(c->ready[p])c->ready[p]=false;
           else return setup_back(c);
@@ -181,6 +195,16 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
           c->selection_tick[p]=c->menu_ticks;
         }
         if(!sliding && (pressed&0x108))c->ready[p]=true;
+      } else if(c->page==FZERO_LOCAL_COUNT) {
+        if(p)continue;
+        if(pressed&1) {c->page=FZERO_LOCAL_MACHINES;release_inputs(c);return 0;}
+        if(pressed&0xf0) {
+          unsigned n=c->config.player_count;
+          n=(pressed&0x50)?(n==2?4:n-1):(n==4?2:n+1);
+          c->config.player_count=(uint8_t)n;c->scan=true;memset(c->ready,0,sizeof(c->ready));
+          for(unsigned i=n;i<FZERO_MAX_PLAYERS;++i) {c->seat[i]=NO_DEVICE;c->input[i]=0;}
+        }
+        if(pressed&0x108) {c->page=FZERO_LOCAL_MACHINES;release_inputs(c);return 0;}
       } else {
         if(pressed&1)return setup_back(c);
         if(pressed&0x30) {
@@ -220,7 +244,8 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
 
     }
   }
-  if(c->setup && c->ready[0] && c->ready[1]) {
+  bool all_ready=true;for(unsigned p=0;p<c->config.player_count;++p)if(!c->ready[p] || c->seat[p]==NO_DEVICE)all_ready=false;
+  if(c->setup && all_ready) {
     if(c->page==FZERO_LOCAL_MACHINES) {c->page=FZERO_LOCAL_CUP;release_inputs(c);}
   }
   return 0;
@@ -231,22 +256,22 @@ bool FzeroLocalControlsSetup(const FzeroLocalControls *c) {return c && c->setup;
 FzeroLocalPage FzeroLocalControlsPage(const FzeroLocalControls *c) {return c?c->page:FZERO_LOCAL_MACHINES;}
 unsigned FzeroLocalControlsKeyboardPlayer(const FzeroLocalControls *c) {
   if(c) {
-    for(unsigned p=0;p<2;++p)if(c->seat[p]==KEYBOARD)return p;
-    for(unsigned p=0;p<2;++p)if(c->seat[p]==NO_DEVICE)return p;
+    for(unsigned p=0;p<c->config.player_count;++p)if(c->seat[p]==KEYBOARD)return p;
+    for(unsigned p=0;p<c->config.player_count;++p)if(c->seat[p]==NO_DEVICE)return p;
   }
   return 0;
 }
 void FzeroLocalControlsLoaded(FzeroLocalControls *c) {
   if(!c)return;
   c->config=FzeroLocalConfig();c->setup=false;c->menu_tag=menu_tag();
-  c->previous[0]=c->previous[1]=c->input[0]=c->input[1]=0;
-  c->release[0]=c->release[1]=true;
+  memset(c->previous,0,sizeof(c->previous));memset(c->input,0,sizeof(c->input));
+  for(unsigned p=0;p<FZERO_MAX_PLAYERS;++p)c->release[p]=true;
 }
 void FzeroLocalControlsReopen(FzeroLocalControls *c) {
   if(!c)return;
-  c->setup=true;c->page=FZERO_LOCAL_MACHINES;FzeroLocalCourseLocation(c->config.course,&c->cup,NULL);c->ready[0]=c->ready[1]=false;
-  c->previous[0]=c->previous[1]=c->input[0]=c->input[1]=0;
-  c->release[0]=c->release[1]=true;
+  c->setup=true;c->page=FZERO_LOCAL_MACHINES;FzeroLocalCourseLocation(c->config.course,&c->cup,NULL);memset(c->ready,0,sizeof(c->ready));
+  memset(c->previous,0,sizeof(c->previous));memset(c->input,0,sizeof(c->input));
+  for(unsigned p=0;p<FZERO_MAX_PLAYERS;++p)c->release[p]=true;
 }
 /* The native car page is a 256x224 composition. Give each human a complete
  * copy, using its original car order, portraits, frame and menu alphabet. */
@@ -255,13 +280,24 @@ void FzeroLocalControlsDraw(const FzeroLocalControls *c,uint32_t *pixels,int wid
   const FzeroNativeUi *ui=FzeroLocalUi();if(!ui)return;
   FzeroUiCanvas canvas={pixels,width,height,1};int center=width/2,left=center-128;
   FzeroUiRect(canvas,0,0,width,height,0xff000000);
+  if(c->page==FZERO_LOCAL_COUNT) {
+    char label[32];snprintf(label,sizeof(label),"%u PLAYERS",c->config.player_count);
+    FzeroUiCenter(ui,canvas,152,"SELECT PLAYERS",FZERO_UI_MENU,FZERO_UI_YELLOW);
+    FzeroUiCenter(ui,canvas,192,label,FZERO_UI_MENU,FZERO_UI_CYAN);return;
+  }
   if(c->page==FZERO_LOCAL_MACHINES) {
-    for(unsigned p=0;p<2;++p) {
-      FzeroUiCanvas pane={pixels+(size_t)p*224*width,width,224,1};
+    unsigned cols=c->config.player_count>2?2:1;int pw=width/(int)cols;
+    uint32_t *scratch=calloc((size_t)pw*224,4);if(!scratch)return;
+    for(unsigned p=0;p<c->config.player_count;++p) {
+      memset(scratch,0,(size_t)pw*224*4);
+      FzeroUiCanvas pane={scratch,pw,224,1};
       FzeroUiMachineSelectScroll(ui,pane,c->config.machine[p],c->menu_ticks-c->selection_tick[p],p,
           c->seat[p]!=NO_DEVICE,c->ready[p],c->slide[p]);
+      if(!p)FzeroUiText(ui,pane,8,208,"Y: SELECT PLAYERS",FZERO_UI_SMALL,FZERO_UI_YELLOW);
+      unsigned x=p%cols*pw,y=p/cols*224;
+      for(unsigned row=0;row<224;++row)memcpy(pixels+(y+row)*width+x,scratch+row*pw,(size_t)pw*4);
     }
-    return;
+    free(scratch);return;
   }
   /* One shared native-style league/course page, after both cars are chosen. */
   int top=112;
@@ -290,4 +326,12 @@ void FzeroLocalControlsDraw(const FzeroLocalControls *c,uint32_t *pixels,int wid
     char label[25];snprintf(label,sizeof(label),"%.24s",name+offset);
     FzeroUiText(ui,canvas,left+40,y,label,FZERO_UI_MENU,chosen?FZERO_UI_CYAN:FZERO_UI_GREY);
   }
+}
+
+void FzeroLocalControlsInputs(const FzeroLocalControls *c,uint16_t inputs[FZERO_MAX_PLAYERS]) {
+  for(unsigned i=0;i<FZERO_MAX_PLAYERS;++i)inputs[i]=c && i<c->config.player_count?(uint16_t)c->input[i]:0;
+}
+
+void FzeroLocalControlsAssign(FzeroLocalControls *c,const int sources[2],const char guids[2][40]) {
+  FzeroLocalControlsAssignPlayers(c,sources,guids,2);
 }

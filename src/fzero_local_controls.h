@@ -3,7 +3,7 @@
 #include "desktop/sdl_compat.h"
 typedef struct FzeroLocalControls FzeroLocalControls;
 enum {FZERO_LOCAL_START=1,FZERO_LOCAL_CHANGE=2,FZERO_LOCAL_MAIN=4};
-typedef enum FzeroLocalPage {FZERO_LOCAL_MACHINES,FZERO_LOCAL_CUP,FZERO_LOCAL_COURSE} FzeroLocalPage;
+typedef enum FzeroLocalPage {FZERO_LOCAL_MACHINES,FZERO_LOCAL_CUP,FZERO_LOCAL_COURSE,FZERO_LOCAL_COUNT} FzeroLocalPage;
 FzeroLocalPage FzeroLocalControlsPage(const FzeroLocalControls *controls);
 FzeroLocalControls *FzeroLocalControlsCreate(FzeroVersusConfig config,bool scripted);
 void FzeroLocalControlsAssign(FzeroLocalControls *controls,const int sources[2],
@@ -21,3 +21,7 @@ void FzeroLocalControlsLoaded(FzeroLocalControls *controls);
 void FzeroLocalControlsReopen(FzeroLocalControls *controls);
 void FzeroLocalControlsBack(FzeroLocalControls *controls);
 void FzeroLocalControlsDraw(const FzeroLocalControls *controls,uint32_t *pixels,int width,int height);
+
+void FzeroLocalControlsInputs(const FzeroLocalControls *controls,uint16_t inputs[FZERO_MAX_PLAYERS]);
+
+void FzeroLocalControlsAssignPlayers(FzeroLocalControls *controls,const int sources[],const char guids[][40],unsigned count);

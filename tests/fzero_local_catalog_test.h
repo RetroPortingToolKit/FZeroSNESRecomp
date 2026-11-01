@@ -96,6 +96,6 @@ static int catalog_step(void) {
   }
   FzeroLocalShutdown();RtlReset(1);FzeroGameInfo()->session_reset();
   unsigned machines=getenv("FZERO_TEST_LOCAL_CATALOG_ALL_MACHINES")?12:4;
-  if(!FzeroLocalConfigure((FzeroVersusConfig){(uint16_t)catalog_course,{(uint8_t)(catalog_course%machines),(uint8_t)((catalog_course+1)%machines)}}))return -1;
+  if(!FzeroLocalConfigure((FzeroVersusConfig){(uint16_t)catalog_course,{(uint8_t)(catalog_course%machines),(uint8_t)((catalog_course+1)%machines)},2}))return -1;
   catalog_checked=catalog_finish_shots=0;return 0;
 }

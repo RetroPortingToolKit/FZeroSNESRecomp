@@ -8,7 +8,7 @@ typedef struct FzeroTraffic {
   /* Native byte-addressed state is already canonical little endian. CPU
    * registers and multiply/divide scratch are private to each bounded call. */
   uint8_t ram[0x2000], seed[0x2000];
-  uint8_t enabled, present, contacts[2][FZERO_TRAFFIC_COUNT];
+  uint8_t enabled, present, contacts[4][FZERO_TRAFFIC_COUNT];
 } FzeroTraffic;
 bool FzeroTrafficInit(FzeroTraffic *traffic,uint8_t world[0x20000],
     const uint8_t native[0x20000],FzeroActorTables tables);
@@ -19,3 +19,6 @@ void FzeroTrafficDescribe(const FzeroTraffic *traffic,FzeroTrafficPose out[FZERO
 void FzeroTrafficContact(FzeroTraffic *traffic,unsigned player,FzeroActor *human,
     FzeroActorTables tables);
 bool FzeroTrafficValid(const FzeroTraffic *traffic,const uint8_t world[0x20000]);
+
+bool FzeroTrafficTickPlayers(FzeroTraffic *traffic,uint8_t world[0x20000],
+    const FzeroActor humans[],unsigned count,uint64_t tick,FzeroActorTables tables);

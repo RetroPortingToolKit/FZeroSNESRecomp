@@ -92,7 +92,7 @@ static FzeroVersus *session(FzeroActorTables tables) {
     spawns[i].facing=(uint16_t)word(0xbd0+x);spawns[i].checkpoint=native[0xd00+x];
   }
   if(spawns[0].x==spawns[1].x && spawns[0].y==spawns[1].y)spawns[1].x=(spawns[0].x+16)&8191;
-  FzeroVersus *s=FzeroVersusCreate((FzeroVersusConfig){0,{0,1}},world,spawns,tables);CHECK(s);
+  FzeroVersus *s=FzeroVersusCreate((FzeroVersusConfig){0,{0,1},2},world,spawns,tables);CHECK(s);
   CHECK(FzeroVersusEnableTraffic(s,native));FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);return s;
 }
 int main(int argc,char **argv) {

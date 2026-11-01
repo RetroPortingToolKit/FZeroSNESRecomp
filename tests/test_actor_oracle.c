@@ -565,7 +565,7 @@ static void test_session(void) {
   spawns[0].facing=spawns[1].facing=0x9000;
   FzeroActorTables t={rom_read,NULL,original_profiles};uint64_t hash=0;
   for (unsigned machine=0;machine<4;++machine) {
-    FzeroVersusConfig c={(uint16_t)(machine==3?1000:0),{(uint8_t)machine,(uint8_t)((machine+1)%4)}};
+    FzeroVersusConfig c={(uint16_t)(machine==3?1000:0),{(uint8_t)machine,(uint8_t)((machine+1)%4)},2};
     FzeroVersus *s=FzeroVersusCreate(c,ram,spawns,t),*copy=FzeroVersusCreate(c,ram,spawns,t);CHECK(s && copy);
     const FzeroVersusSnapshot *v=FzeroVersusCompleted(s);uint16_t held[2]={0x8000,0};
     CHECK(!FzeroVersusTick(s,held));session_roundtrip(s,copy);
@@ -596,6 +596,46 @@ static void test_session(void) {
   }
   printf("session: ready/countdown, independent controls, pause, deterministic continuation, atomic restore, end/rematch passed; hash=%016llx\n",(unsigned long long)hash);
 }
+static void test_multiplayer_session(void) {
+  for(unsigned n=3;n<=4;++n) {
+    flat_course();FzeroActor spawn[4]={{0}};uint16_t held[4]={0x8000,0x4000,0x8100,0x8200};
+    for(unsigned i=0;i<n;++i) {spawn[i].x=(uint16_t)(2160+i*8);spawn[i].y=2144;spawn[i].facing=0x9000;}
+    FzeroVersusConfig c={0,{0,1,2,3},(uint8_t)n};FzeroActorTables t={rom_read,NULL,original_profiles};
+    FzeroVersus *a=FzeroVersusCreate(c,ram,spawn,t),*b=FzeroVersusCreate(c,ram,spawn,t);CHECK(a && b);
+    for(unsigned i=0;i<n-1;++i)FzeroVersusReady(a,i,true);
+    CHECK(FzeroVersusCompleted(a)->phase==FZERO_VS_READY);
+    FzeroVersusReady(a,n-1,true);
+    for(unsigned tick=0;tick<FZERO_VERSUS_COUNTDOWN;++tick)CHECK(FzeroVersusTick(a,held));
+    session_roundtrip(a,b);
+    for(unsigned tick=0;tick<240;++tick) {
+      CHECK(FzeroVersusTick(a,held)==FzeroVersusTick(b,held));
+      CHECK(FzeroVersusHash(a)==FzeroVersusHash(b));
+    }
+    unsigned pair=0;
+    for(unsigned first=0;first<n;++first)for(unsigned second=first+1;second<n;++second,++pair) {
+      CHECK(FzeroVersusRestart(a));for(unsigned p=0;p<n;++p)FzeroVersusReady(a,p,true);
+      for(unsigned tick=0;tick<FZERO_VERSUS_COUNTDOWN;++tick)CHECK(FzeroVersusTick(a,(uint16_t[4]){0}));
+      FzeroVersusSnapshot *fixture=(FzeroVersusSnapshot *)(void *)FzeroVersusCompleted(a);
+      for(unsigned p=0;p<n;++p) {
+        FzeroActor *actor=&fixture->racers[p].actor;
+        actor->x=(uint16_t)(p==first?1000:p==second?1008:3000+p*512);actor->y=1000;
+        actor->facing=actor->momentum=0x3000;
+      }
+      CHECK(FzeroVersusTick(a,(uint16_t[4]){0}));
+      CHECK(fixture->contacts[pair]!=0);session_roundtrip(a,b);
+    }
+    session_roundtrip(a,b);FzeroVersusEndRace(a);session_roundtrip(a,b);
+    CHECK(FzeroVersusRematch(a));session_roundtrip(a,b);
+    FzeroVersusDestroy(a);FzeroVersusDestroy(b);
+    FzeroVersusSnapshot v={.config=c};
+    for(unsigned i=0;i<n;++i) {v.racers[i].status=FZERO_VS_FINISHED;v.racers[i].finish_tick=100+i;}
+    for(unsigned i=0;i<n;++i)CHECK(FzeroVersusRank(&v,i)==i+1);
+    v.racers[n-1].finish_tick=100;CHECK(FzeroVersusRank(&v,n-1)==1);
+    v.racers[0].status=FZERO_VS_DNF;CHECK(FzeroVersusRank(&v,0)==n);
+    v.racers[n-1].status=FZERO_VS_SURVIVED;CHECK(FzeroVersusRank(&v,n-1)==n-1);
+  }
+  puts("3/4P: readiness, countdown, independent inputs, deterministic continuation, state and ranking passed");
+}
 static void test_session_finishes(void) {
   flat_course();
   const unsigned gate_x[]={6000,6500,2000,1500},gate_y[]={1200,2800,3200,1500};
@@ -610,7 +650,7 @@ static void test_session_finishes(void) {
   spawns[0].facing=spawns[1].facing=0x3000;
   FzeroActorTables t={rom_read,NULL,original_profiles};uint16_t held[2]={0x8000,0x8000};
   for (unsigned race=0;race<2;++race) {
-    FzeroVersusConfig config={0,{0,(uint8_t)(race?3:0)}};
+    FzeroVersusConfig config={0,{0,(uint8_t)(race?3:0)},2};
     FzeroVersus *s=FzeroVersusCreate(config,ram,spawns,t),*copy=FzeroVersusCreate(config,ram,spawns,t);CHECK(s && copy);
     FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
     const FzeroVersusSnapshot *v=FzeroVersusCompleted(s);
@@ -681,7 +721,7 @@ static void test_session_contact_dnf(void) {
   flat_course();FzeroActor spawns[2]={{0},{0}};
   spawns[0].x=1000;spawns[1].x=1300;spawns[0].y=spawns[1].y=1000;
   spawns[0].facing=spawns[1].facing=0x3000;
-  FzeroVersus *s=FzeroVersusCreate((FzeroVersusConfig){0,{0,0}},ram,spawns,(FzeroActorTables){rom_read,NULL,original_profiles});CHECK(s);
+  FzeroVersus *s=FzeroVersusCreate((FzeroVersusConfig){0,{0,0},2},ram,spawns,(FzeroActorTables){rom_read,NULL,original_profiles});CHECK(s);
   FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
   const FzeroVersusSnapshot *v=FzeroVersusCompleted(s);bool terminal=false;unsigned contacts=0;
   for (unsigned tick=0;tick<100000 && !terminal;++tick) {
@@ -701,7 +741,7 @@ static void test_session_events(void) {
   for (unsigned mine=0;mine<2;++mine) {
     flat_course();
     if (mine) { memset(ram+0x13000,0xc8,4);memset(ram+0x13ff0,0x82,16); }
-    FzeroVersusConfig c={0,{0,1}};
+    FzeroVersusConfig c={0,{0,1},2};
     FzeroVersus *s=FzeroVersusCreate(c,ram,spawns,t),*copy=FzeroVersusCreate(c,ram,spawns,t);CHECK(s && copy);
     FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
     for (unsigned i=0;i<FZERO_VERSUS_COUNTDOWN+1;++i) CHECK(FzeroVersusTick(s,held));
@@ -721,7 +761,7 @@ static void test_session_events(void) {
   for (unsigned row=0;row<16;++row) set_word(0x15020+row*2,0x2100);
   for (unsigned col=0;col<16;++col) set_word(0x12100+col*2,0x3100);
   spawns[1].y=3000;
-  FzeroVersusConfig c={0,{0,0}};
+  FzeroVersusConfig c={0,{0,0},2};
   FzeroVersus *s=FzeroVersusCreate(c,ram,spawns,t),*copy=FzeroVersusCreate(c,ram,spawns,t);CHECK(s && copy);
   const FzeroVersusSnapshot *v=FzeroVersusCompleted(s);FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
   bool palette_saved=false;
@@ -923,9 +963,9 @@ static void test_menu_spin(void) {
   CHECK(FzeroNativeUiInit(&title_ui,(FzeroActorTables){rom_read,NULL,0}));
   /* The old six-column conversion deleted the V's center/tip. Keep both
    * upper strokes, the sloping edge and the final center stroke. */
-  const uint8_t *v=title_ui.title_letters['V'-'A'];
-  CHECK(v[2*8+1]==3 && v[2*8+5]==3);
-  CHECK(v[10*8+2]!=5 && v[12*8+3]==3);
+  const uint8_t *v=title_ui.title_v;
+  CHECK(v[2*9+1]==3 && v[2*9+6]==3);
+  CHECK(v[10*9+2]!=5 && v[12*9+4]==3 && v[14*9+4]!=5);
   for(unsigned machine=0;machine<4;++machine)for(unsigned age=0;age<288;++age) {
     FzeroShip ship;CHECK(FzeroShipMenu(&ship,machine,age,(FzeroActorTables){rom_read,NULL,original_profiles}));
     int phase=8-(int)((age/6)%24);if(phase< -12)phase+=24;
@@ -1436,7 +1476,7 @@ static void test_stock_pits(void) {
     }
     CHECK(py && ry);
     for(unsigned machine=0;machine<4;++machine) {
-      FzeroVersusConfig config={0,{(uint8_t)machine,(uint8_t)((machine+1)%4)}};
+      FzeroVersusConfig config={0,{(uint8_t)machine,(uint8_t)((machine+1)%4)},2};
       FzeroActor spawn[2]={{.x=(uint16_t)px,.y=(uint16_t)py},{.x=(uint16_t)(px+pdx),.y=(uint16_t)(py+pdy)}};
       FzeroVersus *s=FzeroVersusCreate(config,world,spawn,(FzeroActorTables){rom_read,NULL,original_profiles});CHECK(s);
       FzeroVersusReady(s,0,true);FzeroVersusReady(s,1,true);
@@ -1603,7 +1643,7 @@ static void test_cgp_mixed_sessions(void) {
       cgp_native=NULL;
     }
     flat_course();FzeroActor spawns[2]={{.x=1000,.y=1000,.facing=0x3000},{.x=1008,.y=1000,.facing=0x3000}};
-    FzeroVersusConfig config={0,{(uint8_t)ma,(uint8_t)mb}};
+    FzeroVersusConfig config={0,{(uint8_t)ma,(uint8_t)mb},2};
     FzeroVersus *s=FzeroVersusCreate(config,ram,spawns,tables),*copy=FzeroVersusCreate(config,ram,spawns,tables);
     CHECK(s && copy);session_roundtrip(s,copy);
     if(ma==0 && mb==1) {
@@ -1791,6 +1831,7 @@ int main(int argc, char **argv) {
     CHECK(!a.race_state);
   }
   test_session();
+  test_multiplayer_session();
   test_session_finishes();
   test_session_events();
   test_session_contact_dnf();

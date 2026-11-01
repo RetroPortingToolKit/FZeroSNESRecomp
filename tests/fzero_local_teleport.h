@@ -14,7 +14,8 @@ static uint32_t FzeroLocalTeleportFixture(FzeroVersus *session) {
   if(completed->phase!=FZERO_VS_RACING || completed->pause)return 0;
   FzeroVersusSnapshot *race=(FzeroVersusSnapshot *)(void *)completed;
   const uint8_t *world=FzeroVersusWorld(session);
-  unsigned player=race->racers[0].status==FZERO_VS_FINISHED?1:0;
+  unsigned player=0;
+  while(player+1<race->config.player_count && race->racers[player].status==FZERO_VS_FINISHED)++player;
   if(!(race->race_tick%1000)) {
     const FzeroVersusRacer *r=&race->racers[player];
     fprintf(stderr,"qa-teleport: course=%u player=%u lap=%u started=%u gates=%d cp=%u side=%02x next=%u,%u position=%u,%u count=%u crossing=%llu tick=%llu\n",
@@ -22,7 +23,7 @@ static uint32_t FzeroLocalTeleportFixture(FzeroVersus *session) {
         r->actor.next_checkpoint_x,r->actor.next_checkpoint_y,r->actor.x,r->actor.y,world[0xad]+1,
         (unsigned long long)r->crossing_tick,(unsigned long long)race->race_tick);
   }
-  for(unsigned i=0;i<2;++i)if(race->racers[i].status==FZERO_VS_ACTIVE) {
+  for(unsigned i=0;i<race->config.player_count;++i)if(race->racers[i].status==FZERO_VS_ACTIVE) {
     FzeroActor *a=&race->racers[i].actor;
     a->speed=a->speed_fraction=a->vx=a->vx_fraction=a->vy=a->vy_fraction=0;
     a->health=0x800;a->height=0x400;a->height_velocity=a->spin=a->no_control=0;

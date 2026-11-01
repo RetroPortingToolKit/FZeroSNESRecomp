@@ -41,15 +41,15 @@ static const char *caption(void *ctx) {(void)ctx;return "Viewport";}
 static void mode(int active) {FzeroNetplayModsMode(active!=0);}
 static int create(void *ctx,const char *name,char *endpoint,const char *password,
                   const RecompLauncherCSettings *settings,int lan,int seats) {
-  (void)seats;
+  if(seats<2 || seats>4)return -1;
   if(original->allow_spectators_set)original->allow_spectators_set(ctx,0);
-  return original->create(ctx,name,endpoint,password,settings,lan,2);
+  return original->create(ctx,name,endpoint,password,settings,lan,seats);
 }
 static int fill_launch(void *ctx,RecompLauncherCNetplayLaunch *out) {
   if(!original->fill_launch(ctx,out))return 0;
-  if(out->is_spectator || out->host_spectates || out->player_count!=2 || out->max_slots!=2 ||
+  if(out->is_spectator || out->host_spectates || out->player_count<2 || out->player_count>4 || out->max_slots<out->player_count || out->max_slots>4 ||
       out->session_variant<0 || out->session_variant>2 || !out->rollback) {
-    recomp_netplay_host_set_runtime_error("F-Zero requires two players and rollback.");return 0;
+    recomp_netplay_host_set_runtime_error("F-Zero requires 2-4 players and rollback.");return 0;
   }
   return 1;
 }
@@ -66,10 +66,10 @@ void FzeroNetplayLauncher(RecompLauncherCGameInfo *info) {
     static const RecompNetplaySessionVariant variants[]={{0,"4:3"},{1,"16:9"},{2,"21:9"}};
     /* LAN room versions have a 32-byte wire field. Keep this discovery tag
      * within it; the full build/catalog identity is checked before frame 0. */
-    snprintf(lobby_version,sizeof(lobby_version),"fzero-vs9-%.20s",FZERO_REPLAY_BUILD_ID);
+    snprintf(lobby_version,sizeof(lobby_version),"fzero-vs12-%.20s",FZERO_REPLAY_BUILD_ID);
     RecompNetplayHostHooks h={0};h.game_name="F-Zero Forever";h.game_version=lobby_version;
     h.platform="snes";h.legacy_env_prefix="SNES_NET_";h.default_lobby_name="F-Zero Forever VS";
-    h.lan_registry_path="fzero-netplay-lan.txt";h.max_players=2;h.netplay_max_players=2;
+    h.lan_registry_path="fzero-netplay-lan.txt";h.max_players=4;h.netplay_max_players=4;
     h.slot_policy=RECOMP_NETPLAY_SLOTS_HOST_FIRST;h.input_player=RECOMP_NETPLAY_INPUT_AUTO;
     h.exe_dir_path=path;h.name_store=store_name;h.name_load=load_name;
     h.caps_codec=snes_lobby_caps_codec();h.fill_match_caps=fill_caps;h.last_fork=fork;
@@ -122,15 +122,19 @@ static uint32_t game_digest(void) {
 static void trace_frame(void) {
   if(!trace)return;
   const FzeroOnlineState *s=FzeroOnlineCompleted();
-  const FzeroVersusSnapshot *r=FzeroVersusCompleted(FzeroLocalSession());char row[384];
+  const FzeroVersusSnapshot *r=FzeroVersusCompleted(FzeroLocalSession());char row[640];
   unsigned traffic=0;if(r)for(unsigned i=0;i<FZERO_TRAFFIC_COUNT;++i)traffic+=r->traffic[i].active!=0;
-  int n=snprintf(row,sizeof(row),"%llu,%08x,%u,%u,%u,%u,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
+  int n=snprintf(row,sizeof(row),"%llu,%08x,%u,%u,%u,%u,%llu,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u,%u\n",
       (unsigned long long)s->tick,(unsigned)game_digest(),s->phase,s->config.course,
       s->config.machine[0],s->config.machine[1],(unsigned long long)(r?r->race_tick:0),
       r?r->racers[0].actor.x:0,r?r->racers[0].actor.y:0,r?r->racers[1].actor.x:0,r?r->racers[1].actor.y:0,
       r?r->phase:0,r?r->racers[0].completed_laps:0,r?r->racers[1].completed_laps:0,
       r?r->racers[0].status:0,r?r->racers[1].status:0,r?r->winner:0,r?r->pause:0,FzeroLocalMenuOwner(),g_ram[0x46],
-      traffic,r?r->traffic[0].actor.x:0,r?r->traffic[0].actor.y:0);
+      traffic,r?r->traffic[0].actor.x:0,r?r->traffic[0].actor.y:0,
+      s->config.player_count,s->config.machine[2],s->config.machine[3],
+      r?r->racers[2].actor.x:0,r?r->racers[2].actor.y:0,r?r->racers[3].actor.x:0,r?r->racers[3].actor.y:0,
+      r?r->racers[2].completed_laps:0,r?r->racers[3].completed_laps:0,
+      r?r->racers[2].status:0,r?r->racers[3].status:0,s->ready);
   if(n>0 && n<(int)sizeof(row))SnesTraceWriterWrite(trace,row,(size_t)n);
 }
 static void replay(uint32_t input,uint32_t tick) {
@@ -148,12 +152,16 @@ bool FzeroNetplayStart(const RecompLauncherCSettings *settings) {
     snes_netplay_config_defaults(&cfg);snes_netplay_apply_env(&cfg);cfg.enabled=1;
     aspect=1;const char *a=getenv("FZERO_NET_ASPECT");if(a)aspect=(unsigned)strtoul(a,NULL,10);
   }
-  if(aspect>2 || cfg.local_slot<0 || cfg.local_slot>1 || cfg.spectator || !cfg.rollback)return false;
-  FzeroOnlineBegin(aspect,(unsigned)cfg.local_slot);
+  if(aspect>2 || cfg.local_slot<0 || cfg.local_slot>=cfg.slot_count || cfg.slot_count<2 || cfg.slot_count>4 || cfg.spectator || !cfg.rollback)return false;
+  if(cfg.slot_count>2) {
+    RtlSetMultitap(1,1);
+    if(!from_lobby && cfg.local_slot==0) {cfg.transport_host=1;cfg.peer_hostport[0]=0;}
+  }
+  FzeroOnlineBeginPlayers(aspect,(unsigned)cfg.local_slot,(unsigned)cfg.slot_count);
   uint8_t content[32]={0};if(FzeroTracksStateActive())memcpy(content,FzeroTracksActiveHash(),32);
   char hex[65];for(unsigned i=0;i<32;++i)snprintf(hex+i*2,3,"%02x",content[i]);
-  snprintf(base_identity,sizeof(base_identity),"fzero-vs9;build=%s;catalog=%s;portable-scalar-v1;aspect=%u",
-      FZERO_REPLAY_BUILD_ID,hex,aspect);
+  snprintf(base_identity,sizeof(base_identity),"fzero-vs12;build=%s;catalog=%s;portable-scalar-v1;aspect=%u;players=%u",
+      FZERO_REPLAY_BUILD_ID,hex,aspect,(unsigned)cfg.slot_count);
   const char *fixture=getenv("FZERO_TEST_ONLINE_FIXTURE");
   if(fixture && *fixture) {
     if(strcmp(fixture,"teleport") && strcmp(fixture,"crash"))return false;
@@ -176,7 +184,7 @@ bool FzeroNetplayStart(const RecompLauncherCSettings *settings) {
   snes_state_digest_set_extra(game_digest);snes_netplay_rb_set_replay_frame(replay);
   if(snes_netplay_start(&cfg)!=0) {FzeroOnlineEnd();snes_state_digest_set_extra(NULL);return false;}
   const char *stem=getenv("FZERO_TEST_NET_TRACE");
-  if(stem && *stem)trace=SnesTraceWriterOpen(stem,"tick,hash,phase,course,p1,p2,race,x1,y1,x2,y2,stage,lap1,lap2,status1,status2,winner,pause,menu,music,npcs,npc0x,npc0y\n",16*1024*1024,2);
+  if(stem && *stem)trace=SnesTraceWriterOpen(stem,"tick,hash,phase,course,p1,p2,race,x1,y1,x2,y2,stage,lap1,lap2,status1,status2,winner,pause,menu,music,npcs,npc0x,npc0y,players,p3,p4,x3,y3,x4,y4,lap3,lap4,status3,status4,ready\n",16*1024*1024,2);
   /* RtlEnsureSaveDir creates one level; install the isolated namespace's
    * parents on a fresh extraction before any shared save operation. */
   RtlSetSaveRoot("saves");RtlEnsureSaveDir();

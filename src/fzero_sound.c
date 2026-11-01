@@ -40,7 +40,7 @@ FzeroSoundCommands FzeroSoundTick(FzeroSoundState *s,const FzeroVersusSnapshot *
   if(v->phase==FZERO_VS_COUNTDOWN)s->music=v->countdown>FZERO_VERSUS_REV_COUNTDOWN?3:1;
   else if(v->phase==FZERO_VS_RACING)s->music=6;
   if(s->phase!=phase) {
-    if(v->phase==FZERO_VS_COUNTDOWN) {s->landing=s->lap_beep=0;s->lap[0]=s->lap[1]=0;}
+    if(v->phase==FZERO_VS_COUNTDOWN) {s->landing=s->lap_beep=0;for(unsigned i=0;i<FZERO_MAX_PLAYERS;++i)s->lap[i]=0;}
     if(v->phase==FZERO_VS_RESULTS)s->music|=0x80;
     else s->music&=15;
     s->phase=(uint8_t)phase;
@@ -55,7 +55,7 @@ FzeroSoundCommands FzeroSoundTick(FzeroSoundState *s,const FzeroVersusSnapshot *
   if(v->phase==FZERO_VS_COUNTDOWN && v->countdown>FZERO_VERSUS_REV_COUNTDOWN) {
     out.ports[1]=3;return out;
   }
-  for(unsigned i=0;i<2;++i) {
+  for(unsigned i=0;i<FzeroVersusPlayers(v->config);++i) {
     const FzeroVersusRacer *r=&v->racers[i];const FzeroActor *a=&r->actor;
     /* Reuse Practice's $9AF7 lap cue: $16 ticks normally, $6C on the
      * final lap, emitted by $FA0F on the existing native beep channel. */

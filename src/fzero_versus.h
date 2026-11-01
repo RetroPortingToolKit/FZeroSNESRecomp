@@ -6,20 +6,25 @@
 /* A single game-owned authoritative race. Presentation and host device state
  * are deliberately absent. All time is measured in FZERO_SIMULATION_HZ ticks.
  * Rule11: retain each lap's native boost-award notice across restore/rollback.
- * Two humans, five laps, movement then stable-ID contacts; never pauses.
+ * Two to four humans, five laps, movement then stable-ID contacts; never pauses.
  * This is a new simulation profile, not a claim of stock whole-frame parity. */
-#define FZERO_VERSUS_RULES 11u
+#define FZERO_VERSUS_RULES 12u
+#define FZERO_MAX_PLAYERS 4u
+#define FZERO_CONTACT_PAIRS 6u
 #define FZERO_VERSUS_LAPS 5u
 #define FZERO_VERSUS_ARRIVAL 68u
 #define FZERO_VERSUS_REV_COUNTDOWN 180u
 #define FZERO_VERSUS_COUNTDOWN (FZERO_VERSUS_ARRIVAL+FZERO_VERSUS_REV_COUNTDOWN)
 typedef struct FzeroVersus FzeroVersus;
-typedef struct FzeroVersusConfig { uint16_t course; uint8_t machine[2]; } FzeroVersusConfig;
+typedef struct FzeroVersusConfig { uint16_t course; uint8_t machine[FZERO_MAX_PLAYERS]; uint8_t player_count; } FzeroVersusConfig;
+/* Zero count in legacy callers means two; canonical snapshots always store 2..4. */
+static inline unsigned FzeroVersusPlayers(FzeroVersusConfig c) { return c.player_count?c.player_count:2; }
+static inline unsigned FzeroVersusReadyMask(FzeroVersusConfig c) { unsigned n=FzeroVersusPlayers(c); return n>=2 && n<=4?(1u<<n)-1:0; }
 enum FzeroVersusPhase { FZERO_VS_READY, FZERO_VS_COUNTDOWN, FZERO_VS_RACING, FZERO_VS_RESULTS };
 enum FzeroVersusStatus { FZERO_VS_ACTIVE, FZERO_VS_FINISHED, FZERO_VS_DNF, FZERO_VS_SURVIVED };
 enum FzeroVersusPause { FZERO_VS_PAUSE_MANUAL=1, FZERO_VS_PAUSE_FOCUS=2,
                         FZERO_VS_PAUSE_DEVICE1=4, FZERO_VS_PAUSE_DEVICE2=8 };
-enum FzeroVersusWinner { FZERO_VS_NO_WINNER, FZERO_VS_PLAYER1, FZERO_VS_PLAYER2, FZERO_VS_TIE };
+enum FzeroVersusWinner { FZERO_VS_NO_WINNER, FZERO_VS_PLAYER1, FZERO_VS_PLAYER2, FZERO_VS_PLAYER3, FZERO_VS_PLAYER4, FZERO_VS_TIE };
 typedef struct FzeroVersusRacer {
   FzeroActor actor;
   FzeroActor crossing_pose;
@@ -35,21 +40,22 @@ typedef struct FzeroVersusRacer {
 bool FzeroVersusRaceComplete(const FzeroVersusRacer *racers,unsigned count);
 typedef struct FzeroVersusSnapshot {
   FzeroVersusConfig config;
-  FzeroVersusRacer racers[2];
-  FzeroActorMineEvent mines[2];
+  FzeroVersusRacer racers[FZERO_MAX_PLAYERS];
+  FzeroActorMineEvent mines[FZERO_MAX_PLAYERS];
   FzeroTrafficPose traffic[FZERO_TRAFFIC_COUNT];
   uint64_t tick, race_tick;
   uint32_t countdown;
   uint8_t phase, pause, ready, contact, winner;
+  uint8_t contacts[FZERO_CONTACT_PAIRS];
 } FzeroVersusSnapshot;
-/* Native $E8E4 lap/checkpoint ordering, restricted to the two human racers. */
+/* Native $E8E4 lap/checkpoint ordering, restricted to active human racers. */
 unsigned FzeroVersusRank(const FzeroVersusSnapshot *race,unsigned player);
 
 /* world is the stock course prepared by the guest; spawns are distinct stock
  * grid slots. It is copied once, and never read from a live guest during ticks.
  * Machine-specific human fields are initialized from each selected machine. */
 FzeroVersus *FzeroVersusCreate(FzeroVersusConfig config,const uint8_t world[0x20000],
-                              const FzeroActor spawns[2],FzeroActorTables tables);
+                              const FzeroActor spawns[],FzeroActorTables tables);
 void FzeroVersusDestroy(FzeroVersus *session);
 /* Capture immutable native CPU-car resources before the first Ready. */
 bool FzeroVersusEnableTraffic(FzeroVersus *session,const uint8_t native[0x20000]);
@@ -62,7 +68,7 @@ bool FzeroVersusRematch(FzeroVersus *session);
 bool FzeroVersusRestart(FzeroVersus *session);
 /* Returns true only when simulation advanced. Both words are latched before
  * either actor runs. Multiplayer never pauses; the host handles Start's live menu. */
-bool FzeroVersusTick(FzeroVersus *session,const uint16_t held[2]);
+bool FzeroVersusTick(FzeroVersus *session,const uint16_t held[]);
 const FzeroVersusSnapshot *FzeroVersusCompleted(const FzeroVersus *session);
 const uint8_t *FzeroVersusWorld(const FzeroVersus *session);
 /* Canonical little-endian, padding-free whole-session image with rules/version
