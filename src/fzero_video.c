@@ -128,6 +128,9 @@ bool FzeroVideoLoad(FzeroVideoSettings *s, const char *path) {
     if (!strcmp(key,"LapCallouts")) {
       if(!strcmp(value,"0") || !strcmp(value,"1"))s->lap_callouts=value[0]=='1';
       else valid=false;
+    } else if (!strcmp(key,"LapBoostSecondLapOnly")) {
+      if(!strcmp(value,"0") || !strcmp(value,"1"))s->lap_boost_second_lap_only=value[0]=='1';
+      else valid=false;
     } else if (!strcmp(key, "EnhancedRenderer")) {
       if (!strcmp(value, "0") || !strcmp(value, "1")) s->enhanced = value[0] == '1';
       else valid = false;
@@ -225,8 +228,8 @@ bool FzeroVideoSave(const FzeroVideoSettings *s, const char *path) {
   if (fprintf(f, "AlwaysShowRecords=%d\n", s->gameplay.always_records) < 0) ok = false;
   if (fprintf(f, "CrashReplay=%d\n", s->crash_replay) < 0) ok = false;
   if (fprintf(f,"LocalTwoPlayer=%d\n",s->local_two_player)<0)ok=false;
-  if(fprintf(f,"LapCallouts=%d\nLapBoostWav=%s\nFinalLapWav=%s\n",
-      s->lap_callouts,s->lap_boost_wav,s->final_lap_wav)<0)ok=false;
+  if(fprintf(f,"LapCallouts=%d\nLapBoostSecondLapOnly=%d\nLapBoostWav=%s\nFinalLapWav=%s\n",
+      s->lap_callouts,s->lap_boost_second_lap_only,s->lap_boost_wav,s->final_lap_wav)<0)ok=false;
   if (fclose(f)) ok = false;
   if (ok) {
 #ifdef _WIN32

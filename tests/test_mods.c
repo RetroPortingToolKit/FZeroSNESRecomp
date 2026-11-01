@@ -78,7 +78,18 @@ int main(int argc,char **argv) {
     RecompLauncherCModPackage package;
     CHECK(p->feature_get(NULL, i, &pack) && p->package_get(NULL, i, &package));
     if(!strcmp(pack.id,"lap-callouts")) {
-      CHECK(!pack.enabled && !pack.option_count && !s.lap_callouts);
+      CHECK(!pack.enabled && pack.option_count==1 && !s.lap_callouts && !s.lap_boost_second_lap_only);
+      CHECK(p->feature_option_get(NULL,pack.package_id,pack.id,0,&option));
+      CHECK(!strcmp(option.id,"boost-timing") && !strcmp(option.default_value,"every-lap") && !strcmp(option.value,"every-lap") && option.choice_count==2);
+      RecompLauncherCModChoice timing;
+      CHECK(p->feature_choice_get(NULL,pack.package_id,pack.id,option.id,1,&timing) && !strcmp(timing.value,"lap-2-only"));
+      CHECK(!p->feature_choice_get(NULL,pack.package_id,pack.id,option.id,2,&timing));
+      CHECK(!p->feature_set_option(NULL,pack.package_id,pack.id,option.id,"later-laps"));
+      CHECK(!s.lap_boost_second_lap_only);
+      CHECK(p->feature_set_option(NULL,pack.package_id,pack.id,option.id,"lap-2-only") && s.lap_boost_second_lap_only);
+      CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini") && loaded.lap_boost_second_lap_only);
+      CHECK(p->feature_option_get(NULL,pack.package_id,pack.id,0,&option) && !strcmp(option.value,"lap-2-only"));
+      CHECK(p->feature_set_option(NULL,pack.package_id,pack.id,option.id,"every-lap") && !s.lap_boost_second_lap_only);
       CHECK(p->feature_resource_count(NULL,pack.package_id,pack.id)==2);
       CHECK(!p->feature_enable(NULL,pack.package_id,pack.id,1));
       for(int cue=0;cue<2;++cue) {

@@ -15,9 +15,9 @@ void FzeroCalloutsUpdate(void) {
       s.total=FZERO_VERSUS_LAPS;
       if(FzeroOnlineEnabled()) {
         int player=FzeroOnlineView();
-        if(player>=0 && player<2)s.completed[0]=race->racers[player].completed_laps;
+        if(player>=0 && player<(int)FzeroVersusPlayers(race->config))s.completed[0]=race->racers[player].completed_laps;
       }
-      else for(unsigned i=0;i<2;++i)s.completed[i]=race->racers[i].completed_laps;
+      else for(unsigned i=0;i<FzeroVersusPlayers(race->config) && i<FZERO_CALLOUT_PLAYERS;++i)s.completed[i]=race->racers[i].completed_laps;
     }
   } else {
     s.race=g_ram[0x53]|(unsigned)g_ram[0x57]<<8;

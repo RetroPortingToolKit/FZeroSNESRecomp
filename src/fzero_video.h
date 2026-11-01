@@ -33,6 +33,7 @@ typedef struct FzeroVideoSettings {
   bool crash_replay; /* Automatic local crash/replay capture; defaults on. */
   bool local_two_player; /* Launcher game mode; stock rules apply per session. */
   bool lap_callouts; /* Optional local WAV announcements; both files required. */
+  bool lap_boost_second_lap_only; /* Announce boost once at the first lap-2 crossing. */
   char lap_boost_wav[1024],final_lap_wav[1024];
 } FzeroVideoSettings;
 

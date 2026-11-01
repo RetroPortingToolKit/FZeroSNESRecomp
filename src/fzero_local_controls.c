@@ -31,8 +31,7 @@ void FzeroLocalControlsAssignPlayers(FzeroLocalControls *c,const int sources[],c
   for(unsigned p=0;p<FZERO_MAX_PLAYERS;++p) {
     if(p>=count) {c->source[p]=0;continue;}
     c->source[p]=sources[p];snprintf(c->guid[p],sizeof(c->guid[p]),"%s",guids[p]);
-    bool keyboard_used=false;for(unsigned i=0;i<p;++i)if(c->seat[i]==KEYBOARD)keyboard_used=true;
-    c->seat[p]=p<c->config.player_count && sources[p]==1 && !keyboard_used?KEYBOARD:NO_DEVICE;
+    c->seat[p]=p<c->config.player_count && sources[p]==1?KEYBOARD:NO_DEVICE;
     c->previous[p]=c->input[p]=0;c->release[p]=true;
   }
 }
@@ -91,8 +90,7 @@ static void scan_pads(FzeroLocalControls *c) {
 #endif
   c->scan=false;
   if(c->assigned)for(unsigned p=0;p<c->config.player_count;++p)if(c->source[p]==1 && c->seat[p]==NO_DEVICE) {
-    bool used=false;for(unsigned other=0;other<c->config.player_count;++other)if(c->seat[other]==KEYBOARD)used=true;
-    if(!used) {c->seat[p]=KEYBOARD;c->release[p]=true;}
+    c->seat[p]=KEYBOARD;c->release[p]=true;
   }
   if(c->assigned)for(unsigned p=0;p<c->config.player_count;++p)if(c->source[p]==2 && c->seat[p]==NO_DEVICE) {
     for(unsigned i=0;i<MAX_PADS;++i)if(c->pads[i].handle && true) {
@@ -154,8 +152,9 @@ static unsigned setup_back(FzeroLocalControls *c) {
   else {release_inputs(c);return FZERO_LOCAL_MAIN;}
   release_inputs(c);return 0;
 }
-unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
-  if(!c)return 0;
+unsigned FzeroLocalControlsUpdateKeyboards(FzeroLocalControls *c,const uint32_t keyboards[FZERO_MAX_PLAYERS]) {
+  if(!c || !keyboards)return 0;
+  uint32_t keyboard=keyboards[FzeroLocalControlsKeyboardPlayer(c)];
   ++c->menu_ticks;
   if(!c->setup && FzeroLocalSession())c->config=FzeroLocalConfig();
   if(c->scan)scan_pads(c);
@@ -177,7 +176,7 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
   }
   for(unsigned p=0;p<c->config.player_count;++p) {
     int device=c->seat[p];
-    uint32_t held=device==KEYBOARD?keyboard:device>=0?FzeroGamepadReadPlayer(c->pads[device].handle,p):0;
+    uint32_t held=device==KEYBOARD?keyboards[p]:device>=0?FzeroGamepadReadPlayer(c->pads[device].handle,p):0;
     if(c->release[p]) {if(!held)c->release[p]=false;held=0;}
     uint32_t pressed=held&~c->previous[p];c->previous[p]=held;c->input[p]=held;
     if(c->setup) {
@@ -249,6 +248,13 @@ unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
     if(c->page==FZERO_LOCAL_MACHINES) {c->page=FZERO_LOCAL_CUP;release_inputs(c);}
   }
   return 0;
+}
+/* Compatibility entry point: one supplied key word may intentionally drive
+ * every explicitly configured keyboard seat. Automatic joining remains one seat. */
+unsigned FzeroLocalControlsUpdate(FzeroLocalControls *c,uint32_t keyboard) {
+  uint32_t keyboards[FZERO_MAX_PLAYERS];
+  for(unsigned p=0;p<FZERO_MAX_PLAYERS;++p)keyboards[p]=keyboard;
+  return FzeroLocalControlsUpdateKeyboards(c,keyboards);
 }
 FzeroVersusConfig FzeroLocalControlsConfig(const FzeroLocalControls *c) {return c->config;}
 uint32_t FzeroLocalControlsInput(const FzeroLocalControls *c) {return c?c->input[0]|(c->input[1]<<12):0;}

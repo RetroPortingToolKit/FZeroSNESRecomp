@@ -10,8 +10,11 @@ Online stress qualification remains separate under `beads-8wg.2.190`.
 Local VS supports two, three or four humans in one simulation. Two players use
 top/bottom views; three/four use a 2-by-2 grid, with the unused fourth cell black.
 Press Y on P1's unready machine-selection page to choose the count. Each seat
-joins, chooses a machine and readies independently. Devices have one owner;
-at most one seat uses the keyboard. Duplicate machines remain legal. League
+joins, chooses a machine and readies independently. Gamepads have one owner.
+Explicit keyboard assignments can use separate
+`keybinds.ini` player1..player4 layouts, or repeat a layout to control multiple
+racers with the same keys. Automatic keyboard joining still claims only one seat.
+Duplicate machines remain legal. League
 and course selection retain a shared cursor. Start opens a live menu while the
 other racers continue; multiplayer races do not pause.
 
@@ -59,6 +62,7 @@ are distinct states.
 | 3P native, same lifecycle and black unused cell | `captures/offline3-qualified-native/` | Pass |
 | 4P native imported-course menu/race lifecycle | `captures/offline4-import-native/` | Pass; two real extracted Astra courses, not a complete pack |
 | 4P BS profile, requested 8x / actual 2x CPU, extra league, full roster profile, desktop lifecycle and SP return | `captures/offline4-bs-final/` | Pass; content/menu smoke, no prepared NPC-impact assertion |
+| Four keyboard layouts through actual config/keybind loading, host input conversion, four moving ships, Ready and live menus | `captures/keyboard4-config-final/` | Pass; synthetic key matrix; physical key rollover remains a human check |
 | 2P HD desktop regression | `captures/offline2-regression/` | Pass |
 | 4P BS, machines 4..7: save/load, rewind, fresh-process continuation, changing viewports, exact replay, divergent/corrupt state rejection, native-save isolation | `captures/bs4/results.json` | Pass |
 | 4P imported course, machines 8..11: same state/replay lifecycle | `captures/imp4/results.json` | Pass |
@@ -76,6 +80,8 @@ The BS bumper setup can put a human onto an airborne explosive NPC, which
 invalidates its contact prerequisite. Its content/menu gate therefore explicitly
 omits that prepared encounter. Stock 4P retains the separate all-human NPC
 impact/view gate; BS driving and interactions remain part of human validation.
+The keyboard config/menu gate also omits this unrelated pose fixture, retaining
+the existing stock SDL-device contact coverage.
 
 ## Runtime cost
 
@@ -101,16 +107,29 @@ Run the selector using:
 & 'C:/Users/Matthew/.pyenv/pyenv-win/versions/3.12.5/python.exe' 'F:/Projects/snesrecomp/_wt-fzero-four-player/tools/offline_playtest.py' --install 'F:/Projects/snesrecomp/_wt-fzero-four-player/captures/offline-human' --rom 'F:/Projects/snesrecomp/FZeroRecomp/fzero.sfc' --start
 ```
 
-The selector bundles (1) four gamepads, race/results and live menus;
-(2) keyboard plus three gamepads, device ownership and disconnect/reconnect;
-(3) 3P/2P presentation, resizing and content/audio. Native/HD and stock/custom/BS
-choices are explicit. Four physical gamepads, or three plus a keyboard, and
-human natural-driving/visual/audio judgment are prerequisites. Include a current-
-build save/load in the presentation check. Close the game before changing setups.
-The first setup waits in the machine picker in a normal window with normal audio.
+The selector defaults to **Keyboard controls everyone**, requiring no gamepads.
+Enter readies/confirms, Z accelerates every racer, arrows steer, X boosts, D/C
+lean and S opens P1's count selector before readying. Other input modes are two
+keyboard groups (P1/P3 use those keys; P2/P4 use I/J/K/L, F/G, U/O and Space),
+one gamepad plus keyboard for the other racers, two pads plus keyboard, or four
+pads. Every keyboard seat has an explicit player layout in the disposable
+`keybinds.ini`. Existing owner settings/saves are not edited.
+
+The three bundles cover race/results and live menus; input groups and optional
+pad recovery; and 3P/2P presentation, resizing, content, audio and current-build
+save/load. Native/HD and stock/custom/BS choices are explicit. Mirrored controls
+are useful for four-view/race checks but do not certify four independent physical
+pads. Human natural-driving/visual/audio judgment and any chosen hardware checks
+remain pending. Close the game before changing setups. The first setup waits in
+the machine picker in a normal window with normal audio.
+
+The selector also exposes **Boost voice only at lap 2**, and **Configure audio /
+mods...** opens the existing launcher to select/enable the callout recordings.
+Changing input setups preserves `LapCallouts`, `LapBoostWav` and `FinalLapWav`.
+The timing checkbox writes `LapBoostSecondLapOnly`; final-lap timing is separate.
 
 Save Pass/Fail/Deferred observations and individual caveats in the selector.
-`human-observations.json` retains separate results per setup/content/rendering
+`human-observations.json` retains separate results per setup/input mode/content/rendering/boost-timing
 combination. No human acceptance is claimed yet. Read those observations before
 follow-up; one bundle passing does not clear another bundle's failure.
 

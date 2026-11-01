@@ -11,11 +11,14 @@ void FzeroLocalControlsAssign(FzeroLocalControls *controls,const int sources[2],
 void FzeroLocalControlsDestroy(FzeroLocalControls *controls);
 void FzeroLocalControlsEvent(FzeroLocalControls *controls,const SDL_Event *event);
 unsigned FzeroLocalControlsUpdate(FzeroLocalControls *controls,uint32_t keyboard);
+/* Explicit keyboard seats use their own keybinds.ini player layout; matching
+ * layouts intentionally mirror controls to multiple racers. */
+unsigned FzeroLocalControlsUpdateKeyboards(FzeroLocalControls *controls,const uint32_t keyboards[FZERO_MAX_PLAYERS]);
 FzeroVersusConfig FzeroLocalControlsConfig(const FzeroLocalControls *controls);
 uint32_t FzeroLocalControlsInput(const FzeroLocalControls *controls);
 bool FzeroLocalControlsSetup(const FzeroLocalControls *controls);
 /* Use the assigned keyboard seat's bindings, or the next empty seat's Start
- * binding while joining. At most one seat may own the keyboard. */
+ * binding while joining. Explicit assignments may share a physical keyboard. */
 unsigned FzeroLocalControlsKeyboardPlayer(const FzeroLocalControls *controls);
 void FzeroLocalControlsLoaded(FzeroLocalControls *controls);
 void FzeroLocalControlsReopen(FzeroLocalControls *controls);

@@ -1,9 +1,13 @@
 #pragma once
-/* Opt-in desktop qualification using actual SDL virtual devices and the
- * public human control path. Results are requested through EndRace only to
+/* Opt-in desktop qualification using SDL virtual devices or a private key
+ * matrix through keybinds.ini and the public human control path. Results are requested through EndRace only to
  * exercise menu routing; this fixture does not certify natural race finishes. */
 #if SNESRECOMP_SDL3
 static SDL_Joystick *local_ui_pads[FZERO_MAX_PLAYERS];
+static uint8_t local_ui_keys[SDL_SCANCODE_COUNT];
+static void local_ui_keyboard_state(uint8_t *keys) {
+  if(getenv("FZERO_TEST_LOCAL_UI_KEYBOARD"))memcpy(keys,local_ui_keys,sizeof(local_ui_keys));
+}
 static unsigned local_ui_stage,local_ui_step,local_ui_resizes,local_ui_captured;
 static unsigned local_ui_countdowns;
 static unsigned local_ui_setup_shots,local_ui_page;
@@ -38,6 +42,14 @@ static void local_ui_attach(void) {
   for(unsigned p=0;p<local_ui_players();++p)local_ui_attach_pad(p);
 }
 static void local_ui_button(unsigned player,SDL_GamepadButton button,bool held) {
+  if(getenv("FZERO_TEST_LOCAL_UI_KEYBOARD")) {
+    static const int binding[]={1,0,3,2,7,-1,6,-1,-1,4,5,8,9,10,11};
+    if((unsigned)button<15 && binding[button]>=0) {
+      SDL_Scancode key=keybinds_get_button((int)player+1,binding[button]);
+      if(key>0 && key<SDL_SCANCODE_COUNT)local_ui_keys[key]=(uint8_t)held;
+    }
+    return;
+  }
   if(local_ui_pads[player])SDL_SetJoystickVirtualButton(local_ui_pads[player],button,held);
 }
 static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
@@ -52,7 +64,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
     if(!FzeroReplayConfigurePlayers(NULL,getenv("FZERO_VIEWPORT_SCRIPT"),2))Die("UI validation replay setup failed");
     int sources[4]={2,2,2,2};char guids[4][40];
     for(unsigned i=0;i<local_ui_players();++i)SDL_GUIDToString(SDL_GetJoystickGUID(local_ui_pads[i]),guids[i],40);
-    FzeroLocalControlsAssignPlayers(controls,sources,guids,local_ui_players());
+    if(!getenv("FZERO_TEST_LOCAL_UI_KEYBOARD"))FzeroLocalControlsAssignPlayers(controls,sources,guids,local_ui_players());
     local_ui_stage=FzeroVersusPlayers(FzeroLocalControlsConfig(controls))==local_ui_players()?1:12;local_ui_step=0;t=0;
   }
   static unsigned reported=~0u;
@@ -66,7 +78,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
         if(FzeroVersusPlayers(FzeroLocalControlsConfig(controls))!=local_ui_players() || FzeroLocalControlsPage(controls)!=FZERO_LOCAL_MACHINES)Die("UI player-count selection failed");
         int sources[4]={2,2,2,2};char guids[4][40];
         for(unsigned i=0;i<local_ui_players();++i)SDL_GUIDToString(SDL_GetJoystickGUID(local_ui_pads[i]),guids[i],40);
-        FzeroLocalControlsAssignPlayers(controls,sources,guids,local_ui_players());
+        if(!getenv("FZERO_TEST_LOCAL_UI_KEYBOARD"))FzeroLocalControlsAssignPlayers(controls,sources,guids,local_ui_players());
         local_ui_stage=1;local_ui_step=0;
       }
       break;
@@ -142,7 +154,11 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
           if(local_ui_traffic_contacts==((1u<<local_ui_players())-1))fputs("traffic-encounter: all human impacts PASS\n",stderr);
           else if(tick>local_ui_traffic_tick+5) {fprintf(stderr,"traffic-encounter: contacts=%x explosive=%x\n",local_ui_traffic_contacts,local_ui_traffic_explosive);Die("Traffic encounter did not hit all humans");}
         }
-        if(tick>=270 && !local_ui_reconnect) {
+        if(getenv("FZERO_TEST_LOCAL_UI_KEYBOARD")) {
+          if(tick>=270 && !local_ui_reconnect) {
+            local_ui_reconnect=4;fputs("local-ui-keyboard: four layouts, movement and menu ownership PASS\n",stderr);
+          }
+        } else if(tick>=270 && !local_ui_reconnect) {
           unsigned last=local_ui_players()-1;
           SDL_JoystickID id=SDL_GetJoystickID(local_ui_pads[last]);
           if(!SDL_DetachVirtualJoystick(id))Die("UI detach failed");
@@ -225,7 +241,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
         if(local_ui_setup_shots!=(local_ui_players()>2?15u:7u))Die("UI setup-page presentation coverage incomplete");
         if(local_ui_arrival_shots!=7 || local_ui_catalog_shots!=3)Die("UI arrival/catalog presentation coverage incomplete");
         if(getenv("FZERO_TEST_LOCAL_UI_DRIVE") && (local_ui_drive_captured!=63 || local_ui_reconnect!=4))Die("UI drive animation coverage incomplete");
-        fprintf(stderr,"local-ui: PASS native VS entry, independent SDL devices, preload/Ready, live/results Restart/Change/Main Menu and single-player return\n");return true;}
+        fprintf(stderr,"local-ui: PASS native VS entry, independent local inputs, preload/Ready, live/results Restart/Change/Main Menu and single-player return\n");return true;}
       break;
     default:break;
   }
@@ -357,6 +373,7 @@ static void local_ui_presented(const FzeroPresenter *p) {
   local_ui_images(p,directory,label);
 }
 #else
+static void local_ui_keyboard_state(uint8_t *keys) {(void)keys;}
 static void local_ui_attach(void) {}
 static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {(void)controls;(void)window;return false;}
 static void local_ui_presented(const FzeroPresenter *p) {(void)p;}

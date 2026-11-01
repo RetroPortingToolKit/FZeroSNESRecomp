@@ -87,6 +87,10 @@ Open **Settings > Display** for:
 
 Open **Mods** for:
 
+- **Lap voice callouts:** supply your boost-power and final-lap WAV recordings.
+  **Boost-power timing > Lap 2 only (once per race)** announces boost only when
+  the first racer starts lap 2; the final-lap callout is unchanged.
+  **Every new lap** retains the existing default behavior.
 - **Widescreen:** makes races wider.
 - **Presentation FPS:** makes motion smoother on high refresh screens.
 - **HD Mode 7:** sharper tracks at integer scales from 2x to 10x; off by default.

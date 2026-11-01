@@ -35,7 +35,8 @@ enum { VEHICLE_COUNT=2, VEHICLE_START=6+sizeof(menu_rules)/sizeof(*menu_rules), 
        RECORDS_INDEX=TITLE_INDEX+1, CRASH_INDEX=RECORDS_INDEX+1, LOCAL_INDEX=CRASH_INDEX+1, CALLOUT_INDEX=LOCAL_INDEX+1,
        TRACK_START=CALLOUT_INDEX+1, TITLE_KIND=200, RECORDS_KIND=201, CRASH_KIND=202, LOCAL_KIND=203, CALLOUT_KIND=204 };
 static const char callout_description[]=
-  "Play your boost-power WAV when starting each new lap, and your final-lap WAV instead when the last lap begins. "
+  "Play your boost-power WAV on new laps, or choose to announce it only once when lap 2 begins. "
+  "The final-lap WAV still plays when the last lap begins. "
   "Single-player and VS; online announces your own laps. Supply both WAV recordings below to enable. "
   "No recordings are included. WAV files must be 30 seconds or shorter.";
 static bool callouts_ready(void) {
@@ -137,7 +138,7 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
     memset(out,0,sizeof(*out));COPY(out->id,"lap-callouts");COPY(out->package_id,"fzero-lap-callouts");
     COPY(out->name,"Lap voice callouts");COPY(out->package_name,out->name);COPY(out->package_version,"1");
     COPY(out->group,"Audio");COPY(out->author,"User-supplied recordings");COPY(out->description,callout_description);
-    bool ready=callouts_ready();out->enabled=video->lap_callouts && ready;
+    bool ready=callouts_ready();out->enabled=video->lap_callouts && ready;out->option_count=1;
     COPY(out->status,!ready?"Choose both WAV recordings":out->enabled?"Enabled":"Ready to enable");return 1;
   }
   if (index == 3) return SnesHdModFeature(video->hd_mode7, out);
@@ -216,6 +217,12 @@ static int option_get(void *ctx, const char *package, const char *feature, int i
     out->choice_count=(int)FzeroTitleChoiceCount(); COPY(out->default_value,"original");
     COPY(out->value,FzeroTracksTitleStyle()); return 1;
   }
+  if (kind==CALLOUT_KIND) {
+    memset(out,0,sizeof(*out));COPY(out->id,"boost-timing");COPY(out->label,"Boost-power timing");
+    COPY(out->description,"Lap 2 only announces the first racer entering lap 2 once per race. Final-lap announcements are unchanged.");
+    out->type=RECOMP_MOD_OPTION_CHOICE;out->step=1;out->choice_count=2;
+    COPY(out->default_value,"every-lap");COPY(out->value,video->lap_boost_second_lap_only?"lap-2-only":"every-lap");return 1;
+  }
   if (kind>=7) return 0;
   memset(out, 0, sizeof(*out)); out->type = RECOMP_MOD_OPTION_CHOICE; out->step = 1;
   if (kind == 1) {
@@ -244,6 +251,10 @@ static int choice_get(void *ctx, const char *package, const char *feature,
   if (identity(package,feature) == TITLE_KIND && !strcmp(option,"screen")) {
     const FzeroTitleScreen *title=FzeroTitleChoice((unsigned)index); if (!title) return 0;
     memset(out,0,sizeof(*out)); COPY(out->value,title->id); COPY(out->label,title->name); return 1;
+  }
+  if (identity(package,feature)==CALLOUT_KIND && !strcmp(option,"boost-timing") && index<2) {
+    memset(out,0,sizeof(*out));COPY(out->value,index?"lap-2-only":"every-lap");
+    COPY(out->label,index?"Lap 2 only (once per race)":"Every new lap");return 1;
   }
   const char *value = NULL;
   if (identity(package,feature)>=7) return 0;
@@ -311,6 +322,10 @@ static int set_option(void *ctx, const char *package, const char *feature,
     const FzeroTitleScreen *title=FzeroTitleFind(value);
     return !strcmp(option,"screen") && title && !title->hidden && FzeroTracksSetTitleStyle(value);
   }
+  if (identity(package,feature)==CALLOUT_KIND) {
+    if(strcmp(option,"boost-timing") || (strcmp(value,"every-lap") && strcmp(value,"lap-2-only")))return 0;
+    video->lap_boost_second_lap_only=!strcmp(value,"lap-2-only");error_text[0]=0;return 1;
+  }
   if (identity(package,feature)>=7) return 0;
   if (identity(package, feature) == 1 && !strcmp(option, "aspect")) {
     for (unsigned i = 0; i < 4; ++i) if (!strcmp(value, aspects[i]))
@@ -341,7 +356,7 @@ static int resource_get(void *ctx,const char *p,const char *f,int i,RecompLaunch
   if(!out || i<0 || i>1)return 0;
   memset(out,0,sizeof(*out));COPY(out->id,i?"final-lap":"boost-power");
   COPY(out->label,i?"Final lap WAV":"Boost power WAV");
-  COPY(out->description,i?"Plays instead of boost power when the final lap begins.":"Plays when each ordinary new lap begins.");
+  COPY(out->description,i?"Plays instead of boost power when the final lap begins.":video->lap_boost_second_lap_only?"Plays once when the first racer starts lap 2.":"Plays when each ordinary new lap begins.");
   COPY(out->path,i?video->final_lap_wav:video->lap_boost_wav);
   COPY(out->file_patterns,"*.wav");COPY(out->file_description,"WAV audio (up to 30 seconds)");
   out->required=1;out->verified=FzeroCalloutsValid(out->path);

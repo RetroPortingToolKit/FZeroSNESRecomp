@@ -759,9 +759,11 @@ static uint32_t keyboard_input(void) {
   return keyboard_input_from_keys(snesrecomp_sdl_get_keyboard_state(),0);
 }
 
+static void local_ui_keyboard_state(uint8_t *keys);
 static uint32_t keyboard_guest_input_for_player(unsigned player) {
   uint8_t keys[SDL_SCANCODE_COUNT];
   memcpy(keys, snesrecomp_sdl_get_keyboard_state(), sizeof(keys));
+  local_ui_keyboard_state(keys);
   for (int i = 0; i < 2; ++i)
     if (g_quick_keys[i] > 0 && g_quick_keys[i] < SDL_SCANCODE_COUNT) keys[g_quick_keys[i]] = 0;
   return keyboard_input_from_keys(keys,player);
@@ -2042,7 +2044,7 @@ static int run_game(int argc, char **argv) {
   RtlSetAudioOutputRate(audio_freq);
   g_audio_volume = launcher_settings.volume;
   if (g_audio_volume < 0 || g_audio_volume > 100) g_audio_volume = 100;
-  if(!FzeroCalloutsConfigure(g_video.lap_callouts,g_video.lap_boost_wav,g_video.final_lap_wav))
+  if(!FzeroCalloutsConfigure(g_video.lap_callouts,g_video.lap_boost_wav,g_video.final_lap_wav,g_video.lap_boost_second_lap_only))
     fputs("[lap-callouts] Both WAV recordings are required; callouts disabled.\n",stderr);
   wanted.format = AUDIO_S16SYS;
   wanted.channels = 2;
@@ -2364,7 +2366,9 @@ static int run_game(int argc, char **argv) {
       if(local_controls_generation!=RtlStateGeneration()) {
         local_controls_generation=RtlStateGeneration();FzeroLocalControlsLoaded(local_controls);
       }
-      unsigned action=FzeroCaptureReplayActive()?0:FzeroLocalControlsUpdate(local_controls,keyboard_guest_input_for_player(FzeroLocalControlsKeyboardPlayer(local_controls)));
+      uint32_t keyboards[FZERO_MAX_PLAYERS];
+      for(unsigned p=0;p<FZERO_MAX_PLAYERS;++p)keyboards[p]=keyboard_guest_input_for_player(p);
+      unsigned action=FzeroCaptureReplayActive()?0:FzeroLocalControlsUpdateKeyboards(local_controls,keyboards);
       if(action&FZERO_LOCAL_MAIN) {
         snesrecomp_sdl_pause_audio_device(audio,true);SDL_LockMutex(g_audio_mutex);
         FzeroCaptureStop();snes_rewind_shutdown();FzeroStateGuardDisarm();

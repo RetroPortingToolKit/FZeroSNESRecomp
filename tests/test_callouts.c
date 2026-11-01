@@ -22,14 +22,16 @@ int main(int argc,char **argv) {
   const char *boost="fzero callout boost.wav",*final="fzero callout final.wav";
   wav(boost,1000);wav(final,2000);
   CHECK(!FzeroCalloutsValid("missing.wav") && FzeroCalloutsValid(boost));
-  CHECK(!FzeroCalloutsConfigure(true,boost,""));
+  CHECK(!FzeroCalloutsConfigure(true,boost,"",false));
   FzeroLapObservation s={.generation=1,.race=7,.tick=100,.total=5,.racing=true};
   CHECK(FzeroCalloutsObserve(&s)==0);s.tick++;s.completed[0]=1;
   CHECK(FzeroCalloutsObserve(&s)==0 && !audible(1));
-  CHECK(FzeroCalloutsConfigure(true,boost,final));s.completed[0]=0;
+  CHECK(FzeroCalloutsConfigure(true,boost,final,false));s.completed[0]=0;
   CHECK(FzeroCalloutsObserve(&s)==0);s.tick++;s.completed[0]=1;
   CHECK(FzeroCalloutsObserve(&s)==FZERO_CALLOUT_BOOST && audible(1));
   CHECK(!FzeroCalloutsObserve(&s)); /* repeated presentation */
+  ++s.tick;s.completed[0]=2;CHECK(FzeroCalloutsObserve(&s)==FZERO_CALLOUT_BOOST);
+  ++s.tick;s.completed[0]=3;CHECK(FzeroCalloutsObserve(&s)==FZERO_CALLOUT_BOOST);
   --s.tick;s.completed[0]=0;CHECK(!FzeroCalloutsObserve(&s)); /* speculative rollback */
   s.tick+=2;s.completed[0]=1;CHECK(!FzeroCalloutsObserve(&s));
   ++s.tick;s.completed[0]=4;s.completed[1]=1;
@@ -44,18 +46,55 @@ int main(int argc,char **argv) {
   ++s.tick;s.completed[0]=1;CHECK(FzeroCalloutsObserve(&s)==FZERO_CALLOUT_BOOST);
   ++s.tick;s.paused=true;CHECK(!FzeroCalloutsObserve(&s) && !audible(s.generation));
   ++s.tick;s.paused=false;CHECK(!FzeroCalloutsObserve(&s) && audible(s.generation));
-  FzeroVideoSettings config,loaded;FzeroVideoDefaults(&config);CHECK(!config.lap_callouts);
-  config.lap_callouts=true;strcpy(config.lap_boost_wav,boost);strcpy(config.final_lap_wav,final);
+  /* The optional timing is one shared announcement on the first real lap-2
+   * crossing, including P3/P4, without changing final-lap priority. */
+  CHECK(FzeroCalloutsConfigure(true,boost,final,true));
+  s=(FzeroLapObservation){.generation=2,.race=8,.tick=100,.total=5,.racing=true};
+  CHECK(!FzeroCalloutsObserve(&s));
+  ++s.tick;s.completed[2]=1;CHECK(FzeroCalloutsObserve(&s)==FZERO_CALLOUT_BOOST && audible(s.generation));
+  ++s.tick;s.completed[0]=1;CHECK(!FzeroCalloutsObserve(&s)); /* another human's lap 2 */
+  ++s.tick;s.completed[2]=2;CHECK(!FzeroCalloutsObserve(&s));
+  ++s.tick;s.completed[2]=3;CHECK(!FzeroCalloutsObserve(&s));
+  ++s.tick;s.completed[2]=4;s.completed[3]=1;CHECK(FzeroCalloutsObserve(&s)==FZERO_CALLOUT_FINAL);
+  ++s.tick;s.completed[3]=2;CHECK(!FzeroCalloutsObserve(&s));
+  /* A new race/rematch re-arms; re-presenting or rewinding the crossing does not. */
+  ++s.race;++s.tick;memset(s.completed,0,sizeof(s.completed));CHECK(!FzeroCalloutsObserve(&s));
+  ++s.tick;s.completed[3]=1;CHECK(FzeroCalloutsObserve(&s)==FZERO_CALLOUT_BOOST);
+  CHECK(!FzeroCalloutsObserve(&s));--s.tick;s.completed[3]=0;CHECK(!FzeroCalloutsObserve(&s));
+  s.tick+=2;s.completed[3]=1;CHECK(!FzeroCalloutsObserve(&s));
+  /* Loading after lap 2, or skipping/pausing its crossing, anchors silently. */
+  ++s.generation;s.completed[3]=2;CHECK(!FzeroCalloutsObserve(&s));
+  ++s.tick;s.completed[1]=1;CHECK(!FzeroCalloutsObserve(&s));
+  ++s.race;++s.tick;memset(s.completed,0,sizeof(s.completed));CHECK(!FzeroCalloutsObserve(&s));
+  ++s.tick;s.completed[0]=2;CHECK(!FzeroCalloutsObserve(&s));
+  ++s.tick;s.completed[1]=1;CHECK(!FzeroCalloutsObserve(&s));
+  ++s.race;++s.tick;memset(s.completed,0,sizeof(s.completed));CHECK(!FzeroCalloutsObserve(&s));
+  ++s.tick;s.paused=true;s.completed[0]=1;CHECK(!FzeroCalloutsObserve(&s));
+  ++s.tick;s.paused=false;s.completed[1]=1;CHECK(!FzeroCalloutsObserve(&s));
+  ++s.tick;s.completed[3]=4;CHECK(FzeroCalloutsObserve(&s)==FZERO_CALLOUT_FINAL);
+  /* Ordinary default mode still observes all four humans. */
+  CHECK(FzeroCalloutsConfigure(true,boost,final,false));
+  s=(FzeroLapObservation){.generation=3,.race=9,.tick=100,.total=5,.racing=true};CHECK(!FzeroCalloutsObserve(&s));
+  ++s.tick;s.completed[3]=2;CHECK(FzeroCalloutsObserve(&s)==FZERO_CALLOUT_BOOST);
+  ++s.tick;s.completed[2]=4;CHECK(FzeroCalloutsObserve(&s)==FZERO_CALLOUT_FINAL);
+  FzeroVideoSettings config,loaded;FzeroVideoDefaults(&config);CHECK(!config.lap_callouts && !config.lap_boost_second_lap_only);
+  config.lap_callouts=true;config.lap_boost_second_lap_only=true;strcpy(config.lap_boost_wav,boost);strcpy(config.final_lap_wav,final);
   CHECK(FzeroVideoSave(&config,"fzero-callout-test.ini") && FzeroVideoLoad(&loaded,"fzero-callout-test.ini"));
-  CHECK(loaded.lap_callouts && !strcmp(loaded.lap_boost_wav,boost) && !strcmp(loaded.final_lap_wav,final));
+  CHECK(loaded.lap_callouts && loaded.lap_boost_second_lap_only && !strcmp(loaded.lap_boost_wav,boost) && !strcmp(loaded.final_lap_wav,final));
+  FILE *legacy=fopen("fzero-callout-test.ini","w");CHECK(legacy);
+  fputs("[FZeroVideo]\nLapCallouts=0\n",legacy);CHECK(!fclose(legacy));
+  CHECK(FzeroVideoLoad(&loaded,"fzero-callout-test.ini") && !loaded.lap_boost_second_lap_only);
+  legacy=fopen("fzero-callout-test.ini","w");CHECK(legacy);
+  fputs("[FZeroVideo]\nLapBoostSecondLapOnly=2\n",legacy);CHECK(!fclose(legacy));
+  CHECK(!FzeroVideoLoad(&loaded,"fzero-callout-test.ini"));
   if(argc==3) {
     CHECK(FzeroCalloutsValid(argv[1]) && FzeroCalloutsValid(argv[2]));
-    CHECK(FzeroCalloutsConfigure(true,argv[1],argv[2]));
+    CHECK(FzeroCalloutsConfigure(true,argv[1],argv[2],false));
     s.tick++;s.completed[0]=0;CHECK(!FzeroCalloutsObserve(&s));
     s.tick++;s.completed[0]=1;CHECK(FzeroCalloutsObserve(&s)==FZERO_CALLOUT_BOOST);
     CHECK(audible(s.generation));
   }
   FzeroCalloutsShutdown();CHECK(!remove(boost) && !remove(final) && !remove("fzero-callout-test.ini"));
-  puts("PASS lap callouts: both WAVs required, conversion, mixing, clipping, lap/final priority, load/rollback, pause and config paths");
+  puts("PASS lap callouts: both WAVs required, conversion, mixing, clipping, lap/final priority, load/rollback, pause, four humans, lap-2-only/rematch and config paths");
   return 0;
 }

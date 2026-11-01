@@ -9,7 +9,7 @@ static SNESModAudioClip clips[2];
 extern void RtlApuLock(void);
 extern void RtlApuUnlock(void);
 static FzeroLapObservation previous;
-static bool enabled,observed;
+static bool enabled,observed,second_lap_only,boost_announced;
 static SNESModAudioVoice voice;
 static unsigned voice_kind;
 
@@ -58,12 +58,12 @@ bool FzeroCalloutsValid(const char *path) {
 }
 void FzeroCalloutsShutdown(void) {
   RtlApuLock();
-  enabled=observed=false;voice=0;voice_kind=0;
+  enabled=observed=boost_announced=false;voice=0;voice_kind=0;
   for(unsigned i=0;i<2;++i){snes_mod_audio_unregister(clips[i]);clips[i]=0;}
   RtlApuUnlock();
 }
-bool FzeroCalloutsConfigure(bool wanted,const char *boost,const char *final) {
-  FzeroCalloutsShutdown();
+bool FzeroCalloutsConfigure(bool wanted,const char *boost,const char *final,bool lap_two_only) {
+  FzeroCalloutsShutdown();second_lap_only=lap_two_only;
   if(!wanted)return true;
   Clip loaded[2]={{0}};
   bool ok=load_clip(boost,&loaded[0]) && load_clip(final,&loaded[1]);
@@ -81,16 +81,28 @@ unsigned FzeroCalloutsObserve(const FzeroLapObservation *s) {
   RtlApuLock();unsigned cue=FZERO_CALLOUT_NONE;
   bool reset=!observed || s->generation!=previous.generation || s->race!=previous.race ||
       s->total!=previous.total || !s->racing || !previous.racing;
-  if(reset) {previous=*s;observed=true;snes_mod_audio_stop_voice(voice);voice=0;}
+  if(reset) {
+    previous=*s;observed=true;boost_announced=false;
+    /* Loading/re-anchoring after lap 2 has begun must not announce it later
+     * when another racer reaches the same lap. Restart at lap 1 re-arms. */
+    for(unsigned i=0;i<FZERO_CALLOUT_PLAYERS;++i)if(s->completed[i])boost_announced=true;
+    snes_mod_audio_stop_voice(voice);voice=0;
+  }
   else if(s->tick>previous.tick) {
-    if(enabled && !s->paused)for(unsigned i=0;i<2;++i)
+    if(enabled && !s->paused)for(unsigned i=0;i<FZERO_CALLOUT_PLAYERS;++i)
       if(s->completed[i]>previous.completed[i] && s->completed[i]<s->total) {
         unsigned next=s->completed[i]==s->total-1?FZERO_CALLOUT_FINAL:FZERO_CALLOUT_BOOST;
+        if(next==FZERO_CALLOUT_BOOST && second_lap_only && (boost_announced || s->completed[i]!=1))continue;
         if(next>cue)cue=next;
       }
     /* High water marks suppress duplicate crossings after rollback and
      * backwards driving. User loads change generation and re-anchor above. */
-    for(unsigned i=0;i<2;++i)if(s->completed[i]>previous.completed[i])previous.completed[i]=s->completed[i];
+    for(unsigned i=0;i<FZERO_CALLOUT_PLAYERS;++i)if(s->completed[i]>previous.completed[i]) {
+      previous.completed[i]=s->completed[i];
+      /* Consume a paused/skipped crossing too: this mode never announces
+       * an old lap-2 event on a later racer or after resuming. */
+      if(s->completed[i])boost_announced=true;
+    }
     previous.tick=s->tick;previous.paused=s->paused;
     if(cue==FZERO_CALLOUT_BOOST && voice_kind==FZERO_CALLOUT_FINAL && snes_mod_audio_voice_active(voice))cue=FZERO_CALLOUT_NONE;
     if(cue) {

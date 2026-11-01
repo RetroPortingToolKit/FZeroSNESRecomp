@@ -1,4 +1,4 @@
-"""Muted desktop qualification through native VS entry and two to four SDL devices.
+"""Muted desktop qualification through native VS entry with gamepads or keyboard layouts.
 
 Exercises the live Restart/Change/Main Menu actions, continued simulation,
 resizing and the combined native/HD presentation. Uses a fresh installation.
@@ -22,6 +22,7 @@ def main():
     for key in ('build', 'runtime', 'rom', 'packs', 'out'):
         p.add_argument('--' + key, type=Path, required=True)
     p.add_argument('--players',type=int,choices=(2,3,4),default=2)
+    p.add_argument('--keyboard',action='store_true',help='Exercise four distinct keybinds.ini layouts through the host keyboard path')
     p.add_argument('--hd-scale',type=int,default=8)
     p.add_argument('--stock-only',action='store_true',help='Qualify native courses without the optional Astra import')
     p.add_argument('--cup',type=int,default=0)
@@ -46,10 +47,17 @@ def main():
     config = (runtime / 'config.ini').read_text()
     config = config.replace('SkipLauncher = 0', 'SkipLauncher = 1')
     config = config.replace('SkipLauncher=0', 'SkipLauncher=1')
+    if a.keyboard:
+        config=re.sub(r'(?mi)^SourceP[1-4]\s*=.*$', '', config)
+        config=config.replace('[Controller]', '[Controller]\n'+''.join(f'SourceP{i}=1\n' for i in range(1,5)))
     if a.menu_music:
         config=re.sub(r'(?m)^(\s*Volume\s*=).*$',r'\g<1>0',config)
     (stage / 'config.ini').write_text(config)
     shutil.copy2(runtime / 'keybinds.ini', stage)
+    if a.keyboard:
+        keys=list('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789')+[f'Keypad {i}' for i in range(10)]+['Keypad +','Keypad -']
+        buttons=('a','b','x','y','l','r','start','select','up','down','left','right')
+        (stage/'keybinds.ini').write_text(''.join(f'[player{p+1}]\n'+''.join(f'{b}={keys[p*12+i]}\n' for i,b in enumerate(buttons)) for p in range(4)),encoding='utf-8')
     (stage / 'fzero-video.ini').write_text(
         f'[FZeroVideo]\nEnhancedRenderer=1\nAspect=Fit\nPresentationEnabled=1\nPresentationFPS={a.fps}\n'
         f'Mode7Enabled={int(not a.native)}\nMode7Scale={a.hd_scale}\nBSVehicles=0\nBSTracks={int(a.bs_tracks)}\nCGPCars={7 if a.full_profile else 0}\nCGPStockRebalance={15 if a.full_profile else 0}\n'
@@ -65,6 +73,7 @@ def main():
                FZERO_PACKS_DIR=str(out / 'catalog'), FZERO_TRACK_PACKS=str(out / 'settings'), SNESRECOMP_SAVE_ROOT='s',
                SNESRECOMP_INPUT_SCRIPT='300-302:32,330-332:32,360-362:32,390-392:8',
                SNESRECOMP_AUTOCLOSE_FRAMES='5000')
+    if a.keyboard:env['FZERO_TEST_LOCAL_UI_KEYBOARD']='1'
     if not a.no_contact_fixture:env['FZERO_TEST_TRAFFIC_CONTACT']='1'
     if a.menu_music:
         env.pop('SDL_AUDIODRIVER',None)
@@ -92,11 +101,15 @@ def main():
     if not a.no_contact_fixture:
         assert all(f'[traffic-video] pane={p} ' in text for p in range(a.players)), 'Bumper pixels missing from a gameplay view'
         assert 'traffic-encounter: all human impacts PASS' in text, 'Prepared bumper contacts did not reach every human'
-    assert 'local-ui-reconnect: neutral disconnect, continuing peers, same-seat recovery PASS' in text
-    report=dict(passed=True,observed_scales=sorted({int(n) for n in re.findall(r'local-ui-image:.* scale=(\d+)',text)}),players=a.players,cup=a.cup,native=a.native,hd_scale=a.hd_scale,bs_tracks=a.bs_tracks,contact_fixture=not a.no_contact_fixture,
+    if a.keyboard:
+        assert 'local-ui-keyboard: four layouts, movement and menu ownership PASS' in text
+    else:
+        assert 'local-ui-reconnect: neutral disconnect, continuing peers, same-seat recovery PASS' in text
+    report=dict(passed=True,keyboard=a.keyboard,observed_scales=sorted({int(n) for n in re.findall(r'local-ui-image:.* scale=(\d+)',text)}),players=a.players,cup=a.cup,native=a.native,hd_scale=a.hd_scale,bs_tracks=a.bs_tracks,contact_fixture=not a.no_contact_fixture,
                 sha256=hashlib.sha256((stage/'F-Zero Forever.exe').read_bytes()).hexdigest())
     (out/'result.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
-    print(f'PASS live menu: {a.players} SDL devices, traffic fixture={not a.no_contact_fixture}, restart/change/exit, resized HD/native presentation', flush=True)
+    source='keyboard layouts' if a.keyboard else 'SDL gamepads'
+    print(f'PASS live menu: {a.players} {source}, traffic fixture={not a.no_contact_fixture}, restart/change/exit, resized HD/native presentation', flush=True)
 
 
 if __name__ == '__main__':
