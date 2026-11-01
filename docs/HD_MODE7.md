@@ -11,6 +11,7 @@ The settings in `fzero-video.ini` are:
 ```ini
 Mode7Enabled=1
 Mode7Scale=8
+Mode7Smoothing=0
 ```
 
 These replace the retired CPU-HD control and its `HDMode7`/`HDMode7Scale` keys.
@@ -27,6 +28,31 @@ targets; hardware limits may reduce their effective resolution.
 Local three/four-player views use the portable CPU renderer at up to2x; this
 cap preserves responsiveness while the shared GPU packet supports full-width
 cameras only. Two-player and single-player GPU scales still reach64x.
+
+**Track smoothing** is a separate, optional Off/On control in this feature.
+It averages four samples across each presented track pixel while retaining
+point-sampled sprites, HUD, menus and foreground overlays. It rejects samples
+across camera discontinuities and protected foreground pixels. It defaults off;
+1x, unsupported devices and local three/four-player CPU views remain native or
+use their existing fallback. GPU memory stays bounded by the presentation size;
+insufficient texture/budget capacity falls back to unsmoothed output.
+
+The 2026-11-01 trial compared 17 moving Mute City frames at 768x576 against
+black-box bsnes 115 and bsnes-hd beta 10.6 cores, with their documented HD and
+supersampling controls. Core binaries, options, source capture identities,
+lossless frames, clips and results are retained locally in
+`captures/mode7-smoothing`. Emulator crop, one-frame timing and F-Zero-specific
+course/color policies differ, so these are visual comparisons, not pixel-parity
+claims. See the [bsnes-hd settings](https://github.com/DerKoun/bsnes-hd#settings).
+
+On the RTX 3080 Ti, median GPU draw time was 0.18ms without smoothing and
+0.40ms with it at both 8x and64x. Four-sample smoothing reduced track sampling
+RMSE by46-49% against an offline 16-sample area-average reference sharing our
+transforms; protected foreground pixels were unchanged. Residual changes over
+time fell42-48% against that reference. This is evidence about sampling error,
+not an artistic quality score or a whole-game FPS claim. Distant scenery still
+aliases; the emulator controls likewise trade sharpness for averaging. Higher
+resolution alone does not provide supersampling anti-aliasing.
 
 Unsupported scenes and devices retain native rendering. The old 2..10x CPU
 sampler remains an internal developer/reference path (`FZERO_HD_GPU=0`), not

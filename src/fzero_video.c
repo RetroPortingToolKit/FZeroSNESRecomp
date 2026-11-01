@@ -122,7 +122,7 @@ bool FzeroVideoLoad(FzeroVideoSettings *s, const char *path) {
     }
     int fields = sscanf(line, " %63[^= \t] = %63s", key, value);
     if (fields != 2) {
-      if (fields == 1 && !strcmp(key, "Mode7Scale")) valid = false;
+      if (fields == 1 && (!strcmp(key, "Mode7Scale") || !strcmp(key,"Mode7Smoothing"))) valid = false;
       continue;
     }
     if (!strcmp(key,"LapCallouts")) {
@@ -141,6 +141,9 @@ bool FzeroVideoLoad(FzeroVideoSettings *s, const char *path) {
     } else if (!strcmp(key, "Mode7Enabled")) {
       if (!strcmp(value, "0") || !strcmp(value, "1")) s->hd_mode7 = value[0] == '1';
       else valid = false;
+    } else if (!strcmp(key, "Mode7Smoothing")) {
+      if (!strcmp(value,"0") || !strcmp(value,"1")) s->hd_smoothing=value[0]=='1';
+      else valid=false;
     } else if (!strcmp(key, "Mode7Scale")) {
       if (!FzeroParseHdScale(value, &s->hd_scale)) valid = false;
     } else if (!strcmp(key,"LocalTwoPlayer")) {
@@ -225,6 +228,7 @@ bool FzeroVideoSave(const FzeroVideoSettings *s, const char *path) {
                     s->gameplay.tuning, s->gameplay.boost, s->gameplay.exhaust,
                     s->gameplay.vehicle_packs ? 7u : 0u,s->gameplay.stock_rebalance ? 15u : 0u,
                     s->hd_mode7, s->hd_scale >= FZERO_HD_SCALE_MIN && s->hd_scale <= FZERO_GPU_HD_SCALE_MAX ? s->hd_scale : (unsigned)kSnesHdDefaultScale, s->diagnostics) > 0;
+  if (fprintf(f, "Mode7Smoothing=%d\n", s->hd_smoothing) < 0) ok = false;
   if (fprintf(f, "AlwaysShowRecords=%d\n", s->gameplay.always_records) < 0) ok = false;
   if (fprintf(f, "CrashReplay=%d\n", s->crash_replay) < 0) ok = false;
   if (fprintf(f,"LocalTwoPlayer=%d\n",s->local_two_player)<0)ok=false;

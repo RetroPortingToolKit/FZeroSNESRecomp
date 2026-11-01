@@ -90,7 +90,7 @@ static int package_get(void *ctx, int index, RecompLauncherCModPackage *out) {
     COPY(out->version,"1");COPY(out->author,"User-supplied recordings");COPY(out->description,callout_description);
     out->enabled=video->lap_callouts && callouts_ready();return 1;
   }
-  if (index == 3) return SnesHdModPackage(video->hd_mode7, out);
+  if (index == 3) { int ok=SnesHdModPackage(video->hd_mode7,out); if(ok)out->option_count=2; return ok; }
   if(index==LOCAL_INDEX && out) {
     memset(out,0,sizeof(*out));COPY(out->id,"fzero-local-2p");COPY(out->name,"Local Multiplayer");
     COPY(out->version,"1");COPY(out->author,"FZeroSNESRecomp contributors");
@@ -141,7 +141,7 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
     bool ready=callouts_ready();out->enabled=video->lap_callouts && ready;out->option_count=1;
     COPY(out->status,!ready?"Choose both WAV recordings":out->enabled?"Enabled":"Ready to enable");return 1;
   }
-  if (index == 3) return SnesHdModFeature(video->hd_mode7, out);
+  if (index == 3) { int ok=SnesHdModFeature(video->hd_mode7,out); if(ok)out->option_count=2; return ok; }
   if(index==LOCAL_INDEX && out) {
     memset(out,0,sizeof(*out));COPY(out->id,"local-2p");COPY(out->package_id,"fzero-local-2p");
     COPY(out->name,"Local Multiplayer");COPY(out->package_name,out->name);COPY(out->package_version,"1");
@@ -209,7 +209,8 @@ static int option_get(void *ctx, const char *package, const char *feature, int i
   if (!identity(package, feature)) return FzeroTrackModsProvider()->feature_option_get ? FzeroTrackModsProvider()->feature_option_get(ctx, package, feature, index, out) : 0;
   (void)ctx;
   int kind = identity(package, feature);
-  if (!kind || kind == 3 || kind == 5 || kind == 6 || index != 0 || !out) return 0;
+  if (!kind || kind == 3 || kind == 5 || kind == 6 ||
+      (index != 0 && !(kind == 4 && index == 1)) || !out) return 0;
   if (kind == TITLE_KIND) {
     memset(out,0,sizeof(*out)); COPY(out->id,"screen"); COPY(out->label,"Title screen");
     COPY(out->description,"Works with any enabled courses. Disable the override to restore Original.");
@@ -233,6 +234,12 @@ static int option_get(void *ctx, const char *package, const char *feature, int i
     COPY(out->default_value, FzeroAspectName(FZERO_ASPECT_FIT));
     out->choice_count = 4;
   } else if (kind == 4) {
+    if (index == 1) {
+      COPY(out->id,"smoothing");COPY(out->label,"Track smoothing");
+      COPY(out->description,"Average four track samples per pixel to soften jagged edges. Keeps sprites and HUD sharp. Available in solo, online and local two-player play; off by default.");
+      COPY(out->value,video->hd_smoothing?"on":"off");COPY(out->default_value,"off");
+      out->choice_count=2;return 1;
+    }
     return SnesHdModOption(video->hd_scale, index, out);
   } else {
     COPY(out->id, "fps"); COPY(out->label, "Presentation FPS");
@@ -257,6 +264,9 @@ static int choice_get(void *ctx, const char *package, const char *feature,
     COPY(out->label,index?"Lap 2 only (once per race)":"Every new lap");return 1;
   }
   const char *value = NULL;
+  if (identity(package,feature)==4 && !strcmp(option,"smoothing") && index<2) {
+    memset(out,0,sizeof(*out));COPY(out->value,index?"on":"off");COPY(out->label,index?"On":"Off");return 1;
+  }
   if (identity(package,feature)>=7) return 0;
   if (identity(package, feature) == 1 && !strcmp(option, "aspect") && index < 4) value = aspects[index];
   if (identity(package, feature) == 2 && !strcmp(option, "fps") && index < 8) value = rates[index];
@@ -330,6 +340,9 @@ static int set_option(void *ctx, const char *package, const char *feature,
   if (identity(package, feature) == 1 && !strcmp(option, "aspect")) {
     for (unsigned i = 0; i < 4; ++i) if (!strcmp(value, aspects[i]))
       return FzeroParseAspect(value, &video->aspect);
+  } else if (identity(package, feature) == 4 && !strcmp(option,"smoothing")) {
+    if (strcmp(value,"on") && strcmp(value,"off")) return 0;
+    video->hd_smoothing=!strcmp(value,"on");error_text[0]=0;return 1;
   } else if (identity(package, feature) == 4 && !strcmp(option, "scale")) {
     if (FzeroParseHdScale(value, &video->hd_scale)) { error_text[0] = 0; return 1; }
     COPY(error_text, "HD Mode 7 resolution must be a whole number from 1 to 64.");

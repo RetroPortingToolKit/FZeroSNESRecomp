@@ -120,6 +120,12 @@ static void config_tests(void) {
     fprintf(bad, "Mode7Scale=%s\n", invalid[i]); fclose(bad);
     CHECK(!FzeroVideoLoad(&b, "test-video.ini") && b.hd_scale == 8);
   }
+  FILE *smoothing=fopen("test-video.ini","w");CHECK(smoothing);
+  fputs("Mode7Smoothing=1\n",smoothing);fclose(smoothing);
+  CHECK(FzeroVideoLoad(&b,"test-video.ini") && b.hd_smoothing);
+  smoothing=fopen("test-video.ini","w");CHECK(smoothing);
+  fputs("Mode7Smoothing=2\n",smoothing);fclose(smoothing);
+  CHECK(!FzeroVideoLoad(&b,"test-video.ini") && !b.hd_smoothing);
   FILE *f = fopen("test-video.ini", "w");
   CHECK(f);
   fputs("EnhancedRenderer=perhaps\nAspect=99:1\nPresentationFPS=120bad\nMode7Enabled=bad\nMode7Scale=9999\n", f);

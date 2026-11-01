@@ -316,10 +316,10 @@ static bool fzero_gl_hd(FzeroGlRenderer *glr,const SnesHdFrame *jobs,
     unsigned scale,int display_width,int display_height,GlTextureWithSize *output) {
   SnesHdGpuImage image;
   bool visible=!glr->shader && !g_config.linear_filtering && !getenv("FZERO_HD_FULL_TARGET");
-  if (!SnesHdGpuRender(glr->hd_gpu,jobs,scale,(unsigned)display_width,
+  if (!SnesHdGpuRenderSmoothed(glr->hd_gpu,jobs,scale,(unsigned)display_width,
       (unsigned)display_height,visible,(size_t)2*1024*1024*1024,
-      NULL,0,NULL,0,&image)) return false;
-  if(!fzero_gl_hd_check(jobs,&image,scale))return false;
+      NULL,0,NULL,0,g_video.hd_smoothing,&image)) return false;
+  if(!g_video.hd_smoothing && !fzero_gl_hd_check(jobs,&image,scale))return false;
   glr->hd_visible_samples=image.visible_samples;
   *output=(GlTextureWithSize){image.texture,image.width,image.height};
   return true;

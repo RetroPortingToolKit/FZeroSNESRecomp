@@ -29,6 +29,7 @@ typedef struct FzeroVideoSettings {
   FzeroGameplaySettings gameplay; /* Author's rules are all opt-in. */
   bool hd_mode7; /* Shared GPU enhancement, default on. */
   unsigned hd_scale; /* Integer 1..64; retained while disabled. */
+  bool hd_smoothing; /* Optional four-sample GPU track AA; native HUD stays sharp. */
   bool diagnostics; /* Opt-in local performance reports; off by default. */
   bool crash_replay; /* Automatic local crash/replay capture; defaults on. */
   bool local_two_player; /* Launcher game mode; stock rules apply per session. */

@@ -250,7 +250,7 @@ int main(int argc,char **argv) {
   CHECK(p->feature_enable(NULL, diag.package_id, diag.id, 1) && s.diagnostics);
   CHECK(!s.enhanced && !s.hd_mode7 && !s.fps_enabled);
   RecompLauncherCModFeature hd;
-  CHECK(p->feature_get(NULL, 3, &hd) && !hd.enabled && hd.option_count == 1);
+  CHECK(p->feature_get(NULL, 3, &hd) && !hd.enabled && hd.option_count == 2);
   CHECK(p->feature_enable(NULL, hd.package_id, hd.id, 1));
   CHECK(s.hd_mode7 && !s.enhanced && !s.fps_enabled);
   CHECK(p->feature_set_option(NULL, hd.package_id, hd.id, "scale", "4"));
@@ -270,6 +270,10 @@ int main(int argc,char **argv) {
   CHECK(p->feature_option_get(NULL, hd.package_id, hd.id, 0, &option));
   CHECK(!strcmp(option.value, "64") && !strcmp(option.default_value, "8"));
   CHECK(option.type == RECOMP_MOD_OPTION_INTEGER && option.min_value == 1 && option.max_value == 64);
+  CHECK(p->feature_option_get(NULL,hd.package_id,hd.id,1,&option));
+  CHECK(!strcmp(option.id,"smoothing") && !strcmp(option.default_value,"off") && !s.hd_smoothing);
+  CHECK(p->feature_set_option(NULL,hd.package_id,hd.id,"smoothing","on") && s.hd_smoothing);
+  CHECK(!p->feature_set_option(NULL,hd.package_id,hd.id,"smoothing","bogus") && s.hd_smoothing);
   RecompLauncherCModFeature deluxe;
   CHECK(p->feature_get(NULL, 2, &deluxe) && deluxe.option_count == 0);
   CHECK(p->feature_enable(NULL, deluxe.package_id, deluxe.id, 1));
@@ -288,7 +292,7 @@ int main(int argc,char **argv) {
   CHECK(p->feature_option_get(NULL, f.package_id, f.id, 0, &option) && !strcmp(option.id, "fps"));
   CHECK(p->commit(NULL, NULL) && FzeroVideoLoad(&loaded, "test-mods.ini"));
   CHECK(loaded.enhanced && !loaded.fps_enabled && loaded.fps == 144 && loaded.bs_deluxe);
-  CHECK(loaded.hd_mode7 && loaded.hd_scale == 64 && loaded.diagnostics);
+  CHECK(loaded.hd_mode7 && loaded.hd_scale == 64 && loaded.diagnostics && loaded.hd_smoothing);
   CHECK(p->feature_enable(NULL, diag.package_id, diag.id, 0) && !s.diagnostics);
   CHECK(p->commit(NULL, NULL) && FzeroVideoLoad(&loaded, "test-mods.ini") && !loaded.diagnostics);
   CHECK(p->feature_enable(NULL, hd.package_id, hd.id, 0));
