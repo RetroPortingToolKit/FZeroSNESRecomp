@@ -65,3 +65,33 @@ Windows refused non-forced removal of the agent-created save fixture directory
 `C:/Windows/Temp/m7-gjbf8jc2`; a copy is under
 `build-mode7/gpu-smoke/save-fixture`. The protected original still needs cleanup.
 No attributes, ACLs or security settings were changed.
+
+## Motion flicker correction (2026-11-02)
+
+Owner visual acceptance failed: intermittent incorrect screen regions while
+playing, not paused. The raw HD camera publisher blended signed 13-bit centre
+and scroll registers with an 8192-unit period, while the full-course reference
+already used the hardware map's 1024-unit camera aliases. A change of camera
+representative therefore moved the HD texture through another course block for
+intermediate presentations; emulated frame endpoints remained correct.
+
+A real consecutive capture reproduces it at frames 1456/1457: world camera X
+3192 -> 3200, centre X 1144 -> 128, scroll X 1016 -> 0. At alpha 0.5 the old
+publisher takes a 512-unit wrong turn. The corrected 4x image changes 24,777
+pixels; endpoint alpha 0 and 1 images remain byte-identical. The retained
+`build-mode7/flicker/transition.png` shows old endpoint, broken midpoint,
+corrected midpoint and new endpoint from left to right.
+
+The title adapter now blends the centre with period 1024 and the already
+clipped centre-relative scroll independently. Its map reference and matrix
+stay in the same representative. Shared spatial reconstruction is unchanged.
+Regression coverage includes stationary aliases and the captured eight-unit
+movement, both axes, horizontal/vertical flips and eight temporal phases.
+These checks failed before the fix and the complete renderer suite passes
+afterward. Owner recheck remains required; do not erase the reported failure.
+
+A non-benchmark 1200-frame 16x run at requested120Hz exercises real presentation
+interpolation:2387 presentations,27 sparse CPU/GPU comparisons,25 with
+fractional camera values, zero sampled mismatches. Eight missed presentations
+under host contention are recorded; this is correctness evidence, not a perfect
+120FPS qualification. Evidence is retained under build-mode7/flicker.

@@ -56,6 +56,7 @@
 #include "desktop/sdl_compat.h"
 #include "desktop/hd_gpu.h"
 
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -301,6 +302,9 @@ static bool fzero_gl_hd_check(const SnesHdFrame *jobs,const SnesHdGpuImage *imag
   glBindTexture(GL_TEXTURE_2D,image->texture);glGetTexImage(GL_TEXTURE_2D,0,GL_BGRA,GL_UNSIGNED_BYTE,pixels);
   glBindTexture(GL_TEXTURE_2D,(GLuint)binding);glBindBuffer(GL_PIXEL_PACK_BUFFER,(GLuint)pack);
   glPixelStorei(GL_PACK_ROW_LENGTH,row);glPixelStorei(GL_PACK_ALIGNMENT,alignment);glActiveTexture((GLenum)active);
+  bool fractional_camera=false;
+  for(unsigned y=0;y<v.height && !fractional_camera;++y)if(v.lines[y].kind==kSnesHdReconstructed)
+    for(unsigned c=0;c<8;++c)fractional_camera|=v.lines[y].matrix[c]!=floor(v.lines[y].matrix[c]);
   unsigned checked=0,bad=0;
   for(unsigned gy=0;gy<=16;++gy)for(unsigned gx=0;gx<=32;++gx) {
     unsigned x=gx*(image->width-1)/32,y=gy*(image->height-1)/16;
@@ -311,8 +315,8 @@ static bool fzero_gl_hd_check(const SnesHdFrame *jobs,const SnesHdGpuImage *imag
     if(!ok || (pixels[(size_t)y*image->width+x]&0xffffff)!=(expected&0xffffff))++bad;
     ++checked;
   }
-  fprintf(stderr,"[fzero-hd-parity] scale=%u source=%ux%u target=%ux%u checked=%u mismatches=%u\n",
-      scale,v.width,v.height,image->width,image->height,checked,bad);
+  fprintf(stderr,"[fzero-hd-parity] scale=%u source=%ux%u target=%ux%u checked=%u mismatches=%u fractional_camera=%u\n",
+      scale,v.width,v.height,image->width,image->height,checked,bad,fractional_camera);
   free(pixels);if(bad)g_selftest_failed=1;return bad==0;
 }
 

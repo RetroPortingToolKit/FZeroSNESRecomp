@@ -897,11 +897,20 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
         int16_t old[8];
         memcpy(old, previous->lines[y].registers + offsetof(Ppu, m7matrix), sizeof(old));
         if (previous->lines[y].registers[offsetof(Ppu, m7sel)] == j.control) {
-          for (unsigned c = 0; c < 8; ++c) {
-            double before = c < 4 ? old[c] : SnesMode7HdSign13(old[c]);
-            double delta = j.matrix[c] - before;
-            if (c >= 4) delta = remainder(delta, 8192);
-            j.matrix[c] -= (1-alpha) * delta;
+          for (unsigned c = 0; c < 4; ++c)
+            j.matrix[c] = old[c] + alpha * (j.matrix[c] - old[c]);
+          for (unsigned axis = 0; axis < 2; ++axis) {
+            unsigned centre = 4 + axis, scroll = 6 + axis;
+            int before = SnesMode7HdSign13(old[centre]);
+            int old_offset = SnesMode7HdSign13(old[scroll]) - before;
+            int new_offset = (int)(j.matrix[scroll] - j.matrix[centre]);
+            old_offset = old_offset & 0x2000 ? old_offset | ~1023 : old_offset & 1023;
+            new_offset = new_offset & 0x2000 ? new_offset | ~1023 : new_offset & 1023;
+            /* Retail's +1024 centre/scroll aliases describe one camera.
+             * Interpolate the clipped relative offset and the periodic centre
+             * separately, in the same representative as map_offset above. */
+            j.matrix[centre] = periodic_blend(before,j.matrix[centre],alpha,1024);
+            j.matrix[scroll] = j.matrix[centre] + old_offset + alpha * (new_offset-old_offset);
           }
         }
       }

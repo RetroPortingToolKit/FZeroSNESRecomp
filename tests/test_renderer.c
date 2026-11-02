@@ -1,4 +1,5 @@
 #include "fzero_renderer.h"
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -904,6 +905,42 @@ static void test_full_course_interpolation(void) {
   CHECK(FzeroRendererDraw(out,v,1) && out[100*256]==0x00ff00);
 }
 
+static void test_hd_camera_representative_switch(void) {
+  static const struct {int from,to,camera_from,camera_to;} cases[]={
+    {130,1154,130,130}, /* Same stationary camera, different alias. */
+    {1144,128,3192,3200} /* Captured retail transition at frames1456/1457. */
+  };
+  static const double phases[]={0,.004,.13,.37,.5,.93,.999,1};
+  for(unsigned test=0;test<countof(cases);++test)for(unsigned flip=0;flip<4;++flip) {
+    setup();ram[0x55]=3;word(0xb0,0x4000);word(0xb70,cases[test].camera_from);word(0xb90,200);
+    FzeroViewport v={256,0,4.0/3.0,false};p.m7sel=(uint8_t)flip;
+    if(test) {p.m7matrix[0]=p.m7matrix[3]=0;p.m7matrix[1]=-244;p.m7matrix[2]=244;}
+    p.m7matrix[4]=(int16_t)cases[test].from;p.m7matrix[5]=200;
+    p.m7matrix[6]=p.m7matrix[4]-128;p.m7matrix[7]=24;publish(100);
+    SnesHdFrame *base=FzeroRendererPrepareHd(guarded+1,v,1);CHECK(base && SnesHdFrameSeal(base));
+    double expected[4];CHECK(SnesHdFrameTransform(base,100,.37,expected));
+    SnesHdView bv;CHECK(SnesHdFrameView(base,&bv));
+    expected[0]+=256.0*bv.lines[100].map_offset_x;
+    expected[1]+=256.0*bv.lines[100].map_offset_y;SnesHdFrameDestroy(base);
+    /* Aliases must follow the actual eight-unit world movement (or remain
+     * stationary), instead of an excursion through another course block. */
+    word(0xb70,cases[test].camera_to);p.m7matrix[4]=(int16_t)cases[test].to;
+    p.m7matrix[6]=p.m7matrix[4]-128;p.m7matrix[5]+=1024;p.m7matrix[7]+=1024;publish(101);
+    for(unsigned phase=0;phase<countof(phases);++phase) {
+      SnesHdFrame *f=FzeroRendererPrepareHd(guarded+1,v,phases[phase]);CHECK(f && SnesHdFrameSeal(f));
+      double t[4];SnesHdView fv;CHECK(SnesHdFrameView(f,&fv));
+      CHECK(SnesHdFrameTransform(f,100,.37,t));
+      t[0]+=256.0*fv.lines[100].map_offset_x;t[1]+=256.0*fv.lines[100].map_offset_y;
+      for(unsigned c=0;c<4;++c) {
+        double target=expected[c]+(c==0?256.0*phases[phase]*(cases[test].camera_to-cases[test].camera_from):0);
+        if(fabs(t[c]-target)>1e-8)fprintf(stderr,"camera alias case%u flip%u phase%g axis%u expected%g actual%g\n",test,flip,phases[phase],c,target,t[c]);
+        CHECK(fabs(t[c]-target)<1e-8);
+      }
+      SnesHdFrameDestroy(f);
+    }
+  }
+}
+
 static void test_fractional_course_reference(void) {
   setup();ram[0x55]=3;word(0xb0,0x4000);
   uint8_t *bank=ram+0x10000;
@@ -1038,6 +1075,7 @@ int main(void) {
   test_race_cameras();
   test_sharp_track_sampling();
   test_full_course_interpolation();
+  test_hd_camera_representative_switch();
   test_fractional_course_reference();
   FzeroRendererShutdown();
   CHECK(FzeroRendererWorkerCount() == 1);
