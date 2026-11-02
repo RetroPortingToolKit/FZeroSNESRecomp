@@ -17,12 +17,12 @@ static const char *const aspect_names[] = {"4:3", "16:9", "21:9", "32:9", "Fit"}
 void FzeroVideoDefaults(FzeroVideoSettings *s) {
   *s = (FzeroVideoSettings){.enhanced = true, .aspect = FZERO_ASPECT_FIT,
                             .fps = 0, .fps_enabled = true, .local_two_player = true,
-                            .hd_mode7 = true, .hd_scale = kSnesHdDefaultScale, .diagnostics = false, .crash_replay = true,
+                            .hd_mode7 = true, .hd_scale = kSnesHdDefaultScale, .hd_supersample = 1, .diagnostics = false, .crash_replay = true,
                             .gameplay = {.enabled=FZERO_RULE_DEFAULT_MASK, .tuning=2, .boost=2, .exhaust=2, .stock_rebalance=15, .always_records=true}};
 }
 
 void FzeroVideoStock(FzeroVideoSettings *s) {
-  *s = (FzeroVideoSettings){.aspect = FZERO_ASPECT_STOCK, .hd_scale = 2, .gameplay = {.tuning=2, .boost=2, .exhaust=2}};
+  *s = (FzeroVideoSettings){.aspect = FZERO_ASPECT_STOCK, .hd_scale = 2, .hd_supersample = 1, .gameplay = {.tuning=2, .boost=2, .exhaust=2}};
 }
 
 const char *FzeroAspectName(FzeroAspect aspect) {
@@ -45,9 +45,9 @@ bool FzeroValidFps(unsigned fps) {
 }
 
 bool FzeroValidHdScale(unsigned scale) {
-  /* Legacy CPU oracle remains a 2..10x developer path. The shared GPU/UI
-   * accepts 1..64x; 1x uses the exact native frame without a second pass. */
-  return scale >= 2 && scale <= FZERO_HD_SCALE_MAX;
+  /* Portable CPU presentation is bounded to 1..10x; the GPU/UI supports
+   * 1..64x. At 1x, supersampling may still improve Mode 7 geometry. */
+  return scale >= 1 && scale <= FZERO_HD_SCALE_MAX;
 }
 
 bool FzeroParseHdScale(const char *text, unsigned *scale) {
@@ -141,6 +141,8 @@ bool FzeroVideoLoad(FzeroVideoSettings *s, const char *path) {
     } else if (!strcmp(key, "Mode7Enabled")) {
       if (!strcmp(value, "0") || !strcmp(value, "1")) s->hd_mode7 = value[0] == '1';
       else valid = false;
+    } else if (!strcmp(key,"Mode7Supersample")) {
+      if(!SnesHdParseSampling(value,&s->hd_supersample))valid=false;
     } else if (!strcmp(key, "Mode7Scale")) {
       if (!FzeroParseHdScale(value, &s->hd_scale)) valid = false;
     } else if (!strcmp(key,"LocalTwoPlayer")) {
@@ -220,11 +222,11 @@ bool FzeroVideoSave(const FzeroVideoSettings *s, const char *path) {
   if (snprintf(temporary, sizeof(temporary), "%s.tmp", path) >= (int)sizeof(temporary)) return false;
   FILE *f = fopen(temporary, "w");
   if (!f) return false;
-  bool ok = fprintf(f, "[FZeroVideo]\nEnhancedRenderer=%d\nAspect=%s\nPresentationEnabled=%d\nPresentationFPS=%u\nBSVehicles=%d\nBSTracks=%d\nCGPRules=%u\nCGPTuning=%u\nCGPBoost=%u\nCGPExhaust=%u\nCGPCars=%u\nCGPStockRebalance=%u\nMode7Enabled=%d\nMode7Scale=%u\nDiagnostics=%d\n",
+  bool ok = fprintf(f, "[FZeroVideo]\nEnhancedRenderer=%d\nAspect=%s\nPresentationEnabled=%d\nPresentationFPS=%u\nBSVehicles=%d\nBSTracks=%d\nCGPRules=%u\nCGPTuning=%u\nCGPBoost=%u\nCGPExhaust=%u\nCGPCars=%u\nCGPStockRebalance=%u\nMode7Enabled=%d\nMode7Scale=%u\nMode7Supersample=%u\nDiagnostics=%d\n",
                     s->enhanced, FzeroAspectName(s->aspect), s->fps_enabled, s->fps, s->bs_deluxe, s->bs_tracks, s->gameplay.enabled & FZERO_RULE_SELECTABLE_MASK,
                     s->gameplay.tuning, s->gameplay.boost, s->gameplay.exhaust,
                     s->gameplay.vehicle_packs ? 7u : 0u,s->gameplay.stock_rebalance ? 15u : 0u,
-                    s->hd_mode7, s->hd_scale >= FZERO_HD_SCALE_MIN && s->hd_scale <= FZERO_GPU_HD_SCALE_MAX ? s->hd_scale : (unsigned)kSnesHdDefaultScale, s->diagnostics) > 0;
+                    s->hd_mode7, s->hd_scale >= FZERO_HD_SCALE_MIN && s->hd_scale <= FZERO_GPU_HD_SCALE_MAX ? s->hd_scale : (unsigned)kSnesHdDefaultScale, s->hd_supersample>=1 && s->hd_supersample<=4?s->hd_supersample:1, s->diagnostics) > 0;
   if (fprintf(f, "AlwaysShowRecords=%d\n", s->gameplay.always_records) < 0) ok = false;
   if (fprintf(f, "CrashReplay=%d\n", s->crash_replay) < 0) ok = false;
   if (fprintf(f,"LocalTwoPlayer=%d\n",s->local_two_player)<0)ok=false;

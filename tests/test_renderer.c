@@ -608,7 +608,7 @@ static void test_hd_mode7(void) {
     CHECK(FzeroRendererDraw(hd + 1, v, 1));
     CHECK(!memcmp(hd + 1, guarded + 1, (size_t)v.width * 224 * sizeof(*hd)));
   }
-  const unsigned invalid_scales[] = {0, 1, 11, UINT32_MAX};
+  const unsigned invalid_scales[] = {0, 11, UINT32_MAX};
   for (unsigned i = 0; i < countof(invalid_scales); ++i) {
     hd[1] = 0xdeadbeef;
     CHECK(!FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 1, invalid_scales[i]));
@@ -651,6 +651,30 @@ static void test_hd_mode7(void) {
   CHECK(!FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 1, 2));
 }
 
+static void test_supersampling(void) {
+  setup();
+  FzeroViewport v = {256,0,4.0/3,false};
+  static uint32_t fine[512*448], averaged[256*224];
+  for (unsigned i=0;i<0x4000;++i)p.vram[i]=1;
+  for (unsigned i=0;i<64;++i)p.vram[64+i]=(uint16_t)(1|((i+1)<<8));
+  p.m7matrix[0]=p.m7matrix[3]=512;publish(1);
+  CHECK(FzeroRendererSetSupersample(1));
+  CHECK(FzeroRendererDrawHd(fine,countof(fine),v,1,2));
+  CHECK(FzeroRendererSetSupersample(2));
+  CHECK(!FzeroRendererSetSupersample(5) && FzeroRendererSupersample()==2);
+  CHECK(FzeroRendererDrawHd(averaged,countof(averaged),v,1,1));
+  for(unsigned y=0;y<224;++y)for(unsigned x=0;x<256;++x) {
+    uint32_t expected=0;
+    for(unsigned c=0;c<3;++c) {
+      unsigned sum=0;
+      for(unsigned sy=0;sy<2;++sy)for(unsigned sx=0;sx<2;++sx)
+        sum+=(fine[(y*2+sy)*512+x*2+sx]>>(8*c))&255;
+      expected|=((sum+2)/4)<<(8*c);
+    }
+    CHECK(averaged[y*256+x]==expected);
+  }
+  CHECK(FzeroRendererSetSupersample(1));
+}
 static void test_hd_results(void) {
   static uint32_t race[FZERO_MAX_WIDTH * 224 * 16], results[FZERO_MAX_WIDTH * 224 * 16];
   const FzeroViewport views[] = {{256, 0, 4.0 / 3.0, false}, {342, 43, 16.0 / 9.0, true}};
@@ -1007,6 +1031,7 @@ int main(void) {
   test_player_spark();
   test_explosion_slots();
   test_hd_mode7();
+  test_supersampling();
   test_hd_results();
   test_hd_composition_cache();
   test_view_isolation();

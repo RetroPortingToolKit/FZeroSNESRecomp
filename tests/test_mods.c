@@ -250,11 +250,15 @@ int main(int argc,char **argv) {
   CHECK(p->feature_enable(NULL, diag.package_id, diag.id, 1) && s.diagnostics);
   CHECK(!s.enhanced && !s.hd_mode7 && !s.fps_enabled);
   RecompLauncherCModFeature hd;
-  CHECK(p->feature_get(NULL, 3, &hd) && !hd.enabled && hd.option_count == 1);
+  CHECK(p->feature_get(NULL, 3, &hd) && !hd.enabled && hd.option_count == 2);
   CHECK(p->feature_enable(NULL, hd.package_id, hd.id, 1));
   CHECK(s.hd_mode7 && !s.enhanced && !s.fps_enabled);
   CHECK(p->feature_set_option(NULL, hd.package_id, hd.id, "scale", "4"));
   CHECK(s.hd_scale == 4);
+  CHECK(p->feature_set_option(NULL, hd.package_id, hd.id, "supersample", "3"));
+  CHECK(s.hd_supersample==3);
+  CHECK(!p->feature_set_option(NULL, hd.package_id, hd.id, "supersample", "5"));
+  CHECK(s.hd_supersample==3);
   CHECK(p->feature_get(NULL, 3, &hd) && !strstr(hd.description, "Warning:"));
   for (unsigned scale = 5; scale <= 64; ++scale) {
     char text[8]; snprintf(text, sizeof(text), "%u", scale);

@@ -36,6 +36,12 @@ struct FzeroRenderView {
   unsigned course_grid;
 };
 static FzeroRenderView single_player;
+static unsigned supersample=1;
+bool FzeroRendererSetSupersample(unsigned samples) {
+  if(samples<1 || samples>4)return false;
+  supersample=samples;return true;
+}
+unsigned FzeroRendererSupersample(void) { return supersample; }
 static void race_color_math(Ppu *p);
 
 static void prepare_workers(FzeroRenderView *view) {
@@ -1023,7 +1029,7 @@ bool FzeroRenderViewDrawPresentation(FzeroRenderView *view, uint32_t *native, ui
   if (!view || !out || !FzeroValidHdScale(scale) || viewport.width < 256 ||
       viewport.width > FZERO_MAX_WIDTH ||
       capacity < (size_t)viewport.width * 224 * scale * scale) return false;
-  if (scale == 1) return render_frame(view, out, viewport, alpha, 1, native, NULL);
+  if (scale == 1 && supersample == 1) return render_frame(view, out, viewport, alpha, 1, native, NULL);
   uint32_t *base = native ? native : malloc((size_t)viewport.width * 224 * sizeof(*base));
   if (!base) return false;
   SnesHdFrame *jobs = FzeroRenderViewPrepareHd(view, base, viewport, alpha);
@@ -1042,6 +1048,7 @@ SnesHdFrame *FzeroRenderViewPrepareHd(FzeroRenderView *view, uint32_t *native,
                                      FzeroViewport viewport, double alpha) {
   if (!native) return NULL;
   SnesHdFrame *jobs = SnesHdFrameCreate(viewport.width, 224);
+  if(jobs)SnesHdFrameSetSampling(jobs,supersample);
   if (jobs && render_frame(view, native, viewport, alpha, 1, NULL, jobs)) return jobs;
   SnesHdFrameDestroy(jobs); return NULL;
 }

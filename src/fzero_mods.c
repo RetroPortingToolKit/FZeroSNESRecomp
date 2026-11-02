@@ -233,7 +233,7 @@ static int option_get(void *ctx, const char *package, const char *feature, int i
     COPY(out->default_value, FzeroAspectName(FZERO_ASPECT_FIT));
     out->choice_count = 4;
   } else if (kind == 4) {
-    return SnesHdModOption(video->hd_scale, index, out);
+    return SnesHdModOption(video->hd_scale, video->hd_supersample, index, out);
   } else {
     COPY(out->id, "fps"); COPY(out->label, "Presentation FPS");
     COPY(out->description, "Auto follows display refresh, up to 360 FPS.");
@@ -330,6 +330,8 @@ static int set_option(void *ctx, const char *package, const char *feature,
   if (identity(package, feature) == 1 && !strcmp(option, "aspect")) {
     for (unsigned i = 0; i < 4; ++i) if (!strcmp(value, aspects[i]))
       return FzeroParseAspect(value, &video->aspect);
+  } else if (identity(package, feature) == 4 && !strcmp(option,"supersample")) {
+    return SnesHdParseSampling(value,&video->hd_supersample);
   } else if (identity(package, feature) == 4 && !strcmp(option, "scale")) {
     if (FzeroParseHdScale(value, &video->hd_scale)) { error_text[0] = 0; return 1; }
     COPY(error_text, "HD Mode 7 resolution must be a whole number from 1 to 64.");

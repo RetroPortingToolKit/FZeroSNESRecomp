@@ -109,8 +109,9 @@ static void config_tests(void) {
   for (unsigned scale = 1; scale <= 64; ++scale) {
     char text[8]; snprintf(text, sizeof(text), "%u", scale);
     CHECK(FzeroParseHdScale(text, &a.hd_scale) && a.hd_scale == scale);
+    a.hd_supersample=scale%4+1;
     CHECK(FzeroVideoSave(&a, "test-video.ini"));
-    CHECK(FzeroVideoLoad(&b, "test-video.ini") && b.hd_scale == scale);
+    CHECK(FzeroVideoLoad(&b, "test-video.ini") && b.hd_scale == scale && b.hd_supersample==a.hd_supersample);
   }
   const char *invalid[] = {"", "0", "65", "-2", "+4", "4x", "6.5", "10junk", "4294967298", "999999999999999999999999"};
   for (unsigned i = 0; i < sizeof(invalid) / sizeof(*invalid); ++i) {
