@@ -601,9 +601,9 @@ static void test_hd_mode7(void) {
     CHECK(!FzeroRendererDrawHd(hd + 1, count - 1, v, 1, scale));
     CHECK(FzeroRendererDrawHd(hd + 1, count, v, 1, scale));
     CHECK(hd[0] == 0xdeadbeef && hd[count + 1] == 0xdeadbeef);
-    CHECK(hd[1] == palette_rgb(p.cgram[17]));
-    CHECK(hd[1 + (scale + 1) / 2] == palette_rgb(p.cgram[18]));
-    CHECK(hd[1 + v.width * scale * ((scale + 1) / 2)] == palette_rgb(p.cgram[25]));
+    CHECK(hd[1] == palette_rgb(p.cgram[16]));
+    CHECK(hd[1 + (scale + 1) / 2] == palette_rgb(p.cgram[9]));
+    CHECK(hd[1 + v.width * scale * ((scale + 1) / 2)] == palette_rgb(p.cgram[24]));
     /* Higher resolution cannot alter the native render or published source. */
     CHECK(FzeroRendererDraw(hd + 1, v, 1));
     CHECK(!memcmp(hd + 1, guarded + 1, (size_t)v.width * 224 * sizeof(*hd)));
@@ -622,7 +622,7 @@ static void test_hd_mode7(void) {
   }
   FzeroRendererEndFrame(&p, stock);
   CHECK(FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 1, 2));
-  CHECK(hd[1 + 197 * 512] == palette_rgb(p.cgram[57]));
+  CHECK(hd[1 + 197 * 512] == palette_rgb(p.cgram[56]));
   /* Geometry follows neighbouring scanlines instead of reusing one line's
    * matrix for a whole block: 2 -> 4 horizontal texels across this band. */
   FzeroRendererBeginFrame(ram, 3);
@@ -633,15 +633,15 @@ static void test_hd_mode7(void) {
   }
   FzeroRendererEndFrame(&p, stock);
   CHECK(FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 1, 2));
-  CHECK(hd[1 + 512 + 2] == palette_rgb(p.cgram[28]));
+  CHECK(hd[1 + 512 + 2] == palette_rgb(p.cgram[18]));
   /* Temporal interpolation remains independent of spatial resolution. */
   p.m7matrix[0] = 512; p.m7matrix[6] = 0;
   FzeroRendererReset(); publish(10);
   p.m7matrix[6] = 1; publish(11);
   CHECK(FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 0.5, 2));
-  CHECK(hd[1] == palette_rgb(p.cgram[18]));
+  CHECK(hd[1] == palette_rgb(p.cgram[9]));
   CHECK(FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 1, 2));
-  CHECK(hd[1] == palette_rgb(p.cgram[19]));
+  CHECK(hd[1] == palette_rgb(p.cgram[10]));
   /* Flat screens retain every original pixel, including centered menus. */
   ram[0x81] = 0; publish(4);
   CHECK(FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 1, 4));
@@ -724,11 +724,11 @@ static void test_hd_composition_cache(void) {
       CHECK(native[0] == 0xdeadbeef && native[count + 1] == 0xdeadbeef);
       CHECK(hd[0] == 0xdeadbeef && hd[hd_count + 1] == 0xdeadbeef);
       CHECK(!memcmp(native + 1, guarded + 1, count * sizeof(*native)));
-      /* With integral transforms, each HD pixel's first subpixel lands on
+      /* With integral transforms, each HD pixel's center subpixel lands on
        * the exact native texel. The native compositor is the independent
        * oracle for windows, OBJ priority, transparency and colour math. */
       for (int y = 0; y < 224; ++y) for (int x = 0; x < v.width; ++x)
-        CHECK(hd[1 + ((size_t)y * scale * v.width + x) * scale] == native[1 + y * v.width + x]);
+        CHECK(hd[1 + ((size_t)y * scale * v.width + x) * scale + (scale/2)*v.width*scale + scale/2] == native[1 + y * v.width + x]);
       CHECK(FzeroRendererDrawHd(hd_only, hd_count, v, 1, scale));
       CHECK(!memcmp(hd + 1, hd_only, hd_count * sizeof(*hd)));
     }
