@@ -21,7 +21,7 @@ See [pack authoring and music](docs/PACK_FORMAT.md) for JSON manifests,
 raw FZEdit exports, extracted course resources and separate audio packs.
 [Mods and source-game differences](MODS.md) describes scoped mechanics.
 
-The current local tester release is **0.15.0**. Future fixes advance the patch
+The current local tester release is **0.16.0**. Future fixes advance the patch
 version; new features advance the minor version. All bundle variants share
 that version. See [the release policy](docs/RELEASING_FZERO_FOREVER.md).
 
@@ -93,7 +93,7 @@ Open **Mods** for:
   **Every new lap** retains the existing default behavior.
 - **Widescreen:** makes races wider.
 - **Presentation FPS:** makes motion smoother on high refresh screens.
-- **HD Mode 7:** sharper tracks at integer scales from 2x to 10x; off by default.
+- **HD Mode 7:** perspective-correct track sampling at 1x through 64x GPU resolution, enabled at 8x by default; independent 1..4 supersampling. Local 3P/4P retains its CPU fallback cap.
 - **Diagnostics:** optional local performance reports for troubleshooting; off by default. See [how to capture a report](docs/PERFORMANCE_DIAGNOSTICS.md).
   Start at 2x. Above 4x can cause severe slowdown; use at your own risk.
 - **BS Satellaview vehicles:** adds four machines independently of courses.

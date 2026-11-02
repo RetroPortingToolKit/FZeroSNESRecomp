@@ -1,5 +1,19 @@
 ﻿# Changelog
 
+## 0.16.0 - Rebuilt HD Mode 7
+
+- Reconstruct a continuous perspective plane from captured Mode 7 matrices,
+  with centered texel sampling shared by the GPU and portable renderer.
+- Fix intermittent wrong track regions during motion when F-Zero switches
+  equivalent camera-coordinate representations between frames.
+- Add independent supersampling from 1 (off) through 4 samples per axis.
+  Keep the existing 1x through 64x GPU resolution control and 8x default.
+- Preserve native HUD/sprite detail, widescreen, all course packs, BS Deluxe,
+  multiplayer and optional MSU music. Local 3P/4P keeps its CPU fallback cap.
+- Validate the owner's synchronized native/16x comparison and retain the
+  reconstruction, camera-wrap and CPU/GPU regression checks.
+
+
 ## 0.15.0 - Four-player versus
 
 - Extend local and online VS to two, three or four human racers. Local 3P/4P

@@ -1,58 +1,33 @@
-# F-Zero Forever 0.7.4: tester notes
+# F-Zero Forever 0.16.0: tester notes
 
-Extract the whole ZIP into a new folder and run `FZeroSNESRecomp.exe`. Select
-your own original F-Zero (USA) ROM. Keep older installations and saves for
-comparison. Both downloads contain the same executable, courses and prebuilt
-caches. **With MSU** includes the approved CGP and Astra music; **without MSU**
-lets you add recordings later.
+Extract the entire ZIP and run `F-Zero Forever.exe`. Select your original
+F-Zero (USA) ROM. Both editions have the same game, courses and prebuilt caches.
+With MSU includes approved CGP/Astra music; without MSU supports adding it later.
+Preserve your existing native saves and settings when updating an installation.
 
-## Changes to test
+## HD Mode 7
 
-- CGP cars keep their correct colors while the stats window opens, including
-  Black Bull. The native rotating-car animation is preserved.
-- Neighboring car columns remain visible through the stats and league panels.
-- The expanded league/class picker uses the original shaded lettering.
-- HD Mode 7 retains its detail on the frozen course behind race results.
+The renderer reconstructs continuous perspective and fixes the brief wrong-track
+regions seen during motion at camera wrap points. Native sprites/HUD keep their
+pixel artwork. HD defaults to8x; Mods offers1..64x GPU resolution and independent
+supersampling1..4 (1=off). Supersampling smooths edges and costs more rendering
+work. Local3P/4P continues to use the portable renderer at up to2x.
 
-This includes the 0.7.3 shared-records, difficulty-control, lap-recap and
-renderer-performance fixes. See CHANGELOG.md in the source repository for
-earlier changes.
+## Existing content and controls
 
-## Packs and music
+The original15 courses and the reviewed CGP, Astra Front, Bower and MAX packs
+remain available:75 additional course versions in15 cups. Required course
+mechanics load automatically. Track Pack Loader and BS Tracks exclude each
+other; vehicles remain separate options. Course projects ship with ready caches.
 
-The original 15 courses remain available. The bundled CGP, Astra Front,
-Bower and MAX packs add 15 cups containing 75 course versions. Required
-course mechanics load with their packs. Track Pack Loader defaults on;
-BS Satellaview Tracks is mutually exclusive with it. Cars and title-screen
-choices remain separate. The Community Grand Prix preset applies the full
-CGP experience and preserves unrelated pack choices.
+MSU and installed-pack music default on; saved choices are respected and missing
+songs fall back to SNES music. Both editions retain the content importer,
+credits, profiles, multiplayer and optional lap voice callouts.
 
-Every course ships as an editable project ZIP with a prebuilt cache. Existing
-projects start without conversion; changed or newly added projects rebuild
-automatically. Restart after installing or removing a pack.
+Single-player: F7 opens save slots, R opens rewind, D/C are shoulder controls,
+Alt+Enter toggles fullscreen. Local Multiplayer defaults on; choose VS MODE for
+2..4 players. Multiplayer never pauses. Start opens its live race menu.
 
-MSU-1 defaults off. Enable it in Settings > Audio. Put course recordings in
-that pack's `music` folder, matching the course ZIP's filename:
-`mods/packs/cgp/courses/huckmine.zip` uses
-`mods/packs/cgp/music/huckmine.pcm`. No source picker is needed. Missing songs
-use the course's SNES music. **Mods > Menu and event music** contains the
-prefilled CGP menu/event cues and lets you replace individual songs.
-See [MODS.md](../MODS.md) for examples and the Huckmine editor workflow.
-
-## Testing notes
-
-Always show Records and Legend difficulty default on; diagnostics default off.
-Saved choices are respected. Please check car colors and rotation while the
-stats panel opens, both neighboring columns, league/class lettering, and HD
-detail as a race enters results. Include the course, car, difficulty, aspect
-ratio and HD scale with any report.
-
-The fixes were checked with native-input frame captures across all three CGP
-car groups and Dragon Bird in Practice, plus the base-game menu. Lettering
-matches the native menu pixels; widescreen panels and HD results were checked.
-All 13 automated tests pass, including HD results at stock and wide aspect
-ratios at 2x and 4x resolution.
-
-An earlier cropped report showing the Metal Fort skyline with a BEST label
-still needs a reproducible transition or capture to identify the remaining
-problem. It is separate from the reproduced and fixed lap-recap digit issue.
+For a problem report, quit the game and run Collect diagnostics.cmd. Its output
+stays local. Current-build snapshots are disposable and need not load across
+versions; native in-game progress is a separate persistent save.

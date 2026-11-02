@@ -1,7 +1,9 @@
-# HD Mode 7 rebuild review build
+# HD Mode 7 rebuild
 
 The implementation lives on `fix/mode7-perspective-rebuild` in the isolated
-engine and F-Zero worktrees. Owning issue: beads-8wg.2.192. No merge/release.
+engine and F-Zero worktrees. Owning issue: beads-8wg.2.192.
+Owner accepted the flicker correction and explicitly requested main integration
+and release 0.16.0 on 2026-11-02 (beads-8wg.5.123).
 
 The title publishes raw camera matrices, immutable streamed/full course maps,
 native composition and temporal camera selection. Shared code reconstructs the
@@ -35,7 +37,7 @@ Matched frame 1200 road-edge error against bsnes-hd falls from 10.979 to 0.275
 high-resolution pixels on the measured rows. Six matched turning frames retain
 original/rebuilt/bsnes-hd images. These specific geometric/sampled-motion checks
 do not prove whole-game or continuous-motion accuracy. See the engine's
-[research and acceptance record](../../_wt-mode7-rebuild-engine/docs/HD_MODE7_REBUILD.md)
+[research and acceptance record](https://github.com/RetroPortingToolKit/snesrecomp/blob/66eebe6ae415b4fb2607a22e5b12352f612e1bdf/docs/HD_MODE7_REBUILD.md)
 for frozen references, settings, timing variation and remaining game checks.
 
 A hidden 1,800-frame OpenGL 8x route passes with zero missed presentations.
@@ -51,8 +53,8 @@ claimed. CPU fallback remains slower than the original approximation.
 Snapshot replay has the same 22-master-cycle defect in the original and
 candidate builds (beads-8wg.5.122). Loading the prepared snapshots works, but
 deterministic save/load replay is not qualified. Other-game visuals, broad
-natural course play and owner visual acceptance remain open. This build is
-prepared for comparison, not a fully qualified release.
+natural course play and owner visual acceptance remain open. The owner approved the F-Zero
+comparison and requested release 0.16.0; broader coverage remains recorded.
 
 ## Retained local evidence
 
