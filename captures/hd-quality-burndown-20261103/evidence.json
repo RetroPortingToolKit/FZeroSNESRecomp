@@ -56,5 +56,12 @@
     "3P/4P GPU/cap",
     "matched runtime cost and shared built games",
     "owner/regular-player visual acceptance"
-  ]
+  ],
+  "built_game": {
+    "source_revision": "7c2015f",
+    "engine_revision": "eddeda4c9aff2527978aa49c3c4f1c76f9f0ba9c",
+    "exe_sha256": "9286f6cec973924e373cda8432ba1b1604dd6f39d3750a4dfc08e4581966ef95",
+    "qualification": "2P actual drive, bumper contacts, reconnect/input isolation, resize, live/results restart/change/main and return to SP; sampled GPU/portable pixels all match at4x",
+    "not_a_performance_gate": "parity instrumentation enabled; no runtime win claimed"
+  }
 }

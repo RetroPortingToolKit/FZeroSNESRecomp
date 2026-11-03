@@ -21,8 +21,8 @@ The outcome is a visibly convincing HD Mode 7 implementation, stable in motion,
 with understandable controls and practical runtime cost. Prefer replacing or
 simplifying a failing renderer over accumulating exceptions around it.
 
-This is the active plan and decision record. **1/12 acceptance areas is
-resolved; 11 remain open.** HD-01 has a source-audited product contract.
+This is the active plan and decision record. **One of twelve acceptance areas is
+resolved; eleven remain open.** HD-01 has a source-audited product contract.
 The first implementation candidates and their limits are recorded below;
 no overall visual, performance or release acceptance is claimed.
 
