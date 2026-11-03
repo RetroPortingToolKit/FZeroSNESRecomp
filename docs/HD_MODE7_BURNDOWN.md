@@ -105,12 +105,12 @@ concise evidence link. All rows start open; known limitations are called out.
 | HD-03 | Perspective geometry — shared engine | Match independent bsnes-hd road shape, horizon and depth across straight and turning views. Fix systematic edge displacement, bends or horizon bands. Compare replacing the current fitted-plane approach with a reference-aligned alternative; evaluate substantial reuse where technically suitable. | Resolved for straight/turning geometry: seven independent matched stills and all151 consecutive4x frames improve; the owner accepts both SS1 and SS2 road/horizon clips. Engine07716db3 preserves all302 accepted images. Coordinate/artwork differences remain in HD-04/05; other motion remains in HD-07. |
 | HD-04 | Source coordinates and texels — engine + F-Zero maps | Verify pixel centers, fractional rows, negative coordinates, wrapping, flips, tile boundaries and full-course/cache transitions. Independently known source coordinates must select the expected texels. No wrong course blocks or road seams. | Resolved: independently expected texels cover pixel centers, fractional/negative coordinates, flips, wrap and full-course/cache boundaries; accepted live alias crossing supplies gameplay evidence. Retain native floor semantics. The CHECK-label discrepancy belongs to HD-05. |
 | HD-05 | Composition and original artwork — engine + adapter | Preserve vehicle/HUD/text detail, palette, brightness, priority, windows and native effects. Check menus, demo, records and results separately. Any intentional full-course extension must be distinguished from an ordinary reference-view mismatch. | Open. |
-| HD-06 | Aliasing and supersampling — shared engine | Match the expected reduction of jagged road edges and moving stripe shimmer with equivalent reference settings. Preserve original artwork; do not conceal geometry defects with blur or a new default texture-smoothing filter. Select useful quality/cost levels. | Open: six matched4x/SS2 samples retain near-road RGB MAE0.022..0.138; continuous SS2 comparison and useful quality/cost/default decisions remain. |
+| HD-06 | Aliasing and supersampling — shared engine | Match the expected reduction of jagged road edges and moving stripe shimmer with equivalent reference settings. Preserve original artwork; do not conceal geometry defects with blur or a new default texture-smoothing filter. Select useful quality/cost levels. | Open:151-frame matched4x/SS2 reference clip passes owner review; useful quality/cost levels, offered range and defaults still need a decision. |
 | HD-07 | Motion and camera interpolation — F-Zero first | Check continuous straight driving, steering, rotation, camera wrap, jumps and camera discontinuities. Eliminate HD-only jitter, crawling bands, flashes and wrong-region interpolation. Qualify native simulation frames first, then fractional presentations. | Resolved for representative motion: owner accepts corner/rotation wrap, CGP bounce/landing and actual interpolated streaming-camera wrap. Current120Hz-request GPU sampling and save/load reset checks pass. Sustained higher-rate pacing remains HD-10. |
 | HD-08 | Final presentation — shared GPU + host | Compare full-resolution output followed by the chosen display filter against the optimized visible-sample path at the same settings. Keep the shortcut only if it preserves the intended image. Test resize, DPI and aspect changes; explain why higher requested multipliers may stop helping at a fixed display size. | Open: nearest presentation mismatch is fixed;44/44 presented outputs now match full raster, while default visible output stays byte-identical. Retain the shortcut with lower measured target memory. Complete filter/preset and DPI qualification remain. |
 | HD-09 | Multiplayer — F-Zero + shared compositor | Qualify each 2P/3P/4P camera independently and together. Resolve the current missing GPU grid path and silent 2x CPU cap through implementation or an explicitly accepted, honestly described limitation. No claim that every mode uses the globally requested quality. | Open: corrected worker grid passes4P8x/SS2, contacts, transitions and five resized targets. Serial3P4x full raster passes. Portable2x disclosure is validated. SERVER timing still misses60Hz; whole-view quality acceptance remains. |
 | HD-10 | Runtime cost and portability — engine + title | Measure simulation/presentation frame times, CPU/GPU cost and memory at already accepted image quality. Keep the game responsive and stable at original cadence. Qualify portable fallback and affected shared consumers; do not trade another game's reproducible regression for an aggregate gain. | Open: matched1vs2 camera workers improve both3P/4P with identical images/traces; automatic3-worker follow-up also passes. Neither reaches60Hz onSERVER. Cross-game and complete runtime qualification remain. |
-| HD-11 | Controls, defaults and updates — F-Zero + launcher | Implement HD-01's chosen controls; verify fresh installation, persistence and requested/effective quality. Native display scaling must not be presented as recovered Mode 7 detail. Choose defaults from accepted results rather than a large multiplier. | Open. |
+| HD-11 | Controls, defaults and updates — F-Zero + launcher | Implement HD-01's chosen controls; verify fresh installation, persistence and requested/effective quality. Native display scaling must not be presented as recovered Mode 7 detail. Choose defaults from accepted results rather than a large multiplier. | Open: actual launcher labels and SDL-event edits/relaunch pass;4x/SS2 persists while explicit21:9/120Hz choices remain. Fresh Fit/8x/SS1 is observed. Useful default/range selection remains. |
 | HD-12 | Player acceptance and release — F-Zero | Present representative matched stills and motion to the owner/regular players, retaining individual Pass/Fail/Deferred notes. Close known visual failures and run affected gameplay/save/load/rewind checks before an HD quality release claim. | Open; overall visual acceptance currently fails. |
 
 **Current result: 4 resolved areas (HD-01/03/04/07), 8 open.** Preparation, builds, screenshots and
@@ -453,6 +453,25 @@ The optimization is retained for exact output and lower allocation. Scenario
 stalls remain around209..238ms (including setup/resizes); these measurements
 do not establish sustained60Hz. Retain interval percentiles and raw stage costs
 in [the presentation evidence](../captures/hd-quality-burndown-20261103/nearest-presentation.json).
+
+
+## Actual launcher contract checkpoint
+
+The current real hidden launcher is now checked using its existing SDL input
+script. Settings calls display sizing **Window scale**; Mods exposes **HD
+detail** and **Edge smoothing**, with the separate-effects description visible.
+Typing4 for detail and clicking smoothing to2 persists across process restart.
+Previously saved21:9 and120Hz remain. Fresh screenshots show Fit,8x and smoothing
+off. No owner profile was changed. This closes the runtime control/persistence
+gap within HD-11, not its useful default/range decision. The old scripted test
+that looks for a retired `HDMode7Scale` field is not evidence for this interface.
+
+The next decision queue is qualified quality levels/defaults (HD-06/11), then
+the remaining native-artwork/filter/DPI and steady-runtime gates. Reuse
+`tools/stage_mode7_profiler.py` and existing render/presentation tests; avoid
+more coordinate/motion captures or another measurement framework unless a new
+failure calls for them. The matrix remains4 resolved and8 open.
+Shared candidate: [draft engine PR254](https://github.com/RetroPortingToolKit/snesrecomp/pull/254).
 
 ## References
 
