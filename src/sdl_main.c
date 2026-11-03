@@ -1406,7 +1406,6 @@ static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
   if (p->gl) {
     fzero_gl_render(p->gl, pixels, width, height, display_viewport,
                     p->drawable_width, p->drawable_height);
-    hd_presentation_feedback(p->gl->hd_presented?p->gl->hd_effective_scale:hd_frame?scale:0);
     if (panel) {
       fzero_gl_draw_overlay(p->gl, panel, pw, ph, overlay_rect(p, is_menu),
                             p->drawable_height);
@@ -1435,7 +1434,6 @@ static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
       fzero_game_destination(display_viewport, p->drawable_width, p->drawable_height);
   SDL_Rect destination = {rect.x, rect.y, rect.w, rect.h};
   snesrecomp_sdl_render_texture(p->renderer, p->texture, &source, &destination);
-  hd_presentation_feedback(hd_frame?scale:0);
   overlay_draw_sdl(p, panel, pw, ph, is_menu);
   if (!panel || !is_menu) present_osd(p);
   if (panel) overlay_dump(p, is_menu);
@@ -2925,6 +2923,10 @@ static int run_game(int argc, char **argv) {
       FzeroDiagnosticsEnd(FZERO_DIAG_COMPOSITION, diagnostic_start);
       if(online && snes_savestate_menu_is_open())present_overlay(&presenter,1);
       else present_frame(&presenter, NULL, 0, 0, 0);
+      /* Setup draws native picker artwork through present_frame too. Only
+       * the completed gameplay presentation establishes effective HD detail. */
+      hd_presentation_feedback(use_gl_renderer && gl_renderer.hd_presented?
+          gl_renderer.hd_effective_scale:FzeroHdFrame()?FzeroHdScale():0);
       FzeroDiagnosticsPresented();
       /* Offer what was just presented as the next save's thumbnail and as
        * the filmstrip's frame for the next capture. Both downsample into
