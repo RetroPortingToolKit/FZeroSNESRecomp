@@ -12,6 +12,12 @@ static FzeroVideoSettings *video;
 static const char *config_path;
 static bool has_bundled_music;
 static char error_text[128];
+static unsigned hd_requested, hd_samples, hd_effective;
+static bool hd_known;
+void FzeroModsNoteHdScale(unsigned requested, unsigned samples, unsigned effective) {
+  hd_requested=requested;hd_samples=samples;hd_effective=effective;
+  hd_known=true;
+}
 static const char *const aspects[] = {"16:9", "21:9", "32:9", "Fit"};
 static const char *const rates[] = {"Auto", "60", "90", "120", "144", "165", "240", "360"};
 #define COPY(field, value) snprintf(field, sizeof(field), "%s", value)
@@ -141,7 +147,17 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
     bool ready=callouts_ready();out->enabled=video->lap_callouts && ready;out->option_count=1;
     COPY(out->status,!ready?"Choose both WAV recordings":out->enabled?"Enabled":"Ready to enable");return 1;
   }
-  if (index == 3) return SnesHdModFeature(video->hd_mode7, out);
+  if (index == 3) {
+    if(!SnesHdModFeature(video->hd_mode7,out))return 0;
+    if(video->hd_mode7 && hd_known && video->hd_scale==hd_requested &&
+        video->hd_supersample==hd_samples) {
+      if(!hd_effective)COPY(out->status,"Last race: native rendering");
+      else if(hd_effective<hd_requested)
+        snprintf(out->status,sizeof(out->status),"Last race: %ux (%ux requested)",hd_effective,hd_requested);
+      else snprintf(out->status,sizeof(out->status),"Last race: %ux HD detail",hd_effective);
+    }
+    return 1;
+  }
   if(index==LOCAL_INDEX && out) {
     memset(out,0,sizeof(*out));COPY(out->id,"local-2p");COPY(out->package_id,"fzero-local-2p");
     COPY(out->name,"Local Multiplayer");COPY(out->package_name,out->name);COPY(out->package_version,"1");

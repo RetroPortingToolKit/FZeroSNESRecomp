@@ -57,6 +57,21 @@ int main(int argc,char **argv) {
   const RecompLauncherCModProvider *p = FzeroModsProvider(&s, "test-mods.ini", true);
   RecompLauncherCModFeature w, f;
   RecompLauncherCModOption option;
+  /* A configured request must not conceal a measured portable fallback,
+   * or carry that stale result into a different quality setting. */
+  s.hd_mode7=true;s.hd_scale=8;s.hd_supersample=1;
+  FzeroModsNoteHdScale(8,1,2);
+  CHECK(p->feature_get(NULL,3,&f) && !strcmp(f.status,"Last race: 2x (8x requested)"));
+  s.hd_scale=4;
+  CHECK(p->feature_get(NULL,3,&f) && !strcmp(f.status,"Enabled"));
+  FzeroModsNoteHdScale(4,1,0);
+  CHECK(p->feature_get(NULL,3,&f) && !strcmp(f.status,"Last race: native rendering"));
+  s.hd_supersample=2;
+  CHECK(p->feature_get(NULL,3,&f) && !strcmp(f.status,"Enabled"));
+  FzeroModsNoteHdScale(4,2,4);
+  CHECK(p->feature_get(NULL,3,&f) && !strcmp(f.status,"Last race: 4x HD detail"));
+  FzeroVideoStock(&s);
+  CHECK(p->feature_get(NULL,3,&f) && !strcmp(f.status,"Native resolution"));
   const CpCatalog *catalog = FzeroTracksCatalog();
   CHECK(p->package_count(NULL) == 6 + FZERO_RULE_COUNT && p->feature_count(NULL) == p->package_count(NULL));
   for(int i=0;i<p->feature_count(NULL);++i) {

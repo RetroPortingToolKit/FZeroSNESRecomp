@@ -29,6 +29,7 @@ def main():
     p.add_argument('--hd-scale',type=int,default=8)
     p.add_argument('--hd-supersample',type=int,choices=(1,2,3,4),default=1)
     p.add_argument('--hd-full-target',action='store_true',help='Exercise full raster presentation instead of visible samples')
+    p.add_argument('--portable-hd',action='store_true',help='Qualify the developer portable HD path and its effective-detail notice')
     p.add_argument('--benchmark',action='store_true',help='Unpaced, fixed-alpha existing gameplay qualification for matched timing')
     p.add_argument('--stock-only',action='store_true',help='Qualify native courses without the optional Astra import')
     p.add_argument('--cup',type=int,default=0)
@@ -85,6 +86,7 @@ def main():
                SNESRECOMP_AUTOCLOSE_FRAMES='5000')
     if a.hd_parity:env['FZERO_TEST_HD_PARITY']='1'
     if a.hd_full_target:env['FZERO_HD_FULL_TARGET']='1'
+    if a.portable_hd:env['FZERO_HD_GPU']='0'
     if a.benchmark:env['FZERO_BENCHMARK']='1'
     if os.environ.get('SNESRECOMP_RENDER_WORKERS'):env['SNESRECOMP_RENDER_WORKERS']=os.environ['SNESRECOMP_RENDER_WORKERS']
     if a.keyboard:env['FZERO_TEST_LOCAL_UI_KEYBOARD']='1'
@@ -118,6 +120,10 @@ def main():
             assert grids and all(int(p)==a.players and int(m)==0 and int(s)==a.hd_scale for p,s,m in grids),'GPU grid composition failed or silently fell back'
             for pane in range(a.players):
                 assert re.search(rf'\[fzero-hd-parity\].*mismatches=0 .*pane={pane}\b',text),f'No actual GPU parity check for camera{pane+1}'
+            if not a.hd_full_target:
+                assert 'target=1342x1006' in text,'Odd resized GPU atlas was not checked'
+    if a.portable_hd and a.players>2 and a.hd_scale>2:
+        assert f'HD detail limited to 2x ({a.hd_scale}x requested)' in text,'Portable grid reduction was silent'
 
     assert result.returncode == 0 and 'local-ui: PASS' in text, text[-4000:]
     if a.saved_player_count:assert 'local-ui-stage: 12 ' not in text,'Saved count was not applied at VS entry'
@@ -129,7 +135,7 @@ def main():
         assert 'local-ui-keyboard: four layouts, movement and menu ownership PASS' in text
     else:
         assert 'local-ui-reconnect: neutral disconnect, continuing peers, same-seat recovery PASS' in text
-    report=dict(passed=True,keyboard=a.keyboard,observed_scales=sorted({int(n) for n in re.findall(r'local-ui-image:.* scale=(\d+)',text)}),players=a.players,cup=a.cup,native=a.native,hd_scale=a.hd_scale,hd_supersample=a.hd_supersample,hd_full_target=a.hd_full_target,bs_tracks=a.bs_tracks,contact_fixture=not a.no_contact_fixture,
+    report=dict(passed=True,keyboard=a.keyboard,observed_scales=sorted({int(n) for n in re.findall(r'local-ui-image:.* scale=(\d+)',text)}),players=a.players,cup=a.cup,native=a.native,hd_scale=a.hd_scale,hd_supersample=a.hd_supersample,hd_full_target=a.hd_full_target,portable_hd=a.portable_hd,bs_tracks=a.bs_tracks,contact_fixture=not a.no_contact_fixture,
                 sha256=hashlib.sha256((stage/'F-Zero Forever.exe').read_bytes()).hexdigest())
     (out/'result.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
     source='keyboard layouts' if a.keyboard else 'SDL gamepads'

@@ -169,6 +169,7 @@ typedef struct FzeroGlRenderer {
   size_t hd_portable_capacity;
   bool hd_fallback_reported;
   bool hd_visible_samples;
+  bool hd_presented;
   unsigned hd_effective_scale;
   GlTextureWithSize hd_grid;
   GLuint hd_grid_draw,hd_grid_read;
@@ -304,9 +305,12 @@ static int g_selftest_failed;
 /* Sparse real-game CPU/GPU oracle, enabled only during explicit automated QA.
  * Read back the bounded presenter texture, never the requested64x raster. */
 static bool fzero_gl_hd_check(const SnesHdFrame *jobs,const SnesHdGpuImage *image,unsigned scale,unsigned pane) {
-  static unsigned frames[FZERO_MAX_PLAYERS+1];
+  static unsigned frames[FZERO_MAX_PLAYERS+1],widths[FZERO_MAX_PLAYERS+1],heights[FZERO_MAX_PLAYERS+1];
   if(pane>FZERO_MAX_PLAYERS)return false;
-  if(!getenv("FZERO_TEST_HD_PARITY") || frames[pane]++%90)return true;
+  if(!getenv("FZERO_TEST_HD_PARITY"))return true;
+  bool resized=widths[pane]!=image->width || heights[pane]!=image->height;
+  if(!resized && frames[pane]++%90)return true;
+  widths[pane]=image->width;heights[pane]=image->height;
   SnesHdView v;if(!SnesHdFrameView(jobs,&v))return false;
   size_t bytes=(size_t)image->width*image->height*4;
   uint32_t *pixels=malloc(bytes);if(!pixels)return false;
@@ -396,7 +400,10 @@ static bool fzero_gl_hd_grid(FzeroGlRenderer *glr,unsigned logical_width,
   bool ok=glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER)==GL_FRAMEBUFFER_COMPLETE;
   glDisable(GL_SCISSOR_TEST);glDisable(GL_FRAMEBUFFER_SRGB);glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);
   glClearColor(0,0,0,1);glClear(GL_COLOR_BUFFER_BIT);
-  static unsigned frames;bool check=getenv("FZERO_TEST_HD_PARITY") && frames++%90==0;
+  static unsigned frames,last_width,last_height,last_players;
+  bool resized=last_width!=width || last_height!=height || last_players!=players;
+  bool check=getenv("FZERO_TEST_HD_PARITY") && (resized || frames++%90==0);
+  last_width=width;last_height=height;last_players=players;
   unsigned mismatches=0;
   for(unsigned p=0;p<players && ok;++p) {
     unsigned x0=p%2*(width/2),x1=p%2?width:width/2;
@@ -456,10 +463,11 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
   if(!hd)hd=jobs && SnesHdFrameView(jobs,&job_view) &&
       job_view.width==(unsigned)logical_width && job_view.height==(unsigned)logical_height &&
       fzero_gl_hd(glr,jobs,glr->hd_requested_scale,rect.w,rect.h,&image,FZERO_MAX_PLAYERS);
+  glr->hd_presented=hd;
   if (!hd && g_compare_mode7 && jobs)Die("Mode 7 comparison requires the HD GPU renderer");
   if (!hd || g_compare_mode7) {
   if (!hd && (FzeroGpuHdFrame() || FzeroGpuHdGridCount()) && !glr->hd_fallback_reported) {
-    fprintf(stderr,"[fzero-hd] GPU jobs unavailable; native presentation for this session\n");
+    fprintf(stderr,"[fzero-hd] GPU frame unavailable; presenting the supplied fallback image\n");
     glr->hd_fallback_reported=true;
   }
   glActiveTexture(GL_TEXTURE0);
@@ -1367,6 +1375,23 @@ static void present_osd(const FzeroPresenter *p) {
 /* One present, with an optional panel over it. The game image is whatever is
  * already in `pixels`: while a panel is up the guest is frozen, so the frame
  * behind it is the moment the player stopped at. */
+static void hd_presentation_feedback(unsigned effective) {
+  static unsigned last_limited=~0u;
+  /* Menus and loading screens legitimately use native artwork. Report a
+   * reduction when a road is actually being presented, including results. */
+  if(!g_video.hd_mode7 || (!FzeroLocalSession() &&
+      !(g_ram[0x54]==2 && g_ram[0x81])))return;
+  FzeroModsNoteHdScale(g_video.hd_scale,g_video.hd_supersample,effective);
+  if(effective>=g_video.hd_scale) {last_limited=~0u;return;}
+  if(effective==last_limited)return;
+  last_limited=effective;
+  char message[128];
+  if(!effective)snprintf(message,sizeof(message),"HD unavailable; using native rendering");
+  else snprintf(message,sizeof(message),"HD detail limited to %ux (%ux requested)",effective,g_video.hd_scale);
+  fprintf(stderr,"[fzero-hd-effective] %s\n",message);
+  snes_osd_push(message,5000);
+}
+
 static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
                           int pw, int ph, int is_menu) {
   const uint32_t *hd_frame = FzeroHdFrame();
@@ -1379,6 +1404,7 @@ static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
   if (p->gl) {
     fzero_gl_render(p->gl, pixels, width, height, display_viewport,
                     p->drawable_width, p->drawable_height);
+    hd_presentation_feedback(p->gl->hd_presented?p->gl->hd_effective_scale:hd_frame?scale:0);
     if (panel) {
       fzero_gl_draw_overlay(p->gl, panel, pw, ph, overlay_rect(p, is_menu),
                             p->drawable_height);
@@ -1407,6 +1433,7 @@ static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
       fzero_game_destination(display_viewport, p->drawable_width, p->drawable_height);
   SDL_Rect destination = {rect.x, rect.y, rect.w, rect.h};
   snesrecomp_sdl_render_texture(p->renderer, p->texture, &source, &destination);
+  hd_presentation_feedback(hd_frame?scale:0);
   overlay_draw_sdl(p, panel, pw, ph, is_menu);
   if (!panel || !is_menu) present_osd(p);
   if (panel) overlay_dump(p, is_menu);
@@ -2395,7 +2422,8 @@ static int run_game(int argc, char **argv) {
         .fullscreen = (SDL_GetWindowFlags(window) & SNESRECOMP_SDL_WINDOW_FULLSCREEN_DESKTOP) != 0,
         .suspended = suspended, .scene = g_ram[0x54], .subscene = g_ram[0x55]
       };
-      if (use_gl_renderer && gl_renderer.hd_gpu && (FzeroGpuHdFrame() || FzeroGpuHdGridCount())) {
+      if (use_gl_renderer && gl_renderer.hd_gpu && gl_renderer.hd_presented &&
+          (FzeroGpuHdFrame() || FzeroGpuHdGridCount())) {
         SnesHdGpuReadStats(gl_renderer.hd_gpu,false,&diagnostic_frame.hd_gpu);
         if (diagnostic_frame.hd_gpu.output_width)
           diagnostic_frame.effective_scale=gl_renderer.hd_effective_scale;
@@ -2887,9 +2915,8 @@ static int run_game(int argc, char **argv) {
 
     if (benchmark || FzeroClockPresentationDue(&clock, now)) {
       uint64_t diagnostic_start = FzeroDiagnosticsBegin();
-      /* Grid views use the portable renderer until GPU packets can carry
-       * multiple cameras per row. Bound their raster cost independently of
-       * the requested single-camera GPU scale. */
+      /* The emergency portable grid path stays bounded. Successful GPU
+       * camera packets use the requested detail, independently of this cap. */
       unsigned presentation_scale=!online && g_local_players>2 && local_two_player && cpu_scale>2?2:cpu_scale;
       FzeroSetMode7Hd(hd_pixels?presentation_scale:0,hd_pixels,cpu_capacity);
       FzeroPresent(benchmark ? 1.0 : FzeroClockAlpha(&clock, now));
