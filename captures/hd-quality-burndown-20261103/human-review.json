@@ -26,6 +26,12 @@
       "bytes": 10295106
     }
   },
-  "jump_observation": "pending",
+  "jump_observation": {
+    "answer": "right is definitely better",
+    "passed": true,
+    "left": "native",
+    "right": "4x HD with2 samples per axis",
+    "scope": "Prepared CGP Marine CityI approach; native physics bounce/ascent/descent/landing, original cadence. Visual pass for this jump; not bsnes parity or whole-renderer acceptance."
+  },
   "decision": "HD-03 straight/turning geometry resolved; retain validated candidate. Other motion, composition and overall acceptance remain open."
 }

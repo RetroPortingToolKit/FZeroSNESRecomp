@@ -55,6 +55,7 @@
 #include "desktop/config.h"
 #include "desktop/sdl_compat.h"
 #include "desktop/hd_gpu.h"
+#include "desktop/present_shader.h"
 
 #include <math.h>
 #include <stdarg.h>
@@ -250,14 +251,7 @@ static bool fzero_gl_create_passthrough(FzeroGlRenderer *glr) {
       TexCoord = aTexCoord;
     }
   );
-  static const GLchar *fs_code = "#version 330 core\n" GLSL_CODE(
-    out vec4 FragColor;
-    in vec2 TexCoord;
-    uniform sampler2D texture1;
-    void main(void) {
-      FragColor = texture(texture1, TexCoord);
-    }
-  );
+  const GLchar *fs_code = SnesGlPresentFragmentShader();
 
   uint vs = glCreateShader(GL_VERTEX_SHADER);
   uint fs = glCreateShader(GL_FRAGMENT_SHADER);
@@ -505,6 +499,8 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
     glViewport(rect.x, viewport_y, rect.w, rect.h);
     glUseProgram(glr->program);
     glUniform1i(glGetUniformLocation(glr->program, "texture1"), 0);
+    glUniform1i(glGetUniformLocation(glr->program,"exactNearest"),hd && !g_config.linear_filtering);
+    glUniform4i(glGetUniformLocation(glr->program,"nearestViewport"),rect.x,viewport_y,rect.w,rect.h);
     glBindVertexArray(glr->vao);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
@@ -518,6 +514,7 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
     glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
     glViewport(rect.x-pane_width,viewport_y,rect.w,rect.h);
     glUseProgram(glr->program);glUniform1i(glGetUniformLocation(glr->program,"texture1"),0);
+    glUniform1i(glGetUniformLocation(glr->program,"exactNearest"),0);
     glBindVertexArray(glr->vao);glDrawArrays(GL_TRIANGLE_STRIP,0,4);
     glBindVertexArray(0);glUseProgram(0);
   }
@@ -554,6 +551,7 @@ static void fzero_gl_draw_overlay(FzeroGlRenderer *glr, const uint32_t *panel,
   glViewport(rect.x, drawable_height - rect.y - rect.h, rect.w, rect.h);
   glUseProgram(glr->program);
   glUniform1i(glGetUniformLocation(glr->program, "texture1"), 0);
+  glUniform1i(glGetUniformLocation(glr->program,"exactNearest"),0);
   glBindVertexArray(glr->overlay_vao);
   glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
   glBindVertexArray(0);
