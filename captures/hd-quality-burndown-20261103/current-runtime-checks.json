@@ -1,0 +1,1623 @@
+{
+  "date": "2026-11-03",
+  "runtime_source": "1f1ad5f28caa150ba5544659ce87efbd4077f0c6",
+  "engine_source": "07716db3e65069e2329d4d9b7e291dda2e1df600",
+  "exe_sha256": "77e0ffc3939f3febb40aa5864453b2060d3858771b63c8b95837bd20555d379b",
+  "fresh_2p": {
+    "passed": true,
+    "keyboard": false,
+    "observed_scales": [
+      1
+    ],
+    "players": 2,
+    "cup": 0,
+    "native": false,
+    "hd_scale": 8,
+    "hd_supersample": 1,
+    "hd_full_target": false,
+    "portable_hd": false,
+    "bs_tracks": false,
+    "contact_fixture": true,
+    "sha256": "77e0ffc3939f3febb40aa5864453b2060d3858771b63c8b95837bd20555d379b",
+    "actual_gpu_scales": [
+      8
+    ],
+    "sampled_gpu_checks": 17,
+    "zero_sampled_mismatches": true,
+    "scope": "Fresh fzero-video.ini absent, actual defaults used; five window shapes and complete2P driving/contact/transition gate. observed_scales is legacy native-cache scale, not effective GPU detail. Source defaults: Fit, HD8x/SS1, FPSAuto. Whole launcher persistence/default-choice qualification remains open."
+  },
+  "save_load_overlay": {
+    "exe_sha256": "77e0ffc3939f3febb40aa5864453b2060d3858771b63c8b95837bd20555d379b",
+    "frames": 1800,
+    "scale": 4,
+    "samples": 2,
+    "checks": 36,
+    "fractional_checks": 4,
+    "state_events": [
+      {
+        "kind": "event",
+        "unix_seconds": 1793743240,
+        "elapsed_ms": 0.189,
+        "event": "controller_added",
+        "detail": 3
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793743263,
+        "elapsed_ms": 23303.333,
+        "event": "save",
+        "detail": 0
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793743265,
+        "elapsed_ms": 24965.151,
+        "event": "load",
+        "detail": 0
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793743265,
+        "elapsed_ms": 24975.822,
+        "event": "clock_reset",
+        "detail": 0
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793743267,
+        "elapsed_ms": 26648.698,
+        "event": "menu_open",
+        "detail": 1
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793743267,
+        "elapsed_ms": 26847.006,
+        "event": "menu_close",
+        "detail": 1
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793743267,
+        "elapsed_ms": 26847.068,
+        "event": "clock_reset",
+        "detail": 0
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793743268,
+        "elapsed_ms": 27846.07,
+        "event": "menu_open",
+        "detail": 2
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793743268,
+        "elapsed_ms": 28052.44,
+        "event": "menu_close",
+        "detail": 2
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793743268,
+        "elapsed_ms": 28052.499,
+        "event": "clock_reset",
+        "detail": 0
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793743269,
+        "elapsed_ms": 29051.339,
+        "event": "menu_open",
+        "detail": 1
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793743269,
+        "elapsed_ms": 29213.648,
+        "event": "menu_close",
+        "detail": 1
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793743269,
+        "elapsed_ms": 29213.718,
+        "event": "clock_reset",
+        "detail": 0
+      }
+    ],
+    "scope": "Private rewind-enabled profile without scripted input replacing the virtual pad; actual shipped save/load path and HD sampled after restore; rewind browser opened/cancelled through virtual controller. Does not qualify committed rewind or fix the pre-existing22-cycle resimulation issue."
+  },
+  "local_4p": {
+    "passed_functional_gate": true,
+    "scale": 8,
+    "samples_per_axis": 2,
+    "frames": 1610,
+    "seconds": 23.7545968,
+    "fps": 67.776,
+    "scope": "Whole scenario throughput with setup/contact/resize/transitions and stalls; not sustained60Hz or GTX1060 evidence.",
+    "performance_records": [
+      {
+        "kind": "session",
+        "unix_seconds": 1793742103,
+        "elapsed_ms": 0.003,
+        "schema": 1,
+        "version": "0.17.0-hd-preview",
+        "revision": "v0.16.0-11-g1f1ad5f28caa-dirty",
+        "framework_revision": "ws-baseline-prehistory-901-g07716db3e650",
+        "ui_revision": "b13c876cab37",
+        "build_type": "Release",
+        "compiler": "GNU 15.2.0",
+        "backend": "OpenGL",
+        "gpu": "NVIDIA GeForce RTX 3080 Ti/PCIe/SSE2",
+        "gpu_vendor": "NVIDIA Corporation",
+        "graphics_driver": "4.0.0 NVIDIA 616.86",
+        "shader": "",
+        "shader_loaded": 0,
+        "vsync": 1,
+        "allocated_scale": 8,
+        "linear_filter": 0,
+        "audio_enabled": 1,
+        "rewind_enabled": 0,
+        "cpu": "AMD Ryzen 7 9800X3D 8-Core Processor           ",
+        "os": "Windows 10.0.26200",
+        "logical_cpus": 16,
+        "ram_mb": 63033,
+        "sdl_version": 3004014,
+        "video_driver": "windows",
+        "audio_driver": "dummy",
+        "attached_display_adapters": [
+          "NVIDIA GeForce RTX 3080 Ti",
+          "NVIDIA GeForce RTX 3080 Ti",
+          "NVIDIA GeForce RTX 3080 Ti"
+        ]
+      },
+      {
+        "kind": "settings",
+        "unix_seconds": 1793742103,
+        "elapsed_ms": 0.891,
+        "interval_ms": 0.89,
+        "simulation_total": 0,
+        "presentations_total": 0,
+        "simulation_delta": 0,
+        "presentations_delta": 0,
+        "missed_delta": 0,
+        "simulation_fps": 0.0,
+        "presentation_fps": 0.0,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 0.0,
+        "frame_interval_p99_ms": 0.0,
+        "frame_interval_max_ms": 0.0,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 0,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 1,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 256,
+        "source_height": 224,
+        "output_width": 768,
+        "output_height": 576,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 0,
+        "subscene": 0,
+        "render_workers": 1,
+        "stages": {
+          "simulation": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "ppu": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "composition": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "upload": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "draw_submit": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "present": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 0.89,
+        "hd_gpu": {
+          "frames": 0,
+          "timed_frame": 0,
+          "upload_bytes": 0,
+          "upload_ms": 0.0,
+          "draw_ms": 0.0,
+          "source_bytes": 0,
+          "target_bytes": 0,
+          "requested_width": 0,
+          "requested_height": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793742103,
+        "elapsed_ms": 0.971,
+        "event": "controller_added",
+        "detail": 5
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793742103,
+        "elapsed_ms": 0.978,
+        "event": "controller_added",
+        "detail": 6
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793742103,
+        "elapsed_ms": 0.982,
+        "event": "controller_added",
+        "detail": 7
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793742103,
+        "elapsed_ms": 0.987,
+        "event": "controller_added",
+        "detail": 8
+      },
+      {
+        "kind": "sample",
+        "unix_seconds": 1793742105,
+        "elapsed_ms": 2002.955,
+        "interval_ms": 2002.062,
+        "simulation_total": 323,
+        "presentations_total": 323,
+        "simulation_delta": 323,
+        "presentations_delta": 323,
+        "missed_delta": 0,
+        "simulation_fps": 161.334,
+        "presentation_fps": 161.334,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 7.5,
+        "frame_interval_p99_ms": 12.0,
+        "frame_interval_max_ms": 26.427,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 0,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 8,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 2048,
+        "source_height": 1792,
+        "output_width": 768,
+        "output_height": 576,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 0,
+        "subscene": 1,
+        "render_workers": 1,
+        "stages": {
+          "simulation": {
+            "calls": 323,
+            "total_ms": 752.565,
+            "mean_ms": 2.33,
+            "max_ms": 3.95
+          },
+          "ppu": {
+            "calls": 323,
+            "total_ms": 78.005,
+            "mean_ms": 0.242,
+            "max_ms": 0.725
+          },
+          "composition": {
+            "calls": 323,
+            "total_ms": 408.349,
+            "mean_ms": 1.264,
+            "max_ms": 2.421
+          },
+          "upload": {
+            "calls": 323,
+            "total_ms": 434.813,
+            "mean_ms": 1.346,
+            "max_ms": 8.314
+          },
+          "draw_submit": {
+            "calls": 323,
+            "total_ms": 7.125,
+            "mean_ms": 0.022,
+            "max_ms": 0.2
+          },
+          "present": {
+            "calls": 323,
+            "total_ms": 284.429,
+            "mean_ms": 0.881,
+            "max_ms": 21.659
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 36.775,
+        "hd_gpu": {
+          "frames": 323,
+          "timed_frame": 323,
+          "upload_bytes": 1090560,
+          "upload_ms": 0.082944,
+          "draw_ms": 0.04608,
+          "source_bytes": 25165824,
+          "target_bytes": 8847360,
+          "requested_width": 2048,
+          "requested_height": 1792,
+          "width": 768,
+          "height": 576
+        }
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793742107,
+        "elapsed_ms": 4613.885,
+        "event": "clock_reset",
+        "detail": 0
+      },
+      {
+        "kind": "sample",
+        "unix_seconds": 1793742107,
+        "elapsed_ms": 4637.603,
+        "interval_ms": 2634.648,
+        "simulation_total": 392,
+        "presentations_total": 392,
+        "simulation_delta": 69,
+        "presentations_delta": 69,
+        "missed_delta": 1,
+        "simulation_fps": 26.189,
+        "presentation_fps": 26.189,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 7.25,
+        "frame_interval_p99_ms": 12.25,
+        "frame_interval_max_ms": 12.128,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 0,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 8,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 4096,
+        "source_height": 3584,
+        "output_width": 768,
+        "output_height": 576,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 2,
+        "subscene": 2,
+        "render_workers": 4,
+        "stages": {
+          "simulation": {
+            "calls": 69,
+            "total_ms": 168.275,
+            "mean_ms": 2.439,
+            "max_ms": 5.548
+          },
+          "ppu": {
+            "calls": 69,
+            "total_ms": 26.088,
+            "mean_ms": 0.378,
+            "max_ms": 0.752
+          },
+          "composition": {
+            "calls": 69,
+            "total_ms": 135.918,
+            "mean_ms": 1.97,
+            "max_ms": 9.213
+          },
+          "upload": {
+            "calls": 129,
+            "total_ms": 36.951,
+            "mean_ms": 0.286,
+            "max_ms": 6.344
+          },
+          "draw_submit": {
+            "calls": 129,
+            "total_ms": 3.58,
+            "mean_ms": 0.028,
+            "max_ms": 0.076
+          },
+          "present": {
+            "calls": 129,
+            "total_ms": 371.513,
+            "mean_ms": 2.88,
+            "max_ms": 108.426
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 1892.323,
+        "hd_gpu": {
+          "frames": 395,
+          "timed_frame": 395,
+          "upload_bytes": 1072128,
+          "upload_ms": 0.079872,
+          "draw_ms": 0.069632,
+          "source_bytes": 25165824,
+          "target_bytes": 2211840,
+          "requested_width": 2048,
+          "requested_height": 1792,
+          "width": 384,
+          "height": 288
+        }
+      },
+      {
+        "kind": "sample",
+        "unix_seconds": 1793742109,
+        "elapsed_ms": 6638.547,
+        "interval_ms": 2000.944,
+        "simulation_total": 526,
+        "presentations_total": 526,
+        "simulation_delta": 134,
+        "presentations_delta": 134,
+        "missed_delta": 0,
+        "simulation_fps": 66.968,
+        "presentation_fps": 66.968,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 18.5,
+        "frame_interval_p99_ms": 119.25,
+        "frame_interval_max_ms": 136.464,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 1,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 8,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 5472,
+        "source_height": 3584,
+        "output_width": 1280,
+        "output_height": 720,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 2,
+        "subscene": 2,
+        "render_workers": 4,
+        "stages": {
+          "simulation": {
+            "calls": 134,
+            "total_ms": 167.658,
+            "mean_ms": 1.251,
+            "max_ms": 2.27
+          },
+          "ppu": {
+            "calls": 134,
+            "total_ms": 0.269,
+            "mean_ms": 0.002,
+            "max_ms": 0.069
+          },
+          "composition": {
+            "calls": 134,
+            "total_ms": 835.287,
+            "mean_ms": 6.233,
+            "max_ms": 10.153
+          },
+          "upload": {
+            "calls": 134,
+            "total_ms": 231.014,
+            "mean_ms": 1.724,
+            "max_ms": 5.931
+          },
+          "draw_submit": {
+            "calls": 134,
+            "total_ms": 2.334,
+            "mean_ms": 0.017,
+            "max_ms": 0.033
+          },
+          "present": {
+            "calls": 134,
+            "total_ms": 664.869,
+            "mean_ms": 4.962,
+            "max_ms": 125.126
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 99.512,
+        "hd_gpu": {
+          "frames": 931,
+          "timed_frame": 931,
+          "upload_bytes": 1384960,
+          "upload_ms": 0.10752,
+          "draw_ms": 0.75776,
+          "source_bytes": 25165824,
+          "target_bytes": 4608000,
+          "requested_width": 2736,
+          "requested_height": 1792,
+          "width": 640,
+          "height": 360
+        }
+      },
+      {
+        "kind": "sample",
+        "unix_seconds": 1793742111,
+        "elapsed_ms": 8643.986,
+        "interval_ms": 2005.439,
+        "simulation_total": 676,
+        "presentations_total": 676,
+        "simulation_delta": 150,
+        "presentations_delta": 150,
+        "missed_delta": 0,
+        "simulation_fps": 74.797,
+        "presentation_fps": 74.797,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 16.5,
+        "frame_interval_p99_ms": 58.0,
+        "frame_interval_max_ms": 103.925,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 0,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 8,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 4096,
+        "source_height": 3584,
+        "output_width": 768,
+        "output_height": 576,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 2,
+        "subscene": 2,
+        "render_workers": 4,
+        "stages": {
+          "simulation": {
+            "calls": 150,
+            "total_ms": 176.256,
+            "mean_ms": 1.175,
+            "max_ms": 1.935
+          },
+          "ppu": {
+            "calls": 150,
+            "total_ms": 0.211,
+            "mean_ms": 0.001,
+            "max_ms": 0.003
+          },
+          "composition": {
+            "calls": 150,
+            "total_ms": 1007.678,
+            "mean_ms": 6.718,
+            "max_ms": 11.21
+          },
+          "upload": {
+            "calls": 150,
+            "total_ms": 267.198,
+            "mean_ms": 1.781,
+            "max_ms": 5.933
+          },
+          "draw_submit": {
+            "calls": 150,
+            "total_ms": 2.652,
+            "mean_ms": 0.018,
+            "max_ms": 0.103
+          },
+          "present": {
+            "calls": 150,
+            "total_ms": 444.451,
+            "mean_ms": 2.963,
+            "max_ms": 88.254
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 106.994,
+        "hd_gpu": {
+          "frames": 1531,
+          "timed_frame": 1531,
+          "upload_bytes": 1072128,
+          "upload_ms": 0.079872,
+          "draw_ms": 0.069632,
+          "source_bytes": 25165824,
+          "target_bytes": 2211840,
+          "requested_width": 2048,
+          "requested_height": 1792,
+          "width": 384,
+          "height": 288
+        }
+      },
+      {
+        "kind": "sample",
+        "unix_seconds": 1793742113,
+        "elapsed_ms": 10646.136,
+        "interval_ms": 2002.149,
+        "simulation_total": 853,
+        "presentations_total": 853,
+        "simulation_delta": 177,
+        "presentations_delta": 177,
+        "missed_delta": 0,
+        "simulation_fps": 88.405,
+        "presentation_fps": 88.405,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 13.5,
+        "frame_interval_p99_ms": 34.5,
+        "frame_interval_max_ms": 36.142,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 0,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 8,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 4096,
+        "source_height": 3584,
+        "output_width": 768,
+        "output_height": 576,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 2,
+        "subscene": 2,
+        "render_workers": 4,
+        "stages": {
+          "simulation": {
+            "calls": 177,
+            "total_ms": 201.164,
+            "mean_ms": 1.137,
+            "max_ms": 2.777
+          },
+          "ppu": {
+            "calls": 177,
+            "total_ms": 0.335,
+            "mean_ms": 0.002,
+            "max_ms": 0.063
+          },
+          "composition": {
+            "calls": 177,
+            "total_ms": 1063.589,
+            "mean_ms": 6.009,
+            "max_ms": 8.642
+          },
+          "upload": {
+            "calls": 177,
+            "total_ms": 269.578,
+            "mean_ms": 1.523,
+            "max_ms": 2.904
+          },
+          "draw_submit": {
+            "calls": 177,
+            "total_ms": 2.963,
+            "mean_ms": 0.017,
+            "max_ms": 0.031
+          },
+          "present": {
+            "calls": 177,
+            "total_ms": 339.661,
+            "mean_ms": 1.919,
+            "max_ms": 26.61
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 124.86,
+        "hd_gpu": {
+          "frames": 2239,
+          "timed_frame": 2239,
+          "upload_bytes": 1072128,
+          "upload_ms": 0.080896,
+          "draw_ms": 0.068608,
+          "source_bytes": 25165824,
+          "target_bytes": 2211840,
+          "requested_width": 2048,
+          "requested_height": 1792,
+          "width": 384,
+          "height": 288
+        }
+      },
+      {
+        "kind": "sample",
+        "unix_seconds": 1793742115,
+        "elapsed_ms": 12649.1,
+        "interval_ms": 2002.964,
+        "simulation_total": 1030,
+        "presentations_total": 1030,
+        "simulation_delta": 177,
+        "presentations_delta": 177,
+        "missed_delta": 0,
+        "simulation_fps": 88.369,
+        "presentation_fps": 88.369,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 15.75,
+        "frame_interval_p99_ms": 39.0,
+        "frame_interval_max_ms": 48.311,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 0,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 8,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 4096,
+        "source_height": 3584,
+        "output_width": 768,
+        "output_height": 576,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 2,
+        "subscene": 2,
+        "render_workers": 4,
+        "stages": {
+          "simulation": {
+            "calls": 177,
+            "total_ms": 206.179,
+            "mean_ms": 1.165,
+            "max_ms": 4.915
+          },
+          "ppu": {
+            "calls": 177,
+            "total_ms": 0.33,
+            "mean_ms": 0.002,
+            "max_ms": 0.022
+          },
+          "composition": {
+            "calls": 177,
+            "total_ms": 1034.322,
+            "mean_ms": 5.844,
+            "max_ms": 9.144
+          },
+          "upload": {
+            "calls": 177,
+            "total_ms": 289.285,
+            "mean_ms": 1.634,
+            "max_ms": 3.025
+          },
+          "draw_submit": {
+            "calls": 177,
+            "total_ms": 3.243,
+            "mean_ms": 0.018,
+            "max_ms": 0.146
+          },
+          "present": {
+            "calls": 177,
+            "total_ms": 346.407,
+            "mean_ms": 1.957,
+            "max_ms": 32.712
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 123.197,
+        "hd_gpu": {
+          "frames": 2947,
+          "timed_frame": 2947,
+          "upload_bytes": 1072128,
+          "upload_ms": 0.08192,
+          "draw_ms": 0.069632,
+          "source_bytes": 25165824,
+          "target_bytes": 2211840,
+          "requested_width": 2048,
+          "requested_height": 1792,
+          "width": 384,
+          "height": 288
+        }
+      },
+      {
+        "kind": "sample",
+        "unix_seconds": 1793742117,
+        "elapsed_ms": 14656.914,
+        "interval_ms": 2007.814,
+        "simulation_total": 1194,
+        "presentations_total": 1194,
+        "simulation_delta": 164,
+        "presentations_delta": 164,
+        "missed_delta": 0,
+        "simulation_fps": 81.681,
+        "presentation_fps": 81.681,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 16.75,
+        "frame_interval_p99_ms": 19.75,
+        "frame_interval_max_ms": 22.907,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 0,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 8,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 4096,
+        "source_height": 3584,
+        "output_width": 768,
+        "output_height": 576,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 2,
+        "subscene": 2,
+        "render_workers": 4,
+        "stages": {
+          "simulation": {
+            "calls": 164,
+            "total_ms": 227.644,
+            "mean_ms": 1.388,
+            "max_ms": 3.588
+          },
+          "ppu": {
+            "calls": 164,
+            "total_ms": 0.277,
+            "mean_ms": 0.002,
+            "max_ms": 0.019
+          },
+          "composition": {
+            "calls": 164,
+            "total_ms": 1026.617,
+            "mean_ms": 6.26,
+            "max_ms": 9.488
+          },
+          "upload": {
+            "calls": 164,
+            "total_ms": 328.847,
+            "mean_ms": 2.005,
+            "max_ms": 6.143
+          },
+          "draw_submit": {
+            "calls": 164,
+            "total_ms": 4.234,
+            "mean_ms": 0.026,
+            "max_ms": 0.465
+          },
+          "present": {
+            "calls": 164,
+            "total_ms": 301.438,
+            "mean_ms": 1.838,
+            "max_ms": 8.53
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 118.757,
+        "hd_gpu": {
+          "frames": 3603,
+          "timed_frame": 3603,
+          "upload_bytes": 1072128,
+          "upload_ms": 0.082944,
+          "draw_ms": 0.069632,
+          "source_bytes": 25165824,
+          "target_bytes": 2211840,
+          "requested_width": 2048,
+          "requested_height": 1792,
+          "width": 384,
+          "height": 288
+        }
+      },
+      {
+        "kind": "sample",
+        "unix_seconds": 1793742119,
+        "elapsed_ms": 16680.355,
+        "interval_ms": 2023.44,
+        "simulation_total": 1305,
+        "presentations_total": 1305,
+        "simulation_delta": 111,
+        "presentations_delta": 111,
+        "missed_delta": 0,
+        "simulation_fps": 54.857,
+        "presentation_fps": 54.857,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 15.0,
+        "frame_interval_p99_ms": 16.5,
+        "frame_interval_max_ms": 18.342,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 0,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 1,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 512,
+        "source_height": 448,
+        "output_width": 768,
+        "output_height": 576,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 0,
+        "subscene": 1,
+        "render_workers": 1,
+        "stages": {
+          "simulation": {
+            "calls": 111,
+            "total_ms": 164.716,
+            "mean_ms": 1.484,
+            "max_ms": 6.443
+          },
+          "ppu": {
+            "calls": 111,
+            "total_ms": 0.185,
+            "mean_ms": 0.002,
+            "max_ms": 0.013
+          },
+          "composition": {
+            "calls": 111,
+            "total_ms": 663.446,
+            "mean_ms": 5.977,
+            "max_ms": 8.196
+          },
+          "upload": {
+            "calls": 136,
+            "total_ms": 199.162,
+            "mean_ms": 1.464,
+            "max_ms": 2.962
+          },
+          "draw_submit": {
+            "calls": 136,
+            "total_ms": 3.283,
+            "mean_ms": 0.024,
+            "max_ms": 0.085
+          },
+          "present": {
+            "calls": 136,
+            "total_ms": 206.465,
+            "mean_ms": 1.518,
+            "max_ms": 6.505
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 786.182,
+        "hd_gpu": {
+          "frames": 0,
+          "timed_frame": 0,
+          "upload_bytes": 0,
+          "upload_ms": 0.0,
+          "draw_ms": 0.0,
+          "source_bytes": 0,
+          "target_bytes": 0,
+          "requested_width": 0,
+          "requested_height": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "kind": "sample",
+        "unix_seconds": 1793742121,
+        "elapsed_ms": 18704.173,
+        "interval_ms": 2023.819,
+        "simulation_total": 1305,
+        "presentations_total": 1305,
+        "simulation_delta": 0,
+        "presentations_delta": 0,
+        "missed_delta": 0,
+        "simulation_fps": 0.0,
+        "presentation_fps": 0.0,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 0.0,
+        "frame_interval_p99_ms": 0.0,
+        "frame_interval_max_ms": 0.0,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 0,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 1,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 512,
+        "source_height": 448,
+        "output_width": 768,
+        "output_height": 576,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 0,
+        "subscene": 0,
+        "render_workers": 1,
+        "stages": {
+          "simulation": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "ppu": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "composition": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "upload": {
+            "calls": 72,
+            "total_ms": 17.225,
+            "mean_ms": 0.239,
+            "max_ms": 0.817
+          },
+          "draw_submit": {
+            "calls": 72,
+            "total_ms": 3.572,
+            "mean_ms": 0.05,
+            "max_ms": 0.121
+          },
+          "present": {
+            "calls": 72,
+            "total_ms": 123.106,
+            "mean_ms": 1.71,
+            "max_ms": 9.948
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 1879.917,
+        "hd_gpu": {
+          "frames": 0,
+          "timed_frame": 0,
+          "upload_bytes": 0,
+          "upload_ms": 0.0,
+          "draw_ms": 0.0,
+          "source_bytes": 0,
+          "target_bytes": 0,
+          "requested_width": 0,
+          "requested_height": 0,
+          "width": 0,
+          "height": 0
+        }
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793742123,
+        "elapsed_ms": 20039.27,
+        "event": "clock_reset",
+        "detail": 0
+      },
+      {
+        "kind": "sample",
+        "unix_seconds": 1793742123,
+        "elapsed_ms": 20707.675,
+        "interval_ms": 2003.501,
+        "simulation_total": 1361,
+        "presentations_total": 1361,
+        "simulation_delta": 56,
+        "presentations_delta": 56,
+        "missed_delta": 1,
+        "simulation_fps": 27.951,
+        "presentation_fps": 27.951,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 17.75,
+        "frame_interval_p99_ms": 22.25,
+        "frame_interval_max_ms": 22.097,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 0,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 8,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 4096,
+        "source_height": 3584,
+        "output_width": 768,
+        "output_height": 576,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 2,
+        "subscene": 2,
+        "render_workers": 4,
+        "stages": {
+          "simulation": {
+            "calls": 56,
+            "total_ms": 76.156,
+            "mean_ms": 1.36,
+            "max_ms": 4.7
+          },
+          "ppu": {
+            "calls": 56,
+            "total_ms": 0.075,
+            "mean_ms": 0.001,
+            "max_ms": 0.002
+          },
+          "composition": {
+            "calls": 56,
+            "total_ms": 320.046,
+            "mean_ms": 5.715,
+            "max_ms": 9.382
+          },
+          "upload": {
+            "calls": 59,
+            "total_ms": 95.604,
+            "mean_ms": 1.62,
+            "max_ms": 3.01
+          },
+          "draw_submit": {
+            "calls": 59,
+            "total_ms": 0.989,
+            "mean_ms": 0.017,
+            "max_ms": 0.041
+          },
+          "present": {
+            "calls": 59,
+            "total_ms": 138.149,
+            "mean_ms": 2.342,
+            "max_ms": 8.539
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 1372.482,
+        "hd_gpu": {
+          "frames": 4271,
+          "timed_frame": 4271,
+          "upload_bytes": 1072128,
+          "upload_ms": 0.083968,
+          "draw_ms": 0.07168,
+          "source_bytes": 25165824,
+          "target_bytes": 2211840,
+          "requested_width": 2048,
+          "requested_height": 1792,
+          "width": 384,
+          "height": 288
+        }
+      },
+      {
+        "kind": "sample",
+        "unix_seconds": 1793742125,
+        "elapsed_ms": 22712.529,
+        "interval_ms": 2004.855,
+        "simulation_total": 1533,
+        "presentations_total": 1533,
+        "simulation_delta": 172,
+        "presentations_delta": 172,
+        "missed_delta": 0,
+        "simulation_fps": 85.792,
+        "presentation_fps": 85.792,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 16.0,
+        "frame_interval_p99_ms": 17.75,
+        "frame_interval_max_ms": 18.486,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 0,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 8,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 4096,
+        "source_height": 3584,
+        "output_width": 768,
+        "output_height": 576,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 2,
+        "subscene": 2,
+        "render_workers": 4,
+        "stages": {
+          "simulation": {
+            "calls": 172,
+            "total_ms": 216.638,
+            "mean_ms": 1.26,
+            "max_ms": 2.572
+          },
+          "ppu": {
+            "calls": 172,
+            "total_ms": 0.276,
+            "mean_ms": 0.002,
+            "max_ms": 0.008
+          },
+          "composition": {
+            "calls": 172,
+            "total_ms": 1014.121,
+            "mean_ms": 5.896,
+            "max_ms": 8.202
+          },
+          "upload": {
+            "calls": 172,
+            "total_ms": 300.961,
+            "mean_ms": 1.75,
+            "max_ms": 4.702
+          },
+          "draw_submit": {
+            "calls": 172,
+            "total_ms": 3.511,
+            "mean_ms": 0.02,
+            "max_ms": 0.185
+          },
+          "present": {
+            "calls": 172,
+            "total_ms": 350.026,
+            "mean_ms": 2.035,
+            "max_ms": 7.934
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 119.321,
+        "hd_gpu": {
+          "frames": 4959,
+          "timed_frame": 4959,
+          "upload_bytes": 1072128,
+          "upload_ms": 0.079872,
+          "draw_ms": 0.070656,
+          "source_bytes": 25165824,
+          "target_bytes": 2211840,
+          "requested_width": 2048,
+          "requested_height": 1792,
+          "width": 384,
+          "height": 288
+        }
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793742126,
+        "elapsed_ms": 23710.931,
+        "event": "clock_reset",
+        "detail": 0
+      },
+      {
+        "kind": "final",
+        "unix_seconds": 1793742126,
+        "elapsed_ms": 23752.813,
+        "interval_ms": 1040.286,
+        "simulation_total": 1610,
+        "presentations_total": 1610,
+        "simulation_delta": 77,
+        "presentations_delta": 77,
+        "missed_delta": 0,
+        "simulation_fps": 74.018,
+        "presentation_fps": 74.018,
+        "target_hz": 60.0,
+        "display_hz": 165.0,
+        "frame_interval_p95_ms": 18.25,
+        "frame_interval_p99_ms": 21.0,
+        "frame_interval_max_ms": 20.93,
+        "controller": {
+          "instance": 5,
+          "attached": 1,
+          "left_x": 0,
+          "left_y": 0,
+          "buttons": 0
+        },
+        "aspect": "Fit",
+        "enhanced": 1,
+        "viewport_enhanced": 0,
+        "bs_deluxe": 0,
+        "hd_enabled": 1,
+        "requested_scale": 8,
+        "effective_scale": 8,
+        "fps_enabled": 1,
+        "requested_fps": 60,
+        "source_width": 2048,
+        "source_height": 1792,
+        "output_width": 768,
+        "output_height": 576,
+        "fullscreen": 0,
+        "suspended": 0,
+        "scene": 0,
+        "subscene": 1,
+        "render_workers": 1,
+        "stages": {
+          "simulation": {
+            "calls": 77,
+            "total_ms": 124.567,
+            "mean_ms": 1.618,
+            "max_ms": 4.841
+          },
+          "ppu": {
+            "calls": 77,
+            "total_ms": 2.758,
+            "mean_ms": 0.036,
+            "max_ms": 0.522
+          },
+          "composition": {
+            "calls": 77,
+            "total_ms": 444.846,
+            "mean_ms": 5.777,
+            "max_ms": 10.34
+          },
+          "upload": {
+            "calls": 77,
+            "total_ms": 126.748,
+            "mean_ms": 1.646,
+            "max_ms": 3.614
+          },
+          "draw_submit": {
+            "calls": 77,
+            "total_ms": 2.012,
+            "mean_ms": 0.026,
+            "max_ms": 0.32
+          },
+          "present": {
+            "calls": 77,
+            "total_ms": 107.81,
+            "mean_ms": 1.4,
+            "max_ms": 6.691
+          },
+          "pacing_wait": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          },
+          "paused": {
+            "calls": 0,
+            "total_ms": 0.0,
+            "mean_ms": 0.0,
+            "max_ms": 0.0
+          }
+        },
+        "unattributed_ms": 231.546,
+        "hd_gpu": {
+          "frames": 5249,
+          "timed_frame": 5249,
+          "upload_bytes": 1090560,
+          "upload_ms": 0.08192,
+          "draw_ms": 0.04608,
+          "source_bytes": 25165824,
+          "target_bytes": 8847360,
+          "requested_width": 2048,
+          "requested_height": 1792,
+          "width": 768,
+          "height": 576
+        }
+      }
+    ]
+  },
+  "raw_root": "G:\\Temp\\Codex\\fzero-hd-quality-20261103",
+  "decisions": {
+    "HD-03": "resolved straight/turning geometry",
+    "overall": "2 resolved /10 open",
+    "next": "prepared jump/landing visual review pending"
+  }
+}

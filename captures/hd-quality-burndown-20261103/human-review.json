@@ -26,5 +26,6 @@
       "bytes": 10295106
     }
   },
-  "jump_observation": "pending"
+  "jump_observation": "pending",
+  "decision": "HD-03 straight/turning geometry resolved; retain validated candidate. Other motion, composition and overall acceptance remain open."
 }

@@ -21,8 +21,8 @@ The outcome is a visibly convincing HD Mode 7 implementation, stable in motion,
 with understandable controls and practical runtime cost. Prefer replacing or
 simplifying a failing renderer over accumulating exceptions around it.
 
-This is the active plan and decision record. **One of twelve acceptance areas is
-resolved; eleven remain open.** HD-01 has a source-audited product contract.
+This is the active plan and decision record. **Two of twelve acceptance areas are
+resolved; ten remain open.** HD-01 has a source-audited product contract.
 The first implementation candidates and their limits are recorded below;
 no overall visual, performance or release acceptance is claimed.
 
@@ -102,7 +102,7 @@ concise evidence link. All rows start open; known limitations are called out.
 | --- | --- | --- | --- |
 | HD-01 | Feature contract — F-Zero + launcher | Map every visible control to its real effect. Retire separate general internal resolution unless a matched scene demonstrates useful additional detail outside HD Mode 7. End with one unambiguous set of controls. | Resolved contract: no independent whole-game internal-resolution feature exists to retain. Keep HD detail and Edge smoothing; display size/filtering/FPS stay separate. Runtime UI/default qualification is HD-11. |
 | HD-02 | Active path and effective quality — adapter + engine | Trace native/HD selection in actual races, results and unsupported scenes. Show that the road is resampled from course data, and distinguish a configured multiplier from a fallback or cap. Silent native fallback must not masquerade as active HD. | Open: actual GPU detail and portable2x reduction are checked in races/results; reductions now notify the player and remain visible as last-race status in Mods. Unsupported-device/native-scene and complete launcher qualification remain. |
-| HD-03 | Perspective geometry — shared engine | Match independent bsnes-hd road shape, horizon and depth across straight and turning views. Fix systematic edge displacement, bends or horizon bands. Compare replacing the current fitted-plane approach with a reference-aligned alternative; evaluate substantial reuse where technically suitable. | Open: reciprocal anchors improve all151 consecutive aligned4x frames. Native-rate clips are ready; horizon-policy differences and continuous visual acceptance remain open. |
+| HD-03 | Perspective geometry — shared engine | Match independent bsnes-hd road shape, horizon and depth across straight and turning views. Fix systematic edge displacement, bends or horizon bands. Compare replacing the current fitted-plane approach with a reference-aligned alternative; evaluate substantial reuse where technically suitable. | Resolved for straight/turning geometry: seven independent matched stills and all151 consecutive4x frames improve; the owner accepts both SS1 and SS2 road/horizon clips. Engine07716db3 preserves all302 accepted images. Coordinate/artwork differences remain in HD-04/05; other motion remains in HD-07. |
 | HD-04 | Source coordinates and texels — engine + F-Zero maps | Verify pixel centers, fractional rows, negative coordinates, wrapping, flips, tile boundaries and full-course/cache transitions. Independently known source coordinates must select the expected texels. No wrong course blocks or road seams. | Open. |
 | HD-05 | Composition and original artwork — engine + adapter | Preserve vehicle/HUD/text detail, palette, brightness, priority, windows and native effects. Check menus, demo, records and results separately. Any intentional full-course extension must be distinguished from an ordinary reference-view mismatch. | Open. |
 | HD-06 | Aliasing and supersampling — shared engine | Match the expected reduction of jagged road edges and moving stripe shimmer with equivalent reference settings. Preserve original artwork; do not conceal geometry defects with blur or a new default texture-smoothing filter. Select useful quality/cost levels. | Open: six matched4x/SS2 samples retain near-road RGB MAE0.022..0.138; continuous SS2 comparison and useful quality/cost/default decisions remain. |
@@ -113,7 +113,7 @@ concise evidence link. All rows start open; known limitations are called out.
 | HD-11 | Controls, defaults and updates — F-Zero + launcher | Implement HD-01's chosen controls; verify fresh installation, persistence and requested/effective quality. Native display scaling must not be presented as recovered Mode 7 detail. Choose defaults from accepted results rather than a large multiplier. | Open. |
 | HD-12 | Player acceptance and release — F-Zero | Present representative matched stills and motion to the owner/regular players, retaining individual Pass/Fail/Deferred notes. Close known visual failures and run affected gameplay/save/load/rewind checks before an HD quality release claim. | Open; overall visual acceptance currently fails. |
 
-**Current result: 1 resolved contract, 11 open.** Preparation, builds, screenshots and
+**Current result: 2 resolved areas (HD-01/03), 10 open.** Preparation, builds, screenshots and
 CPU/GPU agreement are supporting evidence, not additional completed rows.
 
 ## Representative test matrix
@@ -350,8 +350,8 @@ entries in the raw diagnostic table are explicitly marked mismatched settings.
 
 The next visual decision is continuous full-frame review of road and horizon
 at original cadence: jitter, shimmer, bands and geometry jumps. Owner review
-accepts the first stock-corner, smoothing-off clip: ?Looks comparable.? This
-passes that specific road/horizon motion checkpoint. Owner also accepts the matched smoothing2 clip: ?still looks comparable.?
+accepts the first stock-corner, smoothing-off clip: "Looks comparable." This
+passes that specific road/horizon motion checkpoint. Owner also accepts the matched smoothing2 clip: "still looks comparable."
 Neither checkpoint is blanket acceptance of jumps, wraps, high-refresh motion,
 other content or the complete renderer. Further
 multiplayer performance tuning must not displace this picture-quality gate.
@@ -373,13 +373,46 @@ All302 F-Zero SS1/SS2 comparison images remain byte-identical to the clips the
 owner accepted, so those visual observations carry forward without another
 review. Seven shared PPU tests,772 GPU comparisons, the F-Zero renderer gate,
 Ubuntu GCC13.3 NDEBUG reconstruction and a GPU-disabled object compile pass.
-The existing new-fit4P live GPU gate is running; broad shared-game/runtime
-acceptance remains open.
+The new-fit4P8x/SS2 live GPU gate passes, including every camera, contacts,
+resizing and transitions. Broad shared-game/runtime acceptance remains open.
 
 Machine-readable comparisons, source/binary identities and individual outcomes
 are in the existing evidence directory. Raw captures/QA installs remain in the
 bounded task scratch for this ongoing review and require cleanup when no longer
-needed. **The matrix remains1 resolved contract and11 open acceptance areas.**
+needed. **The matrix now has2 resolved areas and10 open acceptance areas.**
+
+
+## Accepted geometry checkpoint and current lifecycle checks
+
+The bounded independent focus review confirms HD-03's stated straight/turning
+criterion is satisfied. Retain the reciprocal-anchor fit with its validated
+whole-band fallback. Preserve the two owner passes without requesting repeat
+review of byte-identical footage. This does not close coordinate wrapping,
+composition, jumps, fractional motion or overall renderer acceptance.
+
+Current EXE SHA256 `77e0ffc3939f3febb40aa5864453b2060d3858771b63c8b95837bd20555d379b`
+uses game runtime `1f1ad5f` and engine `07716db3`. A fresh-video-settings2P run
+uses actual8x GPU output and adapts to five window shapes; all sampled output
+checks match. Its source defaults are Fit, smoothing off and automatic
+presentation rate; the real run uses60Hz and preserves native menu artwork.
+This validates the current fresh behavior, not a decision that8x is the best
+default or that the full launcher persistence contract is complete.
+
+The existing save/load route succeeds at4x/SS2 and120Hz requested presentation.
+After restore, sampled GPU output still matches, including fractional cameras.
+A clean private rewind-enabled profile passes controller and keyboard access
+to the state browser, and opening/cancelling rewind. The initial overlay run
+was an invalid fixture: rewind was disabled and the replay input replaced the
+virtual pad. No production hotkey change was needed. Committed rewind is not
+qualified by this open/cancel check. The separately tracked pre-existing
+22-master-cycle snapshot replay mismatch remains `beads-8wg.5.122`.
+
+One current-build local4P8x/SS2 run averages67.776FPS over1610 simulation frames
+and23.755seconds on the local PC. It includes setup, contacts, resizing and
+transitions; recorded stalls prevent a sustained-cadence claim. Stop expanding
+the worker timing matrix. The next visual decision is the prepared native/HD
+jump and landing clip, with the owner's individual observation still pending.
+See [current runtime checks](../captures/hd-quality-burndown-20261103/current-runtime-checks.json).
 
 ## References
 
