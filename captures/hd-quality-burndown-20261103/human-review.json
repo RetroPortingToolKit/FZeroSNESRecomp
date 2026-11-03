@@ -1,0 +1,30 @@
+{
+  "owner_observations": [
+    {
+      "scene": "stock corner151 frames at4x SS1",
+      "answer": "Looks comparable",
+      "passed": true
+    },
+    {
+      "scene": "same stock corner at4x SS2",
+      "answer": "still looks comparable",
+      "passed": true
+    }
+  ],
+  "scope": "Bounded original-cadence whole-frame road/horizon comparison; not full renderer/course/high-refresh acceptance",
+  "clips": {
+    "candidate-left-bsnes-right-4x.mp4": {
+      "sha256": "615974cf36ccb4ed4525432da0d7025d5eaedf57c2b09a90dfc86876d56dd991",
+      "bytes": 28382587
+    },
+    "candidate-left-bsnes-right-4x-smoothing2.mp4": {
+      "sha256": "f1adacc1e435d4cd47e061cd4b13b996413dbb5f84e0070bf026f3bf09addd81",
+      "bytes": 24389204
+    },
+    "jump-native-left-hd-right.mp4": {
+      "sha256": "81eff55547613797b7c47cb72a5b0d5346129e2a4d042ce8b86c2bc1600b536d",
+      "bytes": 10295106
+    }
+  },
+  "jump_observation": "pending"
+}

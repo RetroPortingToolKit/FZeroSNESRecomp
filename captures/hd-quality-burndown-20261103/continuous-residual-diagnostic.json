@@ -1,0 +1,30 @@
+[
+  {
+    "frame": 1632,
+    "variant": "vram-floor",
+    "full_rgb_mae": 3.6590677897135415,
+    "horizon_rgb_mae": 18.057892628205128,
+    "near_road_rgb_mae": 0.8096990632773632
+  },
+  {
+    "frame": 1632,
+    "variant": "vram-truncate",
+    "full_rgb_mae": 0.8060339064825148,
+    "horizon_rgb_mae": 1.6712364783653846,
+    "near_road_rgb_mae": 0.8096990632773632
+  },
+  {
+    "frame": 1648,
+    "variant": "vram-floor",
+    "full_rgb_mae": 3.3928466070265997,
+    "horizon_rgb_mae": 16.458475227029915,
+    "near_road_rgb_mae": 0.8482915014769901
+  },
+  {
+    "frame": 1648,
+    "variant": "vram-truncate",
+    "full_rgb_mae": 0.8188385736374628,
+    "horizon_rgb_mae": 1.6744290865384615,
+    "near_road_rgb_mae": 0.8482915014769901
+  }
+]

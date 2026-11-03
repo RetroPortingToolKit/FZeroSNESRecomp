@@ -1,0 +1,44 @@
+[
+  {
+    "frame": 1630,
+    "full_rgb_mae": 2.2152564639136907,
+    "horizon_rgb_mae": 12.194563384748932,
+    "near_road_rgb_mae": 0.11099470907182836,
+    "artwork_rgb_mae": 0.09642342641843972
+  },
+  {
+    "frame": 1660,
+    "full_rgb_mae": 2.456010001046317,
+    "horizon_rgb_mae": 13.50998055221688,
+    "near_road_rgb_mae": 0.13809128187189054,
+    "artwork_rgb_mae": 0.07495290336879433
+  },
+  {
+    "frame": 1690,
+    "full_rgb_mae": 1.411562238420759,
+    "horizon_rgb_mae": 7.650411491720085,
+    "near_road_rgb_mae": 0.09853685673196518,
+    "artwork_rgb_mae": 0.07955175088652482
+  },
+  {
+    "frame": 1720,
+    "full_rgb_mae": 0.5816199893043155,
+    "horizon_rgb_mae": 3.1531179053151708,
+    "near_road_rgb_mae": 0.022218618819962687,
+    "artwork_rgb_mae": 0.08239140070921985
+  },
+  {
+    "frame": 1750,
+    "full_rgb_mae": 0.7329290480840773,
+    "horizon_rgb_mae": 3.6461776342147436,
+    "near_road_rgb_mae": 0.1298135785914179,
+    "artwork_rgb_mae": 0.07601950354609929
+  },
+  {
+    "frame": 1780,
+    "full_rgb_mae": 0.7554986136300224,
+    "horizon_rgb_mae": 3.874236278044872,
+    "near_road_rgb_mae": 0.09985958877487562,
+    "artwork_rgb_mae": 0.07732158687943262
+  }
+]

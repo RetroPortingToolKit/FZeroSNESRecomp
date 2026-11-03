@@ -101,15 +101,15 @@ concise evidence link. All rows start open; known limitations are called out.
 | ID | Area / ownership | Decision and acceptance evidence | Current status |
 | --- | --- | --- | --- |
 | HD-01 | Feature contract — F-Zero + launcher | Map every visible control to its real effect. Retire separate general internal resolution unless a matched scene demonstrates useful additional detail outside HD Mode 7. End with one unambiguous set of controls. | Resolved contract: no independent whole-game internal-resolution feature exists to retain. Keep HD detail and Edge smoothing; display size/filtering/FPS stay separate. Runtime UI/default qualification is HD-11. |
-| HD-02 | Active path and effective quality — adapter + engine | Trace native/HD selection in actual races, results and unsupported scenes. Show that the road is resampled from course data, and distinguish a configured multiplier from a fallback or cap. Silent native fallback must not masquerade as active HD. | Open; fallback and multiplayer caps exist. |
-| HD-03 | Perspective geometry — shared engine | Match independent bsnes-hd road shape, horizon and depth across straight and turning views. Fix systematic edge displacement, bends or horizon bands. Compare replacing the current fitted-plane approach with a reference-aligned alternative; evaluate substantial reuse where technically suitable. | Open: reciprocal-anchor candidate improves all seven aligned 4x full-frame comparisons; continuous motion and remaining scene gates are unqualified. |
+| HD-02 | Active path and effective quality — adapter + engine | Trace native/HD selection in actual races, results and unsupported scenes. Show that the road is resampled from course data, and distinguish a configured multiplier from a fallback or cap. Silent native fallback must not masquerade as active HD. | Open: actual GPU detail and portable2x reduction are checked in races/results; reductions now notify the player and remain visible as last-race status in Mods. Unsupported-device/native-scene and complete launcher qualification remain. |
+| HD-03 | Perspective geometry — shared engine | Match independent bsnes-hd road shape, horizon and depth across straight and turning views. Fix systematic edge displacement, bends or horizon bands. Compare replacing the current fitted-plane approach with a reference-aligned alternative; evaluate substantial reuse where technically suitable. | Open: reciprocal anchors improve all151 consecutive aligned4x frames. Native-rate clips are ready; horizon-policy differences and continuous visual acceptance remain open. |
 | HD-04 | Source coordinates and texels — engine + F-Zero maps | Verify pixel centers, fractional rows, negative coordinates, wrapping, flips, tile boundaries and full-course/cache transitions. Independently known source coordinates must select the expected texels. No wrong course blocks or road seams. | Open. |
 | HD-05 | Composition and original artwork — engine + adapter | Preserve vehicle/HUD/text detail, palette, brightness, priority, windows and native effects. Check menus, demo, records and results separately. Any intentional full-course extension must be distinguished from an ordinary reference-view mismatch. | Open. |
-| HD-06 | Aliasing and supersampling — shared engine | Match the expected reduction of jagged road edges and moving stripe shimmer with equivalent reference settings. Preserve original artwork; do not conceal geometry defects with blur or a new default texture-smoothing filter. Select useful quality/cost levels. | Open; exposing a slider was not quality qualification. |
+| HD-06 | Aliasing and supersampling — shared engine | Match the expected reduction of jagged road edges and moving stripe shimmer with equivalent reference settings. Preserve original artwork; do not conceal geometry defects with blur or a new default texture-smoothing filter. Select useful quality/cost levels. | Open: six matched4x/SS2 samples retain near-road RGB MAE0.022..0.138; continuous SS2 comparison and useful quality/cost/default decisions remain. |
 | HD-07 | Motion and camera interpolation — F-Zero first | Check continuous straight driving, steering, rotation, camera wrap, jumps and camera discontinuities. Eliminate HD-only jitter, crawling bands, flashes and wrong-region interpolation. Qualify native simulation frames first, then fractional presentations. | Open; earlier alias fix covers one reproduced defect. |
 | HD-08 | Final presentation — shared GPU + host | Compare full-resolution output followed by the chosen display filter against the optimized visible-sample path at the same settings. Keep the shortcut only if it preserves the intended image. Test resize, DPI and aspect changes; explain why higher requested multipliers may stop helping at a fixed display size. | Open. |
-| HD-09 | Multiplayer — F-Zero + shared compositor | Qualify each 2P/3P/4P camera independently and together. Resolve the current missing GPU grid path and silent 2x CPU cap through implementation or an explicitly accepted, honestly described limitation. No claim that every mode uses the globally requested quality. | Open: independent GPU-grid candidate implemented; serial 3P passes. Worker prototype exposed nested-dispatch fallback; correction and strict 4P SS2 gate are pending. Emergency CPU cap still needs visible disclosure. |
-| HD-10 | Runtime cost and portability — engine + title | Measure simulation/presentation frame times, CPU/GPU cost and memory at already accepted image quality. Keep the game responsive and stable at original cadence. Qualify portable fallback and affected shared consumers; do not trade another game's reproducible regression for an aggregate gain. | Open; old timings are historical, not this pass's result. |
+| HD-09 | Multiplayer — F-Zero + shared compositor | Qualify each 2P/3P/4P camera independently and together. Resolve the current missing GPU grid path and silent 2x CPU cap through implementation or an explicitly accepted, honestly described limitation. No claim that every mode uses the globally requested quality. | Open: corrected worker grid passes4P8x/SS2, contacts, transitions and five resized targets. Serial3P4x full raster passes. Portable2x disclosure is validated. SERVER timing still misses60Hz; whole-view quality acceptance remains. |
+| HD-10 | Runtime cost and portability — engine + title | Measure simulation/presentation frame times, CPU/GPU cost and memory at already accepted image quality. Keep the game responsive and stable at original cadence. Qualify portable fallback and affected shared consumers; do not trade another game's reproducible regression for an aggregate gain. | Open: matched1vs2 camera workers improve both3P/4P with identical images/traces; automatic3-worker follow-up also passes. Neither reaches60Hz onSERVER. Cross-game and complete runtime qualification remain. |
 | HD-11 | Controls, defaults and updates — F-Zero + launcher | Implement HD-01's chosen controls; verify fresh installation, persistence and requested/effective quality. Native display scaling must not be presented as recovered Mode 7 detail. Choose defaults from accepted results rather than a large multiplier. | Open. |
 | HD-12 | Player acceptance and release — F-Zero | Present representative matched stills and motion to the owner/regular players, retaining individual Pass/Fail/Deferred notes. Close known visual failures and run affected gameplay/save/load/rewind checks before an HD quality release claim. | Open; overall visual acceptance currently fails. |
 
@@ -271,8 +271,8 @@ Run(NULL) inside a camera callback, which the shared API deliberately rejects.
 The corrected4P input/contact/transition fixtures passed on SERVER/GTX760,
 but **the GPU-grid gate failed**. The correction composes native rows directly
 inside a camera task, with a regression that requires real packets when called
-from the pool. Build/qualification is queued behind measured local pressure.
-This failed prototype is not an accepted renderer or speedup.
+from the pool. The failed prototype is retained as a rejected result. The
+corrected build and subsequent complete4P gate passed, as recorded below.
 
 The existing contact fixture now observes every actual simulation tick to retain
 a one-tick explosion sound during catch-up. Its original health/response checks
@@ -285,8 +285,101 @@ Contacts were explicitly excluded from that serial graphics run; the corrected
 contact observer passed separately in the rejected worker prototype. These are
 separate outcomes, not a combined acceptance of the current worker candidate.
 
-The next disposition is the corrected worker4P8x SS2 gate on the first compatible host;
-then a matched serial/parallel preparation comparison. HD-09/10 remain open.
+Corrected game `cbc3376`/engine `eddeda4c` built as EXE SHA256
+`39c1eb58c0fc0925ecc396ce0801d37052edd714bb1ee36b693840a23eb93fad`.
+Its nested-worker regression passes, and one coherent4P8x SS2 run passes actual
+GPU output for every camera and atlas, keyboard ownership, driving, prepared
+contacts, odd resize and live/results transitions. Serial3P4x full-raster output
+also passes its complete gate. These replace the earlier prepared-only status.
+
+Matched, unpaced1610-frame8x/SS1 runs on SERVER/GTX760 used the same binary,
+Fit/nearest and fixed alpha1. Order was3P1,2,2,1 workers and4P2,1,1,2.
+
+| Mode | One worker FPS | Two workers FPS | Later automatic3-worker FPS |
+| --- | --- | --- | --- |
+| 3P | 34.358,35.623 | 41.945,38.755 | 48.529,47.842 |
+| 4P | 28.009,28.454 | 37.276,37.132 | 39.832,39.539 |
+
+All23 presented captures and driving traces are identical in each mode across
+these runs. Retain parallel camera preparation. The automatic follow-up was
+not interleaved; background CPU load varied, and this is whole-scenario
+throughput including setup/contacts/transitions. No60Hz, idle-host, GTX1060 or
+four-worker desktop performance claim follows from these measurements.
+HD-09/10 remain open; stop expanding this multiplayer timing matrix.
+
+Game `1f1ad5f` now reports reduced detail on screen and retains the actual last
+race detail in Mods. Changing detail/smoothing invalidates the cached status;
+disabling HD reports its configured native state. A real4P8x/SS2 GPU run checks
+all cameras and atlas at768x576,600x450,1600x600,1280x720 and1342x1006, with
+zero sampled mismatches. A separate portable4P8x request uses2x, shows the
+limit, and passes driving/contacts/resize/transitions. Native picker/preload
+artwork is excluded from failure notices; both complete gates verify no false
+HD-unavailable warning. The portable cap and successful GPU request remain
+separate, truthful outcomes. Actual launcher/device/default qualification is
+still open.
+
+## Continuous picture comparison and next quality decision
+
+151 consecutive cornering frames1630..1780 now reproduce the six original
+immutable guest captures byte for byte. Reference raw frame1629 matches the
+retained bsnes dump after1630 calls; that observed alignment is used throughout.
+Both candidates include restored haze; reference is4x, perspective on(wide),
+no display filter and no supersampling. Every full image improves with anchors.
+
+| Region | Least-squares mean RGB MAE | Reciprocal-anchor mean RGB MAE |
+| --- | --- | --- |
+| Complete image | 7.313 | 1.542 |
+| Horizon47..86 | 27.202 | 8.058 |
+| Near road90..224 | 3.943 | 0.199 |
+
+These scores retain the broken/different regions; they are not a motion pass.
+The largest remaining near-region spike is a CHECK label that is white in our
+captured native PPU image and orange in the independently run reference.
+Changing source-coordinate rounding does not change that spike. Its underlying
+native/reference timing or palette cause is unestablished; do not attribute it
+to the new HD geometry or remove it from the full-image results. Negative-UV
+floor/truncation and authored full-course extension remain separately disclosed.
+
+Two full-frame, original-cadence comparison clips are retained under
+`G:/Temp/Codex/fzero-hd-quality-20261103/continuous`: candidate-left versus
+bsnes-right at4x with smoothing off, and the same with2 samples per axis.
+Both panes use4:3 presentation, nearest scaling and no added display filter.
+Six matched SS2 stills have near-road MAE0.022..0.138; that is supporting
+composition evidence, not shimmer or quality acceptance. SS2-versus-SS1
+entries in the raw diagnostic table are explicitly marked mismatched settings.
+
+The next visual decision is continuous full-frame review of road and horizon
+at original cadence: jitter, shimmer, bands and geometry jumps. Owner review
+accepts the first stock-corner, smoothing-off clip: ?Looks comparable.? This
+passes that specific road/horizon motion checkpoint. Owner also accepts the matched smoothing2 clip: ?still looks comparable.?
+Neither checkpoint is blanket acceptance of jumps, wraps, high-refresh motion,
+other content or the complete renderer. Further
+multiplayer performance tuning must not displace this picture-quality gate.
+The existing pinned SMK consumer run exposed a real cross-game defect:
+anchors alone correct664 sampled rows, versus1909 in the earlier validated
+least-squares run. Game `d302c30` was regenerated through the supported native
+analyzer and ran3600 strict DSP1LLE frames; native success alone did not hide
+this HD fallback regression.
+
+Engine `07716db3` now tries a validated whole-band regression if the anchor fit
+fails, with identical residual/pole/subrow bounds and no game-name selection.
+Two measured camera coefficient columns cover the opposite quantization cases.
+The regression fails anchors-only and passes the corrected implementation.
+SMK now corrects2241 rows across27 sampled frames, preserves sampled native
+parity, and matches the historical final logic/video hash and master cycles.
+This is a consumer check, not full-HD adoption into SMK's custom host.
+
+All302 F-Zero SS1/SS2 comparison images remain byte-identical to the clips the
+owner accepted, so those visual observations carry forward without another
+review. Seven shared PPU tests,772 GPU comparisons, the F-Zero renderer gate,
+Ubuntu GCC13.3 NDEBUG reconstruction and a GPU-disabled object compile pass.
+The existing new-fit4P live GPU gate is running; broad shared-game/runtime
+acceptance remains open.
+
+Machine-readable comparisons, source/binary identities and individual outcomes
+are in the existing evidence directory. Raw captures/QA installs remain in the
+bounded task scratch for this ongoing review and require cleanup when no longer
+needed. **The matrix remains1 resolved contract and11 open acceptance areas.**
 
 ## References
 

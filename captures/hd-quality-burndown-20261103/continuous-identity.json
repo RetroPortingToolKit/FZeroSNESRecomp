@@ -1,0 +1,36 @@
+{
+  "captures": [
+    {
+      "frame": 1630,
+      "equal": true,
+      "sha256": "81c2b70c2c04197677532785086aa2f77f493e5fcd2191fa2a098e519ce946c6"
+    },
+    {
+      "frame": 1660,
+      "equal": true,
+      "sha256": "08cc78fcc0ebe33a9eae330cac6d64d92dff5a1f6cabf920e6cc65d58861568a"
+    },
+    {
+      "frame": 1690,
+      "equal": true,
+      "sha256": "7e2e4e537b039746aff300a3d89a76c75873dd676c72229158d03735dd20429b"
+    },
+    {
+      "frame": 1720,
+      "equal": true,
+      "sha256": "04cf958cce7f641e1469959c6ad06128c7fa895979bf6c2f7e142b0c24dd299a"
+    },
+    {
+      "frame": 1750,
+      "equal": true,
+      "sha256": "cec5ffcdd1fbf55df1b6c4aa8c0b8d97707491f8a85b0ae2b656cc051643f1b9"
+    },
+    {
+      "frame": 1780,
+      "equal": true,
+      "sha256": "c082ef9f7e709c8768f986472e1eb6389b4b0d1217aec6097480ab0934b14d55"
+    }
+  ],
+  "rom_sha256": "bf16c3c867c58e2ab061c70de9295b6930d63f29f81cc986f5ecae03e0ad18d2",
+  "reference_core_sha256": "3e05e441f35ca21baa328094f6f9bf30645ea998ebb39956b154e160a8b00ed0"
+}

@@ -1,0 +1,14 @@
+{
+  "anchors": {
+    "exe_sha256": "07b43a8ad1912b5ba95c2a4822ef82206974ca18e4cb90c8803f326803ed1f5d",
+    "samples": 1
+  },
+  "least-squares": {
+    "exe_sha256": "a3d956539ffa50fad626c60875280bfff24fcb5155cb3dcde6e1d92d7287960c",
+    "samples": 1
+  },
+  "smoothing2": {
+    "exe_sha256": "07b43a8ad1912b5ba95c2a4822ef82206974ca18e4cb90c8803f326803ed1f5d",
+    "samples": 2
+  }
+}
