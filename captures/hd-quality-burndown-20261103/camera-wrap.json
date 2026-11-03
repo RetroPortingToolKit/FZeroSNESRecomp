@@ -1,0 +1,43 @@
+{
+  "native_guest_sha256": "b03d081b10f26eef4c2b1eafe3717adc0a3c36ab62ca85db7b2eea3e2c1ce761",
+  "renderer_sha256": "be242e73aed130ed836bb4f8a1167bcf471c5547249b756f3aa517228b3b5744",
+  "engine_source": "07716db3e65069e2329d4d9b7e291dda2e1df600",
+  "native_guest_engine": "eddeda4c9aff2527978aa49c3c4f1c76f9f0ba9c",
+  "scope": "Stock native drive without pose writes;81 consecutive frames1420..1500 across actual1456/1457 camera alias, native and4x/SS2 alpha0.5/1. No120Hz pacing claim.",
+  "alias_frame_matrices": [
+    [
+      0,
+      -244,
+      244,
+      0,
+      1144,
+      344,
+      1016,
+      168
+    ],
+    [
+      0,
+      -244,
+      244,
+      0,
+      128,
+      344,
+      0,
+      168
+    ]
+  ],
+  "frames": 81,
+  "human_review": {
+    "answer": "Right stays stable",
+    "passed": true,
+    "scope": "Actual stock1456/1457 streaming-camera alias, alpha0.5/1 interleaved; half speed. No120Hz throughput claim."
+  },
+  "clip": {
+    "path": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\continuous\\camera-wrap-native-left-hd-right-half-speed.mp4",
+    "sha256": "9b90d14cd763e90fed6413d47a870fd43d1d6d4eb27b0e3b8333560ce12918c0",
+    "bytes": 3251449,
+    "frames": 160,
+    "rate": 60.0988,
+    "scope": "4:3 images, nearest resize. Native left, HD right. Native frame held between updates; HD alpha0.5/1 interleaved. Half speed shows every120Hz presentation on60Hz display."
+  }
+}

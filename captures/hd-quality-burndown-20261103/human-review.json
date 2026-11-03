@@ -11,7 +11,7 @@
       "passed": true
     }
   ],
-  "scope": "Bounded original-cadence whole-frame road/horizon comparison; not full renderer/course/high-refresh acceptance",
+  "scope": "Representative native-cadence corner/rotation and jump/landing, plus interpolated streaming-camera wrap; not whole renderer/defaults/runtime/release acceptance.",
   "clips": {
     "candidate-left-bsnes-right-4x.mp4": {
       "sha256": "615974cf36ccb4ed4525432da0d7025d5eaedf57c2b09a90dfc86876d56dd991",
@@ -24,6 +24,10 @@
     "jump-native-left-hd-right.mp4": {
       "sha256": "81eff55547613797b7c47cb72a5b0d5346129e2a4d042ce8b86c2bc1600b536d",
       "bytes": 10295106
+    },
+    "camera-wrap-native-left-hd-right-half-speed.mp4": {
+      "sha256": "9b90d14cd763e90fed6413d47a870fd43d1d6d4eb27b0e3b8333560ce12918c0",
+      "bytes": 3251449
     }
   },
   "jump_observation": {
@@ -33,5 +37,10 @@
     "right": "4x HD with2 samples per axis",
     "scope": "Prepared CGP Marine CityI approach; native physics bounce/ascent/descent/landing, original cadence. Visual pass for this jump; not bsnes parity or whole-renderer acceptance."
   },
-  "decision": "HD-03 straight/turning geometry resolved; retain validated candidate. Other motion, composition and overall acceptance remain open."
+  "decision": "HD-03 geometry, HD-04 source coordinates and HD-07 representative motion resolved. Keep native floor semantics. HD-01 contract also resolved;4/12 resolved,8 open.",
+  "wrap_observation": {
+    "answer": "Right stays stable",
+    "passed": true,
+    "scope": "Actual stock1456/1457 streaming-camera alias, alpha0.5/1 interleaved; half speed. No120Hz throughput claim."
+  }
 }
