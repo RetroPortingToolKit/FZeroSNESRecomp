@@ -209,7 +209,7 @@ if developer:
     shutil.copy2(ROOT/"docs/PACK_FORMAT.md",stage/"docs/PACK_FORMAT.md")
 # MODS.md links to these instructions in player downloads too.
 (stage / "docs").mkdir(exist_ok=True)
-player_guides = ("PACK_FORMAT.md", "CGP_COURSE_CAPABILITIES.md", "CGP_SNES_MUSIC.md", "ASTRA_FRONT_IMPORT.md", "FUZEE_FORMAT.md", "DIAGNOSTIC_REPLAY.md", "NETPLAY.md", "LOCAL_CONTROLS_AND_MODS.md", "HD_MODE7.md")
+player_guides = ("PACK_FORMAT.md", "CGP_COURSE_CAPABILITIES.md", "CGP_SNES_MUSIC.md", "ASTRA_FRONT_IMPORT.md", "FUZEE_FORMAT.md", "DIAGNOSTIC_REPLAY.md", "NETPLAY.md", "LOCAL_CONTROLS_AND_MODS.md")
 for filename in player_guides:
     shutil.copy2(ROOT / "docs" / filename, stage / "docs" / filename)
 shutil.copy2(ROOT / "mods/PARSE_MANIFEST.md", stage / "mods/PARSE_MANIFEST.md")
@@ -262,9 +262,6 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "Match courses/huckmine.zip with music/huckmine.pcm. Missing songs use SNES music.\n"
     "Mods > Menu and event music shows the supplied CGP menu songs and lets you replace them.\n"
     "See MODS.md for music instructions and the editable Huckmine source ZIP example.\n\n"
-    "HD Mode 7 defaults to8x with continuous perspective and corrected moving-camera aliases.\n"
-    "Mods offers1..64x GPU resolution and independent supersampling1..4 (1=off); extra samples cost more rendering work.\n"
-    "See docs/HD_MODE7.md. Local3P/4P retains its up-to2x portable rendering cap.\n\n"
     "Single-player: F7 save-state menu, R rewind. All modes: D/C left/right shoulder, Alt+Enter fullscreen.\n"
     "Credits are in CREDITS.txt and each pack; license notices are in licenses/.\n",encoding="utf-8")
 

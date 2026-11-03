@@ -28,13 +28,14 @@ typedef struct FzeroVideoSettings {
   bool bs_tracks; /* Original BS courses, exclusive with CGP's corrected set. */
   FzeroGameplaySettings gameplay; /* Author's rules are all opt-in. */
   bool hd_mode7; /* Shared GPU enhancement, default on. */
-  unsigned hd_scale, hd_supersample; /* Integer 1..64; retained while disabled. */
+  unsigned hd_scale; /* Integer 1..64; retained while disabled. */
   bool diagnostics; /* Opt-in local performance reports; off by default. */
   bool crash_replay; /* Automatic local crash/replay capture; defaults on. */
+  unsigned local_players; /* Saved default count for offline VS: 2..4. */
   bool local_two_player; /* Launcher game mode; stock rules apply per session. */
   bool lap_callouts; /* Optional local WAV announcements; both files required. */
   bool lap_boost_second_lap_only; /* Announce boost once at the first lap-2 crossing. */
-  char lap_boost_wav[1024],final_lap_wav[1024];
+  char lap_boost_wav[1024],final_lap_wav[1024],finish_wav[1024];
 } FzeroVideoSettings;
 
 typedef struct FzeroViewport {

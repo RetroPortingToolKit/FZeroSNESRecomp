@@ -349,7 +349,7 @@ bool FzeroVersusVideoDraw(FzeroVersusVideo *v,uint32_t *out,size_t capacity,Fzer
   size_t pane_size=(size_t)viewport.width*224*scale*scale;
   for(unsigned i=0;i<2;++i) {
     uint32_t *p=out+i*pane_size;
-    bool ok=scale==1 && FzeroRendererSupersample()==1?FzeroRenderViewDraw(v->views[i],p,viewport,alpha):
+    bool ok=scale==1?FzeroRenderViewDraw(v->views[i],p,viewport,alpha):
         FzeroRenderViewDrawPresentation(v->views[i],NULL,p,pane_size,viewport,alpha,scale);
     if(!ok)return false;
     overlay(v,p,viewport,i,alpha,scale,false);
@@ -365,7 +365,7 @@ bool FzeroVersusVideoDrawPlayer(FzeroVersusVideo *v,uint32_t *out,size_t capacit
      (scale!=1 && !FzeroValidHdScale(scale)) || capacity<(size_t)viewport.width*224*scale*scale)return false;
   if(!isfinite(alpha) || alpha>1)alpha=1;if(alpha<0)alpha=0;if(!v->interpolate)alpha=1;
   size_t count=(size_t)viewport.width*224*scale*scale;
-  bool ok=scale==1 && FzeroRendererSupersample()==1?FzeroRenderViewDraw(v->views[player],out,viewport,alpha):
+  bool ok=scale==1?FzeroRenderViewDraw(v->views[player],out,viewport,alpha):
       FzeroRenderViewDrawPresentation(v->views[player],NULL,out,count,viewport,alpha,scale);
   if(!ok)return false;
   overlay(v,out,viewport,player,alpha,scale,false);menu(v,out,viewport,scale,(int)player);return true;
@@ -405,7 +405,6 @@ SnesHdFrame *FzeroVersusVideoPrepareHd(FzeroVersusVideo *v,uint32_t *native,
   unsigned panes = player < 0 ? 2 : 1;
   size_t count = (size_t)viewport.width * 224;
   SnesHdFrame *jobs = SnesHdFrameCreate(viewport.width, 224 * panes);
-  if(jobs)SnesHdFrameSetSampling(jobs,FzeroRendererSupersample());
   uint32_t *foreground = calloc(count * panes, sizeof(*foreground));
   if (!jobs || !foreground) goto fail;
   for (unsigned pane = 0; pane < panes; ++pane) {

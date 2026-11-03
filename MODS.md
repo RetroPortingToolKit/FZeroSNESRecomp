@@ -1,5 +1,16 @@
 # Mods and differences from the source games
 
+## Local multiplayer
+
+In **Mods**, open **Local Multiplayer** and choose **Players**: **2 players**,
+**3 players**, or **4 players**. This is the default when you enter **VS MODE**.
+You can still change it with Y in the in-game machine picker. Online uses the
+lobby's player count instead.
+
+The launcher's **Controls** page lets you choose a keyboard or gamepad and edit
+bindings for **Player 1** through **Player 4**. Set up each participating player
+before starting. Two racers use top/bottom views; three or four use a 2x2 grid.
+
 ## Lap voice callouts
 
 In **Mods**, open **Lap voice callouts**. Choose your **Boost power WAV** and
@@ -9,8 +20,9 @@ files are included with the game. Use WAV recordings up to 30 seconds long.
 By default, your boost recording plays when each new lap begins. Set **Boost-power
 timing** to **Lap 2 only (once per race)** to announce only the first lap-2
 crossing, with no later boost-power repeats. When the final lap begins,
-the final-lap recording plays instead. There is no callout at the starting line
-or after finishing the race. This works in Grand Prix, Practice and VS, with
+the final-lap recording plays instead. Add **Finish fanfare WAV (optional)** to play a recording when you cross the finish
+line at the end of the final lap. Clearing it keeps the two existing lap sounds.
+There is no callout at the starting line. This works in Grand Prix, Practice and VS, with
 either SNES or MSU music. Online, you hear your own lap announcements; in local
 split-screen, any player's crossing can announce a lap.
 

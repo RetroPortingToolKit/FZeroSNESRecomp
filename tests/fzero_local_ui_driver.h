@@ -12,7 +12,7 @@ static unsigned local_ui_stage,local_ui_step,local_ui_resizes,local_ui_captured;
 static unsigned local_ui_countdowns;
 static unsigned local_ui_setup_shots,local_ui_page;
 static unsigned local_ui_arrival_shots,local_ui_catalog_shots;
-static bool local_ui_setup;
+static bool local_ui_setup,local_ui_count_picker;
 static unsigned local_ui_cup;
 static bool local_ui_racing;
 static bool local_ui_live_captured;
@@ -65,7 +65,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
     int sources[4]={2,2,2,2};char guids[4][40];
     for(unsigned i=0;i<local_ui_players();++i)SDL_GUIDToString(SDL_GetJoystickGUID(local_ui_pads[i]),guids[i],40);
     if(!getenv("FZERO_TEST_LOCAL_UI_KEYBOARD"))FzeroLocalControlsAssignPlayers(controls,sources,guids,local_ui_players());
-    local_ui_stage=FzeroVersusPlayers(FzeroLocalControlsConfig(controls))==local_ui_players()?1:12;local_ui_step=0;t=0;
+    local_ui_stage=FzeroVersusPlayers(FzeroLocalControlsConfig(controls))==local_ui_players()?1:12;local_ui_step=0;t=0;local_ui_count_picker=local_ui_stage==12;
   }
   static unsigned reported=~0u;
   if(reported!=local_ui_stage) {reported=local_ui_stage;fprintf(stderr,"local-ui-stage: %u step=%u setup=%u page=%u\n",reported,t,setup,local_ui_page);fflush(stderr);}
@@ -238,7 +238,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
         if(getenv("FZERO_TEST_LOCAL_UI_LIVE") && !local_ui_live_captured)Die("Live menu was never presented");
         if(getenv("FZERO_TEST_LOCAL_UI_RESIZE") &&
            (local_ui_captured!=31 || local_ui_countdowns!=14 || !local_ui_racing))Die("UI resize/countdown presentation coverage incomplete");
-        if(local_ui_setup_shots!=(local_ui_players()>2?15u:7u))Die("UI setup-page presentation coverage incomplete");
+        if(local_ui_setup_shots!=(local_ui_count_picker?15u:7u))Die("UI setup-page presentation coverage incomplete");
         if(local_ui_arrival_shots!=7 || local_ui_catalog_shots!=3)Die("UI arrival/catalog presentation coverage incomplete");
         if(getenv("FZERO_TEST_LOCAL_UI_DRIVE") && (local_ui_drive_captured!=63 || local_ui_reconnect!=4))Die("UI drive animation coverage incomplete");
         fprintf(stderr,"local-ui: PASS native VS entry, independent local inputs, preload/Ready, live/results Restart/Change/Main Menu and single-player return\n");return true;}

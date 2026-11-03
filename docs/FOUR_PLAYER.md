@@ -9,7 +9,9 @@ Online stress qualification remains separate under `beads-8wg.2.190`.
 
 Local VS supports two, three or four humans in one simulation. Two players use
 top/bottom views; three/four use a 2-by-2 grid, with the unused fourth cell black.
-Press Y on P1's unready machine-selection page to choose the count. Each seat
+Choose the saved default in Mods > Local Multiplayer > Players. Player 1 through
+Player 4 can be configured in launcher Controls. Press Y on P1's unready
+machine-selection page to change the count in-game. Each seat
 joins, chooses a machine and readies independently. Gamepads have one owner.
 Explicit keyboard assignments can use separate
 `keybinds.ini` player1..player4 layouts, or repeat a layout to control multiple

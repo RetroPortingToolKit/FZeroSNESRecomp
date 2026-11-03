@@ -21,6 +21,8 @@ def main():
     p = argparse.ArgumentParser(description=__doc__)
     for key in ('build', 'runtime', 'rom', 'packs', 'out'):
         p.add_argument('--' + key, type=Path, required=True)
+    p.add_argument('--fresh-video-settings',action='store_true',help='Verify shipped video defaults rather than a seeded aspect/scale')
+    p.add_argument('--saved-player-count',action='store_true',help='Use the persisted mod default without the in-game count picker')
     p.add_argument('--players',type=int,choices=(2,3,4),default=2)
     p.add_argument('--keyboard',action='store_true',help='Exercise four distinct keybinds.ini layouts through the host keyboard path')
     p.add_argument('--hd-parity',action='store_true',help='Compare sampled actual GPU output pixels against the portable renderer')
@@ -65,6 +67,9 @@ def main():
         'LocalTwoPlayer=1\nAlwaysShowRecords=1\nCrashReplay=1\nDiagnostics=1\n')
     shots = out / 'images'
     shots.mkdir()
+    if a.fresh_video_settings:(stage/'fzero-video.ini').unlink()
+    if a.saved_player_count:
+        with (stage/'fzero-video.ini').open('a') as f:f.write(f'LocalPlayers={a.players}\n')
     clean = {k: v for k, v in os.environ.items() if not k.startswith(
         ('FZERO_', 'SNESRECOMP_', 'SDL_', 'LNG_', 'SNES_NET_', 'RNET_'))}
     env = dict(clean, SDL_AUDIODRIVER='dummy', SNESRECOMP_MSU1='off',
@@ -102,6 +107,7 @@ def main():
         checks=re.findall(r'\[fzero-hd-parity\].*mismatches=(\d+)',text)
         assert checks and all(int(n)==0 for n in checks),'Actual game CPU/GPU pixel parity failed'
     assert result.returncode == 0 and 'local-ui: PASS' in text, text[-4000:]
+    if a.saved_player_count:assert 'local-ui-stage: 12 ' not in text,'Saved count was not applied at VS entry'
     assert (shots / 'live-menu-frame.bmp').exists(), 'Live menu was not displayed'
     if not a.no_contact_fixture:
         assert all(f'[traffic-video] pane={p} ' in text for p in range(a.players)), 'Bumper pixels missing from a gameplay view'

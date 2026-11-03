@@ -90,12 +90,12 @@ int main(int argc,char **argv) {
       CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini") && loaded.lap_boost_second_lap_only);
       CHECK(p->feature_option_get(NULL,pack.package_id,pack.id,0,&option) && !strcmp(option.value,"lap-2-only"));
       CHECK(p->feature_set_option(NULL,pack.package_id,pack.id,option.id,"every-lap") && !s.lap_boost_second_lap_only);
-      CHECK(p->feature_resource_count(NULL,pack.package_id,pack.id)==2);
+      CHECK(p->feature_resource_count(NULL,pack.package_id,pack.id)==3);
       CHECK(!p->feature_enable(NULL,pack.package_id,pack.id,1));
-      for(int cue=0;cue<2;++cue) {
+      for(int cue=0;cue<3;++cue) {
         RecompLauncherCModResource resource;
         CHECK(p->feature_resource_get(NULL,pack.package_id,pack.id,cue,&resource));
-        CHECK(resource.required && !resource.verified && !strcmp(resource.file_patterns,"*.wav"));
+        CHECK(resource.required==(cue<2) && !resource.verified && !strcmp(resource.file_patterns,"*.wav"));
         CHECK(!p->feature_resource_set_path(NULL,pack.package_id,pack.id,resource.id,"missing.wav"));
         CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,resource.id,""));
       }
@@ -104,6 +104,9 @@ int main(int argc,char **argv) {
         CHECK(!p->feature_enable(NULL,pack.package_id,pack.id,1));
         CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,"final-lap",argv[2]));
         CHECK(p->feature_enable(NULL,pack.package_id,pack.id,1) && s.lap_callouts);
+        CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,"finish",argv[2]));
+        CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini") && !strcmp(loaded.finish_wav,argv[2]));
+        CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,"finish","") && s.lap_callouts);
         CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini"));
         CHECK(loaded.lap_callouts && !strcmp(loaded.lap_boost_wav,argv[1]) && !strcmp(loaded.final_lap_wav,argv[2]));
         CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,"boost-power","") && !s.lap_callouts);
@@ -112,7 +115,20 @@ int main(int argc,char **argv) {
       CHECK(p->feature_enable(NULL,pack.package_id,pack.id,0));continue;
     }
     if(!strcmp(pack.id,"local-2p")) {
-      CHECK(!strcmp(pack.package_id,"fzero-local-2p") && !strcmp(pack.group,"Game Modes"));
+      CHECK(!strcmp(pack.package_id,"fzero-local-2p") && !strcmp(pack.group,"Game Modes") && pack.option_count==1);
+      CHECK(p->feature_option_get(NULL,pack.package_id,pack.id,0,&option));
+      CHECK(!strcmp(option.id,"players") && !strcmp(option.value,"2") && option.choice_count==3);
+      for(int choice=0;choice<3;++choice) {
+        RecompLauncherCModChoice count;
+        CHECK(p->feature_choice_get(NULL,pack.package_id,pack.id,"players",choice,&count));
+        CHECK(p->feature_set_option(NULL,pack.package_id,pack.id,"players",count.value));
+        CHECK(s.local_players==(unsigned)choice+2);
+        CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini") && loaded.local_players==s.local_players);
+      }
+      CHECK(!p->feature_set_option(NULL,pack.package_id,pack.id,"players","5"));
+      CHECK(!p->feature_set_option(NULL,pack.package_id,pack.id,"players","3x"));
+      CHECK(!p->feature_option_get(NULL,pack.package_id,pack.id,1,&option));
+      CHECK(p->feature_set_option(NULL,pack.package_id,pack.id,"players","2"));
       CHECK(p->feature_enable(NULL,pack.package_id,pack.id,1));
       CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini") && loaded.local_two_player);
       CHECK(!s.gameplay.enabled && !s.bs_deluxe && !s.bs_tracks);
@@ -250,15 +266,11 @@ int main(int argc,char **argv) {
   CHECK(p->feature_enable(NULL, diag.package_id, diag.id, 1) && s.diagnostics);
   CHECK(!s.enhanced && !s.hd_mode7 && !s.fps_enabled);
   RecompLauncherCModFeature hd;
-  CHECK(p->feature_get(NULL, 3, &hd) && !hd.enabled && hd.option_count == 2);
+  CHECK(p->feature_get(NULL, 3, &hd) && !hd.enabled && hd.option_count == 1);
   CHECK(p->feature_enable(NULL, hd.package_id, hd.id, 1));
   CHECK(s.hd_mode7 && !s.enhanced && !s.fps_enabled);
   CHECK(p->feature_set_option(NULL, hd.package_id, hd.id, "scale", "4"));
   CHECK(s.hd_scale == 4);
-  CHECK(p->feature_set_option(NULL, hd.package_id, hd.id, "supersample", "3"));
-  CHECK(s.hd_supersample==3);
-  CHECK(!p->feature_set_option(NULL, hd.package_id, hd.id, "supersample", "5"));
-  CHECK(s.hd_supersample==3);
   CHECK(p->feature_get(NULL, 3, &hd) && !strstr(hd.description, "Warning:"));
   for (unsigned scale = 5; scale <= 64; ++scale) {
     char text[8]; snprintf(text, sizeof(text), "%u", scale);

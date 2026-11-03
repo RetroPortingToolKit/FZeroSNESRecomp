@@ -12,6 +12,7 @@ void FzeroCalloutsUpdate(void) {
     s.race=FzeroLocalEpoch();
     if(race) {
       s.tick=race->tick;s.racing=race->phase==FZERO_VS_RACING;s.paused=race->pause!=0;
+      s.results=race->phase==FZERO_VS_RESULTS;
       s.total=FZERO_VERSUS_LAPS;
       if(FzeroOnlineEnabled()) {
         int player=FzeroOnlineView();
@@ -25,5 +26,5 @@ void FzeroCalloutsUpdate(void) {
     s.completed[0]=(g_ram[0xd40]&0x80)?0:g_ram[0xd40]; /* unstarted grid sentinel */
   }
   unsigned cue=FzeroCalloutsObserve(&s);
-  if(cue)fprintf(stderr,"[lap-callouts] %s\n",cue==FZERO_CALLOUT_FINAL?"Final lap":"Boost power");
+  if(cue)fprintf(stderr,"[lap-callouts] %s\n",cue==FZERO_CALLOUT_FINISH?"Finish fanfare":cue==FZERO_CALLOUT_FINAL?"Final lap":"Boost power");
 }

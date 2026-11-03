@@ -29,11 +29,11 @@ Use the plain version without a `fzero-55-preview` label.
 
 ## Current release
 
-The current local tester bundles are **0.16.0**: rebuilt HD Mode 7 perspective,
-corrected moving camera aliases and independent supersampling. Both editions
-retain local/online multiplayer, profiles, packs, credits, approved music and
-portable course caches. Next fixes are 0.16.1; new features are 0.17.0.
-Tracked by `beads-8wg.5.123`.
+The current candidate is **0.17.0**: four-seat launcher controls, a saved
+local player-count dropdown and optional user-supplied finish fanfare. It
+restores the exact 0.15.0 HD rendering adapter and engine, retaining the GPU
+sampler and worker pool. Both editions keep courses, credits, optional MSU
+music and prebuilt caches. Track this release under `beads-8wg.5.124`.
 
 ## Preparing a release
 

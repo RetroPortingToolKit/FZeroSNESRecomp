@@ -11,13 +11,11 @@ The settings in `fzero-video.ini` are:
 ```ini
 Mode7Enabled=1
 Mode7Scale=8
-Mode7Supersample=1
 ```
 
-Supersampling is independent of resolution: 1 disables it; 2..4 average that
-many samples per axis to smooth edges, at greater rendering cost. The shared
-renderer reconstructs the perspective plane rather than enlarging quantized
-scanlines. Camera aliases remain consistent between moving presentations.
+These replace the retired CPU-HD control and its `HDMode7`/`HDMode7Scale` keys.
+Existing installations adopt the new 8x default once; unrelated preferences
+remain intact. Subsequent changes to the new settings persist normally.
 
 The CPU publishes immutable native-sized raster jobs. The GPU samples resident
 source memory. Nearest presentation computes only visible samples of the chosen
@@ -30,9 +28,9 @@ Local three/four-player views use the portable CPU renderer at up to2x; this
 cap preserves responsiveness while the shared GPU packet supports full-width
 cameras only. Two-player and single-player GPU scales still reach64x.
 
-Unsupported scenes and devices retain native rendering. The portable CPU
-consumer uses the same reconstructed frame (`FZERO_HD_GPU=0` for development);
-it is not another launcher mod or the automatic unsupported-device fallback.
+Unsupported scenes and devices retain native rendering. The old 2..10x CPU
+sampler remains an internal developer/reference path (`FZERO_HD_GPU=0`), not
+another launcher mod. It is not the automatic fallback for the new default.
 
 Native snapshots/debug frames remain native-sized. Rendering does not alter
 simulation or add netplay features. See the shared engine's

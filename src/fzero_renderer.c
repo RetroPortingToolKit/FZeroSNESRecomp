@@ -36,12 +36,6 @@ struct FzeroRenderView {
   unsigned course_grid;
 };
 static FzeroRenderView single_player;
-static unsigned supersample=1;
-bool FzeroRendererSetSupersample(unsigned samples) {
-  if(samples<1 || samples>4)return false;
-  supersample=samples;return true;
-}
-unsigned FzeroRendererSupersample(void) { return supersample; }
 static void race_color_math(Ppu *p);
 
 static void prepare_workers(FzeroRenderView *view) {
@@ -514,6 +508,15 @@ static int course_sample(const FzeroCourse *course, const FzeroCourseLine *line,
 /* The guest's affine rows are bounded. Prove that once at both endpoints,
  * then keep whole texels as integers through course/tile lookup. Unusual
  * diagnostic transforms retain the general sampler and its finite guards. */
+static bool bounded_line(const FzeroMode7Line *line, FzeroViewport viewport) {
+  double left = -viewport.extra, right = viewport.width - viewport.extra;
+  return SnesMode7HdSpanFits(
+      (line->origin_x + left * line->step_x) / 256,
+      (line->origin_y + left * line->step_y) / 256,
+      (line->origin_x + right * line->step_x) / 256,
+      (line->origin_y + right * line->step_y) / 256, 999999);
+}
+
 /* $0081DE DMA-orders six 32-byte vehicle reservations using $0AC0..$0ACA.
  * Resolve the reservation, not screen proximity: nearby cars may overlap or
  * swap drawing order. $F468 records the used opponent tiles at $11D0+2*car. */
@@ -678,6 +681,33 @@ static uint32_t colour(const Ppu *p, const uint16_t *palette, uint16_t main,
   return result;
 }
 
+static FzeroMode7Line hd_transform(const FzeroSourceFrame *frame, int y) {
+  const uint8_t *registers = frame->lines[y].registers;
+  int16_t matrix[8];
+  memcpy(matrix, registers + offsetof(Ppu, m7matrix), sizeof(matrix));
+  SnesMode7HdTransform t = SnesMode7HdMakeTransform(
+      matrix, registers[offsetof(Ppu, m7sel)], (unsigned)y + 1);
+  return (FzeroMode7Line){t.origin_x * 256, t.origin_y * 256,
+                         t.step_x * 256, t.step_y * 256, t.control};
+}
+
+static FzeroMode7Line hd_frame_transform(const FzeroSourceFrame *frame,
+                                         const FzeroSourceFrame *previous,
+                                         int y, double alpha, bool interpolate,bool complete_course) {
+  FzeroMode7Line t = hd_transform(frame, y);
+  if (interpolate && alpha < 1 &&
+      (previous->lines[y].registers[offsetof(Ppu, bgmode)] & 7) == 7)
+    {
+      int16_t before[8],after[8];
+      memcpy(before,previous->lines[y].registers+offsetof(Ppu,m7matrix),sizeof(before));
+      memcpy(after,frame->lines[y].registers+offsetof(Ppu,m7matrix),sizeof(after));
+      t=complete_course?course_interpolate(hd_transform(previous,y),t,alpha,
+          course_centre(before,4),course_centre(before,5),course_centre(after,4),course_centre(after,5)):
+          FzeroMode7Interpolate(hd_transform(previous,y),t,alpha);
+    }
+  return t;
+}
+
 static void expand_line(uint32_t *out, const uint32_t *row,
                         int y, int width, unsigned scale) {
   uint32_t *first = out + (size_t)y * scale * width * scale;
@@ -699,7 +729,7 @@ typedef struct FzeroRenderBatch {
   Ppu *scratch;
   FzeroViewport viewport;
   FzeroCourse course;
-  double alpha;
+  double alpha, sample_offset[FZERO_HD_SCALE_MAX];
   unsigned scale;
   bool scenery, results, result_scenery, world, race_hud, interpolate;
   SnesHdFrame *jobs;
@@ -721,6 +751,7 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
   FzeroViewport viewport = batch->viewport;
   const FzeroCourse course = batch->course;
   double alpha = batch->alpha;
+  const double *sample_offset = batch->sample_offset;
   unsigned scale = batch->scale;
   bool scenery = batch->scenery, results = batch->results;
   bool result_scenery = batch->result_scenery, world = batch->world;
@@ -792,6 +823,8 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
     bool hd_line = (scale > 1 || batch->jobs) && (world || result_scenery) && mode == 7 &&
         !((scanout->mosaic & 1) && (scanout->mosaic >> 4)) &&
         !(scanout->setini & 0x49) && !(scanout->cgwsel & 1);
+    uint32_t colors[8][256];
+    unsigned colors_ready=0;
     if (!hd_line || native || batch->jobs) {
       for (int sx = 0; sx < viewport.width; ++sx) {
         int x = sx - viewport.extra;
@@ -879,43 +912,49 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
              !in_window(scanout, 4, x, viewport.extra)) ? object_pixels[sx] : 0;
       }
       c->colors = NULL;
-
+      if (!batch->jobs && !(c->objects[0] | c->objects[1])) {
+        unsigned key = c->flags;
+        if (!(colors_ready & (1u << key))) {
+          for (unsigned index = 0; index < 256; ++index)
+            colors[key][index] = colour(scanout, l->palette,
+                (key & 1) && index ? (uint16_t)(0x5000 | index) : 0x500,
+                (key & 2) && index ? (uint16_t)(0x5000 | index) : 0x500,
+                (key & 4) != 0);
+          colors_ready |= 1u << key;
+        }
+        c->colors = colors[key];
+      }
     }
+    FzeroMode7Line hd = hd_frame_transform(f, previous, y, alpha, interpolate,course.valid);
+    FzeroMode7Line next = hd;
+    bool adjacent = false;
+    if (y + 1 < 224) {
+      const uint8_t *next_registers = f->lines[y + 1].registers;
+      /* Smooth only the same camera's contiguous Mode 7 band. HUD, IRQ
+       * splits, flips, fades and changes of coordinate origin are boundaries. */
+      adjacent = (next_registers[offsetof(Ppu, bgmode)] & 7) == 7 &&
+          next_registers[offsetof(Ppu, m7sel)] == scanout->m7sel &&
+          next_registers[offsetof(Ppu, inidisp)] == scanout->inidisp &&
+          next_registers[offsetof(Ppu, setini)] == scanout->setini &&
+          next_registers[offsetof(Ppu, mosaic)] == scanout->mosaic &&
+          !memcmp(next_registers + offsetof(Ppu, m7matrix) + 8, scanout->m7matrix + 4, 8);
+      if (adjacent) next = hd_frame_transform(f, previous, y + 1, alpha, interpolate,course.valid);
+    }
+    SnesMode7HdTransform affine = SnesMode7HdMakeTransform(
+        scanout->m7matrix, scanout->m7sel, (unsigned)y + 1);
     if (batch->jobs) {
-      SnesHdLine j = {0}; j.kind = kSnesHdReconstructed;
+      SnesHdLine j = {0}; j.kind = kSnesHdAffine;
       j.source = (uint16_t)batch->picture;
       j.tilemap = batch->tilemap < 0 ? 0 : (uint16_t)(batch->tilemap + 1);
       j.map_offset_x = reference.offset_x; j.map_offset_y = reference.offset_y;
-      j.raster_line = (uint16_t)y + 1;
-      j.control = scanout->m7sel;
-      for (unsigned c = 0; c < 8; ++c)
-        j.matrix[c] = c < 4 ? scanout->m7matrix[c] : SnesMode7HdSign13(scanout->m7matrix[c]);
-      /* Temporal camera selection stays title-owned; spatial reconstruction
-       * happens once in the shared frame after all raster rows are captured. */
-      if (interpolate && alpha < 1 &&
-          (previous->lines[y].registers[offsetof(Ppu, bgmode)] & 7) == 7) {
-        int16_t old[8];
-        memcpy(old, previous->lines[y].registers + offsetof(Ppu, m7matrix), sizeof(old));
-        if (previous->lines[y].registers[offsetof(Ppu, m7sel)] == j.control) {
-          for (unsigned c = 0; c < 4; ++c)
-            j.matrix[c] = old[c] + alpha * (j.matrix[c] - old[c]);
-          for (unsigned axis = 0; axis < 2; ++axis) {
-            unsigned centre = 4 + axis, scroll = 6 + axis;
-            int before = SnesMode7HdSign13(old[centre]);
-            int old_offset = SnesMode7HdSign13(old[scroll]) - before;
-            int new_offset = (int)(j.matrix[scroll] - j.matrix[centre]);
-            old_offset = old_offset & 0x2000 ? old_offset | ~1023 : old_offset & 1023;
-            new_offset = new_offset & 0x2000 ? new_offset | ~1023 : new_offset & 1023;
-            /* Retail's +1024 centre/scroll aliases describe one camera.
-             * Interpolate the clipped relative offset and the periodic centre
-             * separately, in the same representative as map_offset above. */
-            j.matrix[centre] = periodic_blend(before,j.matrix[centre],alpha,1024);
-            j.matrix[scroll] = j.matrix[centre] + old_offset + alpha * (new_offset-old_offset);
-          }
-        }
-      }
+      j.affine[0] = hd.origin_x; j.affine[1] = hd.origin_y;
+      j.affine[2] = hd.step_x; j.affine[3] = hd.step_y;
+      j.affine[4] = adjacent ? next.origin_x - hd.origin_x : affine.row_x * 256;
+      j.affine[5] = adjacent ? next.origin_y - hd.origin_y : affine.row_y * 256;
+      j.affine[6] = adjacent ? next.step_x - hd.step_x : 0;
+      j.affine[7] = adjacent ? next.step_y - hd.step_y : 0;
       j.screen_left = -viewport.extra; j.active_left = -viewport.extra;
-      j.active_right = 256 + viewport.extra; j.control = scanout->m7sel;
+      j.active_right = 256 + viewport.extra; j.control = hd.control;
       j.fixed_color = scanout->fixedColor; j.brightness = scanout->inidisp & 15;
       j.cgwsel = scanout->cgwsel; j.cgadsub = scanout->cgadsub;
       memcpy(j.palette, l->palette, sizeof(j.palette));
@@ -928,6 +967,57 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
       }
       if (!SnesHdFrameSetLine(batch->jobs, y, &j)) batch->jobs_ok = false;
       continue;
+    }
+    for (unsigned sy = 0; sy < scale; ++sy) {
+      double fraction = (double)sy / scale;
+      FzeroMode7Line subline = hd;
+      if (adjacent) subline = course_interpolate(hd,next,fraction,0,0,0,0);
+      else {
+        subline.origin_x += affine.row_x * fraction * 256;
+        subline.origin_y += affine.row_y * fraction * 256;
+      }
+      uint32_t *destination = out + ((size_t)y * scale + sy) * viewport.width * scale;
+      bool bounded = bounded_line(&subline, viewport);
+      FzeroMode7Texel last = {NAN, NAN};
+      int last_x = 1000000, last_y = 1000000;
+      unsigned index = 0;
+      for (int sx = 0; sx < viewport.width; ++sx) {
+        int x = sx - viewport.extra;
+        const FzeroHdPixelContext *c = &contexts[sx];
+        for (unsigned sample = 0; sample < scale; ++sample) {
+          double position = x + sample_offset[sample];
+          /* Near-camera HD samples often hit the same source texel. The
+           * immutable texture/course lookup is independent of screen masks
+           * and sprites, so reuse its index across those column boundaries. */
+          if (bounded) {
+            int tx = SnesMode7HdFloorInt((subline.origin_x + position * subline.step_x) / 256);
+            int ty = SnesMode7HdFloorInt((subline.origin_y + position * subline.step_y) / 256);
+            if (tx != last_x || ty != last_y) {
+              index = SnesMode7HdFetchInt(subline.control, f->vram, tx, ty,
+                  course_sample_at(&course, &reference, &cache, tx, ty));
+              last_x = tx; last_y = ty;
+            }
+          } else {
+            FzeroMode7Texel texel = FzeroMode7Locate(&subline, position);
+            if (texel.x != last.x || texel.y != last.y) {
+              index = FzeroMode7Fetch(&subline, f->vram, texel,
+                  course_sample(&course, &reference, &cache, texel));
+              last = texel;
+            }
+          }
+          if (c->colors) {
+            destination[sx * scale + sample] = c->colors[index];
+          } else {
+            uint16_t screens[2] = {0x500, 0x500};
+            for (int sub = 0; sub < 2; ++sub) {
+              if ((c->flags & (1u << sub)) && index) screens[sub] = (uint16_t)(0x5000 | index);
+              if (c->objects[sub] > screens[sub]) screens[sub] = c->objects[sub];
+            }
+            destination[sx * scale + sample] = colour(scanout, l->palette,
+                screens[0], screens[1], (c->flags & 4) != 0);
+          }
+        }
+      }
     }
   }
 }
@@ -1009,6 +1099,8 @@ static bool render_frame(FzeroRenderView *view, uint32_t *out, FzeroViewport vie
     .world = world, .race_hud = race_hud, .interpolate = interpolate,
     .jobs = jobs, .picture = picture, .tilemap = tilemap, .jobs_ok = true
   };
+  for (unsigned sample = 0; sample < scale; ++sample)
+    batch.sample_offset[sample] = (double)sample / scale;
   return SnesRenderWorkersRun(pool, 224, 8, render_lines, &batch) && batch.jobs_ok;
 }
 
@@ -1021,43 +1113,18 @@ bool FzeroRendererDrawHd(uint32_t *out, size_t capacity,
   return FzeroRendererDrawPresentation(NULL, out, capacity, viewport, alpha, scale);
 }
 
-typedef struct FzeroHdRows {
-  const SnesHdFrame *frame;
-  uint32_t *pixels;
-  unsigned width, scale;
-} FzeroHdRows;
-static void render_hd_rows(void *opaque, size_t begin, size_t end, unsigned slot) {
-  FzeroHdRows *r = opaque;
-  SnesHdFrameRenderRegion(r->frame, r->scale, 0, (unsigned)begin*r->scale,
-      r->width*r->scale, (unsigned)(end-begin)*r->scale,
-      r->pixels + begin*r->width*r->scale*r->scale, (size_t)r->width*r->scale*4);
-  (void)slot;
-}
 bool FzeroRenderViewDrawPresentation(FzeroRenderView *view, uint32_t *native, uint32_t *out, size_t capacity,
                                    FzeroViewport viewport, double alpha, unsigned scale) {
-  if (!view || !out || !FzeroValidHdScale(scale) || viewport.width < 256 ||
+  if (!FzeroValidHdScale(scale) || viewport.width < 256 ||
       viewport.width > FZERO_MAX_WIDTH ||
       capacity < (size_t)viewport.width * 224 * scale * scale) return false;
-  if (scale == 1 && supersample == 1) return render_frame(view, out, viewport, alpha, 1, native, NULL);
-  uint32_t *base = native ? native : malloc((size_t)viewport.width * 224 * sizeof(*base));
-  if (!base) return false;
-  SnesHdFrame *jobs = FzeroRenderViewPrepareHd(view, base, viewport, alpha);
-  bool ok = jobs && SnesHdFrameSeal(jobs);
-  if (ok) {
-    prepare_workers(view);
-    FzeroHdRows rows = {jobs, out, (unsigned)viewport.width, scale};
-    ok = SnesRenderWorkersRun(view->render_workers, 224, 8, render_hd_rows, &rows);
-  }
-  SnesHdFrameDestroy(jobs);
-  if (!native) free(base);
-  return ok;
+  return render_frame(view, out, viewport, alpha, scale, native, NULL);
 }
 
 SnesHdFrame *FzeroRenderViewPrepareHd(FzeroRenderView *view, uint32_t *native,
                                      FzeroViewport viewport, double alpha) {
   if (!native) return NULL;
   SnesHdFrame *jobs = SnesHdFrameCreate(viewport.width, 224);
-  if(jobs)SnesHdFrameSetSampling(jobs,supersample);
   if (jobs && render_frame(view, native, viewport, alpha, 1, NULL, jobs)) return jobs;
   SnesHdFrameDestroy(jobs); return NULL;
 }

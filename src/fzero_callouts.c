@@ -5,7 +5,7 @@
 #include <string.h>
 
 typedef struct Clip {int16_t *samples;unsigned frames;} Clip;
-static SNESModAudioClip clips[2];
+static SNESModAudioClip clips[3];
 extern void RtlApuLock(void);
 extern void RtlApuUnlock(void);
 static FzeroLapObservation previous;
@@ -59,20 +59,21 @@ bool FzeroCalloutsValid(const char *path) {
 void FzeroCalloutsShutdown(void) {
   RtlApuLock();
   enabled=observed=boost_announced=false;voice=0;voice_kind=0;
-  for(unsigned i=0;i<2;++i){snes_mod_audio_unregister(clips[i]);clips[i]=0;}
+  for(unsigned i=0;i<3;++i){snes_mod_audio_unregister(clips[i]);clips[i]=0;}
   RtlApuUnlock();
 }
-bool FzeroCalloutsConfigure(bool wanted,const char *boost,const char *final,bool lap_two_only) {
+bool FzeroCalloutsConfigure(bool wanted,const char *boost,const char *final,bool lap_two_only,const char *finish) {
   FzeroCalloutsShutdown();second_lap_only=lap_two_only;
   if(!wanted)return true;
-  Clip loaded[2]={{0}};
+  Clip loaded[3]={{0}};
   bool ok=load_clip(boost,&loaded[0]) && load_clip(final,&loaded[1]);
+  bool has_finish=finish && *finish && load_clip(finish,&loaded[2]);
   RtlApuLock();
-  if(ok)for(unsigned i=0;i<2;++i) {
+  if(ok)for(unsigned i=0;i<(has_finish?3u:2u);++i) {
     clips[i]=snes_mod_audio_register_pcm_s16(loaded[i].samples,loaded[i].frames,44100,2);
     if(!clips[i])ok=false;
   }
-  for(unsigned i=0;i<2;++i)SDL_free(loaded[i].samples);
+  for(unsigned i=0;i<3;++i)SDL_free(loaded[i].samples);
   if(ok)enabled=true;else FzeroCalloutsShutdown();
   RtlApuUnlock();return ok;
 }
@@ -80,7 +81,7 @@ unsigned FzeroCalloutsObserve(const FzeroLapObservation *s) {
   if(!s)return FZERO_CALLOUT_NONE;
   RtlApuLock();unsigned cue=FZERO_CALLOUT_NONE;
   bool reset=!observed || s->generation!=previous.generation || s->race!=previous.race ||
-      s->total!=previous.total || !s->racing || !previous.racing;
+      s->total!=previous.total || (!s->racing && !s->results) || (!previous.racing && !previous.results);
   if(reset) {
     previous=*s;observed=true;boost_announced=false;
     /* Loading/re-anchoring after lap 2 has begun must not announce it later
@@ -90,8 +91,10 @@ unsigned FzeroCalloutsObserve(const FzeroLapObservation *s) {
   }
   else if(s->tick>previous.tick) {
     if(enabled && !s->paused)for(unsigned i=0;i<FZERO_CALLOUT_PLAYERS;++i)
-      if(s->completed[i]>previous.completed[i] && s->completed[i]<s->total) {
-        unsigned next=s->completed[i]==s->total-1?FZERO_CALLOUT_FINAL:FZERO_CALLOUT_BOOST;
+      if(s->completed[i]>previous.completed[i] && s->completed[i]<=s->total) {
+        unsigned next=s->completed[i]==s->total?FZERO_CALLOUT_FINISH:
+            s->completed[i]==s->total-1?FZERO_CALLOUT_FINAL:FZERO_CALLOUT_BOOST;
+        if(next==FZERO_CALLOUT_FINISH && (!clips[2] || previous.completed[i]+1!=s->total))continue;
         if(next==FZERO_CALLOUT_BOOST && second_lap_only && (boost_announced || s->completed[i]!=1))continue;
         if(next>cue)cue=next;
       }
@@ -103,8 +106,8 @@ unsigned FzeroCalloutsObserve(const FzeroLapObservation *s) {
        * an old lap-2 event on a later racer or after resuming. */
       if(s->completed[i])boost_announced=true;
     }
-    previous.tick=s->tick;previous.paused=s->paused;
-    if(cue==FZERO_CALLOUT_BOOST && voice_kind==FZERO_CALLOUT_FINAL && snes_mod_audio_voice_active(voice))cue=FZERO_CALLOUT_NONE;
+    previous.tick=s->tick;previous.paused=s->paused;previous.racing=s->racing;previous.results=s->results;
+    if(cue && cue<voice_kind && snes_mod_audio_voice_active(voice))cue=FZERO_CALLOUT_NONE;
     if(cue) {
       snes_mod_audio_stop_voice(voice);voice=snes_mod_audio_play_voice(clips[cue-1],100);voice_kind=cue;
       if(!voice)cue=FZERO_CALLOUT_NONE;

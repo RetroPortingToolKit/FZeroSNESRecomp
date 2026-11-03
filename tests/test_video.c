@@ -109,9 +109,8 @@ static void config_tests(void) {
   for (unsigned scale = 1; scale <= 64; ++scale) {
     char text[8]; snprintf(text, sizeof(text), "%u", scale);
     CHECK(FzeroParseHdScale(text, &a.hd_scale) && a.hd_scale == scale);
-    a.hd_supersample=scale%4+1;
     CHECK(FzeroVideoSave(&a, "test-video.ini"));
-    CHECK(FzeroVideoLoad(&b, "test-video.ini") && b.hd_scale == scale && b.hd_supersample==a.hd_supersample);
+    CHECK(FzeroVideoLoad(&b, "test-video.ini") && b.hd_scale == scale);
   }
   const char *invalid[] = {"", "0", "65", "-2", "+4", "4x", "6.5", "10junk", "4294967298", "999999999999999999999999"};
   for (unsigned i = 0; i < sizeof(invalid) / sizeof(*invalid); ++i) {
@@ -195,6 +194,11 @@ static void config_tests(void) {
   CHECK(FzeroVideoLoad(&b, "test-video.ini"));
   CHECK(b.enhanced && b.fps_enabled && !b.bs_deluxe && b.aspect == FZERO_ASPECT_FIT);
   CHECK(b.local_two_player && b.gameplay.stock_rebalance==15);
+  for(unsigned n=2;n<=4;++n) {
+    b.local_players=n;CHECK(FzeroVideoSave(&b,"test-video.ini") && FzeroVideoLoad(&a,"test-video.ini") && a.local_players==n);
+  }
+  f=fopen("test-video.ini","w");CHECK(f);fputs("LocalPlayers=5\n",f);fclose(f);
+  CHECK(!FzeroVideoLoad(&a,"test-video.ini"));
   /* Explicit opt-outs survive saving, reloading and unrelated missing keys. */
   f=fopen("test-video.ini","w");CHECK(f);
   fputs("LocalTwoPlayer=0\nCGPStockRebalance=0\n",f);fclose(f);

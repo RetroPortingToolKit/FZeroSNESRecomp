@@ -1,5 +1,18 @@
 ﻿# Changelog
 
+## 0.17.0 - Multiplayer setup and finish fanfare
+
+- Show Player 3 and Player 4 in launcher Controls, with independent keyboard
+  bindings, gamepad mappings and saved controller profiles.
+- Add a 2/3/4-player dropdown to Local Multiplayer. Its saved choice becomes
+  the default for offline VS; online keeps the lobby's negotiated count.
+- Add an optional finish fanfare WAV to Lap voice callouts. It plays at the
+  final finish-line crossing, including the transition to race results.
+  Players supply their own recordings; no voice or fanfare WAVs are bundled.
+- Restore the HD Mode 7 renderer and engine used by 0.15.0. Remove the 0.16
+  perspective reconstruction and independent supersampling control. Keep GPU
+  sampling, the rendering worker pool, widescreen and the existing 3P/4P grid.
+
 ## 0.16.0 - Rebuilt HD Mode 7
 
 - Reconstruct a continuous perspective plane from captured Mode 7 matrices,
