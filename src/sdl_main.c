@@ -1751,7 +1751,9 @@ static void selftest_pump_tick(unsigned pump) {
     case 2: selftest_release_all(); break;
     case 6: selftest_set(nav, 1); break;
     case 9: selftest_set(nav, 0); break;
-    case 14: selftest_set(SDL_CONTROLLER_BUTTON_A, 1); break;
+    case 14:
+      selftest_set(g_selftest_phase==2 && getenv("FZERO_TEST_REWIND_COMMIT")?
+          SDL_CONTROLLER_BUTTON_B:SDL_CONTROLLER_BUTTON_A,1);break;
     case 40:
       fprintf(stderr,
               "[fzero-overlay-selftest] FAIL: %s did not close from the pad "
@@ -1828,7 +1830,16 @@ static void rewind_loop(const FzeroPresenter *p, int *running,
       const uint32_t dir = nav & (SNES_PAD_LEFT | SNES_PAD_RIGHT);
       if (pressed & SNES_PAD_LEFT) snes_rewind_step(-1);
       if (pressed & SNES_PAD_RIGHT) snes_rewind_step(+1);
-      if (pressed & SNES_PAD_A) snes_rewind_commit();
+      if (pressed & SNES_PAD_A) {
+        uint8_t *before=getenv("FZERO_TEST_REWIND_COMMIT")?malloc(sizeof(g_ram)):NULL;
+        if(before)memcpy(before,g_ram,sizeof(g_ram));
+        snes_rewind_commit();
+        if(before) {
+          if(!memcmp(before,g_ram,sizeof(g_ram)))g_selftest_failed=1;
+          else {FzeroDiagnosticsEvent("rewind_restore_checked",1);fprintf(stderr,"[fzero-overlay-selftest] rewind restored guest memory\n");}
+          free(before);
+        }
+      }
       if (pressed & SNES_PAD_B) snes_rewind_close();
       /* Edge-triggered with hold-to-repeat: holding Left must not sprint
        * through the whole ring in one pass of this loop. */

@@ -17,7 +17,7 @@ static void viewport_tests(void) {
   CHECK(settings.enhanced && settings.aspect == FZERO_ASPECT_FIT && settings.fps == 0 &&
         settings.fps_enabled && !settings.bs_deluxe);
   CHECK(settings.local_two_player && settings.gameplay.stock_rebalance==15);
-  CHECK(settings.hd_mode7 && settings.hd_scale == 8 && !settings.diagnostics);
+  CHECK(settings.hd_mode7 && settings.hd_scale == 4 && !settings.diagnostics);
   CHECK(settings.crash_replay);
   CHECK(settings.gameplay.enabled == FZERO_RULE_DEFAULT_MASK);
   FzeroVideoStock(&settings);
@@ -118,7 +118,7 @@ static void config_tests(void) {
     CHECK(!FzeroParseHdScale(invalid[i], &scale) && scale == 4);
     FILE *bad = fopen("test-video.ini", "w"); CHECK(bad);
     fprintf(bad, "Mode7Scale=%s\n", invalid[i]); fclose(bad);
-    CHECK(!FzeroVideoLoad(&b, "test-video.ini") && b.hd_scale == 8);
+    CHECK(!FzeroVideoLoad(&b, "test-video.ini") && b.hd_scale == 4);
   }
   FILE *f = fopen("test-video.ini", "w");
   CHECK(f);
@@ -126,11 +126,11 @@ static void config_tests(void) {
   fclose(f);
   CHECK(!FzeroVideoLoad(&b, "test-video.ini"));
   CHECK(b.enhanced && b.aspect == FZERO_ASPECT_FIT && b.fps == 0); /* invalid fields fall back to shipped defaults */
-  CHECK(b.hd_mode7 && b.hd_scale == 8);
+  CHECK(b.hd_mode7 && b.hd_scale == 4);
   f = fopen("test-video.ini", "w"); CHECK(f);
   fputs("HDMode7=0\nHDMode7Scale=2\nAspect=21:9\nPresentationFPS=144\n", f); fclose(f);
   CHECK(FzeroVideoLoad(&b, "test-video.ini"));
-  CHECK(b.hd_mode7 && b.hd_scale == 8 && b.aspect == FZERO_ASPECT_21_9 && b.fps == 144);
+  CHECK(b.hd_mode7 && b.hd_scale == 4 && b.aspect == FZERO_ASPECT_21_9 && b.fps == 144);
   /* Only absent or invalid fields take a default: a setting the file turned
    * off stays off however corrupt its neighbours are. */
   f = fopen("test-video.ini", "w");

@@ -220,12 +220,37 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
   out->option_count = index == 2 || index == 4 || index == 5 ? 0 : 1;
   return 1;
 }
+static const unsigned hd_details[]={2,4,8},hd_smoothing[]={1,2};
+static int hd_choice(unsigned current,const unsigned *values,int count,int index,
+                     RecompLauncherCModChoice *out) {
+  bool custom=true;
+  for(int i=0;i<count;++i)if(current==values[i])custom=false;
+  if(index<0 || index>=count+(int)custom)return 0;
+  unsigned value=index<count?values[index]:current;
+  memset(out,0,sizeof(*out));snprintf(out->value,sizeof(out->value),"%u",value);
+  if(index==count)snprintf(out->label,sizeof(out->label),"Current custom (%u)",value);
+  else if(values==hd_smoothing)COPY(out->label,value==1?"Off":"2 samples per axis");
+  else snprintf(out->label,sizeof(out->label),"%ux%s",value,value==4?" (recommended)":"");
+  return 1;
+}
 static int option_get(void *ctx, const char *package, const char *feature, int index,
                       RecompLauncherCModOption *out) {
   if (!identity(package, feature)) return FzeroTrackModsProvider()->feature_option_get ? FzeroTrackModsProvider()->feature_option_get(ctx, package, feature, index, out) : 0;
   (void)ctx;
   int kind = identity(package, feature);
-  if(kind==4)return SnesHdModOption(video->hd_scale,video->hd_supersample,index,out);
+  if(kind==4) {
+    if(!SnesHdModOption(video->hd_scale,video->hd_supersample,index,out))return 0;
+    out->type=RECOMP_MOD_OPTION_CHOICE;
+    unsigned current=index?video->hd_supersample:video->hd_scale;
+    const unsigned *values=index?hd_smoothing:hd_details;
+    int n=index?2:3;bool custom=true;
+    for(int i=0;i<n;++i)if(current==values[i])custom=false;
+    out->choice_count=n+(int)custom;
+    COPY(out->default_value,index?"1":"4");
+    if(index)COPY(out->description,"Off preserves sharp track pixels. Two samples per axis reduce jagged edges and shimmer at greater rendering cost. Sprites and text stay unchanged.");
+    else COPY(out->description,"2x uses less detail; 4x is recommended; 8x offers a finer track grid. Window size and display filtering are separate. Sprites and text keep their original detail.");
+    return 1;
+  }
   if (!kind || kind == 3 || kind == 5 || kind == 6 || index != 0 || !out) return 0;
   if (kind == TITLE_KIND) {
     memset(out,0,sizeof(*out)); COPY(out->id,"screen"); COPY(out->label,"Title screen");
@@ -270,6 +295,11 @@ static int choice_get(void *ctx, const char *package, const char *feature,
   if (!identity(package, feature)) return FzeroTrackModsProvider()->feature_choice_get ? FzeroTrackModsProvider()->feature_choice_get(ctx, package, feature, option, index, out) : 0;
   (void)ctx;
   if (!identity(package, feature) || !option || !out || index < 0) return 0;
+  if(identity(package,feature)==4) {
+    if(!strcmp(option,"scale"))return hd_choice(video->hd_scale,hd_details,3,index,out);
+    if(!strcmp(option,"supersample"))return hd_choice(video->hd_supersample,hd_smoothing,2,index,out);
+    return 0;
+  }
   if (identity(package,feature) == TITLE_KIND && !strcmp(option,"screen")) {
     const FzeroTitleScreen *title=FzeroTitleChoice((unsigned)index); if (!title) return 0;
     memset(out,0,sizeof(*out)); COPY(out->value,title->id); COPY(out->label,title->name); return 1;

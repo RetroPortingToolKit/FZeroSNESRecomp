@@ -299,8 +299,21 @@ int main(int argc,char **argv) {
   CHECK(!p->feature_set_option(NULL, hd.package_id, hd.id, "scale", "6.5"));
   CHECK(s.hd_scale == 64 && strstr(p->last_error(NULL), "1 to 64"));
   CHECK(p->feature_option_get(NULL, hd.package_id, hd.id, 0, &option));
-  CHECK(!strcmp(option.value, "64") && !strcmp(option.default_value, "8"));
-  CHECK(option.type == RECOMP_MOD_OPTION_INTEGER && option.min_value == 1 && option.max_value == 64);
+  CHECK(!strcmp(option.value, "64") && !strcmp(option.default_value, "4"));
+  CHECK(option.type == RECOMP_MOD_OPTION_CHOICE && option.choice_count == 4);
+  RecompLauncherCModChoice quality;
+  for(int i=0;i<3;++i) {
+    CHECK(p->feature_choice_get(NULL,hd.package_id,hd.id,"scale",i,&quality));
+    CHECK((unsigned)atoi(quality.value)==(2u<<i));
+  }
+  CHECK(p->feature_choice_get(NULL,hd.package_id,hd.id,"scale",3,&quality));
+  CHECK(!strcmp(quality.value,"64") && strstr(quality.label,"custom"));
+  CHECK(!p->feature_choice_get(NULL,hd.package_id,hd.id,"scale",4,&quality));
+  s.hd_supersample=4;
+  CHECK(p->feature_option_get(NULL,hd.package_id,hd.id,1,&option) && option.choice_count==3);
+  CHECK(p->feature_choice_get(NULL,hd.package_id,hd.id,"supersample",2,&quality));
+  CHECK(!strcmp(quality.value,"4"));
+  s.hd_supersample=1;
   RecompLauncherCModFeature deluxe;
   CHECK(p->feature_get(NULL, 2, &deluxe) && deluxe.option_count == 0);
   CHECK(p->feature_enable(NULL, deluxe.package_id, deluxe.id, 1));

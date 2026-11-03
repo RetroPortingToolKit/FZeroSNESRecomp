@@ -143,6 +143,19 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
           else {local_ui_drive_start[p][0]=s->racers[p].actor.x;local_ui_drive_start[p][1]=s->racers[p].actor.y;}
         }
         unsigned tick=(unsigned)s->race_tick;
+        /* A bounded, capture-free steady interval reuses this actual-game
+         * route. Health protection keeps boundary encounters in the workload;
+         * no position, lap, checkpoint or outcome is written. */
+        if(getenv("FZERO_TEST_STEADY_TICKS") && s->phase==FZERO_VS_RACING && tick>=300) {
+          static bool started;
+          if(!started) {started=true;FzeroDiagnosticsEvent("hd_steady_begin",local_ui_players());}
+          for(unsigned p=0;p<local_ui_players();++p) {
+            FzeroVersusSnapshot *race=(FzeroVersusSnapshot *)(void *)s;
+            if(race->racers[p].status!=FZERO_VS_ACTIVE)Die("Steady workload lost an active racer");
+            race->racers[p].actor.health=0x800;
+            local_ui_button(p,SDL_GAMEPAD_BUTTON_DPAD_LEFT,((tick/120+p)&1)!=0);
+          }
+        }
         if(getenv("FZERO_TEST_TRAFFIC_CONTACT") && local_ui_drive_captured==63 && tick>=225 && !local_ui_traffic_tick) {
           /* Prepared contact encounter, not natural-driving qualification.
            * Place each human on a different moving NPC with fresh health and
@@ -203,6 +216,11 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
       if(s && !(local_ui_stage==3 && getenv("FZERO_TEST_LOCAL_UI_DRIVE") && (local_ui_drive_captured!=63 || local_ui_reconnect!=4))) {
         unsigned finish=local_ui_stage==3?(getenv("FZERO_TEST_TRAFFIC_VISIBLE")?600u:
             getenv("FZERO_TEST_LOCAL_UI_DRIVE")?500u:360u):FZERO_VERSUS_COUNTDOWN+24;
+        if(local_ui_stage==3 && getenv("FZERO_TEST_STEADY_TICKS")) {
+          finish=FZERO_VERSUS_COUNTDOWN+(unsigned)strtoul(getenv("FZERO_TEST_STEADY_TICKS"),NULL,10);
+          static bool ended;
+          if(s->tick>=finish && !ended) {ended=true;FzeroDiagnosticsEvent("hd_steady_end",local_ui_players());}
+        }
         if(s->tick>=finish && s->tick<finish+12)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
         if(s->pause)Die("Multiplayer Start paused the race");
         if(getenv("FZERO_TEST_LOCAL_UI_LIVE")) {
