@@ -1,5 +1,11 @@
 # High-resolution Mode 7
 
+**Quality review, 2026-11-03:** the owner reports that regular F-Zero players
+reject the current HD appearance. Overall visual acceptance is open despite
+earlier component and limited-scene checks. See the
+[quality and controls burndown](HD_MODE7_BURNDOWN.md) before treating the
+multiplier or previous comparisons as proof of emulator-quality output.
+
 F-Zero uses snesrecomp's shared GPU Mode 7 renderer by default at **8x**.
 **Mods → High-resolution Mode 7** offers integer scales **1x through 64x**.
 It works with adaptive widescreen, local split screen and presentation FPS.

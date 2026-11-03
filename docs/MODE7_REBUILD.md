@@ -1,5 +1,11 @@
 # HD Mode 7 rebuild
 
+**2026-11-03 quality reset:** subsequent owner feedback reports that experienced
+players reject the HD appearance. The historical flicker recheck and release
+approval below remain specific to that work; they do not establish overall
+visual acceptance. Follow the [new burndown matrix](HD_MODE7_BURNDOWN.md) for
+independent emulator comparisons, motion, control semantics and player review.
+
 The implementation lives on `fix/mode7-perspective-rebuild` in the isolated
 engine and F-Zero worktrees. Owning issue: beads-8wg.2.192.
 Owner accepted the flicker correction and explicitly requested main integration

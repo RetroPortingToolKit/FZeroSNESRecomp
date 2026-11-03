@@ -1,0 +1,206 @@
+# F-Zero HD Mode 7 quality burndown
+
+Planning baseline: 2026-11-03. Tracking: `beads-8wg.5.126`.
+Shared renderer work: `beads-8wg.2.192`; optimization coordination:
+`beads-2wy8.1`. Game source: `c784622`; engine: `66eebe6a`;
+launcher: `b13c876`.
+
+## Acceptance reset
+
+The owner reports that experienced F-Zero players reject the visual quality of
+our HD rendering. Treat overall HD quality as **failing acceptance**. The exact
+scenes and settings behind that second-hand feedback are unknown; do not claim
+that it constitutes a controlled retest of a particular preview.
+
+The previous camera-flicker fix, isolated silhouette improvements, CPU/GPU
+agreement and successful builds remain useful evidence. They do not establish
+that the game looks correct to its players. Preserve the historical results in
+[the rebuild record](MODE7_REBUILD.md), including their limitations.
+
+The outcome is a visibly convincing HD Mode 7 implementation, stable in motion,
+with understandable controls and practical runtime cost. Prefer replacing or
+simplifying a failing renderer over accumulating exceptions around it.
+
+This document is a plan. **0/12 acceptance areas are resolved in this pass.**
+Creating this matrix does not count as resolving an area. No new rendering
+implementation, performance result or release is claimed here.
+
+## Separate the concepts before changing the renderer
+
+The current F-Zero adapter exposes a Mode 7 sampling multiplier. This audit has
+not identified a separate user control that independently renders the entire
+SNES scene at higher internal resolution. Do not invent another slider merely
+to make two categories appear in the UI.
+
+| Concept | Meaning in F-Zero | Proposed product decision |
+| --- | --- | --- |
+| Window size / display scaling | Size of the presented picture. Enlarging an existing pixel does not recover road detail. | Keep under display settings. Label it as window size, not graphics quality. |
+| General internal resolution | An independently higher-resolution scene render, beyond the Mode 7 work below. | Remove a separate F-Zero feature if the audit finds no distinct visual benefit. Shared capabilities for other games can remain. |
+| HD Mode 7 detail | Evaluate the transformed track at finer positions using the original course graphics. | Keep as part of HD Mode 7; prove that the selected setting affects the actual road renderer. |
+| Perspective correction | Reconstruct consistent geometry from the game's limited-precision scanline transforms. | Make correct geometry part of HD Mode 7. Diagnostic overrides can isolate defects; players should not need a correctness workaround. |
+| Edge smoothing / supersampling | Average several Mode 7 samples to reduce aliasing. This is independent of the detail grid. | Keep only qualified settings. Explain that 2/3/4 samples per axis means 4/9/16 samples, rather than calling everything “resolution.” |
+| Display filtering / shader | Filtering applied to the composed picture; it can also change text and sprites. | Keep separate from Mode 7 sampling. Disable it during baseline comparisons; preserve explicit player choices. |
+| Presentation FPS | How often a picture is presented, including any camera interpolation between simulation frames. | Keep separate. Establish image correctness at original cadence before assessing higher rates. |
+
+The starting UI proposal is **HD Mode 7 On/Off**, **HD detail**, and optional
+**Edge smoothing**, alongside the existing display settings. Start detail
+qualification at 2x and 4x, then assess 8x. Do not retain a 64x range or add an
+Auto setting without proving their behavior and practical benefit. Exact
+choices and defaults are decisions to earn through the matrix below.
+
+Fit to screen remains the fresh-install aspect default. Updating a build must
+preserve a player's explicit aspect, filtering and mod choices. Requested and
+effective HD quality must agree, or the UI must explain the reduction in terms
+the player can act on, such as “Using 2x for four players.” Backend/thread
+details belong in diagnostics.
+
+Generic projection, sampling and GPU composition fixes belong upstream in
+snesrecomp. F-Zero keeps course assets, camera policy, HUD and player-view
+layout. Shared launcher changes should expose reusable capabilities; retiring
+a redundant F-Zero control must not remove a useful feature from other games.
+Integrate qualified shared fixes upstream and then update the game's pin.
+
+## First bounded comparison
+
+Reuse the existing `tools/snesref` frontend, separately supplied bsnes-hd core,
+scripted inputs and reference captures. The retained reference is bsnes-hd 10.6,
+binary SHA256
+`3e05e441f35ca21baa328094f6f9bf30645ea998ebb39956b154e160a8b00ed0`.
+Its source/settings and captures are under the engine's existing `build/oracle`.
+Verify those identities before reuse; no new emulator frontend is needed.
+
+1. Freeze the current candidate and one representative short stock route with
+   a straight, a corner and visible road boundaries. Use the same verified ROM,
+   stock gameplay/vehicle profile and inputs in both hosts. Disable CGP handling
+   changes for this comparison: equal inputs with different handling do not
+   produce equal cameras.
+2. Establish scene alignment with HD disabled. Match crop/overscan, pixel
+   aspect, drawable dimensions, course, timer, camera and visible landmarks.
+   Frame number alone is insufficient. The retained bsnes-hd core does not
+   expose WRAM; do not claim memory-state equivalence. If alignment cannot be
+   established, repair that prerequisite before scoring image differences.
+3. Compare native, our HD and bsnes-hd HD at a matched 4x setting, with display
+   filtering and supersampling off and original presentation cadence. Then
+   compare the same route with matched supersampling. Inspect full images and
+   short continuous motion, not only the best-looking road-edge crop.
+4. Attribute the first clear discrepancy to source sampling, geometry,
+   composition, temporal interpolation or presentation. Implement and evaluate
+   that candidate next. Do not begin another broad instrumentation project.
+
+Emulator HD states and native recompile save states are not interchangeable.
+Reuse inputs and guest scene observations, regenerating build-specific states
+as needed. Preserve native in-game saves.
+
+## Burndown matrix
+
+“Reject” means reject an implementation or elective control, not waive a
+mandatory visual outcome. Each row needs its own result, source identity and
+concise evidence link. All rows start open; known limitations are called out.
+
+| ID | Area / ownership | Decision and acceptance evidence | Initial status |
+| --- | --- | --- | --- |
+| HD-01 | Feature contract — F-Zero + launcher | Map every visible control to its real effect. Retire separate general internal resolution unless a matched scene demonstrates useful additional detail outside HD Mode 7. End with one unambiguous set of controls. | Open; removal recommended, not yet a measured disposition. |
+| HD-02 | Active path and effective quality — adapter + engine | Trace native/HD selection in actual races, results and unsupported scenes. Show that the road is resampled from course data, and distinguish a configured multiplier from a fallback or cap. Silent native fallback must not masquerade as active HD. | Open; fallback and multiplayer caps exist. |
+| HD-03 | Perspective geometry — shared engine | Match independent bsnes-hd road shape, horizon and depth across straight and turning views. Fix systematic edge displacement, bends or horizon bands. Compare replacing the current fitted-plane approach with a reference-aligned alternative; evaluate substantial reuse where technically suitable. | Open; previous sampled improvements did not establish overall acceptance. |
+| HD-04 | Source coordinates and texels — engine + F-Zero maps | Verify pixel centers, fractional rows, negative coordinates, wrapping, flips, tile boundaries and full-course/cache transitions. Independently known source coordinates must select the expected texels. No wrong course blocks or road seams. | Open. |
+| HD-05 | Composition and original artwork — engine + adapter | Preserve vehicle/HUD/text detail, palette, brightness, priority, windows and native effects. Check menus, demo, records and results separately. Any intentional full-course extension must be distinguished from an ordinary reference-view mismatch. | Open. |
+| HD-06 | Aliasing and supersampling — shared engine | Match the expected reduction of jagged road edges and moving stripe shimmer with equivalent reference settings. Preserve original artwork; do not conceal geometry defects with blur or a new default texture-smoothing filter. Select useful quality/cost levels. | Open; exposing a slider was not quality qualification. |
+| HD-07 | Motion and camera interpolation — F-Zero first | Check continuous straight driving, steering, rotation, camera wrap, jumps and camera discontinuities. Eliminate HD-only jitter, crawling bands, flashes and wrong-region interpolation. Qualify native simulation frames first, then fractional presentations. | Open; earlier alias fix covers one reproduced defect. |
+| HD-08 | Final presentation — shared GPU + host | Compare full-resolution output followed by the chosen display filter against the optimized visible-sample path at the same settings. Keep the shortcut only if it preserves the intended image. Test resize, DPI and aspect changes; explain why higher requested multipliers may stop helping at a fixed display size. | Open. |
+| HD-09 | Multiplayer — F-Zero + shared compositor | Qualify each 2P/3P/4P camera independently and together. Resolve the current missing GPU grid path and silent 2x CPU cap through implementation or an explicitly accepted, honestly described limitation. No claim that every mode uses the globally requested quality. | Open; 3P/4P currently use capped CPU rendering. |
+| HD-10 | Runtime cost and portability — engine + title | Measure simulation/presentation frame times, CPU/GPU cost and memory at already accepted image quality. Keep the game responsive and stable at original cadence. Qualify portable fallback and affected shared consumers; do not trade another game's reproducible regression for an aggregate gain. | Open; old timings are historical, not this pass's result. |
+| HD-11 | Controls, defaults and updates — F-Zero + launcher | Implement HD-01's chosen controls; verify fresh installation, persistence and requested/effective quality. Native display scaling must not be presented as recovered Mode 7 detail. Choose defaults from accepted results rather than a large multiplier. | Open. |
+| HD-12 | Player acceptance and release — F-Zero | Present representative matched stills and motion to the owner/regular players, retaining individual Pass/Fail/Deferred notes. Close known visual failures and run affected gameplay/save/load/rewind checks before an HD quality release claim. | Open; overall visual acceptance currently fails. |
+
+**Current result: 0 accepted, 12 open.** Preparation, builds, screenshots and
+CPU/GPU agreement are supporting evidence, not additional completed rows.
+
+## Representative test matrix
+
+Use a small set of deliberate scenes rather than every scale multiplied by
+every course and mode. Expand only when a concrete failure requires it.
+
+| Case | Controlled comparisons | What must be judged |
+| --- | --- | --- |
+| Stock starting grid, straight and corner | Native vs our HD vs bsnes-hd; matched 4x; no supersampling/filtering | Source detail, projected road shape, stripe spacing, distant boundaries and original sprites. Reuse retained aligned scenes first. |
+| Same short route in motion | Original cadence; then high-refresh presentation as a separate test | Shimmer, swimming textures, horizon steps, flashes, camera continuity and persistent displacement. A few sampled frames cannot pass this case. |
+| Repair strip, boundary, jump and track-map seam | Existing authorized pose/checkpoint fixtures plus brief ordinary movement | Visual road/terrain agrees with collisions and landings; no texture/camera seam. Positioning must not set the success being asserted. |
+| Lap crossing, finish, results and return to menu | Before/during/after transitions; stock and one installed course | HD remains appropriate through the transition; no stale raster, broken overlay, font/palette change or leaked race graphics. |
+| Supersampling | Same accepted scene: off, then matched reference setting; 1x behavior checked separately | Real reduction in aliasing, readable native artwork and disclosed cost. Our 1x/native shortcut must not be assumed equivalent to all bsnes-hd 1x options. |
+| Presentation and resizing | Fixed image; 4:3 and default Fit; one wide window, one smaller window; nearest first | Effective resolution, pixel aspect, crop, letterboxing, HUD placement and equivalence of optimized/full output. Filters/shaders tested separately afterward. |
+| Two local views and one online camera | Same captured camera through the single-view and split-view consumers | Equivalent quality/composition per camera. This is a rendering check, not WAN/netcode qualification. |
+| Three/four local views | Every active pane, plus the unused 3P cell; same per-camera source | Correct independent cameras, honest effective quality and acceptable frame times. bsnes-hd has no matching native four-player VS mode; compare equivalent individual views, not a fictitious emulator VS implementation. |
+| Installed content and native scenes | One representative CGP/Astra course, one other pack, BS content; title/demo/records | Source/palette correctness and native-artwork preservation. Stock emulator parity is established first; custom content needs equivalent assets before claiming emulator equivalence. |
+
+## How a candidate earns a decision
+
+- Inspect both the complete image and predefined road/skyline/foreground
+  regions. Fix systematic geometry errors; investigate unexplained road-edge
+  errors above one output pixel in an aligned, unfiltered comparison. Do not
+  declare success from a low average while a visibly wrong region remains.
+  Any justified sampling/color-policy difference must be explicit and reviewed.
+- Define comparison masks before evaluating a candidate. Masks may isolate
+  original artwork from the Mode 7 plane; they must not exclude a broken
+  horizon, road edge or transition to improve a score.
+- Keep CPU/GPU consistency and analytic coordinate tests, but use the external
+  emulator and player observation to judge appearance. Two consumers of the
+  same wrong transform can agree perfectly.
+- Assess established renderer reuse/replacement before another sequence of
+  local fitting heuristics. Check dependency and license fit before selecting
+  reuse. A separately run reference emulator is already available.
+- After two unsuccessful quality experiments, compare approaches again and
+  choose a concrete replacement or simplification. Repeated tuning without a
+  visible improvement is not burndown.
+- Performance comparisons use the same host, scene, drawable size, quality,
+  supersampling, filtering and presentation cadence. Record variation honestly.
+  A faster image with reduced quality is not an optimization win.
+- Require sustained original simulation cadence (about 60.1 Hz), and report
+  presentation frame-time percentiles and stalls as well as averages. Qualify
+  higher presentation rates separately. Use the existing profiler and measured
+  target capacity; do not claim GTX 1060 behavior without testing that hardware.
+- For shared changes, reuse representative affected-game checks under the
+  existing engine issue/campaign. Label the actual package each game receives.
+  Equal baseline/candidate defects remain separately tracked pre-existing
+  defects; new regressions must be resolved.
+
+## Execution order and stopping points
+
+1. **Resolve the confusing contract:** HD-01/02, and the single aligned
+   comparison above. Confirm whether “internal resolution” is a redundant
+   concept here. This is not permission to add a second rendering pipeline.
+2. **Repair the picture:** HD-03 through HD-06. Obtain an independently
+   convincing straight and turning view before optimizing or expanding scales.
+3. **Repair motion and presentation:** HD-07/08. Bypass a presentation shortcut
+   during diagnosis if needed, then prove or reject it with matched output.
+4. **Carry quality into every supported view:** HD-09, followed by HD-10's
+   measured cost/portable/shared-consumer checks. Do not announce multiplayer
+   quality parity from successful single-player screenshots.
+5. **Ship a comprehensible result:** HD-11/12. Retire unused/redundant controls
+   and old failing implementations after the replacement is accepted. No
+   save-state migration work is required; native saves remain protected.
+
+Reuse [the existing rebuild evidence](MODE7_REBUILD.md), the engine's
+`docs/HD_MODE7_REBUILD.md`, `tools/snesref`, renderer tests, existing image/parity
+checks, `tests/validate_live_menu.py` and current save/load/rewind routes. The
+native-vs-our-HD comparison is useful, but does not supply the independent
+emulator pane by itself. Extend an existing comparison only as far as needed
+to resolve the next discrepancy; keep tooling design below ten minutes.
+
+Prepare a small human review with paused stills, the corresponding moving
+route and a multiplayer/transition bundle. Leave it windowed with normal audio
+and isolated saves, with easy switching and locally recorded observations.
+Preserve the owner's live exploration session. Human feedback is a release
+criterion, not a substitute for the engineering checks above.
+
+For each row, append its actual decision, commit, measured/observed change and
+existing evidence location to this matrix. Retain useful evidence and clean
+disposable captures/installs. No new collector, dashboard, general profiler or
+large benchmark sweep is a prerequisite for starting HD-01/02.
+
+## References
+
+- [bsnes-hd feature and settings definitions](https://github.com/DerKoun/bsnes-hd#settings): Mode 7 scale, perspective correction and supersampling are separate concepts.
+- [Pinned bsnes-hd renderer reference](https://github.com/DerKoun/bsnes-hd/blob/fc26b25ea236f0f877f0265d2a2c37dfd93dfde9/bsnes/sfc/ppu-fast/mode7hd.cpp).
+- [Libretro bsnes-hd options](https://docs.libretro.com/library/bsnes_hd_beta/#core-options): record actual core options when comparing images.
+- [Current F-Zero adapter](../src/fzero_renderer.c), [presentation host](../src/sdl_main.c), and [multiplayer compositor](../src/fzero_versus_video.c).
+- Historical [CPU cost assessment](HD_MODE7_EFFICIENCY_ASSESSMENT.md) and [performance record](HD_MODE7_PERFORMANCE.md); these do not describe every current path or certify current visual quality.
