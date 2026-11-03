@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "keyboard": false,
+  "observed_scales": [
+    1
+  ],
+  "players": 3,
+  "cup": 0,
+  "native": false,
+  "hd_scale": 8,
+  "bs_tracks": false,
+  "contact_fixture": true,
+  "sha256": "ef566005879319e63b7dce1abb838f08138d722012a79202865653ef308c0389"
+}

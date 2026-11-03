@@ -51,3 +51,5 @@ void FzeroLocalControlChanged(void);
 
 unsigned FzeroLocalPrepareHdGrid(uint32_t *native,FzeroViewport viewport,
     double alpha,SnesHdFrame *frames[FZERO_MAX_PLAYERS]);
+
+unsigned FzeroLocalWorkerCount(void);

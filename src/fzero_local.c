@@ -319,3 +319,5 @@ unsigned FzeroLocalPrepareHdGrid(uint32_t *native,FzeroViewport viewport,
   FzeroVersusVideoLiveMenu(video,menu_owner);FzeroVersusVideoMenu(video,menu_selection,result_ticks);
   return FzeroVersusVideoPrepareHdGrid(video,native,viewport,alpha,frames);
 }
+
+unsigned FzeroLocalWorkerCount(void) {return FzeroVersusVideoWorkerCount(video);}

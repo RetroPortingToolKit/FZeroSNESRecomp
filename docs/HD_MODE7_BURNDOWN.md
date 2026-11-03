@@ -108,7 +108,7 @@ concise evidence link. All rows start open; known limitations are called out.
 | HD-06 | Aliasing and supersampling — shared engine | Match the expected reduction of jagged road edges and moving stripe shimmer with equivalent reference settings. Preserve original artwork; do not conceal geometry defects with blur or a new default texture-smoothing filter. Select useful quality/cost levels. | Open; exposing a slider was not quality qualification. |
 | HD-07 | Motion and camera interpolation — F-Zero first | Check continuous straight driving, steering, rotation, camera wrap, jumps and camera discontinuities. Eliminate HD-only jitter, crawling bands, flashes and wrong-region interpolation. Qualify native simulation frames first, then fractional presentations. | Open; earlier alias fix covers one reproduced defect. |
 | HD-08 | Final presentation — shared GPU + host | Compare full-resolution output followed by the chosen display filter against the optimized visible-sample path at the same settings. Keep the shortcut only if it preserves the intended image. Test resize, DPI and aspect changes; explain why higher requested multipliers may stop helping at a fixed display size. | Open. |
-| HD-09 | Multiplayer — F-Zero + shared compositor | Qualify each 2P/3P/4P camera independently and together. Resolve the current missing GPU grid path and silent 2x CPU cap through implementation or an explicitly accepted, honestly described limitation. No claim that every mode uses the globally requested quality. | Open; 3P/4P currently use capped CPU rendering. |
+| HD-09 | Multiplayer — F-Zero + shared compositor | Qualify each 2P/3P/4P camera independently and together. Resolve the current missing GPU grid path and silent 2x CPU cap through implementation or an explicitly accepted, honestly described limitation. No claim that every mode uses the globally requested quality. | Open: independent GPU-grid candidate implemented; serial 3P passes. Worker prototype exposed nested-dispatch fallback; correction and strict 4P SS2 gate are pending. Emergency CPU cap still needs visible disclosure. |
 | HD-10 | Runtime cost and portability — engine + title | Measure simulation/presentation frame times, CPU/GPU cost and memory at already accepted image quality. Keep the game responsive and stable at original cadence. Qualify portable fallback and affected shared consumers; do not trade another game's reproducible regression for an aggregate gain. | Open; old timings are historical, not this pass's result. |
 | HD-11 | Controls, defaults and updates — F-Zero + launcher | Implement HD-01's chosen controls; verify fresh installation, persistence and requested/effective quality. Native display scaling must not be presented as recovered Mode 7 detail. Choose defaults from accepted results rather than a large multiplier. | Open. |
 | HD-12 | Player acceptance and release — F-Zero | Present representative matched stills and motion to the owner/regular players, retaining individual Pass/Fail/Deferred notes. Close known visual failures and run affected gameplay/save/load/rewind checks before an HD quality release claim. | Open; overall visual acceptance currently fails. |
@@ -250,6 +250,43 @@ built shared consumers, defaults and human review remain open.
 links source/binary identities, declared regions, all per-frame full/horizon/
 near-road numbers and retained raw evidence. Existing reference captures/tools
 were reused. The owner's live preview and delivered ZIPs are untouched.
+
+## Multiplayer implementation and current decision
+
+Game commit`ca2504b` renders each local3P/4P camera through the existing shared
+GPU sampler, then assembles a title-owned atlas for normal display filtering.
+Equal integer-sized panes give the visible-sample and full-raster presenters the
+same nearest-sampling geometry; odd windows may leave one edge row/column.
+No multi-camera projection special case was added to the shared engine.
+
+The first serial3P8x run passed camera-by-camera CPU/GPU samples, atlas samples,
+the empty cell, real driving/contact/reconnect and live/results menu transitions.
+It does not qualify the later worker-pool candidate. Existing diagnostics put
+camera composition around11..14ms, with small GPU draw costs; no performance
+win is claimed from that instrumented run.
+
+The parallel-preparation prototype reused the shared pool but the strict4P8x
+SS2 check rejected its silent fallback: native packet preparation submitted
+Run(NULL) inside a camera callback, which the shared API deliberately rejects.
+The corrected4P input/contact/transition fixtures passed on SERVER/GTX760,
+but **the GPU-grid gate failed**. The correction composes native rows directly
+inside a camera task, with a regression that requires real packets when called
+from the pool. Build/qualification is queued behind measured local pressure.
+This failed prototype is not an accepted renderer or speedup.
+
+The existing contact fixture now observes every actual simulation tick to retain
+a one-tick explosion sound during catch-up. Its original health/response checks
+are retained. Keyboard QA also initializes its controller section explicitly.
+[Individual outcomes](../captures/hd-quality-burndown-20261103/multiplayer-candidates.json)
+keep the passed3P implementation and rejected4P worker prototype separate.
+The frozen serial GPU-grid build subsequently passed4P8x SS2 on real GTX760:
+every camera, the atlas, keyboard ownership, driving, odd resize and transitions.
+Contacts were explicitly excluded from that serial graphics run; the corrected
+contact observer passed separately in the rejected worker prototype. These are
+separate outcomes, not a combined acceptance of the current worker candidate.
+
+The next disposition is the corrected worker4P8x SS2 gate on the first compatible host;
+then a matched serial/parallel preparation comparison. HD-09/10 remain open.
 
 ## References
 

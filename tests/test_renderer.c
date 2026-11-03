@@ -1,4 +1,5 @@
 #include "fzero_renderer.h"
+#include "render_workers.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,6 +34,17 @@ static void view_publish(FzeroRenderView *view, unsigned frame) {
   FzeroRenderViewEndFrame(view, &p, stock);
 }
 
+typedef struct PrepareWorkerTest {
+  FzeroRenderView *views[2];
+  uint32_t *native[2];
+  SnesHdFrame *jobs[2];
+  FzeroViewport viewport;
+} PrepareWorkerTest;
+static void prepare_worker_test(void *context,size_t begin,size_t end,unsigned slot) {
+  (void)slot;PrepareWorkerTest *test=context;
+  for(size_t i=begin;i<end;++i)
+    test->jobs[i]=FzeroRenderViewPrepareHd(test->views[i],test->native[i],test->viewport,.5);
+}
 static void test_view_isolation(void) {
   FzeroRenderView *a = FzeroRenderViewCreate(), *b = FzeroRenderViewCreate();
   CHECK(a && b);
@@ -55,6 +67,20 @@ static void test_view_isolation(void) {
   CHECK(FzeroRenderViewDraw(a, again, v, 0.5));
   CHECK(!memcmp(first, again, (size_t)v.width * 224 * sizeof(*first)));
   CHECK(!FzeroRendererHasFrame());
+  /* Camera tasks must produce real GPU packets when invoked from the
+   * shared pool, rather than silently falling back after a nested Run(NULL).
+   * Compare their independent native planes with direct serial composition. */
+  static uint32_t packet_native[2][FZERO_MAX_WIDTH*224];
+  CHECK(FzeroRenderViewDraw(b,again,v,.5));
+  PrepareWorkerTest test={{a,b},{packet_native[0],packet_native[1]},{NULL,NULL},v};
+  SnesRenderWorkers *pool=SnesRenderWorkersCreate(2);
+  CHECK(SnesRenderWorkersRun(pool,2,1,prepare_worker_test,&test));
+  for(unsigned i=0;i<2;++i) {
+    CHECK(test.jobs[i] && SnesHdFrameSeal(test.jobs[i]));
+    CHECK(!memcmp(packet_native[i],i?again:first,(size_t)v.width*224*sizeof(*first)));
+    SnesHdFrameDestroy(test.jobs[i]);
+  }
+  SnesRenderWorkersDestroy(pool);
   FzeroRenderViewReset(b);
   CHECK(!FzeroRenderViewHasFrame(b) && FzeroRenderViewHasFrame(a));
   CHECK(!FzeroRenderViewDraw(b, again, v, 1));

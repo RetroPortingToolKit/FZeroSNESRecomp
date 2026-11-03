@@ -29,6 +29,7 @@ def main():
     p.add_argument('--hd-scale',type=int,default=8)
     p.add_argument('--hd-supersample',type=int,choices=(1,2,3,4),default=1)
     p.add_argument('--hd-full-target',action='store_true',help='Exercise full raster presentation instead of visible samples')
+    p.add_argument('--benchmark',action='store_true',help='Unpaced, fixed-alpha existing gameplay qualification for matched timing')
     p.add_argument('--stock-only',action='store_true',help='Qualify native courses without the optional Astra import')
     p.add_argument('--cup',type=int,default=0)
     p.add_argument('--bs-tracks',action='store_true')
@@ -84,6 +85,8 @@ def main():
                SNESRECOMP_AUTOCLOSE_FRAMES='5000')
     if a.hd_parity:env['FZERO_TEST_HD_PARITY']='1'
     if a.hd_full_target:env['FZERO_HD_FULL_TARGET']='1'
+    if a.benchmark:env['FZERO_BENCHMARK']='1'
+    if os.environ.get('SNESRECOMP_RENDER_WORKERS'):env['SNESRECOMP_RENDER_WORKERS']=os.environ['SNESRECOMP_RENDER_WORKERS']
     if a.keyboard:env['FZERO_TEST_LOCAL_UI_KEYBOARD']='1'
     if not a.no_contact_fixture:env['FZERO_TEST_TRAFFIC_CONTACT']='1'
     if a.menu_music:

@@ -20,6 +20,22 @@ static unsigned local_ui_drive_captured;
 static uint16_t local_ui_drive_start[FZERO_MAX_PLAYERS][2];
 static uint64_t local_ui_traffic_tick;
 static unsigned local_ui_traffic_contacts,local_ui_traffic_explosive,local_ui_reconnect;
+/* Explosion sound flags last one simulation tick. Observe every completed
+ * tick, including host catch-up batches, rather than missing a real impact
+ * between two presenter/input iterations on a busy machine. */
+static void local_ui_observe_traffic(void) {
+  if(!local_ui_traffic_tick)return;
+  const FzeroVersusSnapshot *s=FzeroVersusCompleted(FzeroLocalSession());
+  if(!s || s->race_tick<=local_ui_traffic_tick)return;
+  unsigned before=local_ui_traffic_contacts;
+  for(unsigned p=0;p<s->config.player_count;++p) {
+    const FzeroActor *a=&s->racers[p].actor;
+    bool response=(local_ui_traffic_explosive&(1u<<p))?((a->state&0x81)==0x81 && (a->sound_port3&8)):a->damage_cooldown!=0;
+    if(a->health<0x800 && response)local_ui_traffic_contacts|=1u<<p;
+  }
+  if(before!=local_ui_traffic_contacts && local_ui_traffic_contacts==((1u<<s->config.player_count)-1))
+    fputs("traffic-encounter: all human impacts PASS\n",stderr);
+}
 static const unsigned local_ui_resize_ticks[]={10,65,125,220,260};
 static const int local_ui_sizes[][2]={{600,800},{1343,1379},{1280,720},{1600,600},{768,576}};
 static unsigned local_ui_players(void) {
@@ -146,13 +162,8 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
           local_ui_traffic_tick=s->race_tick;
           fputs("traffic-encounter: position/motion/health fixture; native contacts and rendering remain active\n",stderr);
         } else if(local_ui_traffic_tick && tick>local_ui_traffic_tick && local_ui_traffic_contacts!=((1u<<local_ui_players())-1)) {
-          for(unsigned p=0;p<local_ui_players();++p) {
-            const FzeroActor *a=&s->racers[p].actor;
-            bool response=(local_ui_traffic_explosive&(1u<<p))?((a->state&0x81)==0x81 && (a->sound_port3&8)):a->damage_cooldown!=0;
-            if(a->health<0x800 && response)local_ui_traffic_contacts|=1u<<p;
-          }
-          if(local_ui_traffic_contacts==((1u<<local_ui_players())-1))fputs("traffic-encounter: all human impacts PASS\n",stderr);
-          else if(tick>local_ui_traffic_tick+5) {fprintf(stderr,"traffic-encounter: contacts=%x explosive=%x\n",local_ui_traffic_contacts,local_ui_traffic_explosive);Die("Traffic encounter did not hit all humans");}
+          local_ui_observe_traffic();
+          if(local_ui_traffic_contacts!=((1u<<local_ui_players())-1) && tick>local_ui_traffic_tick+5) {fprintf(stderr,"traffic-encounter: contacts=%x explosive=%x\n",local_ui_traffic_contacts,local_ui_traffic_explosive);Die("Traffic encounter did not hit all humans");}
         }
         if(getenv("FZERO_TEST_LOCAL_UI_KEYBOARD")) {
           if(tick>=270 && !local_ui_reconnect) {

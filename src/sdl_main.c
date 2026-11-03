@@ -2391,7 +2391,7 @@ static int run_game(int argc, char **argv) {
         .output_width = drawable_width, .output_height = drawable_height,
         .effective_scale = FzeroHdScale(), .target_hz = hz, .refresh_hz = actual_refresh,
         .source_height = FzeroFrameHeight(),
-        .render_workers = FzeroRendererWorkerCount(),
+        .render_workers = FzeroGpuHdGridCount()?FzeroLocalWorkerCount():FzeroRendererWorkerCount(),
         .fullscreen = (SDL_GetWindowFlags(window) & SNESRECOMP_SDL_WINDOW_FULLSCREEN_DESKTOP) != 0,
         .suspended = suspended, .scene = g_ram[0x54], .subscene = g_ram[0x55]
       };
@@ -2826,6 +2826,7 @@ static int run_game(int argc, char **argv) {
       FzeroCaptureBefore(input,viewport);
       host_report_crash_test_tick();
       (void)RtlRunFrame(input);
+      local_ui_observe_traffic();
       FzeroDiagnosticsEnd(FZERO_DIAG_SIMULATION, diagnostic_start);
       if (g_fail || !FzeroLastLleResult()) {
         fprintf(stderr, "[fzero-failure] frame=%ld resume=$%06x bus_fault=%d execution=%d state=%02x,%02x,%02x car=%02x\n",

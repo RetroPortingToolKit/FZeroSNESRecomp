@@ -1001,7 +1001,13 @@ static bool render_frame(FzeroRenderView *view, uint32_t *out, FzeroViewport vie
     .world = world, .race_hud = race_hud, .interpolate = interpolate,
     .jobs = jobs, .picture = picture, .tilemap = tilemap, .jobs_ok = true
   };
-  return SnesRenderWorkersRun(pool, 224, 8, render_lines, &batch) && batch.jobs_ok;
+  /* Native packet preparation may already be one task in a camera batch.
+   * No row pool is needed there; calling even a NULL worker pool would be
+   * a nested submission and is deliberately rejected by the shared API. */
+  if(pool) {
+    if(!SnesRenderWorkersRun(pool,224,8,render_lines,&batch))return false;
+  } else render_lines(&batch,0,224,0);
+  return batch.jobs_ok;
 }
 
 bool FzeroRenderViewDraw(FzeroRenderView *view, uint32_t *out, FzeroViewport viewport, double alpha) {

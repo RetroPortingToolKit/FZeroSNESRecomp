@@ -1,0 +1,85 @@
+{
+  "serial_3p": {
+    "status": "passed serial GPU-grid implementation; not parallel preparation qualification",
+    "requested_detail": 8,
+    "samples_per_axis": 1,
+    "camera_parity_checks": {
+      "0": 12,
+      "1": 12,
+      "2": 12
+    },
+    "grid_checks": 12,
+    "all_human_contacts": true,
+    "transitions": true,
+    "raw_log": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\live-3p-grid\\game.log",
+    "result": {
+      "passed": true,
+      "keyboard": false,
+      "observed_scales": [
+        1
+      ],
+      "players": 3,
+      "cup": 0,
+      "native": false,
+      "hd_scale": 8,
+      "bs_tracks": false,
+      "contact_fixture": true,
+      "sha256": "ef566005879319e63b7dce1abb838f08138d722012a79202865653ef308c0389"
+    }
+  },
+  "worker_4p": {
+    "status": "failed GPU-grid gate; worker prototype rejected pending correction",
+    "host": "SERVER / NVIDIA GTX760",
+    "requested_detail": 8,
+    "samples_per_axis": 2,
+    "exe_sha256": "f1722730c8227204b3aba0c75904cbd846f45daea75f4878dd42f645c67ba7a4",
+    "all_human_contacts": true,
+    "transitions": true,
+    "grid_checks": 0,
+    "cause": "camera batch invokes native packet preparation, which called Run(NULL) within a worker callback; shared API rejects nested submissions, causing portable fallback",
+    "correction_prepared": "native packet preparation directly composes serial rows within each camera task; regression invokes preparation inside the shared pool and requires real sealed packets",
+    "raw_log": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\server-live-4p.log"
+  },
+  "matrix_status": "HD-09 and HD-10 remain open",
+  "serial_4p_graphics": {
+    "status": "passed graphics/input/drive/resize/transition gate; contacts explicitly excluded from this serial run",
+    "game_commit": "ca2504b8e71cf86050d4aff1365a9c2b23ec784b",
+    "host": "SERVER / NVIDIA GTX760 / real OpenGL4",
+    "requested_detail": 8,
+    "samples_per_axis": 2,
+    "camera_parity_checks": {
+      "0": 5,
+      "1": 5,
+      "2": 5,
+      "3": 5
+    },
+    "grid_checks": 5,
+    "odd_resize_exercised": true,
+    "actual_grid_targets": [
+      "768x576"
+    ],
+    "result": {
+      "passed": true,
+      "keyboard": true,
+      "observed_scales": [
+        1
+      ],
+      "players": 4,
+      "cup": 0,
+      "native": false,
+      "hd_scale": 8,
+      "hd_supersample": 2,
+      "hd_full_target": false,
+      "bs_tracks": false,
+      "contact_fixture": false,
+      "sha256": "957b825cafcc49009402c4d1374d2178ad2114c331202e4cfce8093926877872"
+    },
+    "raw_log": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\server-serial-evidence\\game.log"
+  },
+  "worker_correction": {
+    "status": "prepared; not built or qualified",
+    "regression": "prepare two independent immutable camera packets from shared worker callbacks; require sealed GPU jobs and native planes identical to serial composition",
+    "build_job": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\worker-fix-build-job.json",
+    "matched_performance": "pending after corrected4P correctness gate"
+  }
+}

@@ -32,3 +32,5 @@ bool FzeroVersusVideoDrawPlayer(FzeroVersusVideo *video,uint32_t *output,size_t 
  * fourth cell in 3P. Failure releases partial frames and returns zero. */
 unsigned FzeroVersusVideoPrepareHdGrid(FzeroVersusVideo *video, uint32_t *native,
     FzeroViewport whole, double alpha, SnesHdFrame *frames[FZERO_MAX_PLAYERS]);
+
+unsigned FzeroVersusVideoWorkerCount(const FzeroVersusVideo *video);
