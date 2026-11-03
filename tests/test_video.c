@@ -194,6 +194,7 @@ static void config_tests(void) {
   CHECK(FzeroVideoLoad(&b, "test-video.ini"));
   CHECK(b.enhanced && b.fps_enabled && !b.bs_deluxe && b.aspect == FZERO_ASPECT_FIT);
   CHECK(b.local_two_player && b.gameplay.stock_rebalance==15);
+  b.hd_supersample=3;CHECK(FzeroVideoSave(&b,"test-video.ini") && FzeroVideoLoad(&a,"test-video.ini") && a.hd_supersample==3);
   for(unsigned n=2;n<=4;++n) {
     b.local_players=n;CHECK(FzeroVideoSave(&b,"test-video.ini") && FzeroVideoLoad(&a,"test-video.ini") && a.local_players==n);
   }

@@ -266,7 +266,7 @@ int main(int argc,char **argv) {
   CHECK(p->feature_enable(NULL, diag.package_id, diag.id, 1) && s.diagnostics);
   CHECK(!s.enhanced && !s.hd_mode7 && !s.fps_enabled);
   RecompLauncherCModFeature hd;
-  CHECK(p->feature_get(NULL, 3, &hd) && !hd.enabled && hd.option_count == 1);
+  CHECK(p->feature_get(NULL, 3, &hd) && !hd.enabled && hd.option_count == 2);
   CHECK(p->feature_enable(NULL, hd.package_id, hd.id, 1));
   CHECK(s.hd_mode7 && !s.enhanced && !s.fps_enabled);
   CHECK(p->feature_set_option(NULL, hd.package_id, hd.id, "scale", "4"));
@@ -320,6 +320,13 @@ int main(int argc,char **argv) {
   CHECK(p->feature_option_get(NULL,"fzero-title","title-screen",0,&option));
   CHECK(!strcmp(option.value,"original") && !strcmp(option.default_value,"original"));
   CHECK(option.choice_count==3);
+  CHECK(p->feature_option_get(NULL,"snes-hd-mode7","gpu-mode7",1,&option));
+  CHECK(!strcmp(option.id,"supersample") && option.min_value==1 && option.max_value==4);
+  CHECK(!p->feature_option_get(NULL,"snes-hd-mode7","gpu-mode7",2,&option));
+  CHECK(p->feature_set_option(NULL,"snes-hd-mode7","gpu-mode7","supersample","3"));
+  CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini") && loaded.hd_supersample==3);
+  CHECK(!p->feature_set_option(NULL,"snes-hd-mode7","gpu-mode7","supersample","0"));
+  CHECK(!p->feature_set_option(NULL,"snes-hd-mode7","gpu-mode7","supersample","5"));
   const char *screens[]={"original","cgp","max-league"};
   for (int i=0;i<3;++i) {
     RecompLauncherCModChoice choice;

@@ -56,6 +56,7 @@
 #include "desktop/sdl_compat.h"
 #include "desktop/hd_gpu.h"
 
+#include <math.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -96,6 +97,10 @@ static const char *const kQuickPads[] = {"QuickSavePad", "QuickLoadPad"};
 static int g_quick_keys[2], g_quick_pads[2];
 static uint32_t g_previous_quick_actions;
 static FzeroVideoSettings g_video;
+static bool g_compare_mode7, g_compare_pause_after_frame;
+static const char *comparison_title(void) {
+  return g_compare_mode7?"F-Zero Forever | HD OFF (left) | HD ON 16x (right) | F1 grid, F2 straight, F3 turn | P play/pause":kWindowTitle;
+}
 static bool g_gameplay_keyboard=true,g_gameplay_gamepad=true;
 Config g_config;
 static bool g_reset_presentation_clock;
@@ -297,6 +302,9 @@ static bool fzero_gl_hd_check(const SnesHdFrame *jobs,const SnesHdGpuImage *imag
   glBindTexture(GL_TEXTURE_2D,image->texture);glGetTexImage(GL_TEXTURE_2D,0,GL_BGRA,GL_UNSIGNED_BYTE,pixels);
   glBindTexture(GL_TEXTURE_2D,(GLuint)binding);glBindBuffer(GL_PIXEL_PACK_BUFFER,(GLuint)pack);
   glPixelStorei(GL_PACK_ROW_LENGTH,row);glPixelStorei(GL_PACK_ALIGNMENT,alignment);glActiveTexture((GLenum)active);
+  bool fractional_camera=false;
+  for(unsigned y=0;y<v.height && !fractional_camera;++y)if(v.lines[y].kind==kSnesHdReconstructed)
+    for(unsigned c=0;c<8;++c)fractional_camera|=v.lines[y].matrix[c]!=floor(v.lines[y].matrix[c]);
   unsigned checked=0,bad=0;
   for(unsigned gy=0;gy<=16;++gy)for(unsigned gx=0;gx<=32;++gx) {
     unsigned x=gx*(image->width-1)/32,y=gy*(image->height-1)/16;
@@ -307,8 +315,8 @@ static bool fzero_gl_hd_check(const SnesHdFrame *jobs,const SnesHdGpuImage *imag
     if(!ok || (pixels[(size_t)y*image->width+x]&0xffffff)!=(expected&0xffffff))++bad;
     ++checked;
   }
-  fprintf(stderr,"[fzero-hd-parity] scale=%u source=%ux%u target=%ux%u checked=%u mismatches=%u\n",
-      scale,v.width,v.height,image->width,image->height,checked,bad);
+  fprintf(stderr,"[fzero-hd-parity] scale=%u source=%ux%u target=%ux%u checked=%u mismatches=%u fractional_camera=%u\n",
+      scale,v.width,v.height,image->width,image->height,checked,bad,fractional_camera);
   free(pixels);if(bad)g_selftest_failed=1;return bad==0;
 }
 
@@ -330,13 +338,15 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
                             int drawable_width, int drawable_height) {
   uint64_t diagnostic_start = FzeroDiagnosticsBegin();
   GlTextureWithSize image=glr->texture;
-  FzeroRect rect = FzeroDestination(viewport, drawable_width, drawable_height);
+  int pane_width=g_compare_mode7?drawable_width/2:drawable_width;
+  FzeroRect rect = FzeroDestination(viewport, pane_width, drawable_height);
   const SnesHdFrame *jobs=FzeroGpuHdFrame();SnesHdView job_view;
   bool hd=jobs && SnesHdFrameView(jobs,&job_view) &&
       job_view.width==(unsigned)logical_width && job_view.height==(unsigned)logical_height &&
       fzero_gl_hd(glr,jobs,glr->hd_requested_scale,rect.w,rect.h,&image);
-  if (!hd) {
-  if (FzeroGpuHdFrame() && !glr->hd_fallback_reported) {
+  if (!hd && g_compare_mode7 && jobs)Die("Mode 7 comparison requires the HD GPU renderer");
+  if (!hd || g_compare_mode7) {
+  if (!hd && FzeroGpuHdFrame() && !glr->hd_fallback_reported) {
     fprintf(stderr,"[fzero-hd] GPU jobs unavailable; native presentation for this session\n");
     glr->hd_fallback_reported=true;
   }
@@ -351,7 +361,7 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, logical_width, logical_height, 0,
                  GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, pixels);
   }
-  image=glr->texture;
+  if(!hd)image=glr->texture;
   }
 
   FzeroDiagnosticsEnd(FZERO_DIAG_UPLOAD, diagnostic_start);
@@ -359,6 +369,7 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
   glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
   glClear(GL_COLOR_BUFFER_BIT);
   int viewport_y = drawable_height - rect.y - rect.h;
+  if(g_compare_mode7)rect.x+=pane_width;
   glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D,image.gl_texture);
   if (glr->shader) {
     glBindVertexArray(glr->vao);
@@ -378,6 +389,17 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
     glBindVertexArray(0);
     glUseProgram(0);
+  }
+  if(g_compare_mode7) {
+    glActiveTexture(GL_TEXTURE0);glBindTexture(GL_TEXTURE_2D,glr->texture.gl_texture);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+    glViewport(rect.x-pane_width,viewport_y,rect.w,rect.h);
+    glUseProgram(glr->program);glUniform1i(glGetUniformLocation(glr->program,"texture1"),0);
+    glBindVertexArray(glr->vao);glDrawArrays(GL_TRIANGLE_STRIP,0,4);
+    glBindVertexArray(0);glUseProgram(0);
   }
   FzeroDiagnosticsEnd(FZERO_DIAG_DRAW, diagnostic_start);
 }
@@ -1007,7 +1029,7 @@ static int perform_state_action(SDL_Window *window, int save, int slot,
     ok = RtlLoadSnapshot(path);
   }
   FzeroDiagnosticsEvent(save ? (ok ? "save" : "save_failed") : (ok ? "load" : "load_failed"), slot);
-  if (!save && ok) g_reset_presentation_clock = true;
+  if (!save && ok) { g_reset_presentation_clock = true; if(g_compare_mode7)g_compare_pause_after_frame=true; }
   set_state_feedback(window, save ? "save" : "load", slot, ok, feedback_until);
   fprintf(stderr, "[fzero-state] %s slot %d: %s\n", save ? "save" : "load",
           slot + 1, ok ? "ok" : "FAILED");
@@ -1050,7 +1072,7 @@ static FzeroScriptedState parse_scripted_state(const char *name) {
 
 static void update_state_feedback(SDL_Window *window, Uint64 *feedback_until) {
   if (*feedback_until && (Uint64)SDL_GetTicks() >= *feedback_until) {
-    SDL_SetWindowTitle(window, kWindowTitle);
+    SDL_SetWindowTitle(window, comparison_title());
     *feedback_until = 0;
   }
 }
@@ -1123,6 +1145,7 @@ static int hotkey_matches(const FzeroHotkey *hk, SDL_Keycode key, Uint16 mod) {
  * in time. */
 static unsigned g_local_players=2;
 static FzeroViewport local_viewport(const FzeroVideoSettings *s,int w,int h,bool local) {
+  if(g_compare_mode7)w/=2;
   unsigned columns=local && g_local_players>2?2:1;
   FzeroViewport v=FzeroNetplayViewport(s,w/(int)columns,local?h/2:h);
   if(columns==2) {v.width*=2;v.extra=(v.width-256)/2;}
@@ -1195,6 +1218,7 @@ static void overlay_draw_sdl(const FzeroPresenter *p, const uint32_t *panel,
  * after a present, what a read-back returns is undefined. */
 static void overlay_dump(const FzeroPresenter *p, int is_menu);
 static void local_ui_presented(const FzeroPresenter *p);
+static void dump_presenter(const FzeroPresenter *p,const char *path);
 
 static void present_osd(const FzeroPresenter *p) {
   const uint32_t *image = NULL;
@@ -1249,6 +1273,11 @@ static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
     if (panel) overlay_dump(p, is_menu);
     uint64_t diagnostic_start = FzeroDiagnosticsBegin();
     local_ui_presented(p);
+    if(g_compare_mode7 && g_ram[0x54]==2 && g_ram[0x55]>=2) {
+      static bool dumped;
+      const char *path=getenv("FZERO_COMPARE_DUMP");
+      if(path && *path && !dumped){dump_presenter(p,path);dumped=true;}
+    }
     SDL_GL_SwapWindow(p->gl->window);
     FzeroDiagnosticsEnd(FZERO_DIAG_PRESENT, diagnostic_start);
     return;
@@ -1740,6 +1769,7 @@ static int run_game(int argc, char **argv) {
   char command_line_rom[1024];
   const char *explicit_rom = NULL;
   bool force_launcher = false, positional_only = false, profile_mode7 = false;
+  g_compare_mode7=g_compare_pause_after_frame=false;
   force_launcher=FzeroNetplayResume();
   bool local_two_player=false;
   bool explicit_players=false;
@@ -1747,6 +1777,7 @@ static int run_game(int argc, char **argv) {
   for (int i = 1; i < argc; ++i) {
     if (!positional_only && !strcmp(argv[i], "--")) { positional_only = true; continue; }
     if (!positional_only && !strcmp(argv[i], "--launcher")) { force_launcher = true; continue; }
+    if (!positional_only && !strcmp(argv[i],"--compare-mode7")) {g_compare_mode7=true;continue;}
     if (!positional_only && !strcmp(argv[i], "--profile-mode7")) { profile_mode7 = true; continue; }
     if(!positional_only && !strcmp(argv[i],"--players") && i+1<argc) {
       char *end;unsigned long n=strtoul(argv[++i],&end,10);
@@ -1763,7 +1794,7 @@ static int run_game(int argc, char **argv) {
       continue;
     }
     if (explicit_rom || (!positional_only && argv[i][0] == '-')) {
-      fprintf(stderr, "usage: FZeroSNESRecomp [--launcher] [--profile-mode7] [--players 2..4 | --local-2p] [--course ID] [--p1-machine ID ... --p4-machine ID] [path-to-rom.sfc]\n");
+      fprintf(stderr, "usage: FZeroSNESRecomp [--launcher] [--profile-mode7] [--compare-mode7] [--players 2..4 | --local-2p] [--course ID] [--p1-machine ID ... --p4-machine ID] [path-to-rom.sfc]\n");
       return 2;
     }
     explicit_rom = argv[i];
@@ -1963,9 +1994,11 @@ static int run_game(int argc, char **argv) {
 #else
   const Uint32 kHighDpiFlag = SDL_WINDOW_ALLOW_HIGHDPI;
 #endif
+  if(g_compare_mode7 && (online || local_two_player))Die("Mode 7 comparison uses a single-player scene");
+  FzeroRendererSetSupersample(g_video.hd_supersample);
   const char *gpu_choice=getenv("FZERO_HD_GPU");
-  bool cpu_hd=g_video.hd_mode7 && gpu_choice && !strcmp(gpu_choice,"0"); /* developer reference */
-  bool want_gpu=g_video.hd_mode7 && !cpu_hd;
+  bool cpu_hd=!g_compare_mode7 && g_video.hd_mode7 && gpu_choice && !strcmp(gpu_choice,"0"); /* developer reference */
+  bool want_gpu=g_compare_mode7 || (g_video.hd_mode7 && !cpu_hd);
   bool use_gl_renderer = launcher_settings.shader_path[0] != 0 || want_gpu;
   if (use_gl_renderer) fzero_gl_prepare_window();
   if (want_gpu) { SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION,4); SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION,0); }
@@ -1974,27 +2007,27 @@ static int run_game(int argc, char **argv) {
    * 768x576 -- which is exactly the 3x this still falls back to. */
   int window_scale = launcher_settings.window_scale;
   if (window_scale < 1 || window_scale > 8) window_scale = 3;
-  int initial_width=256*window_scale,initial_height=192*window_scale;
+  int initial_width=256*window_scale*(g_compare_mode7?2:1),initial_height=192*window_scale;
   if(online)initial_width=(int)(initial_height*FzeroNetplayViewport(&g_video,0,0).aspect+0.5);
   SDL_Window *window = snesrecomp_sdl_create_window(
-      kWindowTitle, initial_width, initial_height,
+      comparison_title(), initial_width, initial_height,
       SDL_WINDOW_RESIZABLE | kHighDpiFlag |
           (use_gl_renderer ? SDL_WINDOW_OPENGL : 0) |
           (getenv("FZERO_TEST_LOCAL_UI_HIDDEN")?SDL_WINDOW_HIDDEN:0));
   if (!window) Die("Unable to create the game window");
-  if (launcher_settings.fullscreen)
+  if (launcher_settings.fullscreen && !g_compare_mode7)
     snesrecomp_sdl_set_fullscreen(window, true);
   FzeroGlRenderer gl_renderer;
   SDL_Renderer *renderer = NULL;
   SDL_Texture *texture = NULL;
-  unsigned texture_scale = g_video.hd_mode7 ? g_video.hd_scale : 1;
+  unsigned texture_scale = g_compare_mode7?16:g_video.hd_mode7 ? g_video.hd_scale : 1;
   const unsigned requested_texture_scale = texture_scale;
   bool gpu_hd=false;
   if (use_gl_renderer) {
-    bool gl_ok=fzero_gl_init(&gl_renderer,window,launcher_settings.shader_path);
+    bool gl_ok=fzero_gl_init(&gl_renderer,window,g_compare_mode7?NULL:launcher_settings.shader_path);
     if (!gl_ok && want_gpu && !gl_renderer.context) {
       fzero_gl_prepare_window();
-      gl_ok=fzero_gl_init(&gl_renderer,window,launcher_settings.shader_path);
+      gl_ok=fzero_gl_init(&gl_renderer,window,g_compare_mode7?NULL:launcher_settings.shader_path);
     }
     if (!gl_ok) {
       fprintf(stderr,"[fzero-hd] Desktop GL unavailable; using native SDL presentation\n");
@@ -2012,8 +2045,9 @@ static int run_game(int argc, char **argv) {
         SnesHdGpuDestroy(gl_renderer.hd_gpu); gl_renderer.hd_gpu=NULL;
       }
       gpu_hd=gl_renderer.hd_gpu!=NULL;
-      gl_renderer.hd_requested_scale=g_video.hd_scale;
+      gl_renderer.hd_requested_scale=texture_scale;
     }
+    if(g_compare_mode7 && !gpu_hd)Die("Mode 7 comparison requires OpenGL 4 HD rendering");
     if (!gpu_hd && !cpu_hd) texture_scale=1;
     if (!gpu_hd && texture_scale>FZERO_HD_SCALE_MAX) texture_scale=FZERO_HD_SCALE_MAX;
     GLint max_texture_size = 0;
@@ -2057,11 +2091,11 @@ static int run_game(int argc, char **argv) {
   uint32_t *hd_pixels = NULL;
   unsigned cpu_scale=gpu_hd?(texture_scale>4?4:texture_scale):texture_scale;
   size_t cpu_capacity=(size_t)FZERO_MAX_WIDTH*2*(local_available?448:FzeroFrameHeight())*cpu_scale*cpu_scale;
-  if (cpu_scale > 1) {
+  if (cpu_scale > 1 || (g_video.hd_mode7 && g_video.hd_supersample>1)) {
     hd_pixels = calloc(cpu_capacity, sizeof(*hd_pixels));
     if (!hd_pixels) Die("Unable to allocate HD Mode 7 frame");
   }
-  FzeroSetMode7Hd(cpu_scale > 1 ? cpu_scale : 0, hd_pixels, cpu_capacity);
+  FzeroSetMode7Hd(hd_pixels ? cpu_scale : 0, hd_pixels, cpu_capacity);
   FzeroSetGpuHd(gpu_hd);
   int drawable_width = 256 * window_scale, drawable_height = 192 * window_scale;
   if (use_gl_renderer)
@@ -2415,7 +2449,7 @@ static int run_game(int argc, char **argv) {
         FzeroSetMenuAudioOnly(false);
         if(title_picker) { title_picker=false; FzeroVsMenuRestore(true); }
         else if(!FzeroLocalModeReturn())Die("Cannot return to single-player menu");
-        FzeroLocalControlsDestroy(local_controls);local_controls=NULL;local_two_player=false;sp_release=true;FzeroSetGpuHd(gpu_hd);FzeroSetMode7Hd(cpu_scale>1?cpu_scale:0,hd_pixels,cpu_capacity);restart_mode_capture();
+        FzeroLocalControlsDestroy(local_controls);local_controls=NULL;local_two_player=false;sp_release=true;FzeroSetGpuHd(gpu_hd);FzeroSetMode7Hd(hd_pixels?cpu_scale:0,hd_pixels,cpu_capacity);restart_mode_capture();
         debug_server_set_ram(g_snes->ram,0x20000);snes_rewind_configure();
         SDL_UnlockMutex(g_audio_mutex);
         snesrecomp_sdl_pause_audio_device(audio,suspended || !launcher_settings.enable_audio);
@@ -2464,7 +2498,7 @@ static int run_game(int argc, char **argv) {
          * layout even when its dimensions have not changed in the window. */
         FzeroSetViewport(viewport);FzeroBeginDrawing(pixels,(size_t)logical_width*kBytesPerPixel);
         FzeroSetGpuHd(gpu_hd);
-        FzeroSetMode7Hd(cpu_scale>1?cpu_scale:0,hd_pixels,cpu_capacity);restart_mode_capture();
+        FzeroSetMode7Hd(hd_pixels?cpu_scale:0,hd_pixels,cpu_capacity);restart_mode_capture();
         SDL_UnlockMutex(g_audio_mutex);snes_rewind_shutdown();snes_rewind_configure();
         snesrecomp_sdl_pause_audio_device(audio,suspended || !launcher_settings.enable_audio);
         g_reset_presentation_clock=true;
@@ -2536,6 +2570,7 @@ static int run_game(int argc, char **argv) {
     if (monotonic_seconds() - debug_wait_start > 0.1)
       g_reset_presentation_clock = true;
     if (!running) break;
+    if(g_compare_pause_after_frame)paused=0;
     bool should_suspend = !local_two_player && (paused || (SDL_GetWindowFlags(window) & SDL_WINDOW_MINIMIZED));
     if (should_suspend != suspended) {
       suspended = should_suspend;
@@ -2545,6 +2580,14 @@ static int run_game(int argc, char **argv) {
     }
     if (suspended) {
       uint64_t diagnostic_start = FzeroDiagnosticsBegin();
+      if(g_compare_mode7) {
+        viewport=local_viewport(&g_video,drawable_width,drawable_height,false);
+        logical_width=viewport.width;FzeroSetViewport(viewport);
+        FzeroBeginDrawing(pixels,(size_t)logical_width*kBytesPerPixel);FzeroPresent(1);
+        presenter.logical_width=logical_width;presenter.viewport=viewport;
+        presenter.drawable_width=drawable_width;presenter.drawable_height=drawable_height;
+        present_frame(&presenter,NULL,0,0,0);
+      }
       SDL_Delay(10);
       FzeroDiagnosticsEnd(FZERO_DIAG_PAUSED, diagnostic_start);
       continue;
@@ -2591,7 +2634,7 @@ static int run_game(int argc, char **argv) {
     else if (snes_rewind_is_open()) panel = 2;
 
     /* Viewport policy and input sampling change only at simulation boundaries. */
-    for (unsigned batch = 0; !panel && batch < (benchmark ? 1u : 4u) &&
+    for (unsigned batch = 0; !panel && !paused && batch < (benchmark ? 1u : 4u) &&
                              (benchmark || FzeroClockSimulationDue(&clock, now)); ++batch) {
       selftest_main_tick(frames);
       if (!scripted_save_done && frames == scripted_save.frame) {
@@ -2688,6 +2731,7 @@ static int run_game(int argc, char **argv) {
       /* One emulated frame elapsed: the ring captures on its own cadence. */
       if(!online)snes_rewind_note_frame();
       frames++;
+      if(g_compare_pause_after_frame){g_compare_pause_after_frame=false;if(!benchmark)paused=1;}
       FzeroClockSimulationDone(&clock);
       now = monotonic_seconds();
       if (auto_close_frames > 0 && frames >= auto_close_frames) { running = 0; break; }
@@ -2733,7 +2777,7 @@ static int run_game(int argc, char **argv) {
        * multiple cameras per row. Bound their raster cost independently of
        * the requested single-camera GPU scale. */
       unsigned presentation_scale=!online && g_local_players>2 && local_two_player && cpu_scale>2?2:cpu_scale;
-      FzeroSetMode7Hd(presentation_scale>1?presentation_scale:0,hd_pixels,cpu_capacity);
+      FzeroSetMode7Hd(hd_pixels?presentation_scale:0,hd_pixels,cpu_capacity);
       FzeroPresent(benchmark ? 1.0 : FzeroClockAlpha(&clock, now));
       FzeroDiagnosticsEnd(FZERO_DIAG_COMPOSITION, diagnostic_start);
       if(online && snes_savestate_menu_is_open())present_overlay(&presenter,1);

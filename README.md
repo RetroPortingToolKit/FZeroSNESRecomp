@@ -93,7 +93,7 @@ Open **Mods** for:
   **Every new lap** retains the existing default behavior.
 - **Widescreen:** makes races wider.
 - **Presentation FPS:** makes motion smoother on high refresh screens.
-- **HD Mode 7:** the 0.15 rendering method, with 1x through 64x GPU resolution and an 8x default. Local 3P/4P retains its CPU fallback cap.
+- **HD Mode 7:** continuous perspective track sampling at 1x through 64x GPU resolution, with an 8x default and independent supersampling. Local 3P/4P retains its CPU fallback cap.
 - **Diagnostics:** optional local performance reports for troubleshooting; off by default. See [how to capture a report](docs/PERFORMANCE_DIAGNOSTICS.md).
   Start at 2x. Above 4x can cause severe slowdown; use at your own risk.
 - **BS Satellaview vehicles:** adds four machines independently of courses.

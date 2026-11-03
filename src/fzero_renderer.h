@@ -42,6 +42,8 @@ const uint32_t *FzeroRenderViewStockFrame(const FzeroRenderView *view);
 
 /* The original interface is a wrapper around the single-player view. */
 void FzeroRendererReset(void);
+bool FzeroRendererSetSupersample(unsigned samples);
+unsigned FzeroRendererSupersample(void);
 /* Join rendering workers on host shutdown. Reset/state loads reuse the pool. */
 void FzeroRendererShutdown(void);
 unsigned FzeroRendererWorkerCount(void);

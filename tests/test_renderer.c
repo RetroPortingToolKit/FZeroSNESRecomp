@@ -1,4 +1,5 @@
 #include "fzero_renderer.h"
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -601,14 +602,14 @@ static void test_hd_mode7(void) {
     CHECK(!FzeroRendererDrawHd(hd + 1, count - 1, v, 1, scale));
     CHECK(FzeroRendererDrawHd(hd + 1, count, v, 1, scale));
     CHECK(hd[0] == 0xdeadbeef && hd[count + 1] == 0xdeadbeef);
-    CHECK(hd[1] == palette_rgb(p.cgram[17]));
-    CHECK(hd[1 + (scale + 1) / 2] == palette_rgb(p.cgram[18]));
-    CHECK(hd[1 + v.width * scale * ((scale + 1) / 2)] == palette_rgb(p.cgram[25]));
+    CHECK(hd[1] == palette_rgb(p.cgram[16]));
+    CHECK(hd[1 + (scale + 1) / 2] == palette_rgb(p.cgram[9]));
+    CHECK(hd[1 + v.width * scale * ((scale + 1) / 2)] == palette_rgb(p.cgram[24]));
     /* Higher resolution cannot alter the native render or published source. */
     CHECK(FzeroRendererDraw(hd + 1, v, 1));
     CHECK(!memcmp(hd + 1, guarded + 1, (size_t)v.width * 224 * sizeof(*hd)));
   }
-  const unsigned invalid_scales[] = {0, 1, 11, UINT32_MAX};
+  const unsigned invalid_scales[] = {0, 11, UINT32_MAX};
   for (unsigned i = 0; i < countof(invalid_scales); ++i) {
     hd[1] = 0xdeadbeef;
     CHECK(!FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 1, invalid_scales[i]));
@@ -622,7 +623,7 @@ static void test_hd_mode7(void) {
   }
   FzeroRendererEndFrame(&p, stock);
   CHECK(FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 1, 2));
-  CHECK(hd[1 + 197 * 512] == palette_rgb(p.cgram[57]));
+  CHECK(hd[1 + 197 * 512] == palette_rgb(p.cgram[56]));
   /* Geometry follows neighbouring scanlines instead of reusing one line's
    * matrix for a whole block: 2 -> 4 horizontal texels across this band. */
   FzeroRendererBeginFrame(ram, 3);
@@ -633,15 +634,15 @@ static void test_hd_mode7(void) {
   }
   FzeroRendererEndFrame(&p, stock);
   CHECK(FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 1, 2));
-  CHECK(hd[1 + 512 + 2] == palette_rgb(p.cgram[28]));
+  CHECK(hd[1 + 512 + 2] == palette_rgb(p.cgram[18]));
   /* Temporal interpolation remains independent of spatial resolution. */
   p.m7matrix[0] = 512; p.m7matrix[6] = 0;
   FzeroRendererReset(); publish(10);
   p.m7matrix[6] = 1; publish(11);
   CHECK(FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 0.5, 2));
-  CHECK(hd[1] == palette_rgb(p.cgram[18]));
+  CHECK(hd[1] == palette_rgb(p.cgram[9]));
   CHECK(FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 1, 2));
-  CHECK(hd[1] == palette_rgb(p.cgram[19]));
+  CHECK(hd[1] == palette_rgb(p.cgram[10]));
   /* Flat screens retain every original pixel, including centered menus. */
   ram[0x81] = 0; publish(4);
   CHECK(FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 1, 4));
@@ -651,6 +652,30 @@ static void test_hd_mode7(void) {
   CHECK(!FzeroRendererDrawHd(hd + 1, countof(hd) - 2, v, 1, 2));
 }
 
+static void test_supersampling(void) {
+  setup();
+  FzeroViewport v = {256,0,4.0/3,false};
+  static uint32_t fine[512*448], averaged[256*224];
+  for (unsigned i=0;i<0x4000;++i)p.vram[i]=1;
+  for (unsigned i=0;i<64;++i)p.vram[64+i]=(uint16_t)(1|((i+1)<<8));
+  p.m7matrix[0]=p.m7matrix[3]=512;publish(1);
+  CHECK(FzeroRendererSetSupersample(1));
+  CHECK(FzeroRendererDrawHd(fine,countof(fine),v,1,2));
+  CHECK(FzeroRendererSetSupersample(2));
+  CHECK(!FzeroRendererSetSupersample(5) && FzeroRendererSupersample()==2);
+  CHECK(FzeroRendererDrawHd(averaged,countof(averaged),v,1,1));
+  for(unsigned y=0;y<224;++y)for(unsigned x=0;x<256;++x) {
+    uint32_t expected=0;
+    for(unsigned c=0;c<3;++c) {
+      unsigned sum=0;
+      for(unsigned sy=0;sy<2;++sy)for(unsigned sx=0;sx<2;++sx)
+        sum+=(fine[(y*2+sy)*512+x*2+sx]>>(8*c))&255;
+      expected|=((sum+2)/4)<<(8*c);
+    }
+    CHECK(averaged[y*256+x]==expected);
+  }
+  CHECK(FzeroRendererSetSupersample(1));
+}
 static void test_hd_results(void) {
   static uint32_t race[FZERO_MAX_WIDTH * 224 * 16], results[FZERO_MAX_WIDTH * 224 * 16];
   const FzeroViewport views[] = {{256, 0, 4.0 / 3.0, false}, {342, 43, 16.0 / 9.0, true}};
@@ -724,11 +749,11 @@ static void test_hd_composition_cache(void) {
       CHECK(native[0] == 0xdeadbeef && native[count + 1] == 0xdeadbeef);
       CHECK(hd[0] == 0xdeadbeef && hd[hd_count + 1] == 0xdeadbeef);
       CHECK(!memcmp(native + 1, guarded + 1, count * sizeof(*native)));
-      /* With integral transforms, each HD pixel's first subpixel lands on
+      /* With integral transforms, each HD pixel's center subpixel lands on
        * the exact native texel. The native compositor is the independent
        * oracle for windows, OBJ priority, transparency and colour math. */
       for (int y = 0; y < 224; ++y) for (int x = 0; x < v.width; ++x)
-        CHECK(hd[1 + ((size_t)y * scale * v.width + x) * scale] == native[1 + y * v.width + x]);
+        CHECK(hd[1 + ((size_t)y * scale * v.width + x) * scale + (scale/2)*v.width*scale + scale/2] == native[1 + y * v.width + x]);
       CHECK(FzeroRendererDrawHd(hd_only, hd_count, v, 1, scale));
       CHECK(!memcmp(hd + 1, hd_only, hd_count * sizeof(*hd)));
     }
@@ -880,6 +905,42 @@ static void test_full_course_interpolation(void) {
   CHECK(FzeroRendererDraw(out,v,1) && out[100*256]==0x00ff00);
 }
 
+static void test_hd_camera_representative_switch(void) {
+  static const struct {int from,to,camera_from,camera_to;} cases[]={
+    {130,1154,130,130}, /* Same stationary camera, different alias. */
+    {1144,128,3192,3200} /* Captured retail transition at frames1456/1457. */
+  };
+  static const double phases[]={0,.004,.13,.37,.5,.93,.999,1};
+  for(unsigned test=0;test<countof(cases);++test)for(unsigned flip=0;flip<4;++flip) {
+    setup();ram[0x55]=3;word(0xb0,0x4000);word(0xb70,cases[test].camera_from);word(0xb90,200);
+    FzeroViewport v={256,0,4.0/3.0,false};p.m7sel=(uint8_t)flip;
+    if(test) {p.m7matrix[0]=p.m7matrix[3]=0;p.m7matrix[1]=-244;p.m7matrix[2]=244;}
+    p.m7matrix[4]=(int16_t)cases[test].from;p.m7matrix[5]=200;
+    p.m7matrix[6]=p.m7matrix[4]-128;p.m7matrix[7]=24;publish(100);
+    SnesHdFrame *base=FzeroRendererPrepareHd(guarded+1,v,1);CHECK(base && SnesHdFrameSeal(base));
+    double expected[4];CHECK(SnesHdFrameTransform(base,100,.37,expected));
+    SnesHdView bv;CHECK(SnesHdFrameView(base,&bv));
+    expected[0]+=256.0*bv.lines[100].map_offset_x;
+    expected[1]+=256.0*bv.lines[100].map_offset_y;SnesHdFrameDestroy(base);
+    /* Aliases must follow the actual eight-unit world movement (or remain
+     * stationary), instead of an excursion through another course block. */
+    word(0xb70,cases[test].camera_to);p.m7matrix[4]=(int16_t)cases[test].to;
+    p.m7matrix[6]=p.m7matrix[4]-128;p.m7matrix[5]+=1024;p.m7matrix[7]+=1024;publish(101);
+    for(unsigned phase=0;phase<countof(phases);++phase) {
+      SnesHdFrame *f=FzeroRendererPrepareHd(guarded+1,v,phases[phase]);CHECK(f && SnesHdFrameSeal(f));
+      double t[4];SnesHdView fv;CHECK(SnesHdFrameView(f,&fv));
+      CHECK(SnesHdFrameTransform(f,100,.37,t));
+      t[0]+=256.0*fv.lines[100].map_offset_x;t[1]+=256.0*fv.lines[100].map_offset_y;
+      for(unsigned c=0;c<4;++c) {
+        double target=expected[c]+(c==0?256.0*phases[phase]*(cases[test].camera_to-cases[test].camera_from):0);
+        if(fabs(t[c]-target)>1e-8)fprintf(stderr,"camera alias case%u flip%u phase%g axis%u expected%g actual%g\n",test,flip,phases[phase],c,target,t[c]);
+        CHECK(fabs(t[c]-target)<1e-8);
+      }
+      SnesHdFrameDestroy(f);
+    }
+  }
+}
+
 static void test_fractional_course_reference(void) {
   setup();ram[0x55]=3;word(0xb0,0x4000);
   uint8_t *bank=ram+0x10000;
@@ -1007,12 +1068,14 @@ int main(void) {
   test_player_spark();
   test_explosion_slots();
   test_hd_mode7();
+  test_supersampling();
   test_hd_results();
   test_hd_composition_cache();
   test_view_isolation();
   test_race_cameras();
   test_sharp_track_sampling();
   test_full_course_interpolation();
+  test_hd_camera_representative_switch();
   test_fractional_course_reference();
   FzeroRendererShutdown();
   CHECK(FzeroRendererWorkerCount() == 1);

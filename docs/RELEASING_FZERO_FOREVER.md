@@ -29,11 +29,15 @@ Use the plain version without a `fzero-55-preview` label.
 
 ## Current release
 
-The current candidate is **0.17.0**: four-seat launcher controls, a saved
+The delivered tester build is **0.17.0**: four-seat launcher controls, a saved
 local player-count dropdown and optional user-supplied finish fanfare. It
 restores the exact 0.15.0 HD rendering adapter and engine, retaining the GPU
 sampler and worker pool. Both editions keep courses, credits, optional MSU
 music and prebuilt caches. Track this release under `beads-8wg.5.124`.
+
+Development has returned to the new continuous perspective renderer at the
+owner's request (`beads-8wg.5.125`), retaining the multiplayer setup and sound
+features. The current local preview does not replace the delivered ZIPs.
 
 ## Preparing a release
 

@@ -1,5 +1,13 @@
 ﻿# Changelog
 
+## Unreleased
+
+- Restore the continuous perspective HD Mode 7 renderer after the 0.17.0
+  rollback received worse visual feedback. Retain P3/P4 launcher controls,
+  the saved player count and optional finish fanfare.
+- Expose the renderer's independent supersampling control in Mods, including
+  its 1 (off) through 4 samples per axis choices.
+
 ## 0.17.0 - Multiplayer setup and finish fanfare
 
 - Show Player 3 and Player 4 in launcher Controls, with independent keyboard
