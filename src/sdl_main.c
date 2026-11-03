@@ -1379,8 +1379,10 @@ static void hd_presentation_feedback(unsigned effective) {
   static unsigned last_limited=~0u;
   /* Menus and loading screens legitimately use native artwork. Report a
    * reduction when a road is actually being presented, including results. */
-  if(!g_video.hd_mode7 || (!FzeroLocalSession() &&
-      !(g_ram[0x54]==2 && g_ram[0x81])))return;
+  if(!g_video.hd_mode7 || !FzeroRendererHasFrame())return;
+  if(FzeroLocalEnabled()) {
+    if(!FzeroLocalSession())return; /* Native preload/selection, no road yet. */
+  } else if(!(g_ram[0x54]==2 && g_ram[0x81]))return;
   FzeroModsNoteHdScale(g_video.hd_scale,g_video.hd_supersample,effective);
   if(effective>=g_video.hd_scale) {last_limited=~0u;return;}
   if(effective==last_limited)return;

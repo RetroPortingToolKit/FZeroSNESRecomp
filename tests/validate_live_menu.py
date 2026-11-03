@@ -113,6 +113,7 @@ def main():
         print('PASS native title music: real-device audio continues through VS car selection',report)
         return
     if a.hd_parity:
+        assert '[fzero-hd-effective] HD unavailable' not in text,'Native loading artwork was misreported as an HD failure'
         checks=re.findall(r'\[fzero-hd-parity\].*mismatches=(\d+)',text)
         assert checks and all(int(n)==0 for n in checks),'Actual game CPU/GPU pixel parity failed'
         if a.players>2 and not a.native:
@@ -124,6 +125,7 @@ def main():
                 assert 'target=1342x1006' in text,'Odd resized GPU atlas was not checked'
     if a.portable_hd and a.players>2 and a.hd_scale>2:
         assert f'HD detail limited to 2x ({a.hd_scale}x requested)' in text,'Portable grid reduction was silent'
+        assert '[fzero-hd-effective] HD unavailable' not in text,'Native loading artwork was misreported as a portable HD failure'
 
     assert result.returncode == 0 and 'local-ui: PASS' in text, text[-4000:]
     if a.saved_player_count:assert 'local-ui-stage: 12 ' not in text,'Saved count was not applied at VS entry'
