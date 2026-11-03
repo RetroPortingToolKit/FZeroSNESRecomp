@@ -27,6 +27,8 @@ def main():
     p.add_argument('--keyboard',action='store_true',help='Exercise four distinct keybinds.ini layouts through the host keyboard path')
     p.add_argument('--hd-parity',action='store_true',help='Compare sampled actual GPU output pixels against the portable renderer')
     p.add_argument('--hd-scale',type=int,default=8)
+    p.add_argument('--hd-supersample',type=int,choices=(1,2,3,4),default=1)
+    p.add_argument('--hd-full-target',action='store_true',help='Exercise full raster presentation instead of visible samples')
     p.add_argument('--stock-only',action='store_true',help='Qualify native courses without the optional Astra import')
     p.add_argument('--cup',type=int,default=0)
     p.add_argument('--bs-tracks',action='store_true')
@@ -52,6 +54,7 @@ def main():
     config = config.replace('SkipLauncher=0', 'SkipLauncher=1')
     if a.keyboard:
         config=re.sub(r'(?mi)^SourceP[1-4]\s*=.*$', '', config)
+        if '[Controller]' not in config:config+='\n[Controller]\n'
         config=config.replace('[Controller]', '[Controller]\n'+''.join(f'SourceP{i}=1\n' for i in range(1,5)))
     if a.menu_music:
         config=re.sub(r'(?m)^(\s*Volume\s*=).*$',r'\g<1>0',config)
@@ -63,7 +66,7 @@ def main():
         (stage/'keybinds.ini').write_text(''.join(f'[player{p+1}]\n'+''.join(f'{b}={keys[p*12+i]}\n' for i,b in enumerate(buttons)) for p in range(4)),encoding='utf-8')
     (stage / 'fzero-video.ini').write_text(
         f'[FZeroVideo]\nEnhancedRenderer=1\nAspect=Fit\nPresentationEnabled=1\nPresentationFPS={a.fps}\n'
-        f'Mode7Enabled={int(not a.native)}\nMode7Scale={a.hd_scale}\nBSVehicles=0\nBSTracks={int(a.bs_tracks)}\nCGPCars={7 if a.full_profile else 0}\nCGPStockRebalance={15 if a.full_profile else 0}\n'
+        f'Mode7Enabled={int(not a.native)}\nMode7Scale={a.hd_scale}\nMode7Supersample={a.hd_supersample}\nBSVehicles=0\nBSTracks={int(a.bs_tracks)}\nCGPCars={7 if a.full_profile else 0}\nCGPStockRebalance={15 if a.full_profile else 0}\n'
         'LocalTwoPlayer=1\nAlwaysShowRecords=1\nCrashReplay=1\nDiagnostics=1\n')
     shots = out / 'images'
     shots.mkdir()
@@ -80,6 +83,7 @@ def main():
                SNESRECOMP_INPUT_SCRIPT='300-302:32,330-332:32,360-362:32,390-392:8',
                SNESRECOMP_AUTOCLOSE_FRAMES='5000')
     if a.hd_parity:env['FZERO_TEST_HD_PARITY']='1'
+    if a.hd_full_target:env['FZERO_HD_FULL_TARGET']='1'
     if a.keyboard:env['FZERO_TEST_LOCAL_UI_KEYBOARD']='1'
     if not a.no_contact_fixture:env['FZERO_TEST_TRAFFIC_CONTACT']='1'
     if a.menu_music:
@@ -106,6 +110,12 @@ def main():
     if a.hd_parity:
         checks=re.findall(r'\[fzero-hd-parity\].*mismatches=(\d+)',text)
         assert checks and all(int(n)==0 for n in checks),'Actual game CPU/GPU pixel parity failed'
+        if a.players>2 and not a.native:
+            grids=re.findall(r'\[fzero-grid-parity\] panes=(\d+).*scale=(\d+) mismatches=(\d+)',text)
+            assert grids and all(int(p)==a.players and int(m)==0 and int(s)==a.hd_scale for p,s,m in grids),'GPU grid composition failed or silently fell back'
+            for pane in range(a.players):
+                assert re.search(rf'\[fzero-hd-parity\].*mismatches=0 .*pane={pane}\b',text),f'No actual GPU parity check for camera{pane+1}'
+
     assert result.returncode == 0 and 'local-ui: PASS' in text, text[-4000:]
     if a.saved_player_count:assert 'local-ui-stage: 12 ' not in text,'Saved count was not applied at VS entry'
     assert (shots / 'live-menu-frame.bmp').exists(), 'Live menu was not displayed'
@@ -116,7 +126,7 @@ def main():
         assert 'local-ui-keyboard: four layouts, movement and menu ownership PASS' in text
     else:
         assert 'local-ui-reconnect: neutral disconnect, continuing peers, same-seat recovery PASS' in text
-    report=dict(passed=True,keyboard=a.keyboard,observed_scales=sorted({int(n) for n in re.findall(r'local-ui-image:.* scale=(\d+)',text)}),players=a.players,cup=a.cup,native=a.native,hd_scale=a.hd_scale,bs_tracks=a.bs_tracks,contact_fixture=not a.no_contact_fixture,
+    report=dict(passed=True,keyboard=a.keyboard,observed_scales=sorted({int(n) for n in re.findall(r'local-ui-image:.* scale=(\d+)',text)}),players=a.players,cup=a.cup,native=a.native,hd_scale=a.hd_scale,hd_supersample=a.hd_supersample,hd_full_target=a.hd_full_target,bs_tracks=a.bs_tracks,contact_fixture=not a.no_contact_fixture,
                 sha256=hashlib.sha256((stage/'F-Zero Forever.exe').read_bytes()).hexdigest())
     (out/'result.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
     source='keyboard layouts' if a.keyboard else 'SDL gamepads'

@@ -430,3 +430,28 @@ SnesHdFrame *FzeroVersusVideoPrepareHd(FzeroVersusVideo *v,uint32_t *native,
 fail:
   free(foreground); SnesHdFrameDestroy(jobs); return NULL;
 }
+
+unsigned FzeroVersusVideoPrepareHdGrid(FzeroVersusVideo *v,uint32_t *native,
+    FzeroViewport whole,double alpha,SnesHdFrame *frames[FZERO_MAX_PLAYERS]) {
+  if (!frames) return 0;
+  for (unsigned i=0;i<FZERO_MAX_PLAYERS;++i) frames[i]=NULL;
+  if (!v || !v->valid || !native || v->state.config.player_count<3 ||
+      whole.width<512 || whole.width>2*FZERO_MAX_WIDTH || (whole.width&1)) return 0;
+  FzeroViewport pane=whole;pane.width/=2;pane.extra=(pane.width-256)/2;
+  size_t count=(size_t)pane.width*224;
+  uint32_t *small=malloc(count*sizeof(*small));if(!small)return 0;
+  memset(native,0,(size_t)whole.width*448*sizeof(*native));
+  bool ok=true;v->local_grid=true;
+  unsigned players=v->state.config.player_count;
+  for (unsigned p=0;p<players && ok;++p) {
+    frames[p]=FzeroVersusVideoPrepareHd(v,small,pane,alpha,(int)p);
+    ok=frames[p]!=NULL;
+    for (unsigned y=0;y<224 && ok;++y)
+      memcpy(native+(p/2*224+y)*whole.width+p%2*pane.width,
+          small+(size_t)y*pane.width,pane.width*sizeof(*small));
+  }
+  v->local_grid=false;free(small);
+  if(ok)return players;
+  for(unsigned i=0;i<FZERO_MAX_PLAYERS;++i) {SnesHdFrameDestroy(frames[i]);frames[i]=NULL;}
+  return 0;
+}

@@ -140,6 +140,18 @@ void NORETURN Die(const char *error) {
 
 #define GLSL_CODE(...) #__VA_ARGS__
 
+static unsigned g_local_players=2;
+/* Equal integer-sized grid panes make visible-sample rendering agree with
+ * full-atlas nearest presentation. Odd windows leave at most one edge pixel. */
+static FzeroRect fzero_game_destination(FzeroViewport viewport,int width,int height) {
+  FzeroRect r=FzeroDestination(viewport,width,height);
+  if(FzeroLocalEnabled() && !FzeroOnlineEnabled() && g_local_players>2) {
+    if(r.w>1)r.w&=~1;
+    if(r.h>1)r.h&=~1;
+  }
+  return r;
+}
+
 typedef struct FzeroGlRenderer {
   SDL_Window *window;
   SDL_GLContext context;
@@ -157,6 +169,9 @@ typedef struct FzeroGlRenderer {
   size_t hd_portable_capacity;
   bool hd_fallback_reported;
   bool hd_visible_samples;
+  unsigned hd_effective_scale;
+  GlTextureWithSize hd_grid;
+  GLuint hd_grid_draw,hd_grid_read;
 } FzeroGlRenderer;
 
 static void fzero_gl_prepare_window(void) {
@@ -288,9 +303,10 @@ static int g_selftest_failed;
 
 /* Sparse real-game CPU/GPU oracle, enabled only during explicit automated QA.
  * Read back the bounded presenter texture, never the requested64x raster. */
-static bool fzero_gl_hd_check(const SnesHdFrame *jobs,const SnesHdGpuImage *image,unsigned scale) {
-  static unsigned frames;
-  if(!getenv("FZERO_TEST_HD_PARITY") || frames++%90)return true;
+static bool fzero_gl_hd_check(const SnesHdFrame *jobs,const SnesHdGpuImage *image,unsigned scale,unsigned pane) {
+  static unsigned frames[FZERO_MAX_PLAYERS+1];
+  if(pane>FZERO_MAX_PLAYERS)return false;
+  if(!getenv("FZERO_TEST_HD_PARITY") || frames[pane]++%90)return true;
   SnesHdView v;if(!SnesHdFrameView(jobs,&v))return false;
   size_t bytes=(size_t)image->width*image->height*4;
   uint32_t *pixels=malloc(bytes);if(!pixels)return false;
@@ -315,22 +331,117 @@ static bool fzero_gl_hd_check(const SnesHdFrame *jobs,const SnesHdGpuImage *imag
     if(!ok || (pixels[(size_t)y*image->width+x]&0xffffff)!=(expected&0xffffff))++bad;
     ++checked;
   }
-  fprintf(stderr,"[fzero-hd-parity] scale=%u source=%ux%u target=%ux%u checked=%u mismatches=%u fractional_camera=%u\n",
-      scale,v.width,v.height,image->width,image->height,checked,bad,fractional_camera);
+  fprintf(stderr,"[fzero-hd-parity] scale=%u source=%ux%u target=%ux%u checked=%u mismatches=%u fractional_camera=%u pane=%u\n",
+      scale,v.width,v.height,image->width,image->height,checked,bad,fractional_camera,pane);
   free(pixels);if(bad)g_selftest_failed=1;return bad==0;
 }
 
 static bool fzero_gl_hd(FzeroGlRenderer *glr,const SnesHdFrame *jobs,
-    unsigned scale,int display_width,int display_height,GlTextureWithSize *output) {
+    unsigned scale,int display_width,int display_height,GlTextureWithSize *output,unsigned pane) {
   SnesHdGpuImage image;
   bool visible=!glr->shader && !g_config.linear_filtering && !getenv("FZERO_HD_FULL_TARGET");
   if (!SnesHdGpuRender(glr->hd_gpu,jobs,scale,(unsigned)display_width,
       (unsigned)display_height,visible,(size_t)2*1024*1024*1024,
       NULL,0,NULL,0,&image)) return false;
-  if(!fzero_gl_hd_check(jobs,&image,scale))return false;
+  if(!fzero_gl_hd_check(jobs,&image,scale,pane))return false;
   glr->hd_visible_samples=image.visible_samples;
+  SnesHdView view;SnesHdFrameView(jobs,&view);
+  glr->hd_effective_scale=image.visible_samples?scale:image.width/view.width;
   *output=(GlTextureWithSize){image.texture,image.width,image.height};
   return true;
+}
+
+/* The shared sampler renders immutable cameras independently. Only this
+ * title owns their 2x2 layout; blitting into one atlas also lets existing
+ * display filters and shaders see the same complete image as native output. */
+static bool fzero_gl_hd_grid(FzeroGlRenderer *glr,unsigned logical_width,
+    unsigned display_width,unsigned display_height,GlTextureWithSize *output) {
+  unsigned players=FzeroGpuHdGridCount();
+  if(players<3 || players>FZERO_MAX_PLAYERS || !display_width || !display_height)return false;
+  const bool visible=!glr->shader && !g_config.linear_filtering && !getenv("FZERO_HD_FULL_TARGET");
+  unsigned width=display_width,height=display_height,scale=glr->hd_requested_scale;
+  const size_t budget=(size_t)512*1024*1024;
+  GLint max_texture;glGetIntegerv(GL_MAX_TEXTURE_SIZE,&max_texture);
+  if(!visible) {
+    SnesHdView view;unsigned w,h;
+    if(!SnesHdFrameView(FzeroGpuHdGridFrame(0),&view) ||
+        !SnesHdGpuAdmit(glr->hd_gpu,view.width,view.height,scale,budget,&w,&h))return false;
+    width=w*2;height=h*2;
+  }
+  while(width>(unsigned)max_texture || height>(unsigned)max_texture ||
+      (uint64_t)width*height*4>budget) {width/=2;height/=2;}
+  if(width<2 || height<2)return false;
+  GLint draw,read,active,binding,unpack,pack;GLboolean mask[4];GLfloat clear[4];
+  glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING,&draw);glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING,&read);
+  glGetIntegerv(GL_ACTIVE_TEXTURE,&active);glActiveTexture(GL_TEXTURE0);
+  glGetIntegerv(GL_TEXTURE_BINDING_2D,&binding);
+  glGetIntegerv(GL_PIXEL_UNPACK_BUFFER_BINDING,&unpack);glBindBuffer(GL_PIXEL_UNPACK_BUFFER,0);
+  glGetIntegerv(GL_PIXEL_PACK_BUFFER_BINDING,&pack);glBindBuffer(GL_PIXEL_PACK_BUFFER,0);
+  GLboolean scissor=glIsEnabled(GL_SCISSOR_TEST),srgb=glIsEnabled(GL_FRAMEBUFFER_SRGB);
+  glGetBooleanv(GL_COLOR_WRITEMASK,mask);glGetFloatv(GL_COLOR_CLEAR_VALUE,clear);
+  if(!glr->hd_grid.gl_texture)glGenTextures(1,&glr->hd_grid.gl_texture);
+  if(!glr->hd_grid_draw)glGenFramebuffers(1,&glr->hd_grid_draw);
+  if(!glr->hd_grid_read)glGenFramebuffers(1,&glr->hd_grid_read);
+  glBindTexture(GL_TEXTURE_2D,glr->hd_grid.gl_texture);
+  if(glr->hd_grid.width!=width || glr->hd_grid.height!=height) {
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_S,GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_WRAP_T,GL_CLAMP_TO_EDGE);
+    glTexImage2D(GL_TEXTURE_2D,0,GL_RGBA8,width,height,0,GL_RGBA,GL_UNSIGNED_BYTE,NULL);
+    glr->hd_grid.width=(uint16)width;glr->hd_grid.height=(uint16)height;
+  }
+  glBindFramebuffer(GL_DRAW_FRAMEBUFFER,glr->hd_grid_draw);
+  glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,glr->hd_grid.gl_texture,0);
+  bool ok=glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER)==GL_FRAMEBUFFER_COMPLETE;
+  glDisable(GL_SCISSOR_TEST);glDisable(GL_FRAMEBUFFER_SRGB);glColorMask(GL_TRUE,GL_TRUE,GL_TRUE,GL_TRUE);
+  glClearColor(0,0,0,1);glClear(GL_COLOR_BUFFER_BIT);
+  static unsigned frames;bool check=getenv("FZERO_TEST_HD_PARITY") && frames++%90==0;
+  unsigned mismatches=0;
+  for(unsigned p=0;p<players && ok;++p) {
+    unsigned x0=p%2*(width/2),x1=p%2?width:width/2;
+    unsigned y0=p/2*(height/2),y1=p/2?height:height/2;
+    SnesHdGpuImage image;const SnesHdFrame *jobs=FzeroGpuHdGridFrame(p);
+    ok=SnesHdGpuRender(glr->hd_gpu,jobs,scale,x1-x0,y1-y0,true,budget,NULL,0,NULL,0,&image);
+    if(!ok || !fzero_gl_hd_check(jobs,&image,scale,p)) {ok=false;break;}
+    glBindFramebuffer(GL_READ_FRAMEBUFFER,glr->hd_grid_read);
+    glFramebufferTexture2D(GL_READ_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,image.texture,0);
+    glReadBuffer(GL_COLOR_ATTACHMENT0);
+    ok=glCheckFramebufferStatus(GL_READ_FRAMEBUFFER)==GL_FRAMEBUFFER_COMPLETE;
+    uint32_t expected[9];
+    if(check)for(unsigned y=0;y<3;++y)for(unsigned x=0;x<3;++x) {
+      unsigned dx=x*(x1-x0-1)/2,dy=y*(y1-y0-1)/2;
+      unsigned sx=(unsigned)(((uint64_t)dx*2+1)*image.width/(2*(x1-x0)));
+      unsigned sy=(unsigned)(((uint64_t)dy*2+1)*image.height/(2*(y1-y0)));
+      glReadPixels(sx,sy,1,1,GL_BGRA,GL_UNSIGNED_BYTE,&expected[y*3+x]);
+    }
+    glBlitFramebuffer(0,0,image.width,image.height,x0,y0,x1,y1,GL_COLOR_BUFFER_BIT,GL_NEAREST);
+    if(check) {
+      glBindFramebuffer(GL_READ_FRAMEBUFFER,glr->hd_grid_draw);glReadBuffer(GL_COLOR_ATTACHMENT0);
+      for(unsigned y=0;y<3;++y)for(unsigned x=0;x<3;++x) {
+        uint32_t actual;glReadPixels(x0+x*(x1-x0-1)/2,y0+y*(y1-y0-1)/2,1,1,GL_BGRA,GL_UNSIGNED_BYTE,&actual);
+        mismatches+=(actual&0xffffff)!=(expected[y*3+x]&0xffffff);
+      }
+    }
+  }
+  if(check && players==3) {
+    glBindFramebuffer(GL_READ_FRAMEBUFFER,glr->hd_grid_draw);glReadBuffer(GL_COLOR_ATTACHMENT0);
+    for(unsigned y=0;y<3;++y)for(unsigned x=0;x<3;++x) {
+      uint32_t empty;glReadPixels(width/2+x*(width-width/2-1)/2,height/2+y*(height-height/2-1)/2,1,1,GL_BGRA,GL_UNSIGNED_BYTE,&empty);
+      mismatches+=(empty&0xffffff)!=0;
+    }
+  }
+  if(check) {fprintf(stderr,"[fzero-grid-parity] panes=%u target=%ux%u scale=%u mismatches=%u\n",players,width,height,scale,mismatches);if(mismatches)g_selftest_failed=1;}
+  ok=ok && !mismatches && glGetError()==GL_NO_ERROR;
+  glBindFramebuffer(GL_READ_FRAMEBUFFER,(GLuint)read);glBindFramebuffer(GL_DRAW_FRAMEBUFFER,(GLuint)draw);
+  if(scissor)glEnable(GL_SCISSOR_TEST);if(srgb)glEnable(GL_FRAMEBUFFER_SRGB);
+  glColorMask(mask[0],mask[1],mask[2],mask[3]);glClearColor(clear[0],clear[1],clear[2],clear[3]);
+  glBindTexture(GL_TEXTURE_2D,(GLuint)binding);glActiveTexture((GLenum)active);
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER,(GLuint)unpack);glBindBuffer(GL_PIXEL_PACK_BUFFER,(GLuint)pack);
+  if(!ok)return false;
+  glr->hd_visible_samples=visible;
+  glr->hd_effective_scale=visible?scale:width/logical_width;
+  *output=glr->hd_grid;return true;
 }
 
 static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
@@ -339,14 +450,15 @@ static void fzero_gl_render(FzeroGlRenderer *glr, const uint8_t *pixels,
   uint64_t diagnostic_start = FzeroDiagnosticsBegin();
   GlTextureWithSize image=glr->texture;
   int pane_width=g_compare_mode7?drawable_width/2:drawable_width;
-  FzeroRect rect = FzeroDestination(viewport, pane_width, drawable_height);
+  FzeroRect rect = fzero_game_destination(viewport, pane_width, drawable_height);
   const SnesHdFrame *jobs=FzeroGpuHdFrame();SnesHdView job_view;
-  bool hd=jobs && SnesHdFrameView(jobs,&job_view) &&
+  bool hd=FzeroGpuHdGridCount() && fzero_gl_hd_grid(glr,(unsigned)logical_width,rect.w,rect.h,&image);
+  if(!hd)hd=jobs && SnesHdFrameView(jobs,&job_view) &&
       job_view.width==(unsigned)logical_width && job_view.height==(unsigned)logical_height &&
-      fzero_gl_hd(glr,jobs,glr->hd_requested_scale,rect.w,rect.h,&image);
+      fzero_gl_hd(glr,jobs,glr->hd_requested_scale,rect.w,rect.h,&image,FZERO_MAX_PLAYERS);
   if (!hd && g_compare_mode7 && jobs)Die("Mode 7 comparison requires the HD GPU renderer");
   if (!hd || g_compare_mode7) {
-  if (!hd && FzeroGpuHdFrame() && !glr->hd_fallback_reported) {
+  if (!hd && (FzeroGpuHdFrame() || FzeroGpuHdGridCount()) && !glr->hd_fallback_reported) {
     fprintf(stderr,"[fzero-hd] GPU jobs unavailable; native presentation for this session\n");
     glr->hd_fallback_reported=true;
   }
@@ -443,6 +555,9 @@ static void fzero_gl_draw_overlay(FzeroGlRenderer *glr, const uint32_t *panel,
 
 static void fzero_gl_destroy(FzeroGlRenderer *glr) {
   if (!glr->context) { free(glr->hd_portable); memset(glr,0,sizeof(*glr)); return; }
+  if(glr->hd_grid.gl_texture)glDeleteTextures(1,&glr->hd_grid.gl_texture);
+  if(glr->hd_grid_draw)glDeleteFramebuffers(1,&glr->hd_grid_draw);
+  if(glr->hd_grid_read)glDeleteFramebuffers(1,&glr->hd_grid_read);
   SnesHdGpuDestroy(glr->hd_gpu);
   free(glr->hd_portable);
   if (glr->shader) GlslShader_Destroy(glr->shader);
@@ -1143,7 +1258,6 @@ static int hotkey_matches(const FzeroHotkey *hk, SDL_Keycode key, Uint16 mod) {
  * The guest is FROZEN while a panel is up: the modal loops below never call
  * RtlRunFrame, which is the only way "save right here" names a definite point
  * in time. */
-static unsigned g_local_players=2;
 static FzeroViewport local_viewport(const FzeroVideoSettings *s,int w,int h,bool local) {
   if(g_compare_mode7)w/=2;
   unsigned columns=local && g_local_players>2?2:1;
@@ -1290,7 +1404,7 @@ static void present_frame(const FzeroPresenter *p, const uint32_t *panel,
   SDL_SetRenderDrawColor(p->renderer, 0, 0, 0, 255);
   SDL_RenderClear(p->renderer);
   FzeroRect rect =
-      FzeroDestination(display_viewport, p->drawable_width, p->drawable_height);
+      fzero_game_destination(display_viewport, p->drawable_width, p->drawable_height);
   SDL_Rect destination = {rect.x, rect.y, rect.w, rect.h};
   snesrecomp_sdl_render_texture(p->renderer, p->texture, &source, &destination);
   overlay_draw_sdl(p, panel, pw, ph, is_menu);
@@ -2281,11 +2395,10 @@ static int run_game(int argc, char **argv) {
         .fullscreen = (SDL_GetWindowFlags(window) & SNESRECOMP_SDL_WINDOW_FULLSCREEN_DESKTOP) != 0,
         .suspended = suspended, .scene = g_ram[0x54], .subscene = g_ram[0x55]
       };
-      if (use_gl_renderer && gl_renderer.hd_gpu && FzeroGpuHdFrame()) {
+      if (use_gl_renderer && gl_renderer.hd_gpu && (FzeroGpuHdFrame() || FzeroGpuHdGridCount())) {
         SnesHdGpuReadStats(gl_renderer.hd_gpu,false,&diagnostic_frame.hd_gpu);
         if (diagnostic_frame.hd_gpu.output_width)
-          diagnostic_frame.effective_scale=gl_renderer.hd_visible_samples?gl_renderer.hd_requested_scale:
-              diagnostic_frame.hd_gpu.output_width/(unsigned)logical_width;
+          diagnostic_frame.effective_scale=gl_renderer.hd_effective_scale;
       }
       diagnostic_frame.controller_attached=pad && SDL_GameControllerGetAttached(pad);
       if(diagnostic_frame.controller_attached) {

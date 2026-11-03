@@ -48,3 +48,6 @@ bool FzeroLocalRestore(const void *input,size_t size);
  * handles remain host-owned; the resulting complete session is captured. */
 uint64_t FzeroLocalEpoch(void);
 void FzeroLocalControlChanged(void);
+
+unsigned FzeroLocalPrepareHdGrid(uint32_t *native,FzeroViewport viewport,
+    double alpha,SnesHdFrame *frames[FZERO_MAX_PLAYERS]);

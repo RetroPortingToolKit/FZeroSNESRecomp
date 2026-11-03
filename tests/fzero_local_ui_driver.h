@@ -21,7 +21,7 @@ static uint16_t local_ui_drive_start[FZERO_MAX_PLAYERS][2];
 static uint64_t local_ui_traffic_tick;
 static unsigned local_ui_traffic_contacts,local_ui_traffic_explosive,local_ui_reconnect;
 static const unsigned local_ui_resize_ticks[]={10,65,125,220,260};
-static const int local_ui_sizes[][2]={{600,800},{1342,1378},{1280,720},{1600,600},{768,576}};
+static const int local_ui_sizes[][2]={{600,800},{1343,1379},{1280,720},{1600,600},{768,576}};
 static unsigned local_ui_players(void) {
   const char *n=getenv("FZERO_TEST_LOCAL_PLAYERS");unsigned count=n?(unsigned)atoi(n):2;
   return count>=2 && count<=4?count:2;
