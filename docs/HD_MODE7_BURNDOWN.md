@@ -21,9 +21,10 @@ The outcome is a visibly convincing HD Mode 7 implementation, stable in motion,
 with understandable controls and practical runtime cost. Prefer replacing or
 simplifying a failing renderer over accumulating exceptions around it.
 
-This document is a plan. **0/12 acceptance areas are resolved in this pass.**
-Creating this matrix does not count as resolving an area. No new rendering
-implementation, performance result or release is claimed here.
+This is the active plan and decision record. **1/12 acceptance areas is
+resolved; 11 remain open.** HD-01 has a source-audited product contract.
+The first implementation candidates and their limits are recorded below;
+no overall visual, performance or release acceptance is claimed.
 
 ## Separate the concepts before changing the renderer
 
@@ -97,11 +98,11 @@ as needed. Preserve native in-game saves.
 mandatory visual outcome. Each row needs its own result, source identity and
 concise evidence link. All rows start open; known limitations are called out.
 
-| ID | Area / ownership | Decision and acceptance evidence | Initial status |
+| ID | Area / ownership | Decision and acceptance evidence | Current status |
 | --- | --- | --- | --- |
-| HD-01 | Feature contract — F-Zero + launcher | Map every visible control to its real effect. Retire separate general internal resolution unless a matched scene demonstrates useful additional detail outside HD Mode 7. End with one unambiguous set of controls. | Open; removal recommended, not yet a measured disposition. |
+| HD-01 | Feature contract — F-Zero + launcher | Map every visible control to its real effect. Retire separate general internal resolution unless a matched scene demonstrates useful additional detail outside HD Mode 7. End with one unambiguous set of controls. | Resolved contract: no independent whole-game internal-resolution feature exists to retain. Keep HD detail and Edge smoothing; display size/filtering/FPS stay separate. Runtime UI/default qualification is HD-11. |
 | HD-02 | Active path and effective quality — adapter + engine | Trace native/HD selection in actual races, results and unsupported scenes. Show that the road is resampled from course data, and distinguish a configured multiplier from a fallback or cap. Silent native fallback must not masquerade as active HD. | Open; fallback and multiplayer caps exist. |
-| HD-03 | Perspective geometry — shared engine | Match independent bsnes-hd road shape, horizon and depth across straight and turning views. Fix systematic edge displacement, bends or horizon bands. Compare replacing the current fitted-plane approach with a reference-aligned alternative; evaluate substantial reuse where technically suitable. | Open; previous sampled improvements did not establish overall acceptance. |
+| HD-03 | Perspective geometry — shared engine | Match independent bsnes-hd road shape, horizon and depth across straight and turning views. Fix systematic edge displacement, bends or horizon bands. Compare replacing the current fitted-plane approach with a reference-aligned alternative; evaluate substantial reuse where technically suitable. | Open: reciprocal-anchor candidate improves all seven aligned 4x full-frame comparisons; continuous motion and remaining scene gates are unqualified. |
 | HD-04 | Source coordinates and texels — engine + F-Zero maps | Verify pixel centers, fractional rows, negative coordinates, wrapping, flips, tile boundaries and full-course/cache transitions. Independently known source coordinates must select the expected texels. No wrong course blocks or road seams. | Open. |
 | HD-05 | Composition and original artwork — engine + adapter | Preserve vehicle/HUD/text detail, palette, brightness, priority, windows and native effects. Check menus, demo, records and results separately. Any intentional full-course extension must be distinguished from an ordinary reference-view mismatch. | Open. |
 | HD-06 | Aliasing and supersampling — shared engine | Match the expected reduction of jagged road edges and moving stripe shimmer with equivalent reference settings. Preserve original artwork; do not conceal geometry defects with blur or a new default texture-smoothing filter. Select useful quality/cost levels. | Open; exposing a slider was not quality qualification. |
@@ -112,7 +113,7 @@ concise evidence link. All rows start open; known limitations are called out.
 | HD-11 | Controls, defaults and updates — F-Zero + launcher | Implement HD-01's chosen controls; verify fresh installation, persistence and requested/effective quality. Native display scaling must not be presented as recovered Mode 7 detail. Choose defaults from accepted results rather than a large multiplier. | Open. |
 | HD-12 | Player acceptance and release — F-Zero | Present representative matched stills and motion to the owner/regular players, retaining individual Pass/Fail/Deferred notes. Close known visual failures and run affected gameplay/save/load/rewind checks before an HD quality release claim. | Open; overall visual acceptance currently fails. |
 
-**Current result: 0 accepted, 12 open.** Preparation, builds, screenshots and
+**Current result: 1 resolved contract, 11 open.** Preparation, builds, screenshots and
 CPU/GPU agreement are supporting evidence, not additional completed rows.
 
 ## Representative test matrix
@@ -196,6 +197,59 @@ For each row, append its actual decision, commit, measured/observed change and
 existing evidence location to this matrix. Retain useful evidence and clean
 disposable captures/installs. No new collector, dashboard, general profiler or
 large benchmark sweep is a prerequisite for starting HD-01/02.
+
+## First evaluated candidates, 2026-11-03
+
+HD-01 is resolved as a product decision: the source audit found no independent
+whole-scene internal-resolution control. WindowScale changes display size;
+Mode7Scale resamples original track data; Mode7Supersample adds samples per
+axis; display filtering and presentation cadence remain independent. The shared
+HD controls now say **HD detail** and **Edge smoothing**. No redundant slider
+is added. HD-11 still requires actual launcher/default/effective-path validation;
+the retained 1..64 range and8x default are not yet newly qualified.
+
+Two concrete correctness candidates are implemented on the isolated branches:
+
+- Restore the authored additive distance haze in single-player races/results.
+  A previous full-row override removed it. Six aligned native comparisons fall
+  from mean RGB channel errors around3.8 to0.065..0.261. Up to122 pixels still
+  differ by more than one channel step, so this does not claim full native
+  pixel parity. The original PPU capture independently aligns with the emulator.
+  New race/results haze tests pass; existing VS-specific haze/shadow isolation
+  stays tested.
+- Suppress half-color math when main color is clipped to black, consistently
+  in both native PPU implementations, portable HD and GPU. Independently known
+  colors catch the old error; the full PPU suite passes. Shared commit
+  `28f260c4`, issue`beads-8wg.2.194`. Broader built-consumer qualification and
+  upstream integration remain pending.
+
+A generic reciprocal-depth anchor candidate (`eddeda4c`) replaces the
+least-squares fit. Both compared variants include the same restored haze.
+At4x, supersampling off, seven aligned straight/corner full-frame RGB MAE
+values change respectively:
+`2.844 ->0.771`, `9.355 ->2.962`, `6.275 ->3.168`, `5.794 ->1.740`,
+`4.437 ->0.474`, `13.069 ->0.535`, `11.693 ->0.559`.
+All seven improve; this is candidate evidence, not HD-03 closure.
+
+The remaining horizon difference is included in those full-frame scores.
+A VRAM-only diagnostic isolates much of it to negative coordinates: bsnes-hd
+truncates toward zero while our native/HD sampler floors. At8x/frame1630,
+changing only that conversion temporarily reduces horizon RGB MAE16.236 to
+1.658 and channels differing by more than8 from14.684% to0.00355%.
+The diagnostic was reverted; preserve floor semantics and separately review
+intentional full-course extension and native5-bit color policy. Do not adopt a
+rounding discrepancy solely to improve emulator image scores.
+
+Checks passed: seven shared PPU tests, independent clipping/half-color cases,
+772 GPU region comparisons, non-GPU compile, F-Zero renderer and mod tests.
+These are correctness checks; they are not a runtime performance measurement.
+Continuous motion, multiplayer quality/effective caps, smoothing, representative
+built shared consumers, defaults and human review remain open.
+
+[The compact evidence index](../captures/hd-quality-burndown-20261103/evidence.json)
+links source/binary identities, declared regions, all per-frame full/horizon/
+near-road numbers and retained raw evidence. Existing reference captures/tools
+were reused. The owner's live preview and delivered ZIPs are untouched.
 
 ## References
 

@@ -583,6 +583,42 @@ static void test_explosion_slots(void) {
   }
 }
 
+/* Native distance haze is authored per raster line. HD may refine the road,
+ * but must not discard this additive color math in single-player/results.
+ * VS removes the frozen guest haze separately when capturing its own camera. */
+static void test_single_player_distance_haze(void) {
+  static uint32_t native[FZERO_MAX_WIDTH * 224], hd[FZERO_MAX_WIDTH * 224 * 16];
+  for (unsigned results = 0; results < 2; ++results) {
+    setup();
+    p.cgram[1] = 10 * 0x421;
+    p.windowsel = 0x280000; p.cgwsel = 0x10;
+    ram[0x55] = 3;
+    if (results) { ram[0x54] = 3; ram[0x5f] = 0x80; }
+    FzeroRendererBeginFrame(ram, 1);
+    for (unsigned y = 0; y < 224; ++y) {
+      unsigned haze = y < 85 ? (84-y)/4 : 0;
+      if (haze > 8) haze = 8;
+      p.cgadsub = y < 86 ? 0x23 : 0xa1;
+      p.fixedColor = (y < 86 ? haze : 5) * 0x421;
+      p.window1left = y < 85 ? 0 : 106;
+      p.window1right = y < 85 ? 255 : 149;
+      FzeroRendererCaptureLine(&p, y+1);
+    }
+    FzeroRendererEndFrame(&p, stock);
+    const FzeroViewport v = {256, 0, 4.0/3.0, false};
+    CHECK(FzeroRendererDrawPresentation(native, hd, sizeof(hd)/sizeof(*hd), v, 1, 4));
+    const unsigned rows[] = {48, 60, 76, 84, 180};
+    for (unsigned i = 0; i < sizeof(rows)/sizeof(*rows); ++i) {
+      unsigned y = rows[i], level = y < 85 ? 10 + (84-y)/4 : 5;
+      if (level > 18) level = 18;
+      unsigned expected = palette_rgb(level * 0x421);
+      CHECK(native[y*256+128] == expected);
+      CHECK(hd[(y*4+1)*1024+128*4+1] == expected);
+    }
+    check_prepared_jobs(NULL, v, 1);
+  }
+}
+
 static void test_hd_mode7(void) {
   static uint32_t hd[FZERO_MAX_WIDTH * 224 * FZERO_HD_SCALE_MAX * FZERO_HD_SCALE_MAX + 2];
   setup();
@@ -752,8 +788,12 @@ static void test_hd_composition_cache(void) {
       /* With integral transforms, each HD pixel's center subpixel lands on
        * the exact native texel. The native compositor is the independent
        * oracle for windows, OBJ priority, transparency and colour math. */
-      for (int y = 0; y < 224; ++y) for (int x = 0; x < v.width; ++x)
-        CHECK(hd[1 + ((size_t)y * scale * v.width + x) * scale + (scale/2)*v.width*scale + scale/2] == native[1 + y * v.width + x]);
+      for (int y = 0; y < 224; ++y) for (int x = 0; x < v.width; ++x) {
+        unsigned actual=hd[1 + ((size_t)y * scale * v.width + x) * scale + (scale/2)*v.width*scale + scale/2];
+        unsigned expected=native[1 + y * v.width + x];
+        if (actual!=expected) fprintf(stderr,"composition scenario=%u scale=%u x=%d y=%d actual=%06x expected=%06x\n",scenario,scale,x,y,actual,expected);
+        CHECK(actual==expected);
+      }
       CHECK(FzeroRendererDrawHd(hd_only, hd_count, v, 1, scale));
       CHECK(!memcmp(hd + 1, hd_only, hd_count * sizeof(*hd)));
     }
@@ -1067,6 +1107,7 @@ int main(void) {
   test_course_streaming();
   test_player_spark();
   test_explosion_slots();
+  test_single_player_distance_haze();
   test_hd_mode7();
   test_supersampling();
   test_hd_results();

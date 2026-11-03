@@ -735,14 +735,6 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
       continue;
     }
     int mode = scanout->bgmode & 7;
-    if(mode==7 && (world || result_scenery) && !(scanout->cgadsub&128)) {
-      bool full_row=true;
-      const int points[]={0,255,scanout->window1left,scanout->window1right+1,
-                          scanout->window2left,scanout->window2right+1};
-      for(unsigned i=0;i<sizeof(points)/sizeof(*points);++i)if(points[i]<256 &&
-          window_condition((scanout->cgwsel>>4)&3,in_window(scanout,5,points[i],0)))full_row=false;
-      if(full_row)scanout->cgadsub&=~0x23u; /* Keep localized shadow/HUD math. */
-    }
     if (!scenery || (mode != 1 && mode != 7)) {
       /* Flat selection/loading screens keep their original centered artwork,
        * but their backdrop, fades and colour windows cover the full viewport. */
