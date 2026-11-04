@@ -1,5 +1,12 @@
 ﻿# Changelog
 
+## 0.18.1 - HD shader compatibility
+
+- Use valid GLSL identifiers in the shared HD shader. Strict shader compilers
+  rejected a reserved variable name and could disable GPU HD rendering.
+- Log HD shader-program link failures and add a reference-compiler check for
+  the register, affine and coordinate shaders.
+
 ## 0.18.0 - Qualified HD Mode 7 and multiplayer GPU views
 
 - Restore the continuous perspective HD Mode 7 renderer after the 0.17.0
