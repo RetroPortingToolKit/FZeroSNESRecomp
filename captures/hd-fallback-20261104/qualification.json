@@ -76,5 +76,13 @@
       "tester_case": "BriefWindowsAMDelectricaledge misalignment notidentifiedorqualified by thisrun"
     },
     "required": "Exact failing screenshot/clip and native replay/diagnostics from tester. Existing sampledGPUreference may help attribute GPU-vs-commongeometry; zero sparsemismatches alone doesnot ruleout theartifact."
+  },
+  "skyline_report": {
+    "image_sha256": "f030c841a6692dd51d128f4e0922fe139bd99036d528d1cd4b43e77c1b74ac42",
+    "observation": "Cropped skyline and partialCOURSESELECTheading. Owner relays backgroundgoingcrazy but is unsure what the tester means.",
+    "classification": "Unconfirmed moving-background symptom; crop doesnot establish corruption or relation to electrical-edge report.",
+    "source_findings": "Skyline/nonMode7rows use native background composition/panorama extension rather than HD road coordinate sampling. This narrows inspection but doesnot prove cause.",
+    "needed": "Short full-window recording plus whetherCOURSESELECTmenu or race and exact course. Existing diagnostic launcher/replay request remains useful.",
+    "code_changes": "None; no geometry/scrolling change without reproducer."
   }
 }
