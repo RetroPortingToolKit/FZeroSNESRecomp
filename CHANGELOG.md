@@ -1,11 +1,14 @@
 ﻿# Changelog
 
-## 0.18.1 - HD shader compatibility
+## 0.18.1 - HD compatibility and original CGP horizon shading
 
 - Use valid GLSL identifiers in the shared HD shader. Strict shader compilers
   rejected a reserved variable name and could disable GPU HD rendering.
 - Log HD shader-program link failures and add a reference-compiler check for
   the register, affine and coordinate shaders.
+- Restore CGP's authored native fog transition at the skyline through its
+  required pack module. Keep stock shading on other courses and preserve
+  existing course records. This applies with HD off as well.
 
 ## 0.18.0 - Qualified HD Mode 7 and multiplayer GPU views
 
