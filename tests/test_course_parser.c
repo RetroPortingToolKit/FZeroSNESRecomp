@@ -39,7 +39,7 @@ static unsigned resource(unsigned size) {
 static void requirements(void) {
   const char *path = "course-requirements-test.layout";
   const char *cases[] = {
-      "require=all|grip-magnets\nrequire=1|up-magnets\nrequire=1|rainbow-road\nmusic=108000\nspc=1|mute-city\nintro_glyph=a7|0f8da2|0f8db2\nmsu_source=astra-front\nmsu=1|10\n",
+      "require=all|grip-magnets\nrequire=all|soft-horizon-fog\nrequire=1|up-magnets\nrequire=1|rainbow-road\nmusic=108000\nspc=1|mute-city\nintro_glyph=a7|0f8da2|0f8db2\nmsu_source=astra-front\nmsu=1|10\n",
       "require=all|unknown\n", "require=2|up-magnets\n",
       "require=128|up-magnets\n", "require=-1|up-magnets\n",
       "require=+1|up-magnets\n", "require=|up-magnets\n",
@@ -73,7 +73,7 @@ static void requirements(void) {
     bool valid = FzeroCourseLayoutRead(path, &layout, error, sizeof(error));
     CHECK(valid == (i == 0));
     if (valid) {
-      CHECK(layout.required == FZERO_COURSE_GRIP_MAGNETS);
+      CHECK(layout.required == (FZERO_COURSE_GRIP_MAGNETS | FZERO_COURSE_SOFT_HORIZON_FOG));
       CHECK(!layout.course_required[0]);
       CHECK(layout.course_required[1] == (FZERO_COURSE_UP_MAGNETS | FZERO_COURSE_RAINBOW));
       CHECK(layout.music == 0x108000 && !layout.spc_override[0] && layout.spc_override[1] == 1);
@@ -188,6 +188,28 @@ int main(void) {
   l.required = l.course_required[0] = 0;
   CHECK(FzeroCourseExtract(rom, sizeof(rom), &l, 0, c, error, sizeof(error)));
   CHECK(!memcmp(c->hash, previous->hash, 32));
+  /* Presentation requirements retain record identity and restore stock data
+   * when leaving the owning pack. Only the six authored bytes may change. */
+  l.required = FZERO_COURSE_SOFT_HORIZON_FOG;
+  CHECK(FzeroCourseExtract(rom, sizeof(rom), &l, 0, c, error, sizeof(error)));
+  CHECK(!memcmp(c->hash, previous->hash, 32));
+  uint8_t *fog_rom = malloc(0x80000);
+  CHECK(fog_rom != NULL);
+  memset(fog_rom, 0xaa, 0x80000);
+  CHECK(!FzeroCourseApplyHorizonFog(c, NULL, 0x80000));
+  CHECK(!FzeroCourseApplyHorizonFog(c, fog_rom, 0x46fce));
+  CHECK(fog_rom[0x46f9f] == 0xaa);
+  CHECK(FzeroCourseApplyHorizonFog(c, fog_rom, 0x80000));
+  CHECK(!memcmp(fog_rom + 0x46f9f, "\x61\x63\x68", 3));
+  CHECK(!memcmp(fog_rom + 0x46fcc, "\xe1\xe4\xe8", 3));
+  CHECK(fog_rom[0x46f9e] == 0xaa && fog_rom[0x46fa2] == 0xaa);
+  CHECK(fog_rom[0x46fcb] == 0xaa && fog_rom[0x46fcf] == 0xaa);
+  CHECK(FzeroCourseApplyHorizonFog(NULL, fog_rom, 0x80000));
+  CHECK(!memcmp(fog_rom + 0x46f9f, "\x6a\x6c\x6e", 3));
+  CHECK(!memcmp(fog_rom + 0x46fcc, "\xe6\xe7\xe8", 3));
+  free(fog_rom);
+  l.required = 0;
+  CHECK(FzeroCourseExtract(rom, sizeof(rom), &l, 0, c, error, sizeof(error)));
   /* Audio must be bounded, can explicitly select song zero, and must never
    * strand existing course records by changing their gameplay key. */
   CHECK(!c->has_music);

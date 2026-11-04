@@ -24,11 +24,11 @@ void FzeroCourseHash(FzeroCourse *c) {
     memcpy(key + 34, c->palette_cycles, 14);
     sha256_compute(key, sizeof(key), c->hash);
   }
-  if (c->required) {
+  if (c->required & FZERO_COURSE_GAMEPLAY_FEATURES) {
     uint8_t key[34];
     memcpy(key, c->hash, 32);
     key[32] = 0xc1;
-    key[33] = c->required;
+    key[33] = c->required & FZERO_COURSE_GAMEPLAY_FEATURES;
     sha256_compute(key, sizeof(key), c->hash);
   }
 }

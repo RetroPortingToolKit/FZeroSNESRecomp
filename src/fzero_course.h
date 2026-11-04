@@ -7,7 +7,9 @@ enum {
   FZERO_COURSE_GRIP_MAGNETS = 1,
   FZERO_COURSE_UP_MAGNETS = 2,
   FZERO_COURSE_RAINBOW = 4,
-  FZERO_COURSE_FEATURES = 7
+  FZERO_COURSE_SOFT_HORIZON_FOG = 8,
+  FZERO_COURSE_GAMEPLAY_FEATURES = 7,
+  FZERO_COURSE_FEATURES = 15
 };
 
 /* Decoded resources, never executable donor bytes. One adapter feeds the
@@ -53,3 +55,5 @@ bool FzeroCourseLayoutRead(const char *path, FzeroCourseLayout *out, char *error
 bool FzeroCourseExtract(const uint8_t *rom, size_t size, const FzeroCourseLayout *layout,
                         unsigned index, FzeroCourse *out, char *error, size_t cap);
 void FzeroCourseCyclePalette(const FzeroCourse *course, uint8_t palette[0xe0]);
+/* Authored native HDMA data, independent of HD rendering and texture filtering. */
+bool FzeroCourseApplyHorizonFog(const FzeroCourse *course, uint8_t *rom, size_t size);

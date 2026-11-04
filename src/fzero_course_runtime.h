@@ -8,6 +8,7 @@ bool FzeroTracksCurrentMusic(char *out, size_t cap);
 bool FzeroTracksCurrentMusicKey(char *pack, size_t cap, unsigned *index);
 unsigned FzeroTracksRequiredFeatures(void);
 void FzeroTracksRefreshCourse(void);
+void FzeroTracksRefreshPresentation(void);
 void FzeroTracksInstallHooks(void);
 bool FzeroTracksRuntimeSelect(unsigned index);
 unsigned FzeroTracksRuntimeCount(void);

@@ -142,7 +142,8 @@ bool FzeroCourseLayoutRead(const char *path, FzeroCourseLayout *out, char *error
       *feature++ = 0;
       unsigned flag = !strcmp(feature, "grip-magnets") ? FZERO_COURSE_GRIP_MAGNETS
                       : !strcmp(feature, "up-magnets") ? FZERO_COURSE_UP_MAGNETS
-                      : !strcmp(feature, "rainbow-road") ? FZERO_COURSE_RAINBOW : 0;
+                      : !strcmp(feature, "rainbow-road") ? FZERO_COURSE_RAINBOW
+                      : !strcmp(feature, "soft-horizon-fog") ? FZERO_COURSE_SOFT_HORIZON_FOG : 0;
       if (!flag) {
         fclose(f);
         return fail(error, cap, "Unsupported required course feature");
@@ -458,11 +459,11 @@ bool FzeroCourseExtract(const uint8_t *r, size_t n, const FzeroCourseLayout *l, 
       memcpy(extended + 34, c->palette_cycles, 14);
       sha256_compute(extended, sizeof(extended), c->hash);
     }
-    if (c->required) {
+    if (c->required & FZERO_COURSE_GAMEPLAY_FEATURES) {
       uint8_t extended[34];
       memcpy(extended, c->hash, 32);
       extended[32] = 0xc1;
-      extended[33] = c->required;
+      extended[33] = c->required & FZERO_COURSE_GAMEPLAY_FEATURES;
       sha256_compute(extended, sizeof(extended), c->hash);
     }
     *out = *c;
@@ -470,4 +471,17 @@ bool FzeroCourseExtract(const uint8_t *r, size_t n, const FzeroCourseLayout *l, 
   free(c);
   return ok ? true
             : fail(e, cap, "Course resources contain invalid pointers, sizes or checkpoints");
+}
+
+bool FzeroCourseApplyHorizonFog(const FzeroCourse *c, uint8_t *rom, size_t size) {
+  if (!rom || size < 0x46fcf) return false;
+  /* Smooth_Fog.asm changes the first three native fog scanlines at
+   * $08:EF9F/$08:EFCC. Restore USA shading for every other course, including
+   * stock courses and state loads across packs. These are data bytes only. */
+  static const uint8_t native[6] = {0x6a, 0x6c, 0x6e, 0xe6, 0xe7, 0xe8};
+  static const uint8_t authored[6] = {0x61, 0x63, 0x68, 0xe1, 0xe4, 0xe8};
+  const uint8_t *values = c && (c->required & FZERO_COURSE_SOFT_HORIZON_FOG) ? authored : native;
+  memcpy(rom + 0x46f9f, values, 3);
+  memcpy(rom + 0x46fcc, values + 3, 3);
+  return true;
 }

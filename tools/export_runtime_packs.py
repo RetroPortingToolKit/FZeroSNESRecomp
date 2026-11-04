@@ -71,7 +71,7 @@ def _export_pack(stock, result, base, root, exporter, priority, ident, data, nat
                 sections[key]=resource[at:at+size];at+=size
             metadata=sections[17]
             entry=dict(id=tid,name=name,source=f'courses/{tid}.fzc',
-                       requires=[label for bit,label in [(1,'grip-magnets'),(2,'up-magnets'),(4,'rainbow-road')] if metadata[16]&bit])
+                       requires=[label for bit,label in [(1,'grip-magnets'),(2,'up-magnets'),(4,'rainbow-road'),(8,'soft-horizon-fog')] if metadata[16]&bit])
             if metadata[17]: entry['music']=dict(spc=metadata[18]//9)
             if metadata[19]: entry.setdefault('music',{}).update(soundtrack=sections[16].split(b'\0')[0].decode(),track=metadata[19])
             manifest['courses'].append(entry)
@@ -103,7 +103,11 @@ def _export_pack(stock, result, base, root, exporter, priority, ident, data, nat
         path.write_text(json.dumps(module,indent=2)+'\n',encoding='utf-8')
         return path.relative_to(root).as_posix()
     if common:
-        manifest['mechanics']=[mechanic_module('terrain',common)]
+        appearance=common&{'soft-horizon-fog'}
+        terrain=common-appearance
+        manifest['mechanics']=[]
+        if terrain: manifest['mechanics'].append(mechanic_module('terrain',terrain))
+        if appearance: manifest['mechanics'].append(mechanic_module('horizon',appearance))
     for course in manifest['courses']:
         extra=set(course['requires'])-common
         course['requires']=[] # Explicitly replace embedded extraction metadata.
