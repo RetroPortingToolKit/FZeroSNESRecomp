@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-## Unreleased
+## 0.18.0 - Qualified HD Mode 7 and multiplayer GPU views
 
 - Restore the continuous perspective HD Mode 7 renderer after the 0.17.0
   rollback received worse visual feedback. Retain P3/P4 launcher controls,

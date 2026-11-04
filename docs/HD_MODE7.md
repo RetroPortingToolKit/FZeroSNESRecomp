@@ -41,8 +41,8 @@ scaling. Linear filtering and shader presets can require larger bounded GPU
 targets; hardware limits can reduce effective detail. Native snapshots and
 debug frames remain native-sized.
 
-The [quality burndown](HD_MODE7_BURNDOWN.md) records the independent bsnes-hd
+The [quality burndown](https://github.com/RetroPortingToolKit/FZeroSNESRecomp/blob/main/docs/HD_MODE7_BURNDOWN.md) records the independent bsnes-hd
 comparisons, owner observations, multiplayer checks and measured runtime costs.
 Those results cover the tested scenes and machines; higher settings do not
 guarantee a particular frame rate on every host. Historical CPU measurements
-remain in [HD_MODE7_PERFORMANCE.md](HD_MODE7_PERFORMANCE.md).
+remain in [HD_MODE7_PERFORMANCE.md](https://github.com/RetroPortingToolKit/FZeroSNESRecomp/blob/main/docs/HD_MODE7_PERFORMANCE.md).

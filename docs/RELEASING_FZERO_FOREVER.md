@@ -29,15 +29,18 @@ Use the plain version without a `fzero-55-preview` label.
 
 ## Current release
 
-The delivered tester build is **0.17.0**: four-seat launcher controls, a saved
-local player-count dropdown and optional user-supplied finish fanfare. It
-restores the exact 0.15.0 HD rendering adapter and engine, retaining the GPU
-sampler and worker pool. Both editions keep courses, credits, optional MSU
-music and prebuilt caches. Track this release under `beads-8wg.5.124`.
+**0.18.0** packages the accepted HD quality burndown: reconstructed perspective,
+exact nearest presentation, GPU cameras for every local player, separate
+2x/4x/8x detail and Off/2-sample smoothing, and a records return-fade fix.
+Fresh defaults are adaptive Fit, 4x detail, smoothing off and automatic FPS;
+explicit saved settings remain unchanged. Four-seat controls, the player-count
+dropdown and user-supplied finish fanfare remain available.
 
-Development has returned to the new continuous perspective renderer at the
-owner's request (`beads-8wg.5.125`), retaining the multiplayer setup and sound
-features. The current local preview does not replace the delivered ZIPs.
+Both editions retain course sources, credits and freshly generated prebuilt
+caches. Only the with-MSU edition includes approved CGP/Astra recordings;
+neither includes personal callout WAVs. Shared engine `fb8cf15d` and launcher
+`b13c876` are frozen to the accepted implementation. Release tracking:
+`beads-8wg.5.127`; quality qualification: `beads-8wg.5.126`.
 
 ## Preparing a release
 
