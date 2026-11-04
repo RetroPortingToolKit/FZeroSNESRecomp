@@ -1,6 +1,7 @@
 #include "fzero_versus_video.h"
 #include "fzero_ship.h"
 #include "fzero_native_ui.h"
+#include "render_workers.h"
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,8 @@ struct FzeroVersusVideo {
   unsigned opacity[FZERO_MAX_PLAYERS+FZERO_TRAFFIC_COUNT];
   FzeroNativeUi ui;
   bool valid, interpolate, local_grid;
+  SnesRenderWorkers *prepare_workers;
+  bool workers_attempted;
   unsigned menu_selection,result_ticks,menu_owner;
   uint32_t minimap[32*64];
   uint8_t map_marker[64];
@@ -54,6 +57,7 @@ FzeroVersusVideo *FzeroVersusVideoCreate(void) {
 }
 void FzeroVersusVideoDestroy(FzeroVersusVideo *v) {
   if(!v)return;
+  SnesRenderWorkersDestroy(v->prepare_workers);
   for(unsigned i=0;i<FZERO_MAX_PLAYERS;++i)FzeroRenderViewDestroy(v->views[i]);free(v);
 }
 void FzeroVersusVideoReset(FzeroVersusVideo *v) {
@@ -429,4 +433,49 @@ SnesHdFrame *FzeroVersusVideoPrepareHd(FzeroVersusVideo *v,uint32_t *native,
   free(foreground); return jobs;
 fail:
   free(foreground); SnesHdFrameDestroy(jobs); return NULL;
+}
+
+typedef struct FzeroGridPrepare {
+  FzeroVersusVideo *video;
+  uint32_t *native;
+  SnesHdFrame **frames;
+  FzeroViewport pane;
+  unsigned width;
+  double alpha;
+  bool ok[FZERO_MAX_PLAYERS];
+} FzeroGridPrepare;
+static void prepare_grid_cameras(void *context,size_t begin,size_t end,unsigned slot) {
+  (void)slot;FzeroGridPrepare *b=context;
+  size_t count=(size_t)b->pane.width*224;
+  uint32_t *small=malloc(count*sizeof(*small));if(!small)return;
+  for(size_t p=begin;p<end;++p) {
+    b->frames[p]=FzeroVersusVideoPrepareHd(b->video,small,b->pane,b->alpha,(int)p);
+    b->ok[p]=b->frames[p]!=NULL;
+    for(unsigned y=0;y<224 && b->ok[p];++y)
+      memcpy(b->native+(p/2*224+y)*b->width+p%2*b->pane.width,
+          small+(size_t)y*b->pane.width,b->pane.width*sizeof(*small));
+  }
+  free(small);
+}
+unsigned FzeroVersusVideoPrepareHdGrid(FzeroVersusVideo *v,uint32_t *native,
+    FzeroViewport whole,double alpha,SnesHdFrame *frames[FZERO_MAX_PLAYERS]) {
+  if (!frames) return 0;
+  for (unsigned i=0;i<FZERO_MAX_PLAYERS;++i) frames[i]=NULL;
+  if (!v || !v->valid || !native || v->state.config.player_count<3 ||
+      whole.width<512 || whole.width>2*FZERO_MAX_WIDTH || (whole.width&1)) return 0;
+  FzeroViewport pane=whole;pane.width/=2;pane.extra=(pane.width-256)/2;
+  if(!v->workers_attempted) {v->prepare_workers=SnesRenderWorkersCreate(0);v->workers_attempted=true;}
+  FzeroGridPrepare batch={.video=v,.native=native,.frames=frames,.pane=pane,.width=whole.width,.alpha=alpha};
+  memset(native,0,(size_t)whole.width*448*sizeof(*native));
+  v->local_grid=true;
+  unsigned players=v->state.config.player_count;
+  bool ok=SnesRenderWorkersRun(v->prepare_workers,players,1,prepare_grid_cameras,&batch);
+  v->local_grid=false;
+  for(unsigned p=0;p<players;++p)ok=batch.ok[p] && ok;
+  if(ok)return players;
+  for(unsigned i=0;i<FZERO_MAX_PLAYERS;++i) {SnesHdFrameDestroy(frames[i]);frames[i]=NULL;}
+  return 0;
+}
+unsigned FzeroVersusVideoWorkerCount(const FzeroVersusVideo *v) {
+  return SnesRenderWorkersCount(v?v->prepare_workers:NULL);
 }

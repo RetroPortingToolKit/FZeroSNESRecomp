@@ -444,7 +444,7 @@ int main(int argc, char **argv) {
   bool configured_music=versus?FzeroMsuConfigureVersus(music,
       !FzeroMsuHasLegacyPatch(music),argv[1]):
       FzeroMsuConfigure(music,FzeroRuleEnabled(FZERO_RULE_MSU),argv[1]);
-  if(!FzeroCalloutsConfigure(capture_video.lap_callouts,capture_video.lap_boost_wav,capture_video.final_lap_wav,capture_video.lap_boost_second_lap_only))return 11;
+  if(!FzeroCalloutsConfigure(capture_video.lap_callouts,capture_video.lap_boost_wav,capture_video.final_lap_wav,capture_video.lap_boost_second_lap_only,capture_video.finish_wav))return 11;
   if(versus && music_requested)
     capture_video.gameplay.enabled|=1u<<FZERO_RULE_MSU;
   if (!configured_music) {

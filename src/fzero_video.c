@@ -16,13 +16,13 @@ static const char *const aspect_names[] = {"4:3", "16:9", "21:9", "32:9", "Fit"}
  * stock baseline (headless captures, tools) call FzeroVideoStock(). */
 void FzeroVideoDefaults(FzeroVideoSettings *s) {
   *s = (FzeroVideoSettings){.enhanced = true, .aspect = FZERO_ASPECT_FIT,
-                            .fps = 0, .fps_enabled = true, .local_two_player = true,
-                            .hd_mode7 = true, .hd_scale = kSnesHdDefaultScale, .hd_supersample = 1, .diagnostics = false, .crash_replay = true,
+                            .fps = 0, .fps_enabled = true, .local_two_player = true, .local_players = 2,
+                            .hd_mode7 = true, .hd_scale = 4, .hd_supersample = 1, .diagnostics = false, .crash_replay = true,
                             .gameplay = {.enabled=FZERO_RULE_DEFAULT_MASK, .tuning=2, .boost=2, .exhaust=2, .stock_rebalance=15, .always_records=true}};
 }
 
 void FzeroVideoStock(FzeroVideoSettings *s) {
-  *s = (FzeroVideoSettings){.aspect = FZERO_ASPECT_STOCK, .hd_scale = 2, .hd_supersample = 1, .gameplay = {.tuning=2, .boost=2, .exhaust=2}};
+  *s = (FzeroVideoSettings){.aspect = FZERO_ASPECT_STOCK, .local_players = 2, .hd_scale = 2, .hd_supersample = 1, .gameplay = {.tuning=2, .boost=2, .exhaust=2}};
 }
 
 const char *FzeroAspectName(FzeroAspect aspect) {
@@ -45,8 +45,7 @@ bool FzeroValidFps(unsigned fps) {
 }
 
 bool FzeroValidHdScale(unsigned scale) {
-  /* Portable CPU presentation is bounded to 1..10x; the GPU/UI supports
-   * 1..64x. At 1x, supersampling may still improve Mode 7 geometry. */
+  /* 1x may still use independent supersampling. CPU raster stays bounded. */
   return scale >= 1 && scale <= FZERO_HD_SCALE_MAX;
 }
 
@@ -115,6 +114,7 @@ bool FzeroVideoLoad(FzeroVideoSettings *s, const char *path) {
     const char *text=NULL;char *path=NULL;
     if(!strncmp(line,"LapBoostWav=",12)){text=line+12;path=s->lap_boost_wav;}
     if(!strncmp(line,"FinalLapWav=",12)){text=line+12;path=s->final_lap_wav;}
+    if(!strncmp(line,"FinishWav=",10)){text=line+10;path=s->finish_wav;}
     if(path) {
       size_t n=strcspn(text,"\r\n");
       if(n>=sizeof(s->lap_boost_wav)){valid=false;continue;}
@@ -145,6 +145,9 @@ bool FzeroVideoLoad(FzeroVideoSettings *s, const char *path) {
       if(!SnesHdParseSampling(value,&s->hd_supersample))valid=false;
     } else if (!strcmp(key, "Mode7Scale")) {
       if (!FzeroParseHdScale(value, &s->hd_scale)) valid = false;
+    } else if (!strcmp(key,"LocalPlayers")) {
+      if(strlen(value)==1 && value[0]>='2' && value[0]<='4')s->local_players=(unsigned)(value[0]-'0');
+      else valid=false;
     } else if (!strcmp(key,"LocalTwoPlayer")) {
       if(!strcmp(value,"0") || !strcmp(value,"1"))s->local_two_player=value[0]=='1';
       else valid=false;
@@ -215,6 +218,8 @@ bool FzeroVideoLoad(FzeroVideoSettings *s, const char *path) {
 }
 
 bool FzeroVideoSave(const FzeroVideoSettings *s, const char *path) {
+  if(s->local_players<2 || s->local_players>4)return false;
+  if(!memchr(s->finish_wav,0,sizeof(s->finish_wav)) || strpbrk(s->finish_wav,"\r\n"))return false;
   if(!memchr(s->lap_boost_wav,0,sizeof(s->lap_boost_wav)) ||
       !memchr(s->final_lap_wav,0,sizeof(s->final_lap_wav)) ||
       strpbrk(s->lap_boost_wav,"\r\n") || strpbrk(s->final_lap_wav,"\r\n"))return false;
@@ -230,6 +235,7 @@ bool FzeroVideoSave(const FzeroVideoSettings *s, const char *path) {
   if (fprintf(f, "AlwaysShowRecords=%d\n", s->gameplay.always_records) < 0) ok = false;
   if (fprintf(f, "CrashReplay=%d\n", s->crash_replay) < 0) ok = false;
   if (fprintf(f,"LocalTwoPlayer=%d\n",s->local_two_player)<0)ok=false;
+  if(fprintf(f,"LocalPlayers=%u\nFinishWav=%s\n",s->local_players,s->finish_wav)<0)ok=false;
   if(fprintf(f,"LapCallouts=%d\nLapBoostSecondLapOnly=%d\nLapBoostWav=%s\nFinalLapWav=%s\n",
       s->lap_callouts,s->lap_boost_second_lap_only,s->lap_boost_wav,s->final_lap_wav)<0)ok=false;
   if (fclose(f)) ok = false;

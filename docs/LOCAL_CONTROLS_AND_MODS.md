@@ -1,9 +1,10 @@
 # F-Zero Forever controls and mods
 
 Choose each player's input source in the launcher's **Controls** page before
-playing: for example, P1 Keyboard and P2 the selected Switch Pro controller.
-**Local Multiplayer** defaults on in Mods. Press Play, select **VS MODE**, and
-choose two, three or four players before confirming the machines. Two racers
+playing: Player 1 through Player 4 each have their own source and binding page.
+**Local Multiplayer** defaults on in Mods. Its **Players** dropdown saves a
+two-, three- or four-player default. Press Play, select **VS MODE**, and choose
+your machines. Y in the machine picker can still change the count. Two racers
 use top/bottom views; three or four use a 2x2 grid, with the fourth cell black
 in 3P. Each player selects and readies their own machine.
 

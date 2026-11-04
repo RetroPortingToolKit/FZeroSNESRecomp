@@ -735,14 +735,6 @@ static void render_lines(void *opaque, size_t begin, size_t end, unsigned slot) 
       continue;
     }
     int mode = scanout->bgmode & 7;
-    if(mode==7 && (world || result_scenery) && !(scanout->cgadsub&128)) {
-      bool full_row=true;
-      const int points[]={0,255,scanout->window1left,scanout->window1right+1,
-                          scanout->window2left,scanout->window2right+1};
-      for(unsigned i=0;i<sizeof(points)/sizeof(*points);++i)if(points[i]<256 &&
-          window_condition((scanout->cgwsel>>4)&3,in_window(scanout,5,points[i],0)))full_row=false;
-      if(full_row)scanout->cgadsub&=~0x23u; /* Keep localized shadow/HUD math. */
-    }
     if (!scenery || (mode != 1 && mode != 7)) {
       /* Flat selection/loading screens keep their original centered artwork,
        * but their backdrop, fades and colour windows cover the full viewport. */
@@ -1009,7 +1001,13 @@ static bool render_frame(FzeroRenderView *view, uint32_t *out, FzeroViewport vie
     .world = world, .race_hud = race_hud, .interpolate = interpolate,
     .jobs = jobs, .picture = picture, .tilemap = tilemap, .jobs_ok = true
   };
-  return SnesRenderWorkersRun(pool, 224, 8, render_lines, &batch) && batch.jobs_ok;
+  /* Native packet preparation may already be one task in a camera batch.
+   * No row pool is needed there; calling even a NULL worker pool would be
+   * a nested submission and is deliberately rejected by the shared API. */
+  if(pool) {
+    if(!SnesRenderWorkersRun(pool,224,8,render_lines,&batch))return false;
+  } else render_lines(&batch,0,224,0);
+  return batch.jobs_ok;
 }
 
 bool FzeroRenderViewDraw(FzeroRenderView *view, uint32_t *out, FzeroViewport viewport, double alpha) {

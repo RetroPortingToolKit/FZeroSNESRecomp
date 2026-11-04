@@ -57,6 +57,21 @@ int main(int argc,char **argv) {
   const RecompLauncherCModProvider *p = FzeroModsProvider(&s, "test-mods.ini", true);
   RecompLauncherCModFeature w, f;
   RecompLauncherCModOption option;
+  /* A configured request must not conceal a measured portable fallback,
+   * or carry that stale result into a different quality setting. */
+  s.hd_mode7=true;s.hd_scale=8;s.hd_supersample=1;
+  FzeroModsNoteHdScale(8,1,2);
+  CHECK(p->feature_get(NULL,3,&f) && !strcmp(f.status,"Last race: 2x (8x requested)"));
+  s.hd_scale=4;
+  CHECK(p->feature_get(NULL,3,&f) && !strcmp(f.status,"Enabled"));
+  FzeroModsNoteHdScale(4,1,0);
+  CHECK(p->feature_get(NULL,3,&f) && !strcmp(f.status,"Last race: native rendering"));
+  s.hd_supersample=2;
+  CHECK(p->feature_get(NULL,3,&f) && !strcmp(f.status,"Enabled"));
+  FzeroModsNoteHdScale(4,2,4);
+  CHECK(p->feature_get(NULL,3,&f) && !strcmp(f.status,"Last race: 4x HD detail"));
+  FzeroVideoStock(&s);
+  CHECK(p->feature_get(NULL,3,&f) && !strcmp(f.status,"Native resolution"));
   const CpCatalog *catalog = FzeroTracksCatalog();
   CHECK(p->package_count(NULL) == 6 + FZERO_RULE_COUNT && p->feature_count(NULL) == p->package_count(NULL));
   for(int i=0;i<p->feature_count(NULL);++i) {
@@ -90,12 +105,12 @@ int main(int argc,char **argv) {
       CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini") && loaded.lap_boost_second_lap_only);
       CHECK(p->feature_option_get(NULL,pack.package_id,pack.id,0,&option) && !strcmp(option.value,"lap-2-only"));
       CHECK(p->feature_set_option(NULL,pack.package_id,pack.id,option.id,"every-lap") && !s.lap_boost_second_lap_only);
-      CHECK(p->feature_resource_count(NULL,pack.package_id,pack.id)==2);
+      CHECK(p->feature_resource_count(NULL,pack.package_id,pack.id)==3);
       CHECK(!p->feature_enable(NULL,pack.package_id,pack.id,1));
-      for(int cue=0;cue<2;++cue) {
+      for(int cue=0;cue<3;++cue) {
         RecompLauncherCModResource resource;
         CHECK(p->feature_resource_get(NULL,pack.package_id,pack.id,cue,&resource));
-        CHECK(resource.required && !resource.verified && !strcmp(resource.file_patterns,"*.wav"));
+        CHECK(resource.required==(cue<2) && !resource.verified && !strcmp(resource.file_patterns,"*.wav"));
         CHECK(!p->feature_resource_set_path(NULL,pack.package_id,pack.id,resource.id,"missing.wav"));
         CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,resource.id,""));
       }
@@ -104,6 +119,9 @@ int main(int argc,char **argv) {
         CHECK(!p->feature_enable(NULL,pack.package_id,pack.id,1));
         CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,"final-lap",argv[2]));
         CHECK(p->feature_enable(NULL,pack.package_id,pack.id,1) && s.lap_callouts);
+        CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,"finish",argv[2]));
+        CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini") && !strcmp(loaded.finish_wav,argv[2]));
+        CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,"finish","") && s.lap_callouts);
         CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini"));
         CHECK(loaded.lap_callouts && !strcmp(loaded.lap_boost_wav,argv[1]) && !strcmp(loaded.final_lap_wav,argv[2]));
         CHECK(p->feature_resource_set_path(NULL,pack.package_id,pack.id,"boost-power","") && !s.lap_callouts);
@@ -112,7 +130,20 @@ int main(int argc,char **argv) {
       CHECK(p->feature_enable(NULL,pack.package_id,pack.id,0));continue;
     }
     if(!strcmp(pack.id,"local-2p")) {
-      CHECK(!strcmp(pack.package_id,"fzero-local-2p") && !strcmp(pack.group,"Game Modes"));
+      CHECK(!strcmp(pack.package_id,"fzero-local-2p") && !strcmp(pack.group,"Game Modes") && pack.option_count==1);
+      CHECK(p->feature_option_get(NULL,pack.package_id,pack.id,0,&option));
+      CHECK(!strcmp(option.id,"players") && !strcmp(option.value,"2") && option.choice_count==3);
+      for(int choice=0;choice<3;++choice) {
+        RecompLauncherCModChoice count;
+        CHECK(p->feature_choice_get(NULL,pack.package_id,pack.id,"players",choice,&count));
+        CHECK(p->feature_set_option(NULL,pack.package_id,pack.id,"players",count.value));
+        CHECK(s.local_players==(unsigned)choice+2);
+        CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini") && loaded.local_players==s.local_players);
+      }
+      CHECK(!p->feature_set_option(NULL,pack.package_id,pack.id,"players","5"));
+      CHECK(!p->feature_set_option(NULL,pack.package_id,pack.id,"players","3x"));
+      CHECK(!p->feature_option_get(NULL,pack.package_id,pack.id,1,&option));
+      CHECK(p->feature_set_option(NULL,pack.package_id,pack.id,"players","2"));
       CHECK(p->feature_enable(NULL,pack.package_id,pack.id,1));
       CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini") && loaded.local_two_player);
       CHECK(!s.gameplay.enabled && !s.bs_deluxe && !s.bs_tracks);
@@ -255,10 +286,6 @@ int main(int argc,char **argv) {
   CHECK(s.hd_mode7 && !s.enhanced && !s.fps_enabled);
   CHECK(p->feature_set_option(NULL, hd.package_id, hd.id, "scale", "4"));
   CHECK(s.hd_scale == 4);
-  CHECK(p->feature_set_option(NULL, hd.package_id, hd.id, "supersample", "3"));
-  CHECK(s.hd_supersample==3);
-  CHECK(!p->feature_set_option(NULL, hd.package_id, hd.id, "supersample", "5"));
-  CHECK(s.hd_supersample==3);
   CHECK(p->feature_get(NULL, 3, &hd) && !strstr(hd.description, "Warning:"));
   for (unsigned scale = 5; scale <= 64; ++scale) {
     char text[8]; snprintf(text, sizeof(text), "%u", scale);
@@ -272,8 +299,21 @@ int main(int argc,char **argv) {
   CHECK(!p->feature_set_option(NULL, hd.package_id, hd.id, "scale", "6.5"));
   CHECK(s.hd_scale == 64 && strstr(p->last_error(NULL), "1 to 64"));
   CHECK(p->feature_option_get(NULL, hd.package_id, hd.id, 0, &option));
-  CHECK(!strcmp(option.value, "64") && !strcmp(option.default_value, "8"));
-  CHECK(option.type == RECOMP_MOD_OPTION_INTEGER && option.min_value == 1 && option.max_value == 64);
+  CHECK(!strcmp(option.value, "64") && !strcmp(option.default_value, "4"));
+  CHECK(option.type == RECOMP_MOD_OPTION_CHOICE && option.choice_count == 4);
+  RecompLauncherCModChoice quality;
+  for(int i=0;i<3;++i) {
+    CHECK(p->feature_choice_get(NULL,hd.package_id,hd.id,"scale",i,&quality));
+    CHECK((unsigned)atoi(quality.value)==(2u<<i));
+  }
+  CHECK(p->feature_choice_get(NULL,hd.package_id,hd.id,"scale",3,&quality));
+  CHECK(!strcmp(quality.value,"64") && strstr(quality.label,"custom"));
+  CHECK(!p->feature_choice_get(NULL,hd.package_id,hd.id,"scale",4,&quality));
+  s.hd_supersample=4;
+  CHECK(p->feature_option_get(NULL,hd.package_id,hd.id,1,&option) && option.choice_count==3);
+  CHECK(p->feature_choice_get(NULL,hd.package_id,hd.id,"supersample",2,&quality));
+  CHECK(!strcmp(quality.value,"4"));
+  s.hd_supersample=1;
   RecompLauncherCModFeature deluxe;
   CHECK(p->feature_get(NULL, 2, &deluxe) && deluxe.option_count == 0);
   CHECK(p->feature_enable(NULL, deluxe.package_id, deluxe.id, 1));
@@ -308,6 +348,13 @@ int main(int argc,char **argv) {
   CHECK(p->feature_option_get(NULL,"fzero-title","title-screen",0,&option));
   CHECK(!strcmp(option.value,"original") && !strcmp(option.default_value,"original"));
   CHECK(option.choice_count==3);
+  CHECK(p->feature_option_get(NULL,"snes-hd-mode7","gpu-mode7",1,&option));
+  CHECK(!strcmp(option.id,"supersample") && option.min_value==1 && option.max_value==4);
+  CHECK(!p->feature_option_get(NULL,"snes-hd-mode7","gpu-mode7",2,&option));
+  CHECK(p->feature_set_option(NULL,"snes-hd-mode7","gpu-mode7","supersample","3"));
+  CHECK(p->commit(NULL,NULL) && FzeroVideoLoad(&loaded,"test-mods.ini") && loaded.hd_supersample==3);
+  CHECK(!p->feature_set_option(NULL,"snes-hd-mode7","gpu-mode7","supersample","0"));
+  CHECK(!p->feature_set_option(NULL,"snes-hd-mode7","gpu-mode7","supersample","5"));
   const char *screens[]={"original","cgp","max-league"};
   for (int i=0;i<3;++i) {
     RecompLauncherCModChoice choice;

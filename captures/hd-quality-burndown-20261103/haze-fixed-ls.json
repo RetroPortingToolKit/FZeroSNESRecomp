@@ -1,0 +1,56 @@
+[
+  {
+    "frame": 1630,
+    "full_rgb_mae": 9.297718593052455,
+    "full_channel_gt8_fraction": 0.08750643048967634,
+    "horizon_rgb_mae": 33.18863410623665,
+    "horizon_channel_gt8_fraction": 0.31283595419337606,
+    "near_road_rgb_mae": 5.462610652790734,
+    "near_road_channel_gt8_fraction": 0.05163042818135883
+  },
+  {
+    "frame": 1660,
+    "full_rgb_mae": 6.246569588070824,
+    "full_channel_gt8_fraction": 0.05631283351353237,
+    "horizon_rgb_mae": 24.228466588207798,
+    "horizon_channel_gt8_fraction": 0.22096239399706197,
+    "near_road_rgb_mae": 3.109874364748523,
+    "near_road_channel_gt8_fraction": 0.02757073397660137
+  },
+  {
+    "frame": 1690,
+    "full_rgb_mae": 5.784088316417876,
+    "full_channel_gt8_fraction": 0.05258460271926153,
+    "horizon_rgb_mae": 23.934724726228634,
+    "horizon_channel_gt8_fraction": 0.21995035807291666,
+    "near_road_rgb_mae": 2.5516720292580066,
+    "near_road_channel_gt8_fraction": 0.022823049061333957
+  },
+  {
+    "frame": 1720,
+    "full_rgb_mae": 4.4017577398391,
+    "full_channel_gt8_fraction": 0.04100300016857329,
+    "horizon_rgb_mae": 21.354782234909187,
+    "horizon_channel_gt8_fraction": 0.19944880558894232,
+    "near_road_rgb_mae": 1.004509617440143,
+    "near_road_channel_gt8_fraction": 0.00947730220965485
+  },
+  {
+    "frame": 1750,
+    "full_rgb_mae": 13.069508961268834,
+    "full_channel_gt8_fraction": 0.12010901314871651,
+    "horizon_rgb_mae": 30.63622107872596,
+    "horizon_channel_gt8_fraction": 0.27805269681490385,
+    "near_road_rgb_mae": 12.008272844760572,
+    "near_road_channel_gt8_fraction": 0.11195760698460822
+  },
+  {
+    "frame": 1780,
+    "full_rgb_mae": 11.66934549240839,
+    "full_channel_gt8_fraction": 0.10668364025297619,
+    "horizon_rgb_mae": 35.15638093866853,
+    "horizon_channel_gt8_fraction": 0.32742283486912394,
+    "near_road_rgb_mae": 8.578203799119636,
+    "near_road_channel_gt8_fraction": 0.07695394487523322
+  }
+]

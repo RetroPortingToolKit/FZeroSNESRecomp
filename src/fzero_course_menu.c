@@ -202,7 +202,11 @@ static void records_art(Canvas canvas, const FzeroRecordsView *view, unsigned cu
 void FzeroRecordsOverlay(uint32_t *pixels, unsigned width, unsigned height, size_t pitch,const uint8_t *ram) {
   FzeroRecordsView *v = FzeroRecordsViewState();
   if (!v || !pixels || height < 224 || height % 224 || width / (height / 224) < 256) return;
-  if (ram[0x54] || ram[0x55] < 3 || ram[0x55] > (FzeroDeluxeActive() ? 3 : 5)) return;
+  if (ram[0x54] || ram[0x55] < 2 || ram[0x55] > (FzeroDeluxeActive() ? 3 : 5)) return;
+  /* Returning from detail fades in substate2 before the overview's DMA.
+   * Keep the loaded detail labels during that fade; a first entry into
+   * records has no loaded detail page to preserve. */
+  if(ram[0x55]==2 && !v->display_detail)return;
   bool detail = v->display_detail != 0;
   unsigned brightness = g_snes->ppu->inidisp;
   Canvas c = {pixels, pitch, height / 224, (width / (height / 224) - 256) / 2,

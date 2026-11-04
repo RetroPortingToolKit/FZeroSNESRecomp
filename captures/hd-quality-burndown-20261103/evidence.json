@@ -1,0 +1,67 @@
+{
+  "status": "candidate; visual acceptance open",
+  "engine_base": "66eebe6ae415b4fb2607a22e5b12352f612e1bdf",
+  "engine_candidate": "eddeda4c9aff2527978aa49c3c4f1c76f9f0ba9c",
+  "game_base": "8b9c004",
+  "reference_core_sha256": "3e05e441f35ca21baa328094f6f9bf30645ea998ebb39956b154e160a8b00ed0",
+  "rom_sha256": "bf16c3c867c58e2ab061c70de9295b6930d63f29f81cc986f5ecae03e0ad18d2",
+  "reference_settings": {
+    "scale": 4,
+    "supersample": "none",
+    "perspective": "on (wide)",
+    "widescreen": "none",
+    "show_overscan": "ON",
+    "gamma": 100
+  },
+  "full_metrics_include_horizon": true,
+  "reference_wram_available": false,
+  "comparison_regions_native_rows": {
+    "full": [
+      0,
+      224
+    ],
+    "horizon": [
+      47,
+      86
+    ],
+    "near_road": [
+      90,
+      224
+    ]
+  },
+  "raw_evidence": "G:\\Temp\\Codex\\fzero-hd-quality-20261103",
+  "source_captures": "existing engine build/oracle/motion/candidate and game build-mode7/smoke/frame-001200.bin",
+  "checks": {
+    "engine_ppu_suite": 7,
+    "gpu_roi_comparisons": 772,
+    "gpu_portable_stub": "compile passed",
+    "fzero_renderer": "pass",
+    "fzero_mods": "pass"
+  },
+  "negative_coordinate_diagnostic": {
+    "production_floor": "retained",
+    "temporary_truncation": "reverted",
+    "frame": 1630,
+    "scale": 8,
+    "vram_only_horizon_rgb_mae_before": 16.23564734825721,
+    "vram_only_horizon_rgb_mae_after": 1.658116006443643,
+    "fraction_channels_delta_gt8_before": 0.1468380659054487,
+    "fraction_channels_delta_gt8_after": 3.547342414529915e-05
+  },
+  "remaining_gates": [
+    "continuous motion",
+    "full-course/wrap/jump scenes",
+    "supersampling",
+    "actual launcher defaults/effective paths",
+    "3P/4P GPU/cap",
+    "matched runtime cost and shared built games",
+    "owner/regular-player visual acceptance"
+  ],
+  "built_game": {
+    "source_revision": "7c2015f",
+    "engine_revision": "eddeda4c9aff2527978aa49c3c4f1c76f9f0ba9c",
+    "exe_sha256": "9286f6cec973924e373cda8432ba1b1604dd6f39d3750a4dfc08e4581966ef95",
+    "qualification": "2P actual drive, bumper contacts, reconnect/input isolation, resize, live/results restart/change/main and return to SP; sampled GPU/portable pixels all match at4x",
+    "not_a_performance_gate": "parity instrumentation enabled; no runtime win claimed"
+  }
+}

@@ -97,7 +97,13 @@ static unsigned s_hd_scale;
 static bool s_hd_ready;
 static bool s_gpu_hd;
 static SnesHdFrame *s_hd_jobs;
-static void discard_hd_jobs(void) { SnesHdFrameDestroy(s_hd_jobs); s_hd_jobs = NULL; }
+static SnesHdFrame *s_hd_grid[FZERO_MAX_PLAYERS];
+static unsigned s_hd_grid_count;
+static void discard_hd_jobs(void) {
+  SnesHdFrameDestroy(s_hd_jobs);s_hd_jobs=NULL;
+  for(unsigned i=0;i<FZERO_MAX_PLAYERS;++i) {SnesHdFrameDestroy(s_hd_grid[i]);s_hd_grid[i]=NULL;}
+  s_hd_grid_count=0;
+}
 
 static void widened_projection(CpuState *cpu, uint32_t pc) {
   (void)pc;
@@ -460,6 +466,13 @@ void FzeroPresent(double alpha) {
   }
   if(FzeroLocalSession()) {
     if (s_gpu_hd && s_output_pixels) {
+      s_hd_grid_count=FzeroLocalPrepareHdGrid((uint32_t *)s_output_pixels,s_viewport,alpha,s_hd_grid);
+      if(s_hd_grid_count) {
+        bool valid=true;
+        for(unsigned i=0;i<s_hd_grid_count;++i)valid=SnesHdFrameSeal(s_hd_grid[i]) && valid;
+        if(valid) {s_hd_ready=false;return;}
+        discard_hd_jobs();
+      }
       s_hd_jobs = FzeroLocalPrepareHd((uint32_t *)s_output_pixels,s_viewport,alpha);
       if (s_hd_jobs && SnesHdFrameSeal(s_hd_jobs)) { s_hd_ready = false; return; }
       discard_hd_jobs();
@@ -497,6 +510,9 @@ void FzeroPresent(double alpha) {
 void FzeroSetDeferredPresentation(bool deferred) { s_deferred_presentation = deferred; }
 void FzeroSetGpuHd(bool enabled) { s_gpu_hd = enabled; discard_hd_jobs(); }
 const SnesHdFrame *FzeroGpuHdFrame(void) { return s_hd_jobs; }
+unsigned FzeroGpuHdGridCount(void) {return s_hd_grid_count;}
+const SnesHdFrame *FzeroGpuHdGridFrame(unsigned player) {return player<s_hd_grid_count?s_hd_grid[player]:NULL;}
+
 
 void FzeroSetMode7Hd(unsigned scale, uint32_t *pixels, size_t capacity) {
   if (!pixels || !FzeroValidHdScale(scale)) scale = 0;

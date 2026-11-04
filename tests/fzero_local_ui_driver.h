@@ -12,7 +12,7 @@ static unsigned local_ui_stage,local_ui_step,local_ui_resizes,local_ui_captured;
 static unsigned local_ui_countdowns;
 static unsigned local_ui_setup_shots,local_ui_page;
 static unsigned local_ui_arrival_shots,local_ui_catalog_shots;
-static bool local_ui_setup;
+static bool local_ui_setup,local_ui_count_picker;
 static unsigned local_ui_cup;
 static bool local_ui_racing;
 static bool local_ui_live_captured;
@@ -20,8 +20,24 @@ static unsigned local_ui_drive_captured;
 static uint16_t local_ui_drive_start[FZERO_MAX_PLAYERS][2];
 static uint64_t local_ui_traffic_tick;
 static unsigned local_ui_traffic_contacts,local_ui_traffic_explosive,local_ui_reconnect;
+/* Explosion sound flags last one simulation tick. Observe every completed
+ * tick, including host catch-up batches, rather than missing a real impact
+ * between two presenter/input iterations on a busy machine. */
+static void local_ui_observe_traffic(void) {
+  if(!local_ui_traffic_tick)return;
+  const FzeroVersusSnapshot *s=FzeroVersusCompleted(FzeroLocalSession());
+  if(!s || s->race_tick<=local_ui_traffic_tick)return;
+  unsigned before=local_ui_traffic_contacts;
+  for(unsigned p=0;p<s->config.player_count;++p) {
+    const FzeroActor *a=&s->racers[p].actor;
+    bool response=(local_ui_traffic_explosive&(1u<<p))?((a->state&0x81)==0x81 && (a->sound_port3&8)):a->damage_cooldown!=0;
+    if(a->health<0x800 && response)local_ui_traffic_contacts|=1u<<p;
+  }
+  if(before!=local_ui_traffic_contacts && local_ui_traffic_contacts==((1u<<s->config.player_count)-1))
+    fputs("traffic-encounter: all human impacts PASS\n",stderr);
+}
 static const unsigned local_ui_resize_ticks[]={10,65,125,220,260};
-static const int local_ui_sizes[][2]={{600,800},{1342,1378},{1280,720},{1600,600},{768,576}};
+static const int local_ui_sizes[][2]={{600,800},{1343,1379},{1280,720},{1600,600},{768,576}};
 static unsigned local_ui_players(void) {
   const char *n=getenv("FZERO_TEST_LOCAL_PLAYERS");unsigned count=n?(unsigned)atoi(n):2;
   return count>=2 && count<=4?count:2;
@@ -65,7 +81,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
     int sources[4]={2,2,2,2};char guids[4][40];
     for(unsigned i=0;i<local_ui_players();++i)SDL_GUIDToString(SDL_GetJoystickGUID(local_ui_pads[i]),guids[i],40);
     if(!getenv("FZERO_TEST_LOCAL_UI_KEYBOARD"))FzeroLocalControlsAssignPlayers(controls,sources,guids,local_ui_players());
-    local_ui_stage=FzeroVersusPlayers(FzeroLocalControlsConfig(controls))==local_ui_players()?1:12;local_ui_step=0;t=0;
+    local_ui_stage=FzeroVersusPlayers(FzeroLocalControlsConfig(controls))==local_ui_players()?1:12;local_ui_step=0;t=0;local_ui_count_picker=local_ui_stage==12;
   }
   static unsigned reported=~0u;
   if(reported!=local_ui_stage) {reported=local_ui_stage;fprintf(stderr,"local-ui-stage: %u step=%u setup=%u page=%u\n",reported,t,setup,local_ui_page);fflush(stderr);}
@@ -127,6 +143,19 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
           else {local_ui_drive_start[p][0]=s->racers[p].actor.x;local_ui_drive_start[p][1]=s->racers[p].actor.y;}
         }
         unsigned tick=(unsigned)s->race_tick;
+        /* A bounded, capture-free steady interval reuses this actual-game
+         * route. Health protection keeps boundary encounters in the workload;
+         * no position, lap, checkpoint or outcome is written. */
+        if(getenv("FZERO_TEST_STEADY_TICKS") && s->phase==FZERO_VS_RACING && tick>=300) {
+          static bool started;
+          if(!started) {started=true;FzeroDiagnosticsEvent("hd_steady_begin",local_ui_players());}
+          for(unsigned p=0;p<local_ui_players();++p) {
+            FzeroVersusSnapshot *race=(FzeroVersusSnapshot *)(void *)s;
+            if(race->racers[p].status!=FZERO_VS_ACTIVE)Die("Steady workload lost an active racer");
+            race->racers[p].actor.health=0x800;
+            local_ui_button(p,SDL_GAMEPAD_BUTTON_DPAD_LEFT,((tick/120+p)&1)!=0);
+          }
+        }
         if(getenv("FZERO_TEST_TRAFFIC_CONTACT") && local_ui_drive_captured==63 && tick>=225 && !local_ui_traffic_tick) {
           /* Prepared contact encounter, not natural-driving qualification.
            * Place each human on a different moving NPC with fresh health and
@@ -146,13 +175,8 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
           local_ui_traffic_tick=s->race_tick;
           fputs("traffic-encounter: position/motion/health fixture; native contacts and rendering remain active\n",stderr);
         } else if(local_ui_traffic_tick && tick>local_ui_traffic_tick && local_ui_traffic_contacts!=((1u<<local_ui_players())-1)) {
-          for(unsigned p=0;p<local_ui_players();++p) {
-            const FzeroActor *a=&s->racers[p].actor;
-            bool response=(local_ui_traffic_explosive&(1u<<p))?((a->state&0x81)==0x81 && (a->sound_port3&8)):a->damage_cooldown!=0;
-            if(a->health<0x800 && response)local_ui_traffic_contacts|=1u<<p;
-          }
-          if(local_ui_traffic_contacts==((1u<<local_ui_players())-1))fputs("traffic-encounter: all human impacts PASS\n",stderr);
-          else if(tick>local_ui_traffic_tick+5) {fprintf(stderr,"traffic-encounter: contacts=%x explosive=%x\n",local_ui_traffic_contacts,local_ui_traffic_explosive);Die("Traffic encounter did not hit all humans");}
+          local_ui_observe_traffic();
+          if(local_ui_traffic_contacts!=((1u<<local_ui_players())-1) && tick>local_ui_traffic_tick+5) {fprintf(stderr,"traffic-encounter: contacts=%x explosive=%x\n",local_ui_traffic_contacts,local_ui_traffic_explosive);Die("Traffic encounter did not hit all humans");}
         }
         if(getenv("FZERO_TEST_LOCAL_UI_KEYBOARD")) {
           if(tick>=270 && !local_ui_reconnect) {
@@ -192,6 +216,11 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
       if(s && !(local_ui_stage==3 && getenv("FZERO_TEST_LOCAL_UI_DRIVE") && (local_ui_drive_captured!=63 || local_ui_reconnect!=4))) {
         unsigned finish=local_ui_stage==3?(getenv("FZERO_TEST_TRAFFIC_VISIBLE")?600u:
             getenv("FZERO_TEST_LOCAL_UI_DRIVE")?500u:360u):FZERO_VERSUS_COUNTDOWN+24;
+        if(local_ui_stage==3 && getenv("FZERO_TEST_STEADY_TICKS")) {
+          finish=FZERO_VERSUS_COUNTDOWN+(unsigned)strtoul(getenv("FZERO_TEST_STEADY_TICKS"),NULL,10);
+          static bool ended;
+          if(s->tick>=finish && !ended) {ended=true;FzeroDiagnosticsEvent("hd_steady_end",local_ui_players());}
+        }
         if(s->tick>=finish && s->tick<finish+12)local_ui_button(0,SDL_GAMEPAD_BUTTON_START,true);
         if(s->pause)Die("Multiplayer Start paused the race");
         if(getenv("FZERO_TEST_LOCAL_UI_LIVE")) {
@@ -238,7 +267,7 @@ static bool local_ui_tick(FzeroLocalControls *controls,SDL_Window *window) {
         if(getenv("FZERO_TEST_LOCAL_UI_LIVE") && !local_ui_live_captured)Die("Live menu was never presented");
         if(getenv("FZERO_TEST_LOCAL_UI_RESIZE") &&
            (local_ui_captured!=31 || local_ui_countdowns!=14 || !local_ui_racing))Die("UI resize/countdown presentation coverage incomplete");
-        if(local_ui_setup_shots!=(local_ui_players()>2?15u:7u))Die("UI setup-page presentation coverage incomplete");
+        if(local_ui_setup_shots!=(local_ui_count_picker?15u:7u))Die("UI setup-page presentation coverage incomplete");
         if(local_ui_arrival_shots!=7 || local_ui_catalog_shots!=3)Die("UI arrival/catalog presentation coverage incomplete");
         if(getenv("FZERO_TEST_LOCAL_UI_DRIVE") && (local_ui_drive_captured!=63 || local_ui_reconnect!=4))Die("UI drive animation coverage incomplete");
         fprintf(stderr,"local-ui: PASS native VS entry, independent local inputs, preload/Ready, live/results Restart/Change/Main Menu and single-player return\n");return true;}

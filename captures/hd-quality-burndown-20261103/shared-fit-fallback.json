@@ -1,0 +1,33 @@
+{
+  "engine_commit": "07716db3e65069e2329d4d9b7e291dda2e1df600",
+  "title_commit": "d302c30a63b9110a6273e754745e6b5e58f2a64d",
+  "anchors_only": {
+    "title_revision": "d302c30a63b9110a6273e754745e6b5e58f2a64d",
+    "engine_revision": "eddeda4c9aff2527978aa49c3c4f1c76f9f0ba9c",
+    "exe_sha256": "460e8deb6852497b4c8ae58f09f79678e13d9aa81fcc3b129909b0e24dfedcd8",
+    "analyzer_sha256": "76243aea89404f24535c960b8c8124684d6a1a6d63896e71f5208487967d1b5f",
+    "frames": 3600,
+    "backend": "DSP1 LLE"
+  },
+  "validated_fallback": {
+    "engine_revision": "07716db3e65069e2329d4d9b7e291dda2e1df600",
+    "exe_sha256": "b0b861ac8e5e767f8f7b4228427f47ec8f403a36278809a76fe79fcaa6493ace",
+    "corrected_rows": 2241,
+    "sampled_frames": 27,
+    "native_parity": true
+  },
+  "historical_validated_least_squares_rows": 1909,
+  "anchors_only_rows": 664,
+  "fallback_rows": 2241,
+  "sampling": "27 actual Mode7 frames, every60 frames in3600-frame strict DSP1LLE attract run; title host still presents native",
+  "native_result": "Both runs pass strict soak and sampled native parity; final logic/video hash and master cycles match historical result. Not a full-HD SMK host adoption or a cross-game performance claim.",
+  "regression": "Two measured quantized camera columns: anchors-only fails first; least-squares-only fails second. Whole-band validated fallback passes both and preserves pole/sign guards.",
+  "checks": [
+    "7 shared PPU tests passed",
+    "772 GPU ROI/shared-target comparisons passed",
+    "FZero renderer test passed14.49s",
+    "all151 FZero SS1 and151 SS2 images byte-identical to owner-accepted candidate",
+    "Ubuntu13.3 GCC NDEBUG reconstruction and GPU-disabled object compile passed"
+  ],
+  "raw_root": "G:\\Temp\\Codex\\fzero-hd-quality-20261103"
+}

@@ -1,0 +1,16 @@
+{
+  "passed": true,
+  "keyboard": true,
+  "observed_scales": [
+    1
+  ],
+  "players": 4,
+  "cup": 0,
+  "native": false,
+  "hd_scale": 8,
+  "hd_supersample": 2,
+  "hd_full_target": false,
+  "bs_tracks": false,
+  "contact_fixture": false,
+  "sha256": "957b825cafcc49009402c4d1374d2178ad2114c331202e4cfce8093926877872"
+}

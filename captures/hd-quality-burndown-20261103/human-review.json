@@ -1,0 +1,52 @@
+{
+  "owner_observations": [
+    {
+      "scene": "stock corner151 frames at4x SS1",
+      "answer": "Looks comparable",
+      "passed": true
+    },
+    {
+      "scene": "same stock corner at4x SS2",
+      "answer": "still looks comparable",
+      "passed": true
+    }
+  ],
+  "scope": "Representative accepted motion plus final combined technical gates and owner multiplayer overview; not universal all-host FPS or whole-game pixel-identical bsnes parity.",
+  "clips": {
+    "candidate-left-bsnes-right-4x.mp4": {
+      "sha256": "615974cf36ccb4ed4525432da0d7025d5eaedf57c2b09a90dfc86876d56dd991",
+      "bytes": 28382587
+    },
+    "candidate-left-bsnes-right-4x-smoothing2.mp4": {
+      "sha256": "f1adacc1e435d4cd47e061cd4b13b996413dbb5f84e0070bf026f3bf09addd81",
+      "bytes": 24389204
+    },
+    "jump-native-left-hd-right.mp4": {
+      "sha256": "81eff55547613797b7c47cb72a5b0d5346129e2a4d042ce8b86c2bc1600b536d",
+      "bytes": 10295106
+    },
+    "camera-wrap-native-left-hd-right-half-speed.mp4": {
+      "sha256": "9b90d14cd763e90fed6413d47a870fd43d1d6d4eb27b0e3b8333560ce12918c0",
+      "bytes": 3251449
+    }
+  },
+  "jump_observation": {
+    "answer": "right is definitely better",
+    "passed": true,
+    "left": "native",
+    "right": "4x HD with2 samples per axis",
+    "scope": "Prepared CGP Marine CityI approach; native physics bounce/ascent/descent/landing, original cadence. Visual pass for this jump; not bsnes parity or whole-renderer acceptance."
+  },
+  "decision": "All12 acceptance areas resolved within the recorded scope and limitations. Final multiplayer/PR254 visual handoff accepted; shared PR254 merged.",
+  "wrap_observation": {
+    "answer": "Right stays stable",
+    "passed": true,
+    "scope": "Actual stock1456/1457 streaming-camera alias, alpha0.5/1 interleaved; half speed. No120Hz throughput claim."
+  },
+  "final_observation": {
+    "answer": "Looks good",
+    "passed": true,
+    "scope": "Final rebased4P4x/off actual GPU overview, native menus, preset controls and shared PR254 handoff.",
+    "image_sha256": "b424b708315aeb2a3c39ac072ff0556ae02a2eda2a9325cdae87a1dbce455082"
+  }
+}

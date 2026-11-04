@@ -1,0 +1,229 @@
+{
+  "serial_3p": {
+    "status": "passed serial GPU-grid implementation; not parallel preparation qualification",
+    "requested_detail": 8,
+    "samples_per_axis": 1,
+    "camera_parity_checks": {
+      "0": 12,
+      "1": 12,
+      "2": 12
+    },
+    "grid_checks": 12,
+    "all_human_contacts": true,
+    "transitions": true,
+    "raw_log": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\live-3p-grid\\game.log",
+    "result": {
+      "passed": true,
+      "keyboard": false,
+      "observed_scales": [
+        1
+      ],
+      "players": 3,
+      "cup": 0,
+      "native": false,
+      "hd_scale": 8,
+      "bs_tracks": false,
+      "contact_fixture": true,
+      "sha256": "ef566005879319e63b7dce1abb838f08138d722012a79202865653ef308c0389"
+    }
+  },
+  "worker_4p": {
+    "status": "failed GPU-grid gate; worker prototype rejected pending correction",
+    "host": "SERVER / NVIDIA GTX760",
+    "requested_detail": 8,
+    "samples_per_axis": 2,
+    "exe_sha256": "f1722730c8227204b3aba0c75904cbd846f45daea75f4878dd42f645c67ba7a4",
+    "all_human_contacts": true,
+    "transitions": true,
+    "grid_checks": 0,
+    "cause": "camera batch invokes native packet preparation, which called Run(NULL) within a worker callback; shared API rejects nested submissions, causing portable fallback",
+    "correction_prepared": "native packet preparation directly composes serial rows within each camera task; regression invokes preparation inside the shared pool and requires real sealed packets",
+    "raw_log": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\server-live-4p.log"
+  },
+  "matrix_status": "HD-09 and HD-10 remain open",
+  "serial_4p_graphics": {
+    "status": "passed graphics/input/drive/resize/transition gate; contacts explicitly excluded from this serial run",
+    "game_commit": "ca2504b8e71cf86050d4aff1365a9c2b23ec784b",
+    "host": "SERVER / NVIDIA GTX760 / real OpenGL4",
+    "requested_detail": 8,
+    "samples_per_axis": 2,
+    "camera_parity_checks": {
+      "0": 5,
+      "1": 5,
+      "2": 5,
+      "3": 5
+    },
+    "grid_checks": 5,
+    "odd_resize_exercised": true,
+    "actual_grid_targets": [
+      "768x576"
+    ],
+    "result": {
+      "passed": true,
+      "keyboard": true,
+      "observed_scales": [
+        1
+      ],
+      "players": 4,
+      "cup": 0,
+      "native": false,
+      "hd_scale": 8,
+      "hd_supersample": 2,
+      "hd_full_target": false,
+      "bs_tracks": false,
+      "contact_fixture": false,
+      "sha256": "957b825cafcc49009402c4d1374d2178ad2114c331202e4cfce8093926877872"
+    },
+    "raw_log": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\server-serial-evidence\\game.log"
+  },
+  "worker_correction": {
+    "status": "built; renderer regression and coherent4P8xSS2 live gate passed",
+    "game_commit": "cbc337643bf3",
+    "engine_commit": "eddeda4c9aff2527978aa49c3c4f1c76f9f0ba9c",
+    "exe_sha256": "39c1eb58c0fc0925ecc396ce0801d37052edd714bb1ee36b693840a23eb93fad",
+    "regression": "two isolated sealed packets prepared from shared worker callbacks; native pixels equal direct serial composition",
+    "live_result": {
+      "passed": true,
+      "keyboard": true,
+      "observed_scales": [
+        1
+      ],
+      "players": 4,
+      "cup": 0,
+      "native": false,
+      "hd_scale": 8,
+      "hd_supersample": 2,
+      "hd_full_target": false,
+      "bs_tracks": false,
+      "contact_fixture": true,
+      "sha256": "39c1eb58c0fc0925ecc396ce0801d37052edd714bb1ee36b693840a23eb93fad"
+    },
+    "actual_grid_targets": [
+      "1600x600",
+      "768x576"
+    ],
+    "raw_log": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\server-current-evidence\\4p-fixed.log"
+  },
+  "serial_3p_full_target": {
+    "status": "passed real GPU/full-raster3P4x; contacts and transitions included",
+    "result": {
+      "passed": true,
+      "keyboard": true,
+      "observed_scales": [
+        1
+      ],
+      "players": 3,
+      "cup": 0,
+      "native": false,
+      "hd_scale": 4,
+      "hd_supersample": 1,
+      "hd_full_target": true,
+      "bs_tracks": false,
+      "contact_fixture": true,
+      "sha256": "957b825cafcc49009402c4d1374d2178ad2114c331202e4cfce8093926877872"
+    },
+    "raw_log": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\server-current-evidence\\3p-full.log"
+  },
+  "worker_performance": {
+    "status": "retain parallel camera preparation; measured1vs2 benefit in both affected modes; auto3 follow-up faster with identical captures, but not interleaved",
+    "host": "SERVER /4logical cores / GTX760",
+    "settings": "8x detail, SS1, Fit, nearest, fixed-alpha1 unpaced,1610 simulation frames, same binary",
+    "order": "3P1,2,2,1;4P2,1,1,2; followed by auto twice each",
+    "fps": {
+      "3": {
+        "1": [
+          34.358,
+          35.623
+        ],
+        "2": [
+          41.945,
+          38.755
+        ],
+        "0": [
+          48.529,
+          47.842
+        ],
+        "presented_images": 23,
+        "all_images_identical": true,
+        "all_driving_traces_identical": true
+      },
+      "4": {
+        "1": [
+          28.009,
+          28.454
+        ],
+        "2": [
+          37.276,
+          37.132
+        ],
+        "0": [
+          39.832,
+          39.539
+        ],
+        "presented_images": 23,
+        "all_images_identical": true,
+        "all_driving_traces_identical": true
+      }
+    },
+    "limits": [
+      "background CPU39..71 percent across matched samples; not an idle host",
+      "auto selected3 onSERVER; no4-worker desktop cost claim",
+      "neither mode sustains60Hz onSERVER; HD-10 remains open",
+      "whole-scenario throughput includes menus and prepared contact/resize transitions; not an isolated steady-race FPS"
+    ],
+    "raw_ab": "worker-ab-raw.json",
+    "raw_auto": "worker-auto-raw.json"
+  },
+  "effective_detail": {
+    "game_commit": "1f1ad5f",
+    "engine_commit": "eddeda4c9aff2527978aa49c3c4f1c76f9f0ba9c",
+    "exe_sha256": "80d7049cdc18a020b4eb2cecea493e480ba1ccf950a8612997a59c32eb8e3d7f",
+    "gpu_result": {
+      "passed": true,
+      "keyboard": true,
+      "observed_scales": [
+        1
+      ],
+      "players": 4,
+      "cup": 0,
+      "native": false,
+      "hd_scale": 8,
+      "hd_supersample": 2,
+      "hd_full_target": false,
+      "portable_hd": false,
+      "bs_tracks": false,
+      "contact_fixture": true,
+      "sha256": "80d7049cdc18a020b4eb2cecea493e480ba1ccf950a8612997a59c32eb8e3d7f"
+    },
+    "portable_result": {
+      "passed": true,
+      "keyboard": true,
+      "observed_scales": [
+        2
+      ],
+      "players": 4,
+      "cup": 0,
+      "native": false,
+      "hd_scale": 8,
+      "hd_supersample": 1,
+      "hd_full_target": false,
+      "portable_hd": true,
+      "bs_tracks": false,
+      "contact_fixture": true,
+      "sha256": "80d7049cdc18a020b4eb2cecea493e480ba1ccf950a8612997a59c32eb8e3d7f"
+    },
+    "gpu_grid_targets": [
+      "1280x720",
+      "1342x1006",
+      "1600x600",
+      "600x450",
+      "768x576"
+    ],
+    "portable_notices": [
+      "[fzero-hd-effective] HD detail limited to 2x (8x requested)"
+    ],
+    "native_loading_warning_absent": true,
+    "mod_status": "Unit gate covers actual/native fallback, changed detail/sampling invalidation and disabled feature; actual launcher review pending",
+    "raw_root": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\server-current-evidence"
+  }
+}

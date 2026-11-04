@@ -92,7 +92,8 @@ def main():
                 text, count = re.subn(r'(?m)^SourceP1\s*=.*$', 'SourceP1 = ' + str(2 if slot == 0 else 1), text)
                 assert count == 1, 'source fixture needs an explicit SourceP1'
                 config.write_text(text, newline='\n')
-            video = a.video.read_text().replace('HDMode7=0', 'HDMode7=' + str(int(slot == 1 and a.hd_peer)))
+            video = re.sub(r'(?m)^(?:HDMode7|HDMode7Scale|Mode7Enabled)=.*\n?', '', a.video.read_text())
+            video += '\nMode7Enabled=' + str(int(slot == 1 and a.hd_peer)) + '\n'
             (folder / 'video.ini').write_text(video, newline='\n')
             env = {k: v for k, v in os.environ.items() if not k.startswith(
                 ('FZERO_', 'SNESRECOMP_', 'SDL_', 'SNES_NET_', 'SNES_RB', 'RNET_', 'LNG_'))}
@@ -157,6 +158,8 @@ def main():
                 env.update(RNET_SIM_LATENCY_MS='30', RNET_SIM_JITTER_MS='15', RNET_SIM_LOSS_PCT='10', RNET_SIM_SEED=str(42 + slot))
             if a.force_mispredict:
                 env['RNET_RB_FORCE_MISPREDICT'] = str(a.force_mispredict)
+            if a.hd_peer and slot == 1:
+                env['FZERO_TEST_HD_PARITY'] = '1'
             # Every case enters the actual native menu. An extra Down is harmless
             # when Records is locked, since VS is the final row in either layout.
             shifted = []
@@ -229,6 +232,16 @@ def main():
         assert report['exits'] == [0] * len(a.machines), report
         assert all('desync=0' in s for s in text), 'desync or missing final report'
         assert all('starting UNVERIFIED' not in s for s in text), 'startup state verification timed out'
+        if a.hd_peer:
+            checks = re.findall(r'\[fzero-hd-parity\].*mismatches=(\d+)', text[1])
+            assert checks and set(checks) == {'0'}, 'HD peer output missing or differs from portable renderer'
+            # Online peers each show their own full camera, rather than a
+            # local split-screen atlas. The final pane ID is that camera.
+            scales = re.findall(r'\[fzero-hd-parity\] scale=(\d+).*pane=4\b', text[1])
+            assert scales, 'online HD camera was not presented'
+            assert '[fzero-hd-parity]' not in text[0], 'native peer unexpectedly used HD'
+            report['hd_gpu_checks'] = len(checks)
+            report['hd_camera_scales'] = sorted({int(scale) for scale in scales})
         if a.force_mispredict:
             assert all(re.search(r'final tick=\d+ confirmed=\d+ episodes=[1-9]\d* resim=[1-9]\d*', s) for s in text), 'rollback fixture did not replay ticks'
             if a.scenario == 'pause':

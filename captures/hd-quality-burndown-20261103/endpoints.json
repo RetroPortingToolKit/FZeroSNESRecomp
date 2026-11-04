@@ -1,0 +1,56 @@
+[
+  {
+    "frame": 1630,
+    "full_rgb_mae": 2.940375191824777,
+    "full_channel_gt8_fraction": 0.026021594092959448,
+    "horizon_rgb_mae": 16.479061289730236,
+    "horizon_channel_gt8_fraction": 0.1493076422275641,
+    "near_road_rgb_mae": 0.08027079567980411,
+    "near_road_channel_gt8_fraction": 4.706691153606965e-06
+  },
+  {
+    "frame": 1660,
+    "full_rgb_mae": 3.149313699631464,
+    "full_channel_gt8_fraction": 0.028004600888206846,
+    "horizon_rgb_mae": 17.666591546474358,
+    "horizon_channel_gt8_fraction": 0.16077442658253205,
+    "near_road_rgb_mae": 0.09170167837569963,
+    "near_road_channel_gt8_fraction": 2.064870957711443e-05
+  },
+  {
+    "frame": 1690,
+    "full_rgb_mae": 1.740868159702846,
+    "full_channel_gt8_fraction": 0.014030729021344866,
+    "horizon_rgb_mae": 9.663938864683493,
+    "horizon_channel_gt8_fraction": 0.08054188785389957,
+    "near_road_rgb_mae": 0.06574746506724191,
+    "near_road_channel_gt8_fraction": 1.2298128498134328e-05
+  },
+  {
+    "frame": 1720,
+    "full_rgb_mae": 0.46698670160202754,
+    "full_channel_gt8_fraction": 0.0018455868675595238,
+    "horizon_rgb_mae": 2.5227984566973825,
+    "horizon_channel_gt8_fraction": 0.01058307875934829,
+    "near_road_rgb_mae": 0.015615282960199005,
+    "near_road_channel_gt8_fraction": 4.5548624067164175e-06
+  },
+  {
+    "frame": 1750,
+    "full_rgb_mae": 0.527229490734282,
+    "full_channel_gt8_fraction": 0.00179245358421689,
+    "horizon_rgb_mae": 2.6246817825186968,
+    "horizon_channel_gt8_fraction": 0.010247646233974358,
+    "near_road_rgb_mae": 0.08719114996307525,
+    "near_road_channel_gt8_fraction": 1.3209100979477611e-05
+  },
+  {
+    "frame": 1780,
+    "full_rgb_mae": 0.5502262115478516,
+    "full_channel_gt8_fraction": 0.002179009573800223,
+    "horizon_rgb_mae": 2.801238231169872,
+    "horizon_channel_gt8_fraction": 0.0124767336071047,
+    "near_road_rgb_mae": 0.0721933545164801,
+    "near_road_channel_gt8_fraction": 1.1235327269900497e-05
+  }
+]

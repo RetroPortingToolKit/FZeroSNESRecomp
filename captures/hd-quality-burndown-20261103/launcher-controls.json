@@ -1,0 +1,15 @@
+{
+  "passed": true,
+  "actual_ui_edit_and_relaunch": true,
+  "hd_detail": 4,
+  "samples_per_axis": 2,
+  "preserved_aspect": "21:9",
+  "preserved_fps": 120,
+  "screenshot_labels": [
+    "Window scale",
+    "HD detail",
+    "Edge smoothing"
+  ],
+  "scope": "Hidden real launcher with SDL input events; no owner profile changed. Fresh defaults screenshot shows8x/SS1/Fit. Does not select a newly qualified default/range.",
+  "exe_sha256": "45ba17bdbb80ec416be4449e0829747516865b2b0817269605f8229b6d963d25"
+}

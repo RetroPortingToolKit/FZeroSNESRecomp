@@ -47,3 +47,6 @@ const SnesHdFrame *FzeroGpuHdFrame(void);
 void FzeroSetMenuAudioOnly(bool enabled);
 const uint32_t *FzeroHdFrame(void);
 unsigned FzeroHdScale(void);
+
+unsigned FzeroGpuHdGridCount(void);
+const SnesHdFrame *FzeroGpuHdGridFrame(unsigned player);

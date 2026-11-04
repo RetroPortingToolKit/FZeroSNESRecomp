@@ -312,3 +312,12 @@ bool FzeroLocalRestore(const void *input,size_t size) {
   interp_bridge_set_pre_opcode_hook(0x009f08,course_config);
   return true;
 }
+
+unsigned FzeroLocalPrepareHdGrid(uint32_t *native,FzeroViewport viewport,
+    double alpha,SnesHdFrame *frames[FZERO_MAX_PLAYERS]) {
+  if(!session || FzeroOnlineEnabled())return 0;
+  FzeroVersusVideoLiveMenu(video,menu_owner);FzeroVersusVideoMenu(video,menu_selection,result_ticks);
+  return FzeroVersusVideoPrepareHdGrid(video,native,viewport,alpha,frames);
+}
+
+unsigned FzeroLocalWorkerCount(void) {return FzeroVersusVideoWorkerCount(video);}

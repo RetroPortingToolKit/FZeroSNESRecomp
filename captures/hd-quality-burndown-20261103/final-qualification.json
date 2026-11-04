@@ -1,0 +1,552 @@
+{
+  "date": "2026-11-03",
+  "game_implementation": "8c89456",
+  "engine_candidate": "8c3a08149b47b8859894b7d0f2d69b0fe935eeda",
+  "engine_base": "f7e1506b",
+  "ui": "b13c876cab37a46b6266eed107a5c9ef5f035320",
+  "exe_sha256": "4b02919ee6c0215bb5323de5a2680cadb926248d11191ffc748dfcd2b9d32dc7",
+  "units": [
+    "fzero_video",
+    "fzero_mods",
+    "fzero_renderer"
+  ],
+  "native": {
+    "passed": true,
+    "accepted_images_preserved": {
+      "ss1": 151,
+      "ss2": 151
+    },
+    "exe_sha256": "4b02919ee6c0215bb5323de5a2680cadb926248d11191ffc748dfcd2b9d32dc7"
+  },
+  "title_demo": {
+    "passed": true,
+    "no_controller_input": true,
+    "frames": [
+      {
+        "frame": 300,
+        "state": [
+          0,
+          1,
+          0
+        ],
+        "mode7": 1,
+        "native_art_rows": 47
+      },
+      {
+        "frame": 800,
+        "state": [
+          0,
+          1,
+          0
+        ],
+        "mode7": 1,
+        "native_art_rows": 47
+      },
+      {
+        "frame": 1400,
+        "state": [
+          0,
+          1,
+          0
+        ],
+        "mode7": 1,
+        "native_art_rows": 47
+      },
+      {
+        "frame": 2000,
+        "state": [
+          2,
+          3,
+          0
+        ],
+        "mode7": 1,
+        "native_art_rows": 47
+      },
+      {
+        "frame": 2600,
+        "state": [
+          2,
+          3,
+          0
+        ],
+        "mode7": 1,
+        "native_art_rows": 47
+      },
+      {
+        "frame": 3200,
+        "state": [
+          2,
+          3,
+          0
+        ],
+        "mode7": 1,
+        "native_art_rows": 47
+      },
+      {
+        "frame": 3800,
+        "state": [
+          2,
+          3,
+          0
+        ],
+        "mode7": 1,
+        "native_art_rows": 47
+      }
+    ]
+  },
+  "sampling": {
+    "passed": true,
+    "protected_native_top_rows": 47,
+    "scales": [
+      2,
+      4,
+      8
+    ],
+    "new_subpixel_detail": {
+      "2to4": 116032,
+      "4to8": 305995
+    },
+    "exe_sha256": "342b602a2a3a92563fb0e4f877d184a7e532d8e850076c4d576c2aa09e0389d7"
+  },
+  "launcher": {
+    "passed": true,
+    "exe_sha256": "a2c9621eef3879de8fc9c047ef5761f6b327679504659e6a85cecaa40f533772",
+    "fresh": {
+      "detail": 4,
+      "smoothing": 1,
+      "aspect": "Fit"
+    },
+    "preserved_custom": {
+      "detail": 7,
+      "smoothing": 3
+    },
+    "actual_ui_edits": {
+      "detail": 4,
+      "smoothing": 2
+    },
+    "preserved": {
+      "aspect": "21:9",
+      "fps": 120,
+      "linear_filter": true
+    },
+    "scope": "Fresh real hidden launcher plus actual dropdown events and relaunch; isolated profile only."
+  },
+  "filters_fallback": {
+    "linear": {
+      "passed": true,
+      "session": {
+        "kind": "session",
+        "unix_seconds": 1793751581,
+        "elapsed_ms": 0.003,
+        "schema": 1,
+        "version": "0.17.0-hd-preview",
+        "revision": "v0.16.0-19-g8c894561f7bc",
+        "framework_revision": "ws-baseline-prehistory-926-g8c3a08149b47",
+        "ui_revision": "b13c876cab37",
+        "build_type": "Release",
+        "compiler": "GNU 15.2.0",
+        "backend": "OpenGL",
+        "gpu": "GeForce GTX 760/PCIe/SSE2",
+        "gpu_vendor": "NVIDIA Corporation",
+        "graphics_driver": "4.0.0 NVIDIA 456.71",
+        "shader": "",
+        "shader_loaded": 0,
+        "vsync": 1,
+        "allocated_scale": 4,
+        "linear_filter": 1,
+        "audio_enabled": 1,
+        "rewind_enabled": 0,
+        "cpu": "Intel(R) Core(TM) i5-4670 CPU @ 3.40GHz",
+        "os": "Windows 10.0.19044",
+        "logical_cpus": 4,
+        "ram_mb": 16321,
+        "sdl_version": 3004014,
+        "video_driver": "windows",
+        "audio_driver": "dummy",
+        "attached_display_adapters": []
+      },
+      "result": {
+        "passed": true,
+        "keyboard": false,
+        "observed_scales": [
+          1
+        ],
+        "players": 2,
+        "cup": 0,
+        "native": false,
+        "hd_scale": 4,
+        "hd_supersample": 1,
+        "hd_full_target": false,
+        "portable_hd": false,
+        "bs_tracks": false,
+        "contact_fixture": false,
+        "sha256": "4b02919ee6c0215bb5323de5a2680cadb926248d11191ffc748dfcd2b9d32dc7"
+      }
+    },
+    "shader": {
+      "passed": true,
+      "session": {
+        "kind": "session",
+        "unix_seconds": 1793751627,
+        "elapsed_ms": 0.003,
+        "schema": 1,
+        "version": "0.17.0-hd-preview",
+        "revision": "v0.16.0-19-g8c894561f7bc",
+        "framework_revision": "ws-baseline-prehistory-926-g8c3a08149b47",
+        "ui_revision": "b13c876cab37",
+        "build_type": "Release",
+        "compiler": "GNU 15.2.0",
+        "backend": "OpenGL",
+        "gpu": "GeForce GTX 760/PCIe/SSE2",
+        "gpu_vendor": "NVIDIA Corporation",
+        "graphics_driver": "4.0.0 NVIDIA 456.71",
+        "shader": "crt-soft.glslp",
+        "shader_loaded": 1,
+        "vsync": 1,
+        "allocated_scale": 4,
+        "linear_filter": 0,
+        "audio_enabled": 1,
+        "rewind_enabled": 0,
+        "cpu": "Intel(R) Core(TM) i5-4670 CPU @ 3.40GHz",
+        "os": "Windows 10.0.19044",
+        "logical_cpus": 4,
+        "ram_mb": 16321,
+        "sdl_version": 3004014,
+        "video_driver": "windows",
+        "audio_driver": "dummy",
+        "attached_display_adapters": []
+      },
+      "result": {
+        "passed": true,
+        "keyboard": false,
+        "observed_scales": [
+          1
+        ],
+        "players": 2,
+        "cup": 0,
+        "native": false,
+        "hd_scale": 4,
+        "hd_supersample": 1,
+        "hd_full_target": false,
+        "portable_hd": false,
+        "bs_tracks": false,
+        "contact_fixture": false,
+        "sha256": "4b02919ee6c0215bb5323de5a2680cadb926248d11191ffc748dfcd2b9d32dc7"
+      }
+    },
+    "fallback": {
+      "passed": true,
+      "session": {
+        "kind": "session",
+        "unix_seconds": 1793751674,
+        "elapsed_ms": 0.003,
+        "schema": 1,
+        "version": "0.17.0-hd-preview",
+        "revision": "v0.16.0-19-g8c894561f7bc",
+        "framework_revision": "ws-baseline-prehistory-926-g8c3a08149b47",
+        "ui_revision": "b13c876cab37",
+        "build_type": "Release",
+        "compiler": "GNU 15.2.0",
+        "backend": "opengl",
+        "gpu": "",
+        "gpu_vendor": "",
+        "graphics_driver": "",
+        "shader": "",
+        "shader_loaded": 0,
+        "vsync": 0,
+        "allocated_scale": 4,
+        "linear_filter": 0,
+        "audio_enabled": 1,
+        "rewind_enabled": 0,
+        "cpu": "Intel(R) Core(TM) i5-4670 CPU @ 3.40GHz",
+        "os": "Windows 10.0.19044",
+        "logical_cpus": 4,
+        "ram_mb": 16321,
+        "sdl_version": 3004014,
+        "video_driver": "windows",
+        "audio_driver": "dummy",
+        "attached_display_adapters": []
+      },
+      "result": {
+        "passed": true,
+        "keyboard": false,
+        "observed_scales": [
+          2
+        ],
+        "players": 4,
+        "cup": 0,
+        "native": false,
+        "hd_scale": 4,
+        "hd_supersample": 1,
+        "hd_full_target": false,
+        "portable_hd": true,
+        "bs_tracks": false,
+        "contact_fixture": false,
+        "sha256": "4b02919ee6c0215bb5323de5a2680cadb926248d11191ffc748dfcd2b9d32dc7"
+      }
+    },
+    "source_artwork_identical": true,
+    "committed_rewind": true
+  },
+  "state": {
+    "exe_sha256": "4b02919ee6c0215bb5323de5a2680cadb926248d11191ffc748dfcd2b9d32dc7",
+    "frames": 1800,
+    "scale": 4,
+    "samples": 2,
+    "checks": 37,
+    "fractional_checks": 5,
+    "state_events": [
+      {
+        "kind": "event",
+        "unix_seconds": 1793751712,
+        "elapsed_ms": 0.196,
+        "event": "controller_added",
+        "detail": 3
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751736,
+        "elapsed_ms": 23302.928,
+        "event": "save",
+        "detail": 0
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751737,
+        "elapsed_ms": 24960.482,
+        "event": "load",
+        "detail": 0
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751737,
+        "elapsed_ms": 24966.797,
+        "event": "clock_reset",
+        "detail": 0
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751739,
+        "elapsed_ms": 26631.28,
+        "event": "menu_open",
+        "detail": 1
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751739,
+        "elapsed_ms": 26832.087,
+        "event": "menu_close",
+        "detail": 1
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751739,
+        "elapsed_ms": 26832.151,
+        "event": "clock_reset",
+        "detail": 0
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751740,
+        "elapsed_ms": 27830.943,
+        "event": "menu_open",
+        "detail": 2
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751740,
+        "elapsed_ms": 28020.994,
+        "event": "rewind_restore_checked",
+        "detail": 1
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751740,
+        "elapsed_ms": 28029.477,
+        "event": "menu_close",
+        "detail": 2
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751740,
+        "elapsed_ms": 28029.543,
+        "event": "clock_reset",
+        "detail": 0
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751741,
+        "elapsed_ms": 29027.931,
+        "event": "menu_open",
+        "detail": 1
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751742,
+        "elapsed_ms": 29188.763,
+        "event": "menu_close",
+        "detail": 1
+      },
+      {
+        "kind": "event",
+        "unix_seconds": 1793751742,
+        "elapsed_ms": 29188.845,
+        "event": "clock_reset",
+        "detail": 0
+      }
+    ],
+    "scope": "Current-build actual save/load, fractional GPU checks after restore, keyboard/controller state browser and committed rewind. The latter verifies changed WRAM and a clock reset. Does not claim deterministic resimulation or clear separately tracked baseline22-cycle mismatch.",
+    "committed_rewind": true
+  },
+  "online": {
+    "lan_lobby": false,
+    "scenario": "driving",
+    "machines": [
+      2,
+      3
+    ],
+    "cup": 0,
+    "course_order": 1,
+    "music": [
+      "off",
+      "off"
+    ],
+    "aspect": 1,
+    "loss": false,
+    "hd_peer": true,
+    "force_mispredict": 0,
+    "peer_installation": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\integration-online-peers",
+    "executable_sha256": "4b02919ee6c0215bb5323de5a2680cadb926248d11191ffc748dfcd2b9d32dc7",
+    "seconds": 29.547,
+    "exits": [
+      0,
+      0
+    ],
+    "hd_gpu_checks": 20,
+    "hd_camera_scales": [
+      4
+    ],
+    "matching_ticks": 1458,
+    "passed": true
+  },
+  "local4p": {
+    "passed": true,
+    "keyboard": false,
+    "observed_scales": [
+      1
+    ],
+    "players": 4,
+    "cup": 0,
+    "native": false,
+    "hd_scale": 4,
+    "hd_supersample": 1,
+    "hd_full_target": false,
+    "portable_hd": false,
+    "bs_tracks": false,
+    "contact_fixture": true,
+    "sha256": "4b02919ee6c0215bb5323de5a2680cadb926248d11191ffc748dfcd2b9d32dc7"
+  },
+  "shared": {
+    "ppu_suites": 7,
+    "gpu_comparisons": 772,
+    "exact_nearest_targets": [
+      "2048x1792->768x576",
+      "2728x1792->1280x720"
+    ],
+    "nearest_mismatches": 0,
+    "smk": {
+      "engine_revision": "8c3a08149b47b8859894b7d0f2d69b0fe935eeda",
+      "exe_sha256": "61b9b02bc69ab751e86e481d9dd730d7c1ccc01275a8ec972f9c625b2bd14969",
+      "corrected_rows": 2241,
+      "sampled_frames": 27,
+      "native_parity": true
+    }
+  },
+  "timing": {
+    "before_rebase": {
+      "exe_sha256": "a2c9621eef3879de8fc9c047ef5761f6b327679504659e6a85cecaa40f533772",
+      "runs": [
+        {
+          "samples": 1,
+          "start_ms": 17451.799,
+          "end_ms": 47397.345,
+          "simulation_fps": 60.11043226522887,
+          "presentation_fps": 82.0820772342136,
+          "max_interval_ms": 20.413,
+          "max_window_p95_ms": 15.75,
+          "max_window_p99_ms": 19.0,
+          "scope": "30s warmed4P1280x720, actual physics with health protection; default crash recording enabled, no screenshots/readback/resize inside steady interval. Shipping Auto presentation rate and rewind interval15."
+        },
+        {
+          "samples": 2,
+          "start_ms": 17415.19,
+          "end_ms": 47354.3,
+          "simulation_fps": 60.140186167921165,
+          "presentation_fps": 79.39074961230612,
+          "max_interval_ms": 332.095,
+          "max_window_p95_ms": 17.0,
+          "max_window_p99_ms": 31.0,
+          "scope": "30s warmed4P1280x720, actual physics with health protection; default crash recording enabled, no screenshots/readback/resize inside steady interval. Shipping Auto presentation rate and rewind interval15."
+        }
+      ],
+      "raw_result": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\final-auto-steady-result.json",
+      "raw_result_sha256": "5adb02105f39ecc6f3d7094b97c993746d415adf61692730607519d8442e1607"
+    },
+    "ss2_targeted_repeat": {
+      "exe_sha256": "a2c9621eef3879de8fc9c047ef5761f6b327679504659e6a85cecaa40f533772",
+      "runs": [
+        {
+          "samples": 2,
+          "start_ms": 17285.393,
+          "end_ms": 47242.971,
+          "simulation_fps": 60.114219154421356,
+          "presentation_fps": 80.67492125999404,
+          "max_interval_ms": 31.467,
+          "max_window_p95_ms": 16.25,
+          "max_window_p99_ms": 19.75,
+          "scope": "30s warmed4P1280x720, actual physics with health protection; default crash recording enabled, no screenshots/readback/resize inside steady interval. Shipping Auto presentation rate and rewind interval15; targeted repeat of unexplained SS2 scheduling gap."
+        }
+      ],
+      "raw_result": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\final-ss2-repeat-result.json",
+      "raw_result_sha256": "76a2557c0fb99bfb9673f6d3ca241c0c636532ca421061340fdb2cc43ea26bf3"
+    },
+    "final_candidate": {
+      "exe_sha256": "4b02919ee6c0215bb5323de5a2680cadb926248d11191ffc748dfcd2b9d32dc7",
+      "runs": [
+        {
+          "samples": 1,
+          "start_ms": 17334.558,
+          "end_ms": 47280.218,
+          "simulation_fps": 60.087989344681674,
+          "presentation_fps": 81.68545170700499,
+          "max_interval_ms": 31.907,
+          "max_window_p95_ms": 19.0,
+          "max_window_p99_ms": 32.0,
+          "scope": "30s warmed4P1280x720, actual physics with health protection; default crash recording enabled, no screenshots/readback/resize inside steady interval. Shipping Auto presentation rate and rewind interval15; final rebased candidate."
+        }
+      ],
+      "raw_result": "G:\\Temp\\Codex\\fzero-hd-quality-20261103\\integration-steady-result.json",
+      "raw_result_sha256": "be998dbf3f5e89bbc33f60bccf4db68e365737ee313213f1285ac13e36fa29b0"
+    }
+  },
+  "owner_observations": [
+    "Stock corner4xSS1: Looks comparable",
+    "Stock corner4xSS2: still looks comparable",
+    "MarineCityI bounce/landing HDright: right is definitely better",
+    "Actual camera alias crossing interpolatedHDright: Right stays stable",
+    "Final multiplayer overview and PR254 handoff: Looks good"
+  ],
+  "dpi": {
+    "contract": "Actual64x64SDL window with independent768x576 and1280x720 framebuffer sizes/nonzero origin; exact output. Live5window-shape gates. Host uses SDL_GetWindowSizeInPixels.",
+    "primary_source": "https://wiki.libsdl.org/SDL3/README-highdpi",
+    "limitation": "Windows coordinates are already physical pixels even at200% scaling. No global DPI setting was changed. Real cross-monitor macOS/Wayland migration was not tested."
+  },
+  "limitations": [
+    "One SS2 steady run had an unexplained332.095ms gap outside the measured simulation/composition/upload/present/wait maxima. Retained rather than attributed or erased; targeted repeat max31.467ms. No uniform SS2/high-refresh/all-host FPS promise.",
+    "Native CHECK label differs from separately run bsnes palette/timing; candidate and native are white. Cause unestablished, not claimed fixed.",
+    "Baseline22-master-cycle deterministic snapshot resimulation issue remains beads-8wg.5.122; current state load and committed rewind work."
+  ],
+  "retained_scratch": "G:\\Temp\\Codex\\fzero-hd-quality-20261103",
+  "integration": "Shared PR254 merged; merged tree matches qualified candidate; game pins merged engine.",
+  "merged_engine": "fb8cf15d9296c59e7653e495ef38c9136546e9c1"
+}

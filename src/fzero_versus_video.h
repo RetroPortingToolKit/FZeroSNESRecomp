@@ -26,3 +26,11 @@ bool FzeroVersusVideoDraw(FzeroVersusVideo *video, uint32_t *output, size_t capa
                           FzeroViewport viewport, double alpha, unsigned scale);
 bool FzeroVersusVideoDrawPlayer(FzeroVersusVideo *video,uint32_t *output,size_t capacity,
                                FzeroViewport viewport,double alpha,unsigned scale,unsigned player);
+
+/* Independent GPU cameras for a local 2x2 grid. Successful frames are owned
+ * by the caller and unsealed. Native output includes every pane and the empty
+ * fourth cell in 3P. Failure releases partial frames and returns zero. */
+unsigned FzeroVersusVideoPrepareHdGrid(FzeroVersusVideo *video, uint32_t *native,
+    FzeroViewport whole, double alpha, SnesHdFrame *frames[FZERO_MAX_PLAYERS]);
+
+unsigned FzeroVersusVideoWorkerCount(const FzeroVersusVideo *video);

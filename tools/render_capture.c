@@ -8,6 +8,7 @@ static FzeroViewport g_viewport;
  * simulations, so 1 alone never exercises the interpolated path. */
 static double g_alpha = 1;
 static unsigned g_scale = 1;
+static unsigned g_supersample = 1;
 static uint32_t *pixels;
 static size_t pixel_capacity;
 
@@ -42,7 +43,7 @@ static int write_ppm(const uint32_t *output, const char *path,
 static int render_one(const char *capture, const char *output,
                       unsigned *differences, bool report) {
   if (!FzeroRendererLoadCapture(capture)) return 2;
-  bool ok = g_scale == 1 ? FzeroRendererDraw(pixels, g_viewport, g_alpha) :
+  bool ok = g_scale == 1 && g_supersample == 1 ? FzeroRendererDraw(pixels, g_viewport, g_alpha) :
       FzeroRendererDrawHd(pixels, pixel_capacity, g_viewport, g_alpha, g_scale);
   if (!ok) return 3;
   return write_ppm(pixels, output, differences, report);
@@ -51,7 +52,8 @@ static int render_one(const char *capture, const char *output,
 static void usage(void) {
   fputs("usage: FZeroRenderCapture capture.bin aspect output.ppm\n"
         "       FZeroRenderCapture --sequence[=alpha] aspect output-directory capture.bin...\n"
-        "       Set FZERO_HD_SCALE to an integer from 2 to 10 to render HD Mode 7.\n",
+        "       Set FZERO_HD_SCALE to an integer from 2 to 10 to render HD Mode 7.\n"
+        "       Set FZERO_HD_SUPERSAMPLE from 1 to 4 for samples per axis.\n",
         stderr);
 }
 
@@ -61,6 +63,14 @@ int main(int argc, char **argv) {
   if (scale && *scale) {
     if (!FzeroParseHdScale(scale, &g_scale)) { usage(); return 2; }
   }
+  const char *samples = getenv("FZERO_HD_SUPERSAMPLE");
+  if (samples && *samples) {
+    char *end;
+    unsigned long value = strtoul(samples, &end, 10);
+    if (*end || value < 1 || value > 4) { usage(); return 2; }
+    g_supersample = (unsigned)value;
+  }
+  if (!FzeroRendererSetSupersample(g_supersample)) return 2;
   pixel_capacity = (size_t)FZERO_MAX_WIDTH * 224 * g_scale * g_scale;
   pixels = calloc(pixel_capacity, sizeof(*pixels));
   if (!pixels) { fputs("Unable to allocate capture frame\n", stderr); return 3; }

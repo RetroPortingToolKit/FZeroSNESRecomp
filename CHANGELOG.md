@@ -1,5 +1,31 @@
 ﻿# Changelog
 
+## Unreleased
+
+- Restore the continuous perspective HD Mode 7 renderer after the 0.17.0
+  rollback received worse visual feedback. Retain P3/P4 launcher controls,
+  the saved player count and optional finish fanfare.
+- Offer 2x/4x/8x HD detail, defaulting to 4x, with separate Off/2-sample edge
+  smoothing. Preserve explicit saved display and custom quality choices.
+- Improve road perspective against matched bsnes-hd references, retain stable
+  camera wrapping and jumps, and fix nearest-scaling texel boundaries.
+- Render all local 2P/3P/4P cameras on the GPU. Report effective quality when
+  the portable fallback limits a grid to 2x.
+- Keep custom records labels visible throughout the return fade.
+
+## 0.17.0 - Multiplayer setup and finish fanfare
+
+- Show Player 3 and Player 4 in launcher Controls, with independent keyboard
+  bindings, gamepad mappings and saved controller profiles.
+- Add a 2/3/4-player dropdown to Local Multiplayer. Its saved choice becomes
+  the default for offline VS; online keeps the lobby's negotiated count.
+- Add an optional finish fanfare WAV to Lap voice callouts. It plays at the
+  final finish-line crossing, including the transition to race results.
+  Players supply their own recordings; no voice or fanfare WAVs are bundled.
+- Restore the HD Mode 7 renderer and engine used by 0.15.0. Remove the 0.16
+  perspective reconstruction and independent supersampling control. Keep GPU
+  sampling, the rendering worker pool, widescreen and the existing 3P/4P grid.
+
 ## 0.16.0 - Rebuilt HD Mode 7
 
 - Reconstruct a continuous perspective plane from captured Mode 7 matrices,

@@ -12,6 +12,12 @@ static FzeroVideoSettings *video;
 static const char *config_path;
 static bool has_bundled_music;
 static char error_text[128];
+static unsigned hd_requested, hd_samples, hd_effective;
+static bool hd_known;
+void FzeroModsNoteHdScale(unsigned requested, unsigned samples, unsigned effective) {
+  hd_requested=requested;hd_samples=samples;hd_effective=effective;
+  hd_known=true;
+}
 static const char *const aspects[] = {"16:9", "21:9", "32:9", "Fit"};
 static const char *const rates[] = {"Auto", "60", "90", "120", "144", "165", "240", "360"};
 #define COPY(field, value) snprintf(field, sizeof(field), "%s", value)
@@ -36,13 +42,13 @@ enum { VEHICLE_COUNT=2, VEHICLE_START=6+sizeof(menu_rules)/sizeof(*menu_rules), 
        TRACK_START=CALLOUT_INDEX+1, TITLE_KIND=200, RECORDS_KIND=201, CRASH_KIND=202, LOCAL_KIND=203, CALLOUT_KIND=204 };
 static const char callout_description[]=
   "Play your boost-power WAV on new laps, or choose to announce it only once when lap 2 begins. "
-  "The final-lap WAV still plays when the last lap begins. "
+  "The final-lap WAV plays when the last lap begins. Add an optional finish WAV for the final finish-line crossing. "
   "Single-player and VS; online announces your own laps. Supply both WAV recordings below to enable. "
   "No recordings are included. WAV files must be 30 seconds or shorter.";
 static bool callouts_ready(void) {
   return FzeroCalloutsValid(video->lap_boost_wav) && FzeroCalloutsValid(video->final_lap_wav);
 }
-static const char local_description[]="Enabled by default. Add VS MODE to the main menu. Two to four humans race on one shared course. Two players use top/bottom views; three or four use a four-view grid. Press Y on P1's machine-selection page to choose the player count. Choose from all twelve machines and the installed single-player course catalog. All twelve ships use their authored CGP artwork, handling, energy boosts and exhaust. Your single-player content settings are retained.";
+static const char local_description[]="Enabled by default. Add VS MODE to the main menu. Two to four humans race on one shared course. Two players use top/bottom views; three or four use a four-view grid. Choose the player count below, or press Y on P1's machine-selection page. Online uses the lobby player count. Choose from all twelve machines and the installed single-player course catalog. All twelve ships use their authored CGP artwork, handling, energy boosts and exhaust. Your single-player content settings are retained.";
 static const char crash_description[] =
   "Automatically keep recent inputs and checkpoints in diagnostics beside the game. "
   "Enabled by default for testing, including online play and existing installations. "
@@ -141,12 +147,22 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
     bool ready=callouts_ready();out->enabled=video->lap_callouts && ready;out->option_count=1;
     COPY(out->status,!ready?"Choose both WAV recordings":out->enabled?"Enabled":"Ready to enable");return 1;
   }
-  if (index == 3) return SnesHdModFeature(video->hd_mode7, out);
+  if (index == 3) {
+    if(!SnesHdModFeature(video->hd_mode7,out))return 0;
+    if(video->hd_mode7 && hd_known && video->hd_scale==hd_requested &&
+        video->hd_supersample==hd_samples) {
+      if(!hd_effective)COPY(out->status,"Last race: native rendering");
+      else if(hd_effective<hd_requested)
+        snprintf(out->status,sizeof(out->status),"Last race: %ux (%ux requested)",hd_effective,hd_requested);
+      else snprintf(out->status,sizeof(out->status),"Last race: %ux HD detail",hd_effective);
+    }
+    return 1;
+  }
   if(index==LOCAL_INDEX && out) {
     memset(out,0,sizeof(*out));COPY(out->id,"local-2p");COPY(out->package_id,"fzero-local-2p");
     COPY(out->name,"Local Multiplayer");COPY(out->package_name,out->name);COPY(out->package_version,"1");
     COPY(out->group,"Game Modes");COPY(out->author,"FZeroSNESRecomp contributors");
-    COPY(out->description,local_description);out->enabled=video->local_two_player;
+    COPY(out->description,local_description);out->enabled=video->local_two_player;out->option_count=1;
     COPY(out->status,out->enabled?"VS MODE on main menu":"Single player");return 1;
   }
   if (index == CRASH_INDEX && out) {
@@ -204,11 +220,37 @@ static int feature_get(void *ctx, int index, RecompLauncherCModFeature *out) {
   out->option_count = index == 2 || index == 4 || index == 5 ? 0 : 1;
   return 1;
 }
+static const unsigned hd_details[]={2,4,8},hd_smoothing[]={1,2};
+static int hd_choice(unsigned current,const unsigned *values,int count,int index,
+                     RecompLauncherCModChoice *out) {
+  bool custom=true;
+  for(int i=0;i<count;++i)if(current==values[i])custom=false;
+  if(index<0 || index>=count+(int)custom)return 0;
+  unsigned value=index<count?values[index]:current;
+  memset(out,0,sizeof(*out));snprintf(out->value,sizeof(out->value),"%u",value);
+  if(index==count)snprintf(out->label,sizeof(out->label),"Current custom (%u)",value);
+  else if(values==hd_smoothing)COPY(out->label,value==1?"Off":"2 samples per axis");
+  else snprintf(out->label,sizeof(out->label),"%ux%s",value,value==4?" (recommended)":"");
+  return 1;
+}
 static int option_get(void *ctx, const char *package, const char *feature, int index,
                       RecompLauncherCModOption *out) {
   if (!identity(package, feature)) return FzeroTrackModsProvider()->feature_option_get ? FzeroTrackModsProvider()->feature_option_get(ctx, package, feature, index, out) : 0;
   (void)ctx;
   int kind = identity(package, feature);
+  if(kind==4) {
+    if(!SnesHdModOption(video->hd_scale,video->hd_supersample,index,out))return 0;
+    out->type=RECOMP_MOD_OPTION_CHOICE;
+    unsigned current=index?video->hd_supersample:video->hd_scale;
+    const unsigned *values=index?hd_smoothing:hd_details;
+    int n=index?2:3;bool custom=true;
+    for(int i=0;i<n;++i)if(current==values[i])custom=false;
+    out->choice_count=n+(int)custom;
+    COPY(out->default_value,index?"1":"4");
+    if(index)COPY(out->description,"Off preserves sharp track pixels. Two samples per axis reduce jagged edges and shimmer at greater rendering cost. Sprites and text stay unchanged.");
+    else COPY(out->description,"2x uses less detail; 4x is recommended; 8x offers a finer track grid. Window size and display filtering are separate. Sprites and text keep their original detail.");
+    return 1;
+  }
   if (!kind || kind == 3 || kind == 5 || kind == 6 || index != 0 || !out) return 0;
   if (kind == TITLE_KIND) {
     memset(out,0,sizeof(*out)); COPY(out->id,"screen"); COPY(out->label,"Title screen");
@@ -223,6 +265,12 @@ static int option_get(void *ctx, const char *package, const char *feature, int i
     out->type=RECOMP_MOD_OPTION_CHOICE;out->step=1;out->choice_count=2;
     COPY(out->default_value,"every-lap");COPY(out->value,video->lap_boost_second_lap_only?"lap-2-only":"every-lap");return 1;
   }
+  if(kind==LOCAL_KIND) {
+    memset(out,0,sizeof(*out));COPY(out->id,"players");COPY(out->label,"Players");
+    COPY(out->description,"Default number of local racers. Online uses the lobby player count.");
+    out->type=RECOMP_MOD_OPTION_CHOICE;out->step=1;out->choice_count=3;
+    COPY(out->default_value,"2");snprintf(out->value,sizeof(out->value),"%u",video->local_players);return 1;
+  }
   if (kind>=7) return 0;
   memset(out, 0, sizeof(*out)); out->type = RECOMP_MOD_OPTION_CHOICE; out->step = 1;
   if (kind == 1) {
@@ -232,8 +280,7 @@ static int option_get(void *ctx, const char *package, const char *feature, int i
     /* Must track FzeroVideoDefaults, or the launcher marks the wrong choice. */
     COPY(out->default_value, FzeroAspectName(FZERO_ASPECT_FIT));
     out->choice_count = 4;
-  } else if (kind == 4) {
-    return SnesHdModOption(video->hd_scale, video->hd_supersample, index, out);
+
   } else {
     COPY(out->id, "fps"); COPY(out->label, "Presentation FPS");
     COPY(out->description, "Auto follows display refresh, up to 360 FPS.");
@@ -248,6 +295,11 @@ static int choice_get(void *ctx, const char *package, const char *feature,
   if (!identity(package, feature)) return FzeroTrackModsProvider()->feature_choice_get ? FzeroTrackModsProvider()->feature_choice_get(ctx, package, feature, option, index, out) : 0;
   (void)ctx;
   if (!identity(package, feature) || !option || !out || index < 0) return 0;
+  if(identity(package,feature)==4) {
+    if(!strcmp(option,"scale"))return hd_choice(video->hd_scale,hd_details,3,index,out);
+    if(!strcmp(option,"supersample"))return hd_choice(video->hd_supersample,hd_smoothing,2,index,out);
+    return 0;
+  }
   if (identity(package,feature) == TITLE_KIND && !strcmp(option,"screen")) {
     const FzeroTitleScreen *title=FzeroTitleChoice((unsigned)index); if (!title) return 0;
     memset(out,0,sizeof(*out)); COPY(out->value,title->id); COPY(out->label,title->name); return 1;
@@ -255,6 +307,10 @@ static int choice_get(void *ctx, const char *package, const char *feature,
   if (identity(package,feature)==CALLOUT_KIND && !strcmp(option,"boost-timing") && index<2) {
     memset(out,0,sizeof(*out));COPY(out->value,index?"lap-2-only":"every-lap");
     COPY(out->label,index?"Lap 2 only (once per race)":"Every new lap");return 1;
+  }
+  if(identity(package,feature)==LOCAL_KIND && !strcmp(option,"players") && index<3) {
+    memset(out,0,sizeof(*out));snprintf(out->value,sizeof(out->value),"%d",index+2);
+    snprintf(out->label,sizeof(out->label),"%d players",index+2);return 1;
   }
   const char *value = NULL;
   if (identity(package,feature)>=7) return 0;
@@ -326,10 +382,15 @@ static int set_option(void *ctx, const char *package, const char *feature,
     if(strcmp(option,"boost-timing") || (strcmp(value,"every-lap") && strcmp(value,"lap-2-only")))return 0;
     video->lap_boost_second_lap_only=!strcmp(value,"lap-2-only");error_text[0]=0;return 1;
   }
+  if(identity(package,feature)==LOCAL_KIND) {
+    if(strcmp(option,"players") || strlen(value)!=1 || value[0]<'2' || value[0]>'4')return 0;
+    video->local_players=(unsigned)(value[0]-'0');return 1;
+  }
   if (identity(package,feature)>=7) return 0;
   if (identity(package, feature) == 1 && !strcmp(option, "aspect")) {
     for (unsigned i = 0; i < 4; ++i) if (!strcmp(value, aspects[i]))
       return FzeroParseAspect(value, &video->aspect);
+
   } else if (identity(package, feature) == 4 && !strcmp(option,"supersample")) {
     return SnesHdParseSampling(value,&video->hd_supersample);
   } else if (identity(package, feature) == 4 && !strcmp(option, "scale")) {
@@ -351,28 +412,28 @@ static int commit(void *ctx, const char *image) {
 }
 static const char *last_error(void *ctx) { (void)ctx; return *error_text ? error_text : FzeroTrackModsProvider()->last_error(ctx); }
 static int resources(void *ctx,const char *p,const char *f) {
-  return identity(p,f)==CALLOUT_KIND?2:FzeroTrackModsProvider()->feature_resource_count(ctx,p,f);
+  return identity(p,f)==CALLOUT_KIND?3:FzeroTrackModsProvider()->feature_resource_count(ctx,p,f);
 }
 static int resource_get(void *ctx,const char *p,const char *f,int i,RecompLauncherCModResource *out) {
   if(identity(p,f)!=CALLOUT_KIND)return FzeroTrackModsProvider()->feature_resource_get(ctx,p,f,i,out);
-  if(!out || i<0 || i>1)return 0;
-  memset(out,0,sizeof(*out));COPY(out->id,i?"final-lap":"boost-power");
-  COPY(out->label,i?"Final lap WAV":"Boost power WAV");
-  COPY(out->description,i?"Plays instead of boost power when the final lap begins.":video->lap_boost_second_lap_only?"Plays once when the first racer starts lap 2.":"Plays when each ordinary new lap begins.");
-  COPY(out->path,i?video->final_lap_wav:video->lap_boost_wav);
+  if(!out || i<0 || i>2)return 0;
+  memset(out,0,sizeof(*out));COPY(out->id,i==2?"finish":i?"final-lap":"boost-power");
+  COPY(out->label,i==2?"Finish fanfare WAV (optional)":i?"Final lap WAV":"Boost power WAV");
+  COPY(out->description,i==2?"Plays once when you cross the finish line at the end of the final lap.":i?"Plays instead of boost power when the final lap begins.":video->lap_boost_second_lap_only?"Plays once when the first racer starts lap 2.":"Plays when each ordinary new lap begins.");
+  COPY(out->path,i==2?video->finish_wav:i?video->final_lap_wav:video->lap_boost_wav);
   COPY(out->file_patterns,"*.wav");COPY(out->file_description,"WAV audio (up to 30 seconds)");
-  out->required=1;out->verified=FzeroCalloutsValid(out->path);
-  COPY(out->status,out->verified?"Ready":out->path[0]?"WAV unavailable or unsupported":"Choose a WAV recording");return 1;
+  out->required=i<2;out->verified=FzeroCalloutsValid(out->path);
+  COPY(out->status,out->verified?"Ready":out->path[0]?"WAV unavailable or unsupported":i==2?"Optional; not selected":"Choose a WAV recording");return 1;
 }
 static int resource_set(void *ctx,const char *p,const char *f,const char *id,const char *path) {
   if(identity(p,f)!=CALLOUT_KIND)return FzeroTrackModsProvider()->feature_resource_set_path(ctx,p,f,id,path);
   if(!id || !path || strlen(path)>=sizeof(video->lap_boost_wav) || strpbrk(path,"\r\n"))return 0;
-  char *target=!strcmp(id,"boost-power")?video->lap_boost_wav:!strcmp(id,"final-lap")?video->final_lap_wav:NULL;
+  char *target=!strcmp(id,"boost-power")?video->lap_boost_wav:!strcmp(id,"final-lap")?video->final_lap_wav:!strcmp(id,"finish")?video->finish_wav:NULL;
   if(!target)return 0;
   if(*path && !FzeroCalloutsValid(path)) {
     COPY(error_text,"Choose a readable WAV recording up to 30 seconds long (8-192 kHz), or Clear.");return 0;
   }
-  strcpy(target,path);if(!*path)video->lap_callouts=false;error_text[0]=0;return 1;
+  strcpy(target,path);if(!*path && target!=video->finish_wav)video->lap_callouts=false;error_text[0]=0;return 1;
 }
 
 static const RecompLauncherCModPreset presets[] = {

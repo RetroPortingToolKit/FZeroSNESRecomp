@@ -1,0 +1,1512 @@
+[
+  {
+    "frame": 1630,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.2152564639136907,
+    "full_channel_gt8_fraction": 0.037434532528831846,
+    "horizon_rgb_mae": 12.194563384748932,
+    "horizon_channel_gt8_fraction": 0.2148166232638889,
+    "near_road_rgb_mae": 0.11099470907182836,
+    "near_road_channel_gt8_fraction": 1.7004819651741294e-05
+  },
+  {
+    "frame": 1631,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.3081966581798734,
+    "full_channel_gt8_fraction": 0.039478846958705356,
+    "horizon_rgb_mae": 12.758054553952991,
+    "horizon_channel_gt8_fraction": 0.2251957298344017,
+    "near_road_rgb_mae": 0.10861828552549752,
+    "near_road_channel_gt8_fraction": 0.00045244966573383086
+  },
+  {
+    "frame": 1632,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.877414885021391,
+    "full_channel_gt8_fraction": 0.043429783412388394,
+    "horizon_rgb_mae": 13.407376802884615,
+    "horizon_channel_gt8_fraction": 0.2347652076655983,
+    "near_road_rgb_mae": 0.8525080894356343,
+    "near_road_channel_gt8_fraction": 0.004155249144900498
+  },
+  {
+    "frame": 1633,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.812410627092634,
+    "full_channel_gt8_fraction": 0.042675926571800596,
+    "horizon_rgb_mae": 13.118043035523504,
+    "horizon_channel_gt8_fraction": 0.23072749732905984,
+    "near_road_rgb_mae": 0.8467647115982587,
+    "near_road_channel_gt8_fraction": 0.004185007579291045
+  },
+  {
+    "frame": 1634,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.3150721958705356,
+    "full_channel_gt8_fraction": 0.039400736490885414,
+    "horizon_rgb_mae": 12.826261601896368,
+    "horizon_channel_gt8_fraction": 0.22551290397970086,
+    "near_road_rgb_mae": 0.10012741468439054,
+    "near_road_channel_gt8_fraction": 0.00022956506529850747
+  },
+  {
+    "frame": 1635,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.2507603963216147,
+    "full_channel_gt8_fraction": 0.03856586274646577,
+    "horizon_rgb_mae": 12.454673310630342,
+    "horizon_channel_gt8_fraction": 0.2203525641025641,
+    "near_road_rgb_mae": 0.1011962890625,
+    "near_road_channel_gt8_fraction": 0.00033584518812189055
+  },
+  {
+    "frame": 1636,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.1689264206659224,
+    "full_channel_gt8_fraction": 0.037243434361049106,
+    "horizon_rgb_mae": 12.04056907719017,
+    "horizon_channel_gt8_fraction": 0.21289897168803418,
+    "near_road_rgb_mae": 0.08496701064987562,
+    "near_road_channel_gt8_fraction": 0.0002927258240049751
+  },
+  {
+    "frame": 1637,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.1238308861142112,
+    "full_channel_gt8_fraction": 0.03617313929966518,
+    "horizon_rgb_mae": 11.743842230902779,
+    "horizon_channel_gt8_fraction": 0.20768229166666666,
+    "near_road_rgb_mae": 0.09649020522388059,
+    "near_road_channel_gt8_fraction": 2.1863339552238805e-05
+  },
+  {
+    "frame": 1638,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.0577454339890253,
+    "full_channel_gt8_fraction": 0.03526996430896577,
+    "horizon_rgb_mae": 11.426167284321581,
+    "horizon_channel_gt8_fraction": 0.20250108506944445,
+    "near_road_rgb_mae": 0.0780752001710199,
+    "near_road_channel_gt8_fraction": 2.004139458955224e-05
+  },
+  {
+    "frame": 1639,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.993664332798549,
+    "full_channel_gt8_fraction": 0.034665062313988096,
+    "horizon_rgb_mae": 11.09485593616453,
+    "horizon_channel_gt8_fraction": 0.19903303619123933,
+    "near_road_rgb_mae": 0.06780489641635572,
+    "near_road_channel_gt8_fraction": 1.821944962686567e-05
+  },
+  {
+    "frame": 1640,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.4880483718145463,
+    "full_channel_gt8_fraction": 0.03762744721912202,
+    "horizon_rgb_mae": 11.343255458733974,
+    "horizon_channel_gt8_fraction": 0.2006710737179487,
+    "near_road_rgb_mae": 0.7997482072061567,
+    "near_road_channel_gt8_fraction": 0.003823655161691542
+  },
+  {
+    "frame": 1641,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.4903662545340404,
+    "full_channel_gt8_fraction": 0.037579127720424106,
+    "horizon_rgb_mae": 11.354448367387821,
+    "horizon_channel_gt8_fraction": 0.2003726796207265,
+    "near_road_rgb_mae": 0.8006737552472015,
+    "near_road_channel_gt8_fraction": 0.003826691736629353
+  },
+  {
+    "frame": 1642,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.0493927001953125,
+    "full_channel_gt8_fraction": 0.03521147228422619,
+    "horizon_rgb_mae": 11.42005124866453,
+    "horizon_channel_gt8_fraction": 0.2021797375801282,
+    "near_road_rgb_mae": 0.06653135688743782,
+    "near_road_channel_gt8_fraction": 1.5790189676616915e-05
+  },
+  {
+    "frame": 1643,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.079203651064918,
+    "full_channel_gt8_fraction": 0.03586033412388393,
+    "horizon_rgb_mae": 11.595703125,
+    "horizon_channel_gt8_fraction": 0.20586897369123933,
+    "near_road_rgb_mae": 0.06511813491138059,
+    "near_road_channel_gt8_fraction": 2.8543804415422884e-05
+  },
+  {
+    "frame": 1644,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.5570199148995534,
+    "full_channel_gt8_fraction": 0.0383057367234003,
+    "horizon_rgb_mae": 11.809605785924145,
+    "horizon_channel_gt8_fraction": 0.20684344951923078,
+    "near_road_rgb_mae": 0.8008401595537935,
+    "near_road_channel_gt8_fraction": 0.0038309429415422885
+  },
+  {
+    "frame": 1645,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.6170461745489213,
+    "full_channel_gt8_fraction": 0.03889429001581101,
+    "horizon_rgb_mae": 12.132622612847221,
+    "horizon_channel_gt8_fraction": 0.21022803151709402,
+    "near_road_rgb_mae": 0.8069321361940298,
+    "near_road_channel_gt8_fraction": 0.003829728311567164
+  },
+  {
+    "frame": 1646,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.210456121535528,
+    "full_channel_gt8_fraction": 0.036883762904575894,
+    "horizon_rgb_mae": 12.30800530849359,
+    "horizon_channel_gt8_fraction": 0.21178260216346154,
+    "near_road_rgb_mae": 0.07664315143034826,
+    "near_road_channel_gt8_fraction": 1.6397504664179104e-05
+  },
+  {
+    "frame": 1647,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.2625757853190103,
+    "full_channel_gt8_fraction": 0.03768375941685268,
+    "horizon_rgb_mae": 12.596243573050213,
+    "horizon_channel_gt8_fraction": 0.21636076055021367,
+    "near_road_rgb_mae": 0.08026031949626866,
+    "near_road_channel_gt8_fraction": 2.1863339552238805e-05
+  },
+  {
+    "frame": 1648,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.7685953776041665,
+    "full_channel_gt8_fraction": 0.040508088611421134,
+    "horizon_rgb_mae": 12.771855802617521,
+    "horizon_channel_gt8_fraction": 0.21848290598290598,
+    "near_road_rgb_mae": 0.8745572673740671,
+    "near_road_channel_gt8_fraction": 0.004126705340485075
+  },
+  {
+    "frame": 1649,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.8306016467866444,
+    "full_channel_gt8_fraction": 0.04174768357049851,
+    "horizon_rgb_mae": 13.179633246527779,
+    "horizon_channel_gt8_fraction": 0.22598657852564102,
+    "near_road_rgb_mae": 0.858993606187811,
+    "near_road_channel_gt8_fraction": 0.004013744752798507
+  },
+  {
+    "frame": 1650,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.3993512108212425,
+    "full_channel_gt8_fraction": 0.03923833937872024,
+    "horizon_rgb_mae": 13.338915180956196,
+    "horizon_channel_gt8_fraction": 0.22527293669871795,
+    "near_road_rgb_mae": 0.08964272873911691,
+    "near_road_channel_gt8_fraction": 2.489991449004975e-05
+  },
+  {
+    "frame": 1651,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.472263881138393,
+    "full_channel_gt8_fraction": 0.04034314836774554,
+    "horizon_rgb_mae": 13.722332815838675,
+    "horizon_channel_gt8_fraction": 0.2316059862446581,
+    "near_road_rgb_mae": 0.09899112834266169,
+    "near_road_channel_gt8_fraction": 2.672185945273632e-05
+  },
+  {
+    "frame": 1652,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.8870460873558406,
+    "full_channel_gt8_fraction": 0.04320344470796131,
+    "horizon_rgb_mae": 13.90149656116453,
+    "horizon_channel_gt8_fraction": 0.2367621527777778,
+    "near_road_rgb_mae": 0.7408167900730721,
+    "near_road_channel_gt8_fraction": 0.003312295942164179
+  },
+  {
+    "frame": 1653,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.8810711815243675,
+    "full_channel_gt8_fraction": 0.042826334635416664,
+    "horizon_rgb_mae": 13.831232054620726,
+    "horizon_channel_gt8_fraction": 0.2344104734241453,
+    "near_road_rgb_mae": 0.750893360346704,
+    "near_road_channel_gt8_fraction": 0.003366346976057214
+  },
+  {
+    "frame": 1654,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.460225059872582,
+    "full_channel_gt8_fraction": 0.04003833589099702,
+    "horizon_rgb_mae": 13.60005592280983,
+    "horizon_channel_gt8_fraction": 0.22981144831730768,
+    "near_road_rgb_mae": 0.11623644472947761,
+    "near_road_channel_gt8_fraction": 4.43339940920398e-05
+  },
+  {
+    "frame": 1655,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.4582613990420388,
+    "full_channel_gt8_fraction": 0.040310814267113096,
+    "horizon_rgb_mae": 13.554174178685898,
+    "horizon_channel_gt8_fraction": 0.23099041800213677,
+    "near_road_rgb_mae": 0.12752703766324627,
+    "near_road_channel_gt8_fraction": 0.00015668726679104477
+  },
+  {
+    "frame": 1656,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.827057611374628,
+    "full_channel_gt8_fraction": 0.042370024181547616,
+    "horizon_rgb_mae": 13.578617454594017,
+    "horizon_channel_gt8_fraction": 0.23146200587606838,
+    "near_road_rgb_mae": 0.7370654053949005,
+    "near_road_channel_gt8_fraction": 0.0034580515391791043
+  },
+  {
+    "frame": 1657,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.847866966610863,
+    "full_channel_gt8_fraction": 0.042858305431547616,
+    "horizon_rgb_mae": 13.725074702857906,
+    "horizon_channel_gt8_fraction": 0.23428944644764957,
+    "near_road_rgb_mae": 0.7300096198694029,
+    "near_road_channel_gt8_fraction": 0.0034544076492537316
+  },
+  {
+    "frame": 1658,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.5037547520228793,
+    "full_channel_gt8_fraction": 0.04131317138671875,
+    "horizon_rgb_mae": 13.834407969417734,
+    "horizon_channel_gt8_fraction": 0.23640533186431623,
+    "near_road_rgb_mae": 0.12327097423041045,
+    "near_road_channel_gt8_fraction": 0.0002562869247512438
+  },
+  {
+    "frame": 1659,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.541900634765625,
+    "full_channel_gt8_fraction": 0.041645958310081846,
+    "horizon_rgb_mae": 13.945911374866453,
+    "horizon_channel_gt8_fraction": 0.237438234508547,
+    "near_road_rgb_mae": 0.13582296039334577,
+    "near_road_channel_gt8_fraction": 0.0003935401119402985
+  },
+  {
+    "frame": 1660,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.456010001046317,
+    "full_channel_gt8_fraction": 0.04038783482142857,
+    "horizon_rgb_mae": 13.50998055221688,
+    "horizon_channel_gt8_fraction": 0.23073584401709402,
+    "near_road_rgb_mae": 0.13809128187189054,
+    "near_road_channel_gt8_fraction": 0.00035770852767412936
+  },
+  {
+    "frame": 1661,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.679969060988653,
+    "full_channel_gt8_fraction": 0.040859040759858634,
+    "horizon_rgb_mae": 13.110126201923077,
+    "horizon_channel_gt8_fraction": 0.22459894163995728,
+    "near_road_rgb_mae": 0.6290817640314055,
+    "near_road_channel_gt8_fraction": 0.0029315094449626866
+  },
+  {
+    "frame": 1662,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.3649437313988093,
+    "full_channel_gt8_fraction": 0.03912498837425595,
+    "horizon_rgb_mae": 13.012728699252136,
+    "horizon_channel_gt8_fraction": 0.22426507411858973,
+    "near_road_rgb_mae": 0.13033829874067165,
+    "near_road_channel_gt8_fraction": 0.00013178735230099503
+  },
+  {
+    "frame": 1663,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.268739972795759,
+    "full_channel_gt8_fraction": 0.03762926374162946,
+    "horizon_rgb_mae": 12.531456580528847,
+    "horizon_channel_gt8_fraction": 0.21595177283653846,
+    "near_road_rgb_mae": 0.11022888487251244,
+    "near_road_channel_gt8_fraction": 4.97998289800995e-05
+  },
+  {
+    "frame": 1664,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.5182284400576638,
+    "full_channel_gt8_fraction": 0.0384307134719122,
+    "horizon_rgb_mae": 12.205103165064102,
+    "horizon_channel_gt8_fraction": 0.21133605435363248,
+    "near_road_rgb_mae": 0.6221031075093284,
+    "near_road_channel_gt8_fraction": 0.002734132074004975
+  },
+  {
+    "frame": 1665,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.420769827706473,
+    "full_channel_gt8_fraction": 0.03727649507068452,
+    "horizon_rgb_mae": 11.707496577857906,
+    "horizon_channel_gt8_fraction": 0.20490910456730768,
+    "near_road_rgb_mae": 0.6039231333566543,
+    "near_road_channel_gt8_fraction": 0.002673400575248756
+  },
+  {
+    "frame": 1666,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.096104939778646,
+    "full_channel_gt8_fraction": 0.03514934721447173,
+    "horizon_rgb_mae": 11.612555088141026,
+    "horizon_channel_gt8_fraction": 0.20171858306623933,
+    "near_road_rgb_mae": 0.08810682913557213,
+    "near_road_channel_gt8_fraction": 4.7977884017412934e-05
+  },
+  {
+    "frame": 1667,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.046707516624814,
+    "full_channel_gt8_fraction": 0.034839811779203866,
+    "horizon_rgb_mae": 11.327501085069445,
+    "horizon_channel_gt8_fraction": 0.1999636919070513,
+    "near_road_rgb_mae": 0.08861636641013682,
+    "near_road_channel_gt8_fraction": 3.4616954291044774e-05
+  },
+  {
+    "frame": 1668,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.3147132510230657,
+    "full_channel_gt8_fraction": 0.03549775623139881,
+    "horizon_rgb_mae": 11.12161124465812,
+    "horizon_channel_gt8_fraction": 0.194934812366453,
+    "near_road_rgb_mae": 0.596753172613495,
+    "near_road_channel_gt8_fraction": 0.0026011300917288555
+  },
+  {
+    "frame": 1669,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.400487627301897,
+    "full_channel_gt8_fraction": 0.03695024762834821,
+    "horizon_rgb_mae": 11.563040448050213,
+    "horizon_channel_gt8_fraction": 0.2030811798878205,
+    "near_road_rgb_mae": 0.6118947498833955,
+    "near_road_channel_gt8_fraction": 0.002660039645522388
+  },
+  {
+    "frame": 1670,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.058169410342262,
+    "full_channel_gt8_fraction": 0.034586588541666664,
+    "horizon_rgb_mae": 11.137684879139957,
+    "horizon_channel_gt8_fraction": 0.19676065037393162,
+    "near_road_rgb_mae": 0.1633653023942786,
+    "near_road_channel_gt8_fraction": 0.0005490127487562189
+  },
+  {
+    "frame": 1671,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.0512292044503346,
+    "full_channel_gt8_fraction": 0.034886314755394346,
+    "horizon_rgb_mae": 11.114293285924145,
+    "horizon_channel_gt8_fraction": 0.1977977263621795,
+    "near_road_rgb_mae": 0.15892886641013682,
+    "near_road_channel_gt8_fraction": 0.0007494266946517413
+  },
+  {
+    "frame": 1672,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.3073755900065103,
+    "full_channel_gt8_fraction": 0.03677331833612351,
+    "horizon_rgb_mae": 11.072234324919872,
+    "horizon_channel_gt8_fraction": 0.19919370993589744,
+    "near_road_rgb_mae": 0.5769219090096394,
+    "near_road_channel_gt8_fraction": 0.00282705126710199
+  },
+  {
+    "frame": 1673,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.370936802455357,
+    "full_channel_gt8_fraction": 0.037539527529761904,
+    "horizon_rgb_mae": 11.400254991319445,
+    "horizon_channel_gt8_fraction": 0.20406400240384615,
+    "near_road_rgb_mae": 0.5876476990049752,
+    "near_road_channel_gt8_fraction": 0.002688583449937811
+  },
+  {
+    "frame": 1674,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.9812662033807664,
+    "full_channel_gt8_fraction": 0.03433990478515625,
+    "horizon_rgb_mae": 10.878484742254274,
+    "horizon_channel_gt8_fraction": 0.19612212873931623,
+    "near_road_rgb_mae": 0.11009102437033583,
+    "near_road_channel_gt8_fraction": 0.00032369888837064677
+  },
+  {
+    "frame": 1675,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.9482440040225075,
+    "full_channel_gt8_fraction": 0.033808753603980654,
+    "horizon_rgb_mae": 10.695592114049145,
+    "horizon_channel_gt8_fraction": 0.19305889423076922,
+    "near_road_rgb_mae": 0.10831827192164178,
+    "near_road_channel_gt8_fraction": 0.00032491351834577117
+  },
+  {
+    "frame": 1676,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.168763660249256,
+    "full_channel_gt8_fraction": 0.03393336704799107,
+    "horizon_rgb_mae": 10.349281767494658,
+    "horizon_channel_gt8_fraction": 0.1858849158653846,
+    "near_road_rgb_mae": 0.5720536720693408,
+    "near_road_channel_gt8_fraction": 0.00258291064210199
+  },
+  {
+    "frame": 1677,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 2.1342726207914806,
+    "full_channel_gt8_fraction": 0.03333318801153274,
+    "horizon_rgb_mae": 10.1055417835203,
+    "horizon_channel_gt8_fraction": 0.18229584001068377,
+    "near_road_rgb_mae": 0.5910851018345771,
+    "near_road_channel_gt8_fraction": 0.0026612542754975124
+  },
+  {
+    "frame": 1678,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.786284673781622,
+    "full_channel_gt8_fraction": 0.030766441708519346,
+    "horizon_rgb_mae": 9.819623898237179,
+    "horizon_channel_gt8_fraction": 0.17658670539529914,
+    "near_road_rgb_mae": 0.09267140858208955,
+    "near_road_channel_gt8_fraction": 3.279500932835821e-05
+  },
+  {
+    "frame": 1679,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.9974626813616072,
+    "full_channel_gt8_fraction": 0.0312590826125372,
+    "horizon_rgb_mae": 9.492116553151709,
+    "horizon_channel_gt8_fraction": 0.17134081196581197,
+    "near_road_rgb_mae": 0.5417243615904851,
+    "near_road_channel_gt8_fraction": 0.0023861405861318407
+  },
+  {
+    "frame": 1680,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.9561288016183036,
+    "full_channel_gt8_fraction": 0.030356634230840774,
+    "horizon_rgb_mae": 9.259435930822649,
+    "horizon_channel_gt8_fraction": 0.16613665197649571,
+    "near_road_rgb_mae": 0.5404332099269279,
+    "near_road_channel_gt8_fraction": 0.0023849259561567163
+  },
+  {
+    "frame": 1681,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.8672220139276414,
+    "full_channel_gt8_fraction": 0.028730846586681548,
+    "horizon_rgb_mae": 8.703821948450855,
+    "horizon_channel_gt8_fraction": 0.15660682091346154,
+    "near_road_rgb_mae": 0.5539896950792911,
+    "near_road_channel_gt8_fraction": 0.002448086714863184
+  },
+  {
+    "frame": 1682,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.8930660429454984,
+    "full_channel_gt8_fraction": 0.028925214494977678,
+    "horizon_rgb_mae": 8.826080061431623,
+    "horizon_channel_gt8_fraction": 0.1577106704059829,
+    "near_road_rgb_mae": 0.5611645143423507,
+    "near_road_channel_gt8_fraction": 0.0024517306047885574
+  },
+  {
+    "frame": 1683,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.8434019542875744,
+    "full_channel_gt8_fraction": 0.028286525181361606,
+    "horizon_rgb_mae": 8.460828993055555,
+    "horizon_channel_gt8_fraction": 0.15344968616452992,
+    "near_road_rgb_mae": 0.5843827736318408,
+    "near_road_channel_gt8_fraction": 0.0026193495413557215
+  },
+  {
+    "frame": 1684,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.8677960350399925,
+    "full_channel_gt8_fraction": 0.028235662551153274,
+    "horizon_rgb_mae": 8.574888571714743,
+    "horizon_channel_gt8_fraction": 0.152965578258547,
+    "near_road_rgb_mae": 0.5919918231110075,
+    "near_road_channel_gt8_fraction": 0.00268008104011194
+  },
+  {
+    "frame": 1685,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.8401016961960566,
+    "full_channel_gt8_fraction": 0.02773248581659226,
+    "horizon_rgb_mae": 8.407506176549145,
+    "horizon_channel_gt8_fraction": 0.14962481637286323,
+    "near_road_rgb_mae": 0.5944095440764925,
+    "near_road_channel_gt8_fraction": 0.0028088318174751244
+  },
+  {
+    "frame": 1686,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.5712650844029017,
+    "full_channel_gt8_fraction": 0.026446751185825894,
+    "horizon_rgb_mae": 8.512265458066238,
+    "horizon_channel_gt8_fraction": 0.15114808693910256,
+    "near_road_rgb_mae": 0.11433858539334577,
+    "near_road_channel_gt8_fraction": 0.0002168114505597015
+  },
+  {
+    "frame": 1687,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.5377527872721355,
+    "full_channel_gt8_fraction": 0.025988624209449404,
+    "horizon_rgb_mae": 8.288455278445513,
+    "horizon_channel_gt8_fraction": 0.14813075921474358,
+    "near_road_rgb_mae": 0.12345438335665423,
+    "near_road_channel_gt8_fraction": 0.0003267354633084577
+  },
+  {
+    "frame": 1688,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.791075206938244,
+    "full_channel_gt8_fraction": 0.026327224004836308,
+    "horizon_rgb_mae": 7.941907051282051,
+    "horizon_channel_gt8_fraction": 0.14091087406517094,
+    "near_road_rgb_mae": 0.6479115652207711,
+    "near_road_channel_gt8_fraction": 0.0029964921486318407
+  },
+  {
+    "frame": 1689,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.7694807506742931,
+    "full_channel_gt8_fraction": 0.02571868896484375,
+    "horizon_rgb_mae": 7.834647936698718,
+    "horizon_channel_gt8_fraction": 0.13714651776175213,
+    "near_road_rgb_mae": 0.6430062820662313,
+    "near_road_channel_gt8_fraction": 0.0030730138370646766
+  },
+  {
+    "frame": 1690,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.411562238420759,
+    "full_channel_gt8_fraction": 0.023508707682291668,
+    "horizon_rgb_mae": 7.650411491720085,
+    "horizon_channel_gt8_fraction": 0.13396434294871795,
+    "near_road_rgb_mae": 0.09853685673196518,
+    "near_road_channel_gt8_fraction": 0.0003060867537313433
+  },
+  {
+    "frame": 1691,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.3732194446382069,
+    "full_channel_gt8_fraction": 0.023140680222284226,
+    "horizon_rgb_mae": 7.430918636485043,
+    "horizon_channel_gt8_fraction": 0.13274781316773504,
+    "near_road_rgb_mae": 0.09874759503264925,
+    "near_road_channel_gt8_fraction": 4.372667910447761e-05
+  },
+  {
+    "frame": 1692,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.646014622279576,
+    "full_channel_gt8_fraction": 0.023576282319568452,
+    "horizon_rgb_mae": 7.066600310496795,
+    "horizon_channel_gt8_fraction": 0.1250438201121795,
+    "near_road_rgb_mae": 0.6610830126710199,
+    "near_road_channel_gt8_fraction": 0.0030159262282338306
+  },
+  {
+    "frame": 1693,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.4934946695963542,
+    "full_channel_gt8_fraction": 0.021352132161458332,
+    "horizon_rgb_mae": 6.529553535657051,
+    "horizon_channel_gt8_fraction": 0.11389473157051282,
+    "near_road_rgb_mae": 0.5629512350357587,
+    "near_road_channel_gt8_fraction": 0.0025428278529228856
+  },
+  {
+    "frame": 1694,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.136780511765253,
+    "full_channel_gt8_fraction": 0.01847112746465774,
+    "horizon_rgb_mae": 6.179382845886752,
+    "horizon_channel_gt8_fraction": 0.10602589142628205,
+    "near_road_rgb_mae": 0.06878935401119403,
+    "near_road_channel_gt8_fraction": 1.882676461442786e-05
+  },
+  {
+    "frame": 1695,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.086107889811198,
+    "full_channel_gt8_fraction": 0.017820449102492558,
+    "horizon_rgb_mae": 5.917278061565171,
+    "horizon_channel_gt8_fraction": 0.10224692841880342,
+    "near_road_rgb_mae": 0.060543231110074626,
+    "near_road_channel_gt8_fraction": 3.097306436567164e-05
+  },
+  {
+    "frame": 1696,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.0171788533528645,
+    "full_channel_gt8_fraction": 0.016905648367745534,
+    "horizon_rgb_mae": 5.527648404113248,
+    "horizon_channel_gt8_fraction": 0.09703442174145299,
+    "near_road_rgb_mae": 0.05874861532182836,
+    "near_road_channel_gt8_fraction": 1.7612134639303484e-05
+  },
+  {
+    "frame": 1697,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.9928156534830729,
+    "full_channel_gt8_fraction": 0.01649111793154762,
+    "horizon_rgb_mae": 5.378739316239316,
+    "horizon_channel_gt8_fraction": 0.09461596888354701,
+    "near_road_rgb_mae": 0.061332133278917914,
+    "near_road_channel_gt8_fraction": 2.732917444029851e-05
+  },
+  {
+    "frame": 1698,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.9796549479166666,
+    "full_channel_gt8_fraction": 0.016402471633184524,
+    "horizon_rgb_mae": 5.321309929220085,
+    "horizon_channel_gt8_fraction": 0.09416942107371795,
+    "near_road_rgb_mae": 0.05571204038401741,
+    "near_road_channel_gt8_fraction": 9.717039800995025e-06
+  },
+  {
+    "frame": 1699,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.9583144414992559,
+    "full_channel_gt8_fraction": 0.01638067336309524,
+    "horizon_rgb_mae": 5.196232722355769,
+    "horizon_channel_gt8_fraction": 0.09403170072115384,
+    "near_road_rgb_mae": 0.056802170786691544,
+    "near_road_channel_gt8_fraction": 1.5182874689054727e-05
+  },
+  {
+    "frame": 1700,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.9234869820731026,
+    "full_channel_gt8_fraction": 0.015490577334449404,
+    "horizon_rgb_mae": 5.012595152243589,
+    "horizon_channel_gt8_fraction": 0.08887344751602565,
+    "near_road_rgb_mae": 0.05229224968905473,
+    "near_road_channel_gt8_fraction": 2.8543804415422884e-05
+  },
+  {
+    "frame": 1701,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.9033660888671875,
+    "full_channel_gt8_fraction": 0.01523408435639881,
+    "horizon_rgb_mae": 4.927713508279915,
+    "horizon_channel_gt8_fraction": 0.08744825053418803,
+    "near_road_rgb_mae": 0.04340905336598259,
+    "near_road_channel_gt8_fraction": 1.3968244713930349e-05
+  },
+  {
+    "frame": 1702,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.8982591174897694,
+    "full_channel_gt8_fraction": 0.015034993489583334,
+    "horizon_rgb_mae": 4.895128038194445,
+    "horizon_channel_gt8_fraction": 0.08630058092948718,
+    "near_road_rgb_mae": 0.04430423565764925,
+    "near_road_channel_gt8_fraction": 1.3968244713930349e-05
+  },
+  {
+    "frame": 1703,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.8532482328869048,
+    "full_channel_gt8_fraction": 0.014394487653459822,
+    "horizon_rgb_mae": 4.635965461404915,
+    "horizon_channel_gt8_fraction": 0.0826217781784188,
+    "near_road_rgb_mae": 0.04440869383550995,
+    "near_road_channel_gt8_fraction": 1.3968244713930349e-05
+  },
+  {
+    "frame": 1704,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.848204839797247,
+    "full_channel_gt8_fraction": 0.014314923967633928,
+    "horizon_rgb_mae": 4.509131276709402,
+    "horizon_channel_gt8_fraction": 0.07985902443910256,
+    "near_road_rgb_mae": 0.05052314113028607,
+    "near_road_channel_gt8_fraction": 1.5182874689054727e-05
+  },
+  {
+    "frame": 1705,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.8249540783110119,
+    "full_channel_gt8_fraction": 0.014091855003720238,
+    "horizon_rgb_mae": 4.3673481737446584,
+    "horizon_channel_gt8_fraction": 0.07857989449786325,
+    "near_road_rgb_mae": 0.05267668007618159,
+    "near_road_channel_gt8_fraction": 1.3968244713930349e-05
+  },
+  {
+    "frame": 1706,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7939867292131696,
+    "full_channel_gt8_fraction": 0.013575599307105654,
+    "horizon_rgb_mae": 4.26968983707265,
+    "horizon_channel_gt8_fraction": 0.07791424612713675,
+    "near_road_rgb_mae": 0.051551325404228854,
+    "near_road_channel_gt8_fraction": 1.5790189676616915e-05
+  },
+  {
+    "frame": 1707,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.77752685546875,
+    "full_channel_gt8_fraction": 0.01362428211030506,
+    "horizon_rgb_mae": 4.192833533653846,
+    "horizon_channel_gt8_fraction": 0.07818760016025642,
+    "near_road_rgb_mae": 0.04648814035292288,
+    "near_road_channel_gt8_fraction": 1.7612134639303484e-05
+  },
+  {
+    "frame": 1708,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7572235834030878,
+    "full_channel_gt8_fraction": 0.012907482328869048,
+    "horizon_rgb_mae": 4.088495759882479,
+    "horizon_channel_gt8_fraction": 0.07408520299145299,
+    "near_road_rgb_mae": 0.043005188899253734,
+    "near_road_channel_gt8_fraction": 1.4575559701492537e-05
+  },
+  {
+    "frame": 1709,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7585892450241816,
+    "full_channel_gt8_fraction": 0.013137454078311012,
+    "horizon_rgb_mae": 4.1044942741720085,
+    "horizon_channel_gt8_fraction": 0.07545614650106838,
+    "near_road_rgb_mae": 0.04067006277207712,
+    "near_road_channel_gt8_fraction": 0.0
+  },
+  {
+    "frame": 1710,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.771073477608817,
+    "full_channel_gt8_fraction": 0.012483142671130952,
+    "horizon_rgb_mae": 3.9861194577991452,
+    "horizon_channel_gt8_fraction": 0.07070688100961539,
+    "near_road_rgb_mae": 0.09570555425995025,
+    "near_road_channel_gt8_fraction": 0.00028665267412935323
+  },
+  {
+    "frame": 1711,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7837339128766742,
+    "full_channel_gt8_fraction": 0.01287478492373512,
+    "horizon_rgb_mae": 4.053431323450854,
+    "horizon_channel_gt8_fraction": 0.07301265357905982,
+    "near_road_rgb_mae": 0.09748863106343283,
+    "near_road_channel_gt8_fraction": 0.0002708624844527363
+  },
+  {
+    "frame": 1712,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7241294497535342,
+    "full_channel_gt8_fraction": 0.011763073149181548,
+    "horizon_rgb_mae": 3.880615234375,
+    "horizon_channel_gt8_fraction": 0.06749966613247864,
+    "near_road_rgb_mae": 0.048341665694962684,
+    "near_road_channel_gt8_fraction": 1.821944962686567e-05
+  },
+  {
+    "frame": 1713,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7071409679594494,
+    "full_channel_gt8_fraction": 0.011964343843005952,
+    "horizon_rgb_mae": 3.7980414496527777,
+    "horizon_channel_gt8_fraction": 0.06865985576923077,
+    "near_road_rgb_mae": 0.04425807971859453,
+    "near_road_channel_gt8_fraction": 1.7004819651741294e-05
+  },
+  {
+    "frame": 1714,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7054570515950521,
+    "full_channel_gt8_fraction": 0.01232510521298363,
+    "horizon_rgb_mae": 3.8181569678151708,
+    "horizon_channel_gt8_fraction": 0.07075487446581197,
+    "near_road_rgb_mae": 0.035701618858830844,
+    "near_road_channel_gt8_fraction": 9.109724813432835e-06
+  },
+  {
+    "frame": 1715,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7093687511625744,
+    "full_channel_gt8_fraction": 0.012864612397693452,
+    "horizon_rgb_mae": 3.8436414930555554,
+    "horizon_channel_gt8_fraction": 0.07384106236645299,
+    "near_road_rgb_mae": 0.03524370335820896,
+    "near_road_channel_gt8_fraction": 1.3968244713930349e-05
+  },
+  {
+    "frame": 1716,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6683574858165923,
+    "full_channel_gt8_fraction": 0.011753627232142858,
+    "horizon_rgb_mae": 3.6108294103899574,
+    "horizon_channel_gt8_fraction": 0.06746001936431624,
+    "near_road_rgb_mae": 0.03423130927394279,
+    "near_road_channel_gt8_fraction": 1.2146299751243782e-05
+  },
+  {
+    "frame": 1717,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6462311517624628,
+    "full_channel_gt8_fraction": 0.01150694347563244,
+    "horizon_rgb_mae": 3.465014857104701,
+    "horizon_channel_gt8_fraction": 0.06604525574252136,
+    "near_road_rgb_mae": 0.039718400186567165,
+    "near_road_channel_gt8_fraction": 1.2146299751243782e-05
+  },
+  {
+    "frame": 1718,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.613053458077567,
+    "full_channel_gt8_fraction": 0.010611761183965774,
+    "horizon_rgb_mae": 3.292743389423077,
+    "horizon_channel_gt8_fraction": 0.060897435897435896,
+    "near_road_rgb_mae": 0.034348521066542285,
+    "near_road_channel_gt8_fraction": 1.5182874689054727e-05
+  },
+  {
+    "frame": 1719,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6082222348167783,
+    "full_channel_gt8_fraction": 0.010925656273251488,
+    "horizon_rgb_mae": 3.2750880575587606,
+    "horizon_channel_gt8_fraction": 0.06272536057692307,
+    "near_road_rgb_mae": 0.03154636971393035,
+    "near_road_channel_gt8_fraction": 7.895094838308457e-06
+  },
+  {
+    "frame": 1720,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.5816199893043155,
+    "full_channel_gt8_fraction": 0.01031312488374256,
+    "horizon_rgb_mae": 3.1531179053151708,
+    "horizon_channel_gt8_fraction": 0.059175931490384616,
+    "near_road_rgb_mae": 0.022218618819962687,
+    "near_road_channel_gt8_fraction": 1.6397504664179104e-05
+  },
+  {
+    "frame": 1721,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.5812105451311383,
+    "full_channel_gt8_fraction": 0.010548546200706846,
+    "horizon_rgb_mae": 3.170829577323718,
+    "horizon_channel_gt8_fraction": 0.060536441639957264,
+    "near_road_rgb_mae": 0.016902183418843284,
+    "near_road_channel_gt8_fraction": 1.4575559701492537e-05
+  },
+  {
+    "frame": 1722,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6143304734002977,
+    "full_channel_gt8_fraction": 0.011874607631138392,
+    "horizon_rgb_mae": 3.3701234475160255,
+    "horizon_channel_gt8_fraction": 0.06818618122329059,
+    "near_road_rgb_mae": 0.014449845499067164,
+    "near_road_channel_gt8_fraction": 3.0365749378109454e-06
+  },
+  {
+    "frame": 1723,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6233593168712798,
+    "full_channel_gt8_fraction": 0.01245298839750744,
+    "horizon_rgb_mae": 3.4102835369925213,
+    "horizon_channel_gt8_fraction": 0.07150398971688034,
+    "near_road_rgb_mae": 0.017819836365049753,
+    "near_road_channel_gt8_fraction": 1.8219449626865671e-06
+  },
+  {
+    "frame": 1724,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6242508661179316,
+    "full_channel_gt8_fraction": 0.012013026646205358,
+    "horizon_rgb_mae": 3.418640658386752,
+    "horizon_channel_gt8_fraction": 0.0689853766025641,
+    "near_road_rgb_mae": 0.017524681281094526,
+    "near_road_channel_gt8_fraction": 3.6438899253731343e-06
+  },
+  {
+    "frame": 1725,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6292829967680431,
+    "full_channel_gt8_fraction": 0.012150719052269346,
+    "horizon_rgb_mae": 3.4535798944978633,
+    "horizon_channel_gt8_fraction": 0.06978248530982906,
+    "near_road_rgb_mae": 0.01621591748289801,
+    "near_road_channel_gt8_fraction": 1.8219449626865671e-06
+  },
+  {
+    "frame": 1726,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6309175037202381,
+    "full_channel_gt8_fraction": 0.01179904029482887,
+    "horizon_rgb_mae": 3.4748869023771367,
+    "horizon_channel_gt8_fraction": 0.0677688468215812,
+    "near_road_rgb_mae": 0.012765761038557213,
+    "near_road_channel_gt8_fraction": 0.0
+  },
+  {
+    "frame": 1727,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6314886183965773,
+    "full_channel_gt8_fraction": 0.012001400902157738,
+    "horizon_rgb_mae": 3.4857584635416665,
+    "horizon_channel_gt8_fraction": 0.06892486311431624,
+    "near_road_rgb_mae": 0.010184065026430348,
+    "near_road_channel_gt8_fraction": 0.0
+  },
+  {
+    "frame": 1728,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.579071044921875,
+    "full_channel_gt8_fraction": 0.01067715599423363,
+    "horizon_rgb_mae": 3.181083483573718,
+    "horizon_channel_gt8_fraction": 0.06131685697115385,
+    "near_road_rgb_mae": 0.011287556358830846,
+    "near_road_channel_gt8_fraction": 2.429259950248756e-06
+  },
+  {
+    "frame": 1729,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.5745918637230283,
+    "full_channel_gt8_fraction": 0.011018298921130952,
+    "horizon_rgb_mae": 3.1395774906517095,
+    "horizon_channel_gt8_fraction": 0.06327832865918803,
+    "near_road_rgb_mae": 0.015526007657027363,
+    "near_road_channel_gt8_fraction": 0.0
+  },
+  {
+    "frame": 1730,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.577622549874442,
+    "full_channel_gt8_fraction": 0.011056082589285714,
+    "horizon_rgb_mae": 3.1456309261485043,
+    "horizon_channel_gt8_fraction": 0.06347864917200854,
+    "near_road_rgb_mae": 0.018509746190920398,
+    "near_road_channel_gt8_fraction": 6.68046486318408e-06
+  },
+  {
+    "frame": 1731,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6105524698893229,
+    "full_channel_gt8_fraction": 0.012171064104352678,
+    "horizon_rgb_mae": 3.322735126201923,
+    "horizon_channel_gt8_fraction": 0.06988890558226496,
+    "near_road_rgb_mae": 0.021460082400497512,
+    "near_road_channel_gt8_fraction": 4.858519900497512e-06
+  },
+  {
+    "frame": 1732,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6202832176571801,
+    "full_channel_gt8_fraction": 0.012298220679873512,
+    "horizon_rgb_mae": 3.3802500667735043,
+    "horizon_channel_gt8_fraction": 0.07060880742521368,
+    "near_road_rgb_mae": 0.02059405122823383,
+    "near_road_channel_gt8_fraction": 4.2512049129353235e-06
+  },
+  {
+    "frame": 1733,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.9927629743303571,
+    "full_channel_gt8_fraction": 0.01475125267392113,
+    "horizon_rgb_mae": 3.5431064703525643,
+    "horizon_channel_gt8_fraction": 0.07449627737713675,
+    "near_road_rgb_mae": 0.5960705505674752,
+    "near_road_channel_gt8_fraction": 0.0029770580690298507
+  },
+  {
+    "frame": 1734,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6844086419968378,
+    "full_channel_gt8_fraction": 0.01389312744140625,
+    "horizon_rgb_mae": 3.7523141192574787,
+    "horizon_channel_gt8_fraction": 0.07977347088675214,
+    "near_road_rgb_mae": 0.019710407921330844,
+    "near_road_channel_gt8_fraction": 4.858519900497512e-06
+  },
+  {
+    "frame": 1735,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7092063540504092,
+    "full_channel_gt8_fraction": 0.014669145856584822,
+    "horizon_rgb_mae": 3.8940867888621793,
+    "horizon_channel_gt8_fraction": 0.08422642895299146,
+    "near_road_rgb_mae": 0.019852519628420398,
+    "near_road_channel_gt8_fraction": 7.895094838308457e-06
+  },
+  {
+    "frame": 1736,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.0962746029808408,
+    "full_channel_gt8_fraction": 0.0170745849609375,
+    "horizon_rgb_mae": 3.8763229500534186,
+    "horizon_channel_gt8_fraction": 0.08462289663461539,
+    "near_road_rgb_mae": 0.6491577755752488,
+    "near_road_channel_gt8_fraction": 0.0032430620335820895
+  },
+  {
+    "frame": 1737,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.0876849946521578,
+    "full_channel_gt8_fraction": 0.017001197451636904,
+    "horizon_rgb_mae": 3.7948238014155984,
+    "horizon_channel_gt8_fraction": 0.08404280181623931,
+    "near_road_rgb_mae": 0.6581824762904229,
+    "near_road_channel_gt8_fraction": 0.0032880033426616914
+  },
+  {
+    "frame": 1738,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7187754313151041,
+    "full_channel_gt8_fraction": 0.014947437104724702,
+    "horizon_rgb_mae": 3.8936569344284186,
+    "horizon_channel_gt8_fraction": 0.08581021300747864,
+    "near_road_rgb_mae": 0.0344013574704602,
+    "near_road_channel_gt8_fraction": 1.0931669776119402e-05
+  },
+  {
+    "frame": 1739,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7209145682198661,
+    "full_channel_gt8_fraction": 0.01549130394345238,
+    "horizon_rgb_mae": 3.8819110576923075,
+    "horizon_channel_gt8_fraction": 0.08892352764423077,
+    "near_road_rgb_mae": 0.04091298876710199,
+    "near_road_channel_gt8_fraction": 1.336092972636816e-05
+  },
+  {
+    "frame": 1740,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7077981858026414,
+    "full_channel_gt8_fraction": 0.01458376929873512,
+    "horizon_rgb_mae": 3.794502453926282,
+    "horizon_channel_gt8_fraction": 0.0837047609508547,
+    "near_road_rgb_mae": 0.04392466379042288,
+    "near_road_channel_gt8_fraction": 1.5182874689054727e-05
+  },
+  {
+    "frame": 1741,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7016754150390625,
+    "full_channel_gt8_fraction": 0.014490763346354166,
+    "horizon_rgb_mae": 3.74037835536859,
+    "horizon_channel_gt8_fraction": 0.08316848624465811,
+    "near_road_rgb_mae": 0.04930183069029851,
+    "near_road_channel_gt8_fraction": 1.336092972636816e-05
+  },
+  {
+    "frame": 1742,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7111060732886905,
+    "full_channel_gt8_fraction": 0.014696756998697916,
+    "horizon_rgb_mae": 3.7734813201121793,
+    "horizon_channel_gt8_fraction": 0.08432241586538461,
+    "near_road_rgb_mae": 0.05472576084421642,
+    "near_road_channel_gt8_fraction": 2.3685284514925374e-05
+  },
+  {
+    "frame": 1743,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7088775634765625,
+    "full_channel_gt8_fraction": 0.014676048642113096,
+    "horizon_rgb_mae": 3.7335841513087606,
+    "horizon_channel_gt8_fraction": 0.08417843549679487,
+    "near_road_rgb_mae": 0.06245202211598259,
+    "near_road_channel_gt8_fraction": 2.9758434390547264e-05
+  },
+  {
+    "frame": 1744,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.063016619001116,
+    "full_channel_gt8_fraction": 0.016366504487537202,
+    "horizon_rgb_mae": 3.7612450754540596,
+    "horizon_channel_gt8_fraction": 0.08371936765491453,
+    "near_road_rgb_mae": 0.6457968944340796,
+    "near_road_channel_gt8_fraction": 0.002991633628731343
+  },
+  {
+    "frame": 1745,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 1.0636643909272694,
+    "full_channel_gt8_fraction": 0.016374497186569942,
+    "horizon_rgb_mae": 3.723895733173077,
+    "horizon_channel_gt8_fraction": 0.08374858106303419,
+    "near_road_rgb_mae": 0.657036472908893,
+    "near_road_channel_gt8_fraction": 0.002994670203669154
+  },
+  {
+    "frame": 1746,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7068292526971727,
+    "full_channel_gt8_fraction": 0.014247349330357142,
+    "horizon_rgb_mae": 3.609973874866453,
+    "horizon_channel_gt8_fraction": 0.08175789596688034,
+    "near_road_rgb_mae": 0.0939619529306592,
+    "near_road_channel_gt8_fraction": 1.7612134639303484e-05
+  },
+  {
+    "frame": 1747,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7302166166759673,
+    "full_channel_gt8_fraction": 0.01508730933779762,
+    "horizon_rgb_mae": 3.6999657785790596,
+    "horizon_channel_gt8_fraction": 0.08651759481837606,
+    "near_road_rgb_mae": 0.1079824267335199,
+    "near_road_channel_gt8_fraction": 3.826084421641791e-05
+  },
+  {
+    "frame": 1748,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7249901181175595,
+    "full_channel_gt8_fraction": 0.014784676688058036,
+    "horizon_rgb_mae": 3.6305401141826925,
+    "horizon_channel_gt8_fraction": 0.08477731036324786,
+    "near_road_rgb_mae": 0.11891895502953981,
+    "near_road_channel_gt8_fraction": 3.704621424129353e-05
+  },
+  {
+    "frame": 1749,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7362870715913319,
+    "full_channel_gt8_fraction": 0.01523226783389137,
+    "horizon_rgb_mae": 3.6298014322916665,
+    "horizon_channel_gt8_fraction": 0.08665948851495726,
+    "near_road_rgb_mae": 0.1395409427472015,
+    "near_road_channel_gt8_fraction": 0.0002380674751243781
+  },
+  {
+    "frame": 1750,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7329290480840773,
+    "full_channel_gt8_fraction": 0.014915829613095238,
+    "horizon_rgb_mae": 3.6461776342147436,
+    "horizon_channel_gt8_fraction": 0.08471262353098291,
+    "near_road_rgb_mae": 0.1298135785914179,
+    "near_road_channel_gt8_fraction": 0.0002775429493159204
+  },
+  {
+    "frame": 1751,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7596809750511533,
+    "full_channel_gt8_fraction": 0.015828813825334822,
+    "horizon_rgb_mae": 3.722088675213675,
+    "horizon_channel_gt8_fraction": 0.08902577457264957,
+    "near_road_rgb_mae": 0.1354288129664179,
+    "near_road_channel_gt8_fraction": 0.00043058632618159204
+  },
+  {
+    "frame": 1752,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7286028180803571,
+    "full_channel_gt8_fraction": 0.014937991187686012,
+    "horizon_rgb_mae": 3.645923060229701,
+    "horizon_channel_gt8_fraction": 0.0850673577724359,
+    "near_road_rgb_mae": 0.12242498445273632,
+    "near_road_channel_gt8_fraction": 0.00021134561567164178
+  },
+  {
+    "frame": 1753,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7184357416062128,
+    "full_channel_gt8_fraction": 0.014795939127604166,
+    "horizon_rgb_mae": 3.6387344751602564,
+    "horizon_channel_gt8_fraction": 0.08426190237713675,
+    "near_road_rgb_mae": 0.10846584946361941,
+    "near_road_channel_gt8_fraction": 0.0002058797807835821
+  },
+  {
+    "frame": 1754,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7062101818266369,
+    "full_channel_gt8_fraction": 0.014393761044456846,
+    "horizon_rgb_mae": 3.5741937099358974,
+    "horizon_channel_gt8_fraction": 0.08251744457799146,
+    "near_road_rgb_mae": 0.10624429123911691,
+    "near_road_channel_gt8_fraction": 4.311936411691542e-05
+  },
+  {
+    "frame": 1755,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7007831391834077,
+    "full_channel_gt8_fraction": 0.014470418294270834,
+    "horizon_rgb_mae": 3.590599125267094,
+    "horizon_channel_gt8_fraction": 0.08300572582799146,
+    "near_road_rgb_mae": 0.09131041569496269,
+    "near_road_channel_gt8_fraction": 3.097306436567164e-05
+  },
+  {
+    "frame": 1756,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6862778436569941,
+    "full_channel_gt8_fraction": 0.013583592006138392,
+    "horizon_rgb_mae": 3.462780031383547,
+    "horizon_channel_gt8_fraction": 0.07791215945512821,
+    "near_road_rgb_mae": 0.10102563355099503,
+    "near_road_channel_gt8_fraction": 3.097306436567164e-05
+  },
+  {
+    "frame": 1757,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6811294555664062,
+    "full_channel_gt8_fraction": 0.014079502650669642,
+    "horizon_rgb_mae": 3.478503104967949,
+    "horizon_channel_gt8_fraction": 0.0807082999465812,
+    "near_road_rgb_mae": 0.08678288246268656,
+    "near_road_channel_gt8_fraction": 4.554862406716418e-05
+  },
+  {
+    "frame": 1758,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6585831415085566,
+    "full_channel_gt8_fraction": 0.013432457333519346,
+    "horizon_rgb_mae": 3.3784951756143164,
+    "horizon_channel_gt8_fraction": 0.0770420172275641,
+    "near_road_rgb_mae": 0.07835274312033583,
+    "near_road_channel_gt8_fraction": 3.0365749378109453e-05
+  },
+  {
+    "frame": 1759,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6462896437872023,
+    "full_channel_gt8_fraction": 0.013268243698846726,
+    "horizon_rgb_mae": 3.3153441339476495,
+    "horizon_channel_gt8_fraction": 0.07612388154380342,
+    "near_road_rgb_mae": 0.07752375816231344,
+    "near_road_channel_gt8_fraction": 2.2470654539800994e-05
+  },
+  {
+    "frame": 1760,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6114738101050967,
+    "full_channel_gt8_fraction": 0.012497311546688988,
+    "horizon_rgb_mae": 3.0914671808226495,
+    "horizon_channel_gt8_fraction": 0.07170431022970085,
+    "near_road_rgb_mae": 0.08483461598258707,
+    "near_road_channel_gt8_fraction": 2.004139458955224e-05
+  },
+  {
+    "frame": 1761,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6210588727678571,
+    "full_channel_gt8_fraction": 0.01288423084077381,
+    "horizon_rgb_mae": 3.1380333533653846,
+    "horizon_channel_gt8_fraction": 0.0738994891826923,
+    "near_road_rgb_mae": 0.08833032105099503,
+    "near_road_channel_gt8_fraction": 2.489991449004975e-05
+  },
+  {
+    "frame": 1762,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6133063180106026,
+    "full_channel_gt8_fraction": 0.012653895786830358,
+    "horizon_rgb_mae": 3.0750450721153846,
+    "horizon_channel_gt8_fraction": 0.07251393896901709,
+    "near_road_rgb_mae": 0.09400082108986318,
+    "near_road_channel_gt8_fraction": 4.43339940920398e-05
+  },
+  {
+    "frame": 1763,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6249436878022694,
+    "full_channel_gt8_fraction": 0.01323336646670387,
+    "horizon_rgb_mae": 3.1220202323717947,
+    "horizon_channel_gt8_fraction": 0.07587556757478632,
+    "near_road_rgb_mae": 0.10023126554726368,
+    "near_road_channel_gt8_fraction": 3.643889925373134e-05
+  },
+  {
+    "frame": 1764,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6225008283342633,
+    "full_channel_gt8_fraction": 0.012458074660528274,
+    "horizon_rgb_mae": 3.0806290064102564,
+    "horizon_channel_gt8_fraction": 0.07144556290064102,
+    "near_road_rgb_mae": 0.10771763739894279,
+    "near_road_channel_gt8_fraction": 2.9758434390547264e-05
+  },
+  {
+    "frame": 1765,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6434598650251117,
+    "full_channel_gt8_fraction": 0.012635730561755952,
+    "horizon_rgb_mae": 3.1674262152777777,
+    "horizon_channel_gt8_fraction": 0.0724742922008547,
+    "near_road_rgb_mae": 0.11702109569340796,
+    "near_road_channel_gt8_fraction": 2.550722947761194e-05
+  },
+  {
+    "frame": 1766,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6461861020042783,
+    "full_channel_gt8_fraction": 0.012414114815848214,
+    "horizon_rgb_mae": 3.1240735176282053,
+    "horizon_channel_gt8_fraction": 0.07069644764957266,
+    "near_road_rgb_mae": 0.12752885960820895,
+    "near_road_channel_gt8_fraction": 0.00013725318718905473
+  },
+  {
+    "frame": 1767,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6489475795200893,
+    "full_channel_gt8_fraction": 0.012852260044642858,
+    "horizon_rgb_mae": 3.191057775774573,
+    "horizon_channel_gt8_fraction": 0.07280607305021368,
+    "near_road_rgb_mae": 0.11981717389614428,
+    "near_road_channel_gt8_fraction": 0.0002915111940298507
+  },
+  {
+    "frame": 1768,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6660225277855283,
+    "full_channel_gt8_fraction": 0.0130615234375,
+    "horizon_rgb_mae": 3.203137520032051,
+    "horizon_channel_gt8_fraction": 0.07162084334935898,
+    "near_road_rgb_mae": 0.12280880752487562,
+    "near_road_channel_gt8_fraction": 0.00031519647854477613
+  },
+  {
+    "frame": 1769,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6881481352306548,
+    "full_channel_gt8_fraction": 0.01370602562313988,
+    "horizon_rgb_mae": 3.294201973157051,
+    "horizon_channel_gt8_fraction": 0.07498873197115384,
+    "near_road_rgb_mae": 0.13310826239894277,
+    "near_road_channel_gt8_fraction": 0.0004129741915422886
+  },
+  {
+    "frame": 1770,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6942051478794643,
+    "full_channel_gt8_fraction": 0.012826465425037202,
+    "horizon_rgb_mae": 3.3150916466346154,
+    "horizon_channel_gt8_fraction": 0.07223432491987179,
+    "near_road_rgb_mae": 0.14165743547885573,
+    "near_road_channel_gt8_fraction": 0.00030062091884328356
+  },
+  {
+    "frame": 1771,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6867868332635789,
+    "full_channel_gt8_fraction": 0.013720557803199404,
+    "horizon_rgb_mae": 3.3139105902777777,
+    "horizon_channel_gt8_fraction": 0.07710044404380342,
+    "near_road_rgb_mae": 0.1470078805192786,
+    "near_road_channel_gt8_fraction": 0.0004949617148631841
+  },
+  {
+    "frame": 1772,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6592763264973959,
+    "full_channel_gt8_fraction": 0.012689862932477678,
+    "horizon_rgb_mae": 3.215851612580128,
+    "horizon_channel_gt8_fraction": 0.07207782451923077,
+    "near_road_rgb_mae": 0.12945101154384328,
+    "near_road_channel_gt8_fraction": 0.00023138701026119402
+  },
+  {
+    "frame": 1773,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6743945167178199,
+    "full_channel_gt8_fraction": 0.013086954752604166,
+    "horizon_rgb_mae": 3.237719935229701,
+    "horizon_channel_gt8_fraction": 0.07354058159722222,
+    "near_road_rgb_mae": 0.14874844527363185,
+    "near_road_channel_gt8_fraction": 0.00047127643034825873
+  },
+  {
+    "frame": 1774,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6479699271065849,
+    "full_channel_gt8_fraction": 0.012524196079799108,
+    "horizon_rgb_mae": 3.16147711338141,
+    "horizon_channel_gt8_fraction": 0.07156450320512821,
+    "near_road_rgb_mae": 0.12676425003886815,
+    "near_road_channel_gt8_fraction": 0.00010567280783582089
+  },
+  {
+    "frame": 1775,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6419830322265625,
+    "full_channel_gt8_fraction": 0.012803577241443452,
+    "horizon_rgb_mae": 3.2266814403044872,
+    "horizon_channel_gt8_fraction": 0.07335695446047008,
+    "near_road_rgb_mae": 0.09830364777674129,
+    "near_road_channel_gt8_fraction": 5.101445895522388e-05
+  },
+  {
+    "frame": 1776,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6647840227399554,
+    "full_channel_gt8_fraction": 0.012497674851190476,
+    "horizon_rgb_mae": 3.244904346955128,
+    "horizon_channel_gt8_fraction": 0.07087381477029915,
+    "near_road_rgb_mae": 0.13132275633550994,
+    "near_road_channel_gt8_fraction": 0.00026175275963930347
+  },
+  {
+    "frame": 1777,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6759498232886905,
+    "full_channel_gt8_fraction": 0.012987772623697916,
+    "horizon_rgb_mae": 3.326194828392094,
+    "horizon_channel_gt8_fraction": 0.0736949953258547,
+    "near_road_rgb_mae": 0.12635856362717662,
+    "near_road_channel_gt8_fraction": 0.0002605381296641791
+  },
+  {
+    "frame": 1778,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.6722640991210938,
+    "full_channel_gt8_fraction": 0.012946355910528274,
+    "horizon_rgb_mae": 3.4538073417467947,
+    "horizon_channel_gt8_fraction": 0.07424170339209402,
+    "near_road_rgb_mae": 0.08337098686256218,
+    "near_road_channel_gt8_fraction": 3.097306436567164e-05
+  },
+  {
+    "frame": 1779,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7388040451776414,
+    "full_channel_gt8_fraction": 0.013816470191592262,
+    "horizon_rgb_mae": 3.7835682926014957,
+    "horizon_channel_gt8_fraction": 0.07922050280448718,
+    "near_road_rgb_mae": 0.09833522815609452,
+    "near_road_channel_gt8_fraction": 3.704621424129353e-05
+  },
+  {
+    "frame": 1780,
+    "candidate": "smoothing2",
+    "full_rgb_mae": 0.7554986136300224,
+    "full_channel_gt8_fraction": 0.013267880394345238,
+    "horizon_rgb_mae": 3.874236278044872,
+    "horizon_channel_gt8_fraction": 0.07604458800747864,
+    "near_road_rgb_mae": 0.09985958877487562,
+    "near_road_channel_gt8_fraction": 4.6763254042288554e-05
+  }
+]

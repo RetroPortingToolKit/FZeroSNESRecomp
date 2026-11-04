@@ -17,7 +17,7 @@ static void viewport_tests(void) {
   CHECK(settings.enhanced && settings.aspect == FZERO_ASPECT_FIT && settings.fps == 0 &&
         settings.fps_enabled && !settings.bs_deluxe);
   CHECK(settings.local_two_player && settings.gameplay.stock_rebalance==15);
-  CHECK(settings.hd_mode7 && settings.hd_scale == 8 && !settings.diagnostics);
+  CHECK(settings.hd_mode7 && settings.hd_scale == 4 && !settings.diagnostics);
   CHECK(settings.crash_replay);
   CHECK(settings.gameplay.enabled == FZERO_RULE_DEFAULT_MASK);
   FzeroVideoStock(&settings);
@@ -109,9 +109,8 @@ static void config_tests(void) {
   for (unsigned scale = 1; scale <= 64; ++scale) {
     char text[8]; snprintf(text, sizeof(text), "%u", scale);
     CHECK(FzeroParseHdScale(text, &a.hd_scale) && a.hd_scale == scale);
-    a.hd_supersample=scale%4+1;
     CHECK(FzeroVideoSave(&a, "test-video.ini"));
-    CHECK(FzeroVideoLoad(&b, "test-video.ini") && b.hd_scale == scale && b.hd_supersample==a.hd_supersample);
+    CHECK(FzeroVideoLoad(&b, "test-video.ini") && b.hd_scale == scale);
   }
   const char *invalid[] = {"", "0", "65", "-2", "+4", "4x", "6.5", "10junk", "4294967298", "999999999999999999999999"};
   for (unsigned i = 0; i < sizeof(invalid) / sizeof(*invalid); ++i) {
@@ -119,7 +118,7 @@ static void config_tests(void) {
     CHECK(!FzeroParseHdScale(invalid[i], &scale) && scale == 4);
     FILE *bad = fopen("test-video.ini", "w"); CHECK(bad);
     fprintf(bad, "Mode7Scale=%s\n", invalid[i]); fclose(bad);
-    CHECK(!FzeroVideoLoad(&b, "test-video.ini") && b.hd_scale == 8);
+    CHECK(!FzeroVideoLoad(&b, "test-video.ini") && b.hd_scale == 4);
   }
   FILE *f = fopen("test-video.ini", "w");
   CHECK(f);
@@ -127,11 +126,11 @@ static void config_tests(void) {
   fclose(f);
   CHECK(!FzeroVideoLoad(&b, "test-video.ini"));
   CHECK(b.enhanced && b.aspect == FZERO_ASPECT_FIT && b.fps == 0); /* invalid fields fall back to shipped defaults */
-  CHECK(b.hd_mode7 && b.hd_scale == 8);
+  CHECK(b.hd_mode7 && b.hd_scale == 4);
   f = fopen("test-video.ini", "w"); CHECK(f);
   fputs("HDMode7=0\nHDMode7Scale=2\nAspect=21:9\nPresentationFPS=144\n", f); fclose(f);
   CHECK(FzeroVideoLoad(&b, "test-video.ini"));
-  CHECK(b.hd_mode7 && b.hd_scale == 8 && b.aspect == FZERO_ASPECT_21_9 && b.fps == 144);
+  CHECK(b.hd_mode7 && b.hd_scale == 4 && b.aspect == FZERO_ASPECT_21_9 && b.fps == 144);
   /* Only absent or invalid fields take a default: a setting the file turned
    * off stays off however corrupt its neighbours are. */
   f = fopen("test-video.ini", "w");
@@ -195,6 +194,12 @@ static void config_tests(void) {
   CHECK(FzeroVideoLoad(&b, "test-video.ini"));
   CHECK(b.enhanced && b.fps_enabled && !b.bs_deluxe && b.aspect == FZERO_ASPECT_FIT);
   CHECK(b.local_two_player && b.gameplay.stock_rebalance==15);
+  b.hd_supersample=3;CHECK(FzeroVideoSave(&b,"test-video.ini") && FzeroVideoLoad(&a,"test-video.ini") && a.hd_supersample==3);
+  for(unsigned n=2;n<=4;++n) {
+    b.local_players=n;CHECK(FzeroVideoSave(&b,"test-video.ini") && FzeroVideoLoad(&a,"test-video.ini") && a.local_players==n);
+  }
+  f=fopen("test-video.ini","w");CHECK(f);fputs("LocalPlayers=5\n",f);fclose(f);
+  CHECK(!FzeroVideoLoad(&a,"test-video.ini"));
   /* Explicit opt-outs survive saving, reloading and unrelated missing keys. */
   f=fopen("test-video.ini","w");CHECK(f);
   fputs("LocalTwoPlayer=0\nCGPStockRebalance=0\n",f);fclose(f);
