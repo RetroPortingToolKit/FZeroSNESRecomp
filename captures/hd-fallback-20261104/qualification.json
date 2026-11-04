@@ -1,0 +1,62 @@
+{
+  "report": {
+    "os": "Windows11",
+    "gpu": "RadeonRX9060XT8GB",
+    "mode": "Offline; single/local-versus unspecified",
+    "warning": "HD detail limited to1x(8xrequested)",
+    "tester_confirmation": "pending"
+  },
+  "cause": {
+    "demonstrated": "Actual shared GPU fragment declares half, reserved by GLSL; reference compiler rejects both register330 and affine400 shaders. NVIDIA driver accepted them.",
+    "tester_attribution": "Plausible, not confirmed without AMD test/logs",
+    "specification": "https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.00.pdf",
+    "reference_compiler": "C:/VulkanSDK/1.4.341.1/Bin/glslangValidator.exe",
+    "before": {
+      "register": "Reservedwordhalf,error",
+      "affine": "Reservedwordhalf,error",
+      "coordinate": "pass"
+    },
+    "after": {
+      "register": "pass",
+      "affine": "pass",
+      "coordinate": "pass"
+    }
+  },
+  "fix": "Rename GLSL local tohalve_color; no color-math change. Log program link errors. Optional reference-compiler test adds no runtime dependency.",
+  "build": {
+    "exe_sha256": "82f30fec9cec8ad4f1eb232d57d6dad7d6d8bb6c5bdcf7dff7bc8eaa320f98d9",
+    "game_commit": "a97a0ec5004e1c82df2cbcc548e1028046fac3bb",
+    "engine_commit": "1c49be3661c8025b04b849879cf00a62ee158c65",
+    "reference_compiler": "GLSL330register/400affine/400coordinate passed; prior reservedidentifier rejected",
+    "gpu": "772GPUcomparisons and2exactnearesttargets passed",
+    "units": "video/mod/renderer passed",
+    "build_version": "0.18.1-hd-test"
+  },
+  "gameplay": {
+    "passed": true,
+    "keyboard": false,
+    "observed_scales": [
+      1
+    ],
+    "players": 4,
+    "cup": 0,
+    "native": false,
+    "hd_scale": 8,
+    "hd_supersample": 2,
+    "hd_full_target": false,
+    "portable_hd": false,
+    "bs_tracks": false,
+    "contact_fixture": true,
+    "sha256": "82f30fec9cec8ad4f1eb232d57d6dad7d6d8bb6c5bdcf7dff7bc8eaa320f98d9"
+  },
+  "test_zip": {
+    "archive": "G:\\Temp\\Codex\\fzero-hd-fallback-20261104\\F-Zero-Forever-HD-AMD-test.zip",
+    "sha256": "8d80cb41825b3b726c6eb84215c68593231aa71e60ca2a6c29568867b10bdfab",
+    "bytes": 3980754,
+    "exe_sha256": "82f30fec9cec8ad4f1eb232d57d6dad7d6d8bb6c5bdcf7dff7bc8eaa320f98d9",
+    "standalone": false
+  },
+  "upstream_pr": "https://github.com/RetroPortingToolKit/snesrecomp/pull/255",
+  "status": "Qualified on available NVIDIA GPU and reference compiler; Windows AMD confirmation/merge/release pending. Current0.18.0 Nextcloud ZIPs unchanged.",
+  "raw_evidence": "G:\\Temp\\Codex\\fzero-hd-fallback-20261104"
+}
