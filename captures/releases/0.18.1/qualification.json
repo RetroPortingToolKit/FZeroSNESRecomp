@@ -1,0 +1,105 @@
+{
+  "version": "0.18.1",
+  "source_commit": "88e74471dce59a9dba05f14795b978b284553ac2",
+  "tag": "v0.18.1",
+  "engine_pr": "https://github.com/RetroPortingToolKit/snesrecomp/pull/255",
+  "game_pr": "https://github.com/RetroPortingToolKit/FZeroSNESRecomp/pull/23",
+  "build": {
+    "version": "0.18.1",
+    "commit": "88e74471dce59a9dba05f14795b978b284553ac2",
+    "exe_sha256": "d29348400001363a5cecf3341832855845f5f1fa1ca4cd6abc7798e2fb6b0eef"
+  },
+  "packages": [
+    {
+      "flavor": "without-msu",
+      "path": "G:\\Temp\\Codex\\fzero-release-0.18.1-20261104\\releases\\F-Zero-Forever-0.18.1-windows-x64-without-msu.zip",
+      "bytes": 43992910,
+      "sha256": "3a2df0338e513a84782b5be6564c5dd3a96d4eca2cfdfeb5538daa0d28b2c600",
+      "exe_sha256": "d29348400001363a5cecf3341832855845f5f1fa1ca4cd6abc7798e2fb6b0eef",
+      "pcm": 0,
+      "course_cache": {
+        "compiled_courses": 75,
+        "extracted_sources": 75
+      },
+      "manifest_files": 1633,
+      "commit": "88e74471dce59a9dba05f14795b978b284553ac2",
+      "dependencies": {
+        "snesrecomp": "d1ace29ae885a542605615a3664ccb7750227ba5",
+        "recomp-ui": "b13c876cab37a46b6266eed107a5c9ef5f035320"
+      }
+    },
+    {
+      "flavor": "with-msu",
+      "path": "G:\\Temp\\Codex\\fzero-release-0.18.1-20261104\\releases\\F-Zero-Forever-0.18.1-windows-x64-with-msu.zip",
+      "bytes": 929870808,
+      "sha256": "892b270d136be741633bb3be5d4e87598f11c562315c89bb5482e3e0f7de5fa7",
+      "exe_sha256": "d29348400001363a5cecf3341832855845f5f1fa1ca4cd6abc7798e2fb6b0eef",
+      "pcm": 39,
+      "course_cache": {
+        "compiled_courses": 75,
+        "extracted_sources": 75
+      },
+      "manifest_files": 1672,
+      "commit": "88e74471dce59a9dba05f14795b978b284553ac2",
+      "dependencies": {
+        "snesrecomp": "d1ace29ae885a542605615a3664ccb7750227ba5",
+        "recomp-ui": "b13c876cab37a46b6266eed107a5c9ef5f035320"
+      }
+    }
+  ],
+  "validation": {
+    "passed": true,
+    "version": "0.18.1",
+    "exe_sha256": "d29348400001363a5cecf3341832855845f5f1fa1ca4cd6abc7798e2fb6b0eef",
+    "defaults": {
+      "aspect": "Fit",
+      "hd_detail": 4,
+      "smoothing": 1,
+      "fps": "Auto",
+      "fullscreen": false,
+      "normal_audio_config": true
+    },
+    "course_cache": "Relocated75courses reuse cache; editing one source invalidates only that course",
+    "actual_packaged_gameplay": "Native VS entry, contacts, independent inputs,5targetshapes,Restart/Change/Main and singleplayer return",
+    "gpu_checks": 35,
+    "gpu_scales": [
+      4
+    ],
+    "importer_help": true,
+    "scope": "Exact freshly extracted nonMSU ZIP; no seeded video configuration or alternate assets; packaged4packs remain installed. Automated output muted; shipped audio settings normal. WithMSU uses identical EXE and is independently fully hashed with39verifiedPCM."
+  },
+  "delivery": {
+    "verified": [
+      {
+        "path": "G:\\Nextcloud\\Games\\SNES\\F-Zero-Forever-0.18.1-windows-x64-without-msu.zip",
+        "sha256": "3a2df0338e513a84782b5be6564c5dd3a96d4eca2cfdfeb5538daa0d28b2c600",
+        "bytes": 43992910
+      },
+      {
+        "path": "G:\\Nextcloud\\Games\\SNES\\F-Zero-Forever-0.18.1-windows-x64-with-msu.zip",
+        "sha256": "892b270d136be741633bb3be5d4e87598f11c562315c89bb5482e3e0f7de5fa7",
+        "bytes": 929870808
+      }
+    ],
+    "msu_paths_and_bytes_unchanged": 39,
+    "retire_versions": [
+      "0.18.0"
+    ],
+    "remote_sync": "Not asserted"
+  },
+  "cache_validation": {
+    "cached_courses": 75,
+    "extracted_archives": 75,
+    "relocated_first_launch_reused_every_cache_file": true,
+    "edited_course_rebuilt": true,
+    "unchanged_courses_reused": true,
+    "first_launch_seconds": 6.84,
+    "edited_scan_seconds": 3.03
+  },
+  "horizon_qualification": "../hd-fallback-20261104/qualification.json",
+  "owner_acceptance": "Original/before/fixed horizon comparison: thats better",
+  "retained_evidence": "G:\\Temp\\Codex\\fzero-release-0.18.1-20261104",
+  "dev_build": "F:\\Projects\\snesrecomp\\_wt-fzero-track-packs\\build\\netplay",
+  "known_separate_issue": "Earlier intermittent electrical-edge report remains unverified/open; horizon correction does not claim to clear it.",
+  "scope": "Both exact player ZIPs independently verified in local Nextcloud folder; older0.18.0 pair removed only after verification. Remote cloud sync completion not asserted. Personal saves/settings and unrelated games retained;75warm caches,75sourceZIPs,75recordhashes and39approvedPCM paths/bytes retained."
+}
