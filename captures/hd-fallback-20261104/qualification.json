@@ -82,15 +82,27 @@
     "observation": "Cropped skyline and partialCOURSESELECTheading. Owner relays backgroundgoingcrazy but is unsure what the tester means.",
     "classification": "Possible cross-GPU graphics-overhaul regression. Owner highlights the cyan-blue horizon band's color; crop does not establish animation, root cause or relation to electrical-edge report.",
     "source_findings": "Skyline/nonMode7rows use native background composition/panorama extension rather than HD road coordinate sampling. This narrows inspection but doesnot prove cause.",
-    "needed": "Short full-window recording plus whetherCOURSESELECTmenu or race and exact course. Existing diagnostic launcher/replay request remains useful.",
+    "needed": "Confirm the reproduced Marine City cyan strip is the reported line and compare with an independent original CGP donor before attributing a regression. Owner explicitly disregards flicker for current scope.",
     "code_changes": "None; no geometry/scrolling change without reproducer.",
-    "owner_clarification": "2026-11-04: Blue line color at the horizon is important. May not be AMD-specific; investigate the graphics overhaul across GPUs.",
+    "owner_clarification": "2026-11-04: Blue line color at the horizon is important. May not be AMD-specific. Disregard flicker and try to reproduce the cyan line itself.",
     "local_color_check": {
       "scene": "Practice course preview, stock Mute City I, BS Deluxe/CGP profile, 16:9",
       "frames": [1450, 1490],
       "native_skyline_rows_0_to_46_vs_cpu_8x_ss2_center_exact": true,
       "evidence": "G:/Temp/Codex/fzero-hd-fallback-20261104/horizon-color/summary.json",
       "limits": "One stock-venue preview; not the unknown reported course, GPU presentation or motion reproduction. Headless/RenderCapture remain 0.18.0 CPU binaries; the 0.18.1 test candidate only changed GPU shader naming/logging. Initial captures reached rival/race screens and were not treated as course-preview acceptance."
+    },
+    "marine_city_reproduction": {
+      "course": "CGP Marine City I",
+      "source": "Unchanged courses/marine-city-1.zip from qualified final-packs/cgp, selected with a private isolated one-course manifest",
+      "compiled_resource": "ce018e6b84e95060ac7d69f5cbfb5f102eab43ebb3806281bf7c0724d29ff936.fzc",
+      "cyan_band_present_in_native_ppu_without_hd_or_widescreen": true,
+      "cpu_8x_ss2_4x3_and_21x9_sky_center_rows_0_to_46_columns_80_to_159_exact": true,
+      "current_gpu": "0.18.1-hd-test, NVIDIA RTX 3080 Ti, 8x/SS2, 21:9. Actual screenshot shows the same band; 33 sparse reference checks, zero mismatches.",
+      "comparison": "G:/Temp/Codex/fzero-hd-fallback-20261104/horizon-color/marine-city/horizon-comparison.png",
+      "gpu_evidence": "G:/Temp/Codex/fzero-hd-fallback-20261104/horizon-color/marine-gpu/actual-gpu.png",
+      "limits": "Reproduced appearance, not established as a defect. Native PPU output comes from the shared engine; this is not independent original-hack emulator acceptance. Does not clear prior transient barrier report. Initial contact-sheet row was misread as Brutal Wind I, corrected to Marine City I; wrong-target runs excluded.",
+      "functional_changes": "None"
     }
   }
 }
