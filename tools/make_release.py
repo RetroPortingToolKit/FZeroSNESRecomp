@@ -221,7 +221,7 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "Local Multiplayer defaults on; choose VS MODE and select 2, 3 or 4 racers.\n"
     "CGP original-car rebalances default on; conflicting BS vehicles default off. Saved choices are respected.\n"
     "Assign inputs in Controls: gamepads are unique; keyboard seats may use separate or repeated bindings.\n"
-    "Two players use top/bottom views; three or four use a 2x2 grid. Local 3P/4P HD is capped at 2x.\n"
+    "Two players use top/bottom views; three or four use a 2x2 grid. All local views use GPU HD where supported.\n"
     "Multiplayer never pauses. Start opens a live menu to continue, restart, change race or exit.\n"
     "See docs/LOCAL_CONTROLS_AND_MODS.md for Steam Input and which mods apply in each mode.\n"
     "Recomp-ui Netplay starts online play and includes VS MODE automatically.\n"
@@ -262,9 +262,9 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "Match courses/huckmine.zip with music/huckmine.pcm. Missing songs use SNES music.\n"
     "Mods > Menu and event music shows the supplied CGP menu songs and lets you replace them.\n"
     "See MODS.md for music instructions and the editable Huckmine source ZIP example.\n\n"
-    "HD Mode 7 defaults to8x with continuous perspective and corrected moving-camera aliases.\n"
-    "Mods offers1..64x GPU resolution and independent supersampling1..4 (1=off); extra samples cost more rendering work.\n"
-    "See docs/HD_MODE7.md. Local3P/4P retains its up-to2x portable rendering cap.\n\n"
+    "HD Mode 7 defaults to 4x detail with smoothing off and adaptive Fit to screen.\n"
+    "Mods offers 2x/4x/8x detail and Off/2-sample edge smoothing; window size and display filtering are separate.\n"
+    "The portable 3P/4P fallback reports its 2x limit. See docs/HD_MODE7.md.\n\n"
     "Single-player: F7 save-state menu, R rewind. All modes: D/C left/right shoulder, Alt+Enter fullscreen.\n"
     "Credits are in CREDITS.txt and each pack; license notices are in licenses/.\n",encoding="utf-8")
 
