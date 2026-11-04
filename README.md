@@ -43,7 +43,7 @@ You bring your own legally dumped *F-Zero (USA)* ROM. No ROM is included.
 - Local two-to-four-player racing: choose 2/3/4 players in the Local Multiplayer mod, configure their launcher controls, then choose **VS MODE** on the original title menu. Two players use top/bottom views; three or four use a 2x2 grid. Keyboard layouts may be separate or shared.
 - [Versus netplay](docs/NETPLAY.md) through recomp-ui and recomp-net: two to four participants each get a full viewport; the host selects 4:3, 16:9 (default), or 21:9.
 - Widescreen modes: 16:9, 21:9, 32:9, and Fit.
-- Optional [HD Mode 7](docs/HD_MODE7.md): 1x through 64x GPU track rendering (local 3P/4P uses the CPU fallback at up to2x), independent of widescreen and presentation FPS.
+- Optional [HD Mode 7](docs/HD_MODE7.md): 2x, 4x and 8x track detail, optional edge smoothing, and GPU rendering for every local player. Independent of widescreen and presentation FPS.
 - High refresh presentation: 60, 90, 120, 144, 165, 240, or 360 FPS.
 - Display shaders: CRT Soft, LCD Grid, Sharp, Warm Composite, or your own GLSL shader.
 - Save states with a slot browser and thumbnails, opened with **F7** or **Select + R**.
@@ -93,7 +93,7 @@ Open **Mods** for:
   **Every new lap** retains the existing default behavior.
 - **Widescreen:** makes races wider.
 - **Presentation FPS:** makes motion smoother on high refresh screens.
-- **HD Mode 7:** continuous perspective track sampling at 1x through 64x GPU resolution, with an 8x default and independent supersampling. Local 3P/4P retains its CPU fallback cap.
+- **HD Mode 7:** reconstructed perspective and finer track sampling, with a 4x default and optional edge smoothing. Local 2P/3P/4P uses the GPU; the portable grid fallback reports its 2x limit.
 - **Diagnostics:** optional local performance reports for troubleshooting; off by default. See [how to capture a report](docs/PERFORMANCE_DIAGNOSTICS.md).
   Start at 2x. Above 4x can cause severe slowdown; use at your own risk.
 - **BS Satellaview vehicles:** adds four machines independently of courses.

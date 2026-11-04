@@ -11,7 +11,7 @@
       "passed": true
     }
   ],
-  "scope": "Representative native-cadence corner/rotation and jump/landing, plus interpolated streaming-camera wrap; not whole renderer/defaults/runtime/release acceptance.",
+  "scope": "Representative accepted motion plus final combined technical gates and owner multiplayer overview; not universal all-host FPS or whole-game pixel-identical bsnes parity.",
   "clips": {
     "candidate-left-bsnes-right-4x.mp4": {
       "sha256": "615974cf36ccb4ed4525432da0d7025d5eaedf57c2b09a90dfc86876d56dd991",
@@ -37,10 +37,16 @@
     "right": "4x HD with2 samples per axis",
     "scope": "Prepared CGP Marine CityI approach; native physics bounce/ascent/descent/landing, original cadence. Visual pass for this jump; not bsnes parity or whole-renderer acceptance."
   },
-  "decision": "HD-03 geometry, HD-04 source coordinates and HD-07 representative motion resolved. Keep native floor semantics. HD-01 contract also resolved;4/12 resolved,8 open.",
+  "decision": "All12 acceptance areas resolved within the recorded scope and limitations. Final multiplayer/PR254 visual handoff accepted; shared PR254 merged.",
   "wrap_observation": {
     "answer": "Right stays stable",
     "passed": true,
     "scope": "Actual stock1456/1457 streaming-camera alias, alpha0.5/1 interleaved; half speed. No120Hz throughput claim."
+  },
+  "final_observation": {
+    "answer": "Looks good",
+    "passed": true,
+    "scope": "Final rebased4P4x/off actual GPU overview, native menus, preset controls and shared PR254 handoff.",
+    "image_sha256": "b424b708315aeb2a3c39ac072ff0556ae02a2eda2a9325cdae87a1dbce455082"
   }
 }

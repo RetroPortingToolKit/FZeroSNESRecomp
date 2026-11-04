@@ -1,50 +1,48 @@
 # High-resolution Mode 7
 
-**Quality review, 2026-11-03:** the owner reports that regular F-Zero players
-reject the current HD appearance. Overall visual acceptance is open despite
-earlier component and limited-scene checks. See the
-[quality and controls burndown](HD_MODE7_BURNDOWN.md) before treating the
-multiplier or previous comparisons as proof of emulator-quality output.
+HD Mode 7 improves the road's perspective and detail using the original course
+graphics. Cars, HUD and text keep their original pixel artwork. Game speed and
+guest state do not change.
 
-F-Zero uses snesrecomp's shared GPU Mode 7 renderer by default at **8x**.
-**Mods → High-resolution Mode 7** offers integer scales **1x through 64x**.
-It works with adaptive widescreen, local split screen and presentation FPS.
-Cars, HUD and menus retain their pixel artwork; rotating/perspective track
-sampling gains detail. Game speed and guest state do not change.
+In **Mods → High-resolution Mode 7**:
 
-The settings in `fzero-video.ini` are:
+- **HD detail:** 2x, **4x (recommended)** or 8x. Higher values sample the road
+  more finely; a small window may hide the difference.
+- **Edge smoothing:** **Off** or **2 samples per axis**. The latter averages
+  four samples per road pixel to reduce jagged edges, at additional cost.
+
+Window scale changes the size of the displayed picture. Display filtering and
+shader presets affect the composed picture, including native artwork. These
+settings and presentation FPS remain separate from Mode 7 detail.
+
+Fresh installations use adaptive **Fit to screen**, 4x detail, smoothing off
+and automatic presentation FPS. Updates preserve explicit saved settings,
+including older custom detail and smoothing values. Such values appear as
+**Current custom (…)** until the player chooses a preset.
+
+The corresponding `fzero-video.ini` settings are:
 
 ```ini
 Mode7Enabled=1
-Mode7Scale=8
+Mode7Scale=4
 Mode7Supersample=1
 ```
 
-Supersampling is independent of resolution: 1 disables it; 2..4 average that
-many samples per axis to smooth edges, at greater rendering cost. The shared
-renderer reconstructs the perspective plane rather than enlarging quantized
-scanlines. Camera aliases remain consistent between moving presentations.
+Single-player and local 2P/3P/4P use the shared GPU renderer. The portable
+three/four-player fallback limits detail to 2x and displays the reduction;
+Mods also retains the last race's effective-quality status. Unsupported scenes
+keep native rendering. If HD cannot render an applicable scene, the game
+reports that it is using native rendering.
 
-The CPU publishes immutable native-sized raster jobs. The GPU samples resident
-source memory. Nearest presentation computes only visible samples of the chosen
-grid, giving the same displayed image as a full raster followed by nearest
-sampling. Selecting 64x does not allocate a giant CPU image or upload one every
-frame. Linear filtering and shader presets can require larger bounded GPU
-targets; hardware limits may reduce their effective resolution.
+The CPU publishes native-sized raster jobs and the GPU samples resident course
+data. Nearest presentation computes the samples visible at the chosen window
+size, with the same displayed result as a full HD raster followed by nearest
+scaling. Linear filtering and shader presets can require larger bounded GPU
+targets; hardware limits can reduce effective detail. Native snapshots and
+debug frames remain native-sized.
 
-Local three/four-player views use the portable CPU renderer at up to2x; this
-cap preserves responsiveness while the shared GPU packet supports full-width
-cameras only. Two-player and single-player GPU scales still reach64x.
-
-Unsupported scenes and devices retain native rendering. The portable CPU
-consumer uses the same reconstructed frame (`FZERO_HD_GPU=0` for development);
-it is not another launcher mod or the automatic unsupported-device fallback.
-
-Native snapshots/debug frames remain native-sized. Rendering does not alter
-simulation or add netplay features. See the shared engine's
-`docs/GPU_HD_MODE7.md` for its capture/presentation contract and tests.
-Historical CPU measurements are in [HD_MODE7_PERFORMANCE.md](HD_MODE7_PERFORMANCE.md).
-
-The owner approved the interactive 32x/64x preview on 2026-10-30. That establishes
-the tested machine's visual behavior and responsiveness, not a universal
-no-slowdown guarantee on every host.
+The [quality burndown](HD_MODE7_BURNDOWN.md) records the independent bsnes-hd
+comparisons, owner observations, multiplayer checks and measured runtime costs.
+Those results cover the tested scenes and machines; higher settings do not
+guarantee a particular frame rate on every host. Historical CPU measurements
+remain in [HD_MODE7_PERFORMANCE.md](HD_MODE7_PERFORMANCE.md).
