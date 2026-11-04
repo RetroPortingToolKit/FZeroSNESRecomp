@@ -57,7 +57,7 @@
     "standalone": false
   },
   "upstream_pr": "https://github.com/RetroPortingToolKit/snesrecomp/pull/255",
-  "status": "GLSLactivation validated by tester. Separate barrier report open; combined merge/release pending.",
+  "status": "Strict-driver HD activation and original CGP horizon shading fixed, validated and delivered in0.18.1. Earlier intermittent electrical-edge report remains separate/open.",
   "raw_evidence": "G:\\Temp\\Codex\\fzero-hd-fallback-20261104",
   "barrier_followup": {
     "issue": "beads-8wg.5.129",
@@ -82,7 +82,7 @@
     "observation": "Cropped skyline and partialCOURSESELECTheading. Owner relays backgroundgoingcrazy but is unsure what the tester means.",
     "classification": "Possible cross-GPU graphics-overhaul regression. Owner highlights the cyan-blue horizon band's color; crop does not establish animation, root cause or relation to electrical-edge report.",
     "source_findings": "Skyline/nonMode7rows use native background composition/panorama extension rather than HD road coordinate sampling. This narrows inspection but doesnot prove cause.",
-    "needed": "Owner review of original/before/fixed comparison. The earlier transient electrical-edge report is not cleared by this horizon fix.",
+    "needed": "Owner accepted original/before/fixed comparison. Horizon fix is integrated and delivered; no further horizon review pending.",
     "code_changes": "Restore authored native horizon shading through the CGP pack-owned soft-horizon-fog requirement; no texture filter or HD geometry change.",
     "owner_clarification": "2026-11-04: Blue line color at the horizon is important. May not be AMD-specific. Disregard flicker and try to reproduce the cyan line itself.",
     "local_color_check": {
@@ -143,7 +143,8 @@
       "history": "The retired fog control was repurposed texture filtering, already skipping the original native ASM. This finding does not date the loss solely to the latest HD overhaul.",
       "comparison": "G:\\Temp\\Codex\\fzero-hd-fallback-20261104\\horizon-color\\cgps-horizon-original-before-fixed.png",
       "units": "course_parser/video/mods/renderer all passed",
-      "scope": "Corrected horizon data, not clearance of the earlier transient electrical-edge report; no replacement Nextcloud delivery yet."
+      "scope": "Corrected horizon data accepted by owner and delivered in0.18.1; does not clear the earlier transient electrical-edge report.",
+      "release_record": "../releases/0.18.1/qualification.json"
     }
   }
 }
