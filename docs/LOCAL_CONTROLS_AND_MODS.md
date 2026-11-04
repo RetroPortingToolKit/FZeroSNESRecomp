@@ -51,6 +51,11 @@ the course's jumps, magnets and lethal terrain. Ranked CPU rivals are absent.
 | Enabled course packs and imports | Add courses to the shared single-player/versus catalog. Online peers must have the same catalog. |
 | Single-player vehicle packs and original-car rebalances | Single-player only. Versus always has its own twelve-machine selector; each chosen machine carries its authored handling and boost behavior. |
 | CGP gameplay rules | Single-player only. Versus uses fixed shared rules. Terrain mechanics required by an imported course follow that course in both modes. |
+
+CGP also carries its original horizon shading in its pack requirements
+(`soft-horizon-fog`). It restores the author's native transition between the
+skyline and road automatically. It works with HD off and does not filter track
+textures. Other packs keep their normal native shading.
 | MSU-1 and installed music | Single-player and versus; online music choices are local to each peer. Fresh settings default on. Missing songs use SNES music. Explicit saved opt-outs remain off. |
 
 CGP original-car rebalances default on for single-player; conflicting BS

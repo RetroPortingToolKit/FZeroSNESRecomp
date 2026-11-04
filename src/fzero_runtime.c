@@ -1124,6 +1124,9 @@ static void fzero_on_state_loaded(uint32_t version) {
 
   if (!s_loaded_runtime_state) return;
 
+  /* Course-owned native ROM shading is derived data, not serialized ROM. */
+  FzeroTracksRefreshPresentation();
+
   /* Host pacing cursors, not guest state: point them at the restored counters
    * so the first APU access cannot underflow against the future state that
    * existed immediately before Load was pressed. */

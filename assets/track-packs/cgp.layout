@@ -27,6 +27,7 @@ palette_cycles=109442
 # Native, course-scoped behavior; these never enable global tuning or music.
 require=all|grip-magnets
 require=all|up-magnets
+require=all|soft-horizon-fog
 require=52|rainbow-road
 
 # Authored GP-order PCM numbers; source resource indices are not race order.

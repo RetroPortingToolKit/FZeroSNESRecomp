@@ -1,0 +1,149 @@
+{
+  "report": {
+    "os": "Windows11",
+    "gpu": "RadeonRX9060XT8GB",
+    "mode": "Offline; single/local-versus unspecified",
+    "warning": "HD detail limited to1x(8xrequested)",
+    "tester_confirmation": "Owner confirms candidate works for Radeon user; GPUactivation fixed. Brief electrical track-edge misalignment remains."
+  },
+  "cause": {
+    "demonstrated": "Actual shared GPU fragment declares half, reserved by GLSL; reference compiler rejects both register330 and affine400 shaders. NVIDIA driver accepted them.",
+    "tester_attribution": "Plausible, not confirmed without AMD test/logs",
+    "specification": "https://registry.khronos.org/OpenGL/specs/gl/GLSLangSpec.4.00.pdf",
+    "reference_compiler": "C:/VulkanSDK/1.4.341.1/Bin/glslangValidator.exe",
+    "before": {
+      "register": "Reservedwordhalf,error",
+      "affine": "Reservedwordhalf,error",
+      "coordinate": "pass"
+    },
+    "after": {
+      "register": "pass",
+      "affine": "pass",
+      "coordinate": "pass"
+    }
+  },
+  "fix": "Rename GLSL local tohalve_color; no color-math change. Log program link errors. Optional reference-compiler test adds no runtime dependency.",
+  "build": {
+    "exe_sha256": "82f30fec9cec8ad4f1eb232d57d6dad7d6d8bb6c5bdcf7dff7bc8eaa320f98d9",
+    "game_commit": "a97a0ec5004e1c82df2cbcc548e1028046fac3bb",
+    "engine_commit": "1c49be3661c8025b04b849879cf00a62ee158c65",
+    "reference_compiler": "GLSL330register/400affine/400coordinate passed; prior reservedidentifier rejected",
+    "gpu": "772GPUcomparisons and2exactnearesttargets passed",
+    "units": "video/mod/renderer passed",
+    "build_version": "0.18.1-hd-test"
+  },
+  "gameplay": {
+    "passed": true,
+    "keyboard": false,
+    "observed_scales": [
+      1
+    ],
+    "players": 4,
+    "cup": 0,
+    "native": false,
+    "hd_scale": 8,
+    "hd_supersample": 2,
+    "hd_full_target": false,
+    "portable_hd": false,
+    "bs_tracks": false,
+    "contact_fixture": true,
+    "sha256": "82f30fec9cec8ad4f1eb232d57d6dad7d6d8bb6c5bdcf7dff7bc8eaa320f98d9"
+  },
+  "test_zip": {
+    "archive": "G:\\Temp\\Codex\\fzero-hd-fallback-20261104\\F-Zero-Forever-HD-AMD-test.zip",
+    "sha256": "8d80cb41825b3b726c6eb84215c68593231aa71e60ca2a6c29568867b10bdfab",
+    "bytes": 3980754,
+    "exe_sha256": "82f30fec9cec8ad4f1eb232d57d6dad7d6d8bb6c5bdcf7dff7bc8eaa320f98d9",
+    "standalone": false
+  },
+  "upstream_pr": "https://github.com/RetroPortingToolKit/snesrecomp/pull/255",
+  "status": "GLSLactivation validated by tester. Separate barrier report open; combined merge/release pending.",
+  "raw_evidence": "G:\\Temp\\Codex\\fzero-hd-fallback-20261104",
+  "barrier_followup": {
+    "issue": "beads-8wg.5.129",
+    "mode": "Singleplayer",
+    "detail": "8xpresumed",
+    "behavior": "Brief, no particulartrigger; course/smoothing unspecified",
+    "local_check": {
+      "passed": true,
+      "actual_gpu": "availableNVIDIAhost",
+      "checks": 37,
+      "fractional_checks": 12,
+      "detail": 8,
+      "smoothing": 2,
+      "requested_fps": 120,
+      "scenario": "ActualstockSPstraight/corner/native1456-1457cameraalias route; originalinputs,no posewrites. SparseCPU/GPUoracle,notallpixels.",
+      "tester_case": "BriefWindowsAMDelectricaledge misalignment notidentifiedorqualified by thisrun"
+    },
+    "required": "Exact failing screenshot/clip and native replay/diagnostics from tester. Existing sampledGPUreference may help attribute GPU-vs-commongeometry; zero sparsemismatches alone doesnot ruleout theartifact."
+  },
+  "skyline_report": {
+    "image_sha256": "f030c841a6692dd51d128f4e0922fe139bd99036d528d1cd4b43e77c1b74ac42",
+    "observation": "Cropped skyline and partialCOURSESELECTheading. Owner relays backgroundgoingcrazy but is unsure what the tester means.",
+    "classification": "Possible cross-GPU graphics-overhaul regression. Owner highlights the cyan-blue horizon band's color; crop does not establish animation, root cause or relation to electrical-edge report.",
+    "source_findings": "Skyline/nonMode7rows use native background composition/panorama extension rather than HD road coordinate sampling. This narrows inspection but doesnot prove cause.",
+    "needed": "Owner review of original/before/fixed comparison. The earlier transient electrical-edge report is not cleared by this horizon fix.",
+    "code_changes": "Restore authored native horizon shading through the CGP pack-owned soft-horizon-fog requirement; no texture filter or HD geometry change.",
+    "owner_clarification": "2026-11-04: Blue line color at the horizon is important. May not be AMD-specific. Disregard flicker and try to reproduce the cyan line itself.",
+    "local_color_check": {
+      "scene": "Practice course preview, stock Mute City I, BS Deluxe/CGP profile, 16:9",
+      "frames": [
+        1450,
+        1490
+      ],
+      "native_skyline_rows_0_to_46_vs_cpu_8x_ss2_center_exact": true,
+      "evidence": "G:/Temp/Codex/fzero-hd-fallback-20261104/horizon-color/summary.json",
+      "limits": "One stock-venue preview; not the unknown reported course, GPU presentation or motion reproduction. Headless/RenderCapture remain 0.18.0 CPU binaries; the 0.18.1 test candidate only changed GPU shader naming/logging. Initial captures reached rival/race screens and were not treated as course-preview acceptance."
+    },
+    "marine_city_reproduction": {
+      "course": "CGP Marine City I",
+      "source": "Unchanged courses/marine-city-1.zip from qualified final-packs/cgp, selected with a private isolated one-course manifest",
+      "compiled_resource": "ce018e6b84e95060ac7d69f5cbfb5f102eab43ebb3806281bf7c0724d29ff936.fzc",
+      "cyan_band_present_in_native_ppu_without_hd_or_widescreen": true,
+      "cpu_8x_ss2_4x3_and_21x9_sky_center_rows_0_to_46_columns_80_to_159_exact": true,
+      "current_gpu": "0.18.1-hd-test, NVIDIA RTX 3080 Ti, 8x/SS2, 21:9. Actual screenshot shows the same band; 33 sparse reference checks, zero mismatches.",
+      "comparison": "G:/Temp/Codex/fzero-hd-fallback-20261104/horizon-color/marine-city/horizon-comparison.png",
+      "gpu_evidence": "G:/Temp/Codex/fzero-hd-fallback-20261104/horizon-color/marine-gpu/actual-gpu.png",
+      "limits": "Reproduced appearance, not established as a defect. Native PPU output comes from the shared engine; this is not independent original-hack emulator acceptance. Does not clear prior transient barrier report. Initial contact-sheet row was misread as Brutal Wind I, corrected to Marine City I; wrong-target runs excluded.",
+      "functional_changes": "None"
+    },
+    "original_cgp_comparison": {
+      "donor_sha256": "25383a9090265e6a4f007dc349fa224b6305c028e899c60069d63dc0bfc5ffb7",
+      "reference_core_sha256": "3e05e441f35ca21baa328094f6f9bf30645ea998ebb39956b154e160a8b00ed0",
+      "reference": "bsnes-hd10.6 classicPPU (ppu_fastOFF, scale disable, bgGrad0, windRad0, blurOFF), ordinary Baron/MarineCityI navigation; deterministic script framebuffer capture, no TCP or RAM cheats",
+      "calibration": "512x448 duplicated native pixels normalized to256x224 and exact5bit byte expansion; all reference channels verified multiples of8. Initial1xHD reference retained its default line smoothing and is diagnostic only, superseded by this classicPPU run.",
+      "native_validation": {
+        "changed_rows": [
+          44,
+          45
+        ],
+        "stock_pixels_exact": true,
+        "reference_color_transforms_checked": 414,
+        "reference_color_mismatches": 0,
+        "quick_save_load": true,
+        "current_build_snapshot_load_preserves_fog": true
+      },
+      "packs": {
+        "record_hashes_unchanged": 75,
+        "unchanged_course_zips": 75,
+        "mandatory_cgp_module": "mechanics/horizon.json",
+        "source": "G:\\Temp\\Codex\\fzero-hd-fallback-20261104\\horizon-color\\packs-candidate"
+      },
+      "gpu": {
+        "actual_gpu": true,
+        "scale": 8,
+        "smoothing": 2,
+        "sampled_checks": 32,
+        "sampled_mismatches": 0,
+        "course": "CGP Marine City I, full75course catalog with mandatory horizon module",
+        "scope": "Confirm screenshot identity visually; sparse oracle does not cover all pixels."
+      },
+      "exe_sha256": "15e66628f223f97156cd16b96a44b459262bbba86ee923069b9cc806997d3324",
+      "fix": "Native six-byte Smooth_Fog.asm profile follows course requirements, restores stock on other courses and after loads; record hashes unchanged, snapshot/netplay identity includes presentation requirement.",
+      "history": "The retired fog control was repurposed texture filtering, already skipping the original native ASM. This finding does not date the loss solely to the latest HD overhaul.",
+      "comparison": "G:\\Temp\\Codex\\fzero-hd-fallback-20261104\\horizon-color\\cgps-horizon-original-before-fixed.png",
+      "units": "course_parser/video/mods/renderer all passed",
+      "scope": "Corrected horizon data, not clearance of the earlier transient electrical-edge report; no replacement Nextcloud delivery yet."
+    }
+  }
+}

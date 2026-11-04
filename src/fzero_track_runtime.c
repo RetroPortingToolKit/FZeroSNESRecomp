@@ -10,10 +10,13 @@
 #include "cpu_state.h"
 #include "common_rtl.h"
 #include "snes/interp_bridge.h"
+#include "snes/cart.h"
+#include "snes/snes.h"
 #include "sha256.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+extern Snes *g_snes;
 
 typedef struct ImportedCourses {
   const CpPack *pack;
@@ -208,6 +211,8 @@ static void current_course(void) {
     unsigned order = test ? (unsigned)strtoul(test, NULL, 10) : g_ram[0x53];
     course = imported_course(active_pack, active_cup, order);
   }
+  if (g_snes && g_snes->cart)
+    FzeroCourseApplyHorizonFog(course, g_snes->cart->rom, g_snes->cart->romSize);
 }
 bool FzeroTracksPrepare(uint8_t **rom, size_t *size, bool deluxe, const char *deluxe_path) {
   for (unsigned i = 0; i < imported_count; ++i)
@@ -291,7 +296,7 @@ bool FzeroTracksPrepare(uint8_t **rom, size_t *size, bool deluxe, const char *de
     for (unsigned i = 0; i < imported_count; ++i) {
       const CpPack *p = imported[i].pack;
       size_t length =
-          CP_ID + p->cup_count * sizeof(CpCup) + p->track_count * (sizeof(CpTrack) + 32);
+          CP_ID + p->cup_count * sizeof(CpCup) + p->track_count * (sizeof(CpTrack) + 33);
       uint8_t *data = calloc(1, length);
       if (!data)
         return false;
@@ -304,6 +309,9 @@ bool FzeroTracksPrepare(uint8_t **rom, size_t *size, bool deluxe, const char *de
         pos += sizeof(CpTrack);
         memcpy(data + pos, imported[i].courses[t].hash, 32);
         pos += 32;
+        /* Native presentation data belongs in snapshot/netplay identity,
+         * while course records retain their existing gameplay-only key. */
+        data[pos++] = imported[i].courses[t].required & ~FZERO_COURSE_GAMEPLAY_FEATURES;
       }
       sha256_compute(data, length, hashes + 41 + i * 32);
       free(data);
@@ -478,6 +486,7 @@ bool FzeroTracksClassSelected(void) {
   return FzeroTracksClassSelectedAt(g_ram);
 }
 bool FzeroTracksClassSelectedAt(const uint8_t *ram) {return FzeroDeluxeActive()?ram[0x14c98]!=0:ram[0x55]>=6;}
+void FzeroTracksRefreshPresentation(void) { current_course(); }
 void FzeroTracksRefreshCourse(void) {
   current_course();
   if(FzeroLocalEnabled())return;

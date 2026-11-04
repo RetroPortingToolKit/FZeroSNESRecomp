@@ -101,6 +101,8 @@ unsigned requiredFeatures(const Value &features) {
       bits |= FZERO_COURSE_UP_MAGNETS;
     else if (name == "rainbow-road")
       bits |= FZERO_COURSE_RAINBOW;
+    else if (name == "soft-horizon-fog")
+      bits |= FZERO_COURSE_SOFT_HORIZON_FOG;
     else
       require(false, "Unsupported required mechanic: " + name);
   }
