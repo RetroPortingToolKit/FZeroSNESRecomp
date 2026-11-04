@@ -80,9 +80,17 @@
   "skyline_report": {
     "image_sha256": "f030c841a6692dd51d128f4e0922fe139bd99036d528d1cd4b43e77c1b74ac42",
     "observation": "Cropped skyline and partialCOURSESELECTheading. Owner relays backgroundgoingcrazy but is unsure what the tester means.",
-    "classification": "Unconfirmed moving-background symptom; crop doesnot establish corruption or relation to electrical-edge report.",
+    "classification": "Possible cross-GPU graphics-overhaul regression. Owner highlights the cyan-blue horizon band's color; crop does not establish animation, root cause or relation to electrical-edge report.",
     "source_findings": "Skyline/nonMode7rows use native background composition/panorama extension rather than HD road coordinate sampling. This narrows inspection but doesnot prove cause.",
     "needed": "Short full-window recording plus whetherCOURSESELECTmenu or race and exact course. Existing diagnostic launcher/replay request remains useful.",
-    "code_changes": "None; no geometry/scrolling change without reproducer."
+    "code_changes": "None; no geometry/scrolling change without reproducer.",
+    "owner_clarification": "2026-11-04: Blue line color at the horizon is important. May not be AMD-specific; investigate the graphics overhaul across GPUs.",
+    "local_color_check": {
+      "scene": "Practice course preview, stock Mute City I, BS Deluxe/CGP profile, 16:9",
+      "frames": [1450, 1490],
+      "native_skyline_rows_0_to_46_vs_cpu_8x_ss2_center_exact": true,
+      "evidence": "G:/Temp/Codex/fzero-hd-fallback-20261104/horizon-color/summary.json",
+      "limits": "One stock-venue preview; not the unknown reported course, GPU presentation or motion reproduction. Headless/RenderCapture remain 0.18.0 CPU binaries; the 0.18.1 test candidate only changed GPU shader naming/logging. Initial captures reached rival/race screens and were not treated as course-preview acceptance."
+    }
   }
 }
