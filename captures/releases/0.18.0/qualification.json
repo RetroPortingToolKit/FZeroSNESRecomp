@@ -1,0 +1,102 @@
+{
+  "version": "0.18.0",
+  "release_date": "2026-11-04",
+  "source_commit": "c95eec840657364f3ffebd8d51b93b72c24e732d",
+  "tag": "v0.18.0",
+  "release_pr": "https://github.com/RetroPortingToolKit/FZeroSNESRecomp/pull/22",
+  "merged_commit": "7b72cb6047314c91066467c98bb1015d6ab70d0e",
+  "build": {
+    "version": "0.18.0",
+    "commit": "c95eec840657364f3ffebd8d51b93b72c24e732d",
+    "exe_sha256": "381f250870d83d3de4319e5238669e1e823121cf5aed9ad2c2921d3feb473c63"
+  },
+  "packages": [
+    {
+      "flavor": "without-msu",
+      "path": "G:\\Temp\\Codex\\fzero-release-0.18.0-20261104\\releases\\F-Zero-Forever-0.18.0-windows-x64-without-msu.zip",
+      "bytes": 43991389,
+      "sha256": "4f39194351957bfc7f662997d9d92012ad224041946611915df90a303dbf2629",
+      "exe_sha256": "381f250870d83d3de4319e5238669e1e823121cf5aed9ad2c2921d3feb473c63",
+      "pcm": 0,
+      "course_cache": {
+        "compiled_courses": 75,
+        "extracted_sources": 75
+      },
+      "manifest_files": 1632,
+      "commit": "c95eec840657364f3ffebd8d51b93b72c24e732d",
+      "dependencies": {
+        "snesrecomp": "fb8cf15d9296c59e7653e495ef38c9136546e9c1",
+        "recomp-ui": "b13c876cab37a46b6266eed107a5c9ef5f035320"
+      }
+    },
+    {
+      "flavor": "with-msu",
+      "path": "G:\\Temp\\Codex\\fzero-release-0.18.0-20261104\\releases\\F-Zero-Forever-0.18.0-windows-x64-with-msu.zip",
+      "bytes": 929869293,
+      "sha256": "75c836d027d81478be07aba27144b27a3bd71feef135b01b5b0f0e872f0a8b7c",
+      "exe_sha256": "381f250870d83d3de4319e5238669e1e823121cf5aed9ad2c2921d3feb473c63",
+      "pcm": 39,
+      "course_cache": {
+        "compiled_courses": 75,
+        "extracted_sources": 75
+      },
+      "manifest_files": 1671,
+      "commit": "c95eec840657364f3ffebd8d51b93b72c24e732d",
+      "dependencies": {
+        "snesrecomp": "fb8cf15d9296c59e7653e495ef38c9136546e9c1",
+        "recomp-ui": "b13c876cab37a46b6266eed107a5c9ef5f035320"
+      }
+    }
+  ],
+  "validation": {
+    "passed": true,
+    "version": "0.18.0",
+    "exe_sha256": "381f250870d83d3de4319e5238669e1e823121cf5aed9ad2c2921d3feb473c63",
+    "defaults": {
+      "aspect": "Fit",
+      "hd_detail": 4,
+      "smoothing": 1,
+      "fps": "Auto",
+      "fullscreen": false,
+      "normal_audio_config": true
+    },
+    "course_cache": "Relocated75courses reuse cache; editing one source invalidates only that course",
+    "actual_packaged_gameplay": "Native VS entry, contacts, independent inputs,5targetshapes,Restart/Change/Main and singleplayer return",
+    "gpu_checks": 31,
+    "gpu_scales": [
+      4
+    ],
+    "importer_help": true,
+    "scope": "Exact freshly extracted nonMSU ZIP; no seeded video configuration or alternate assets; packaged4packs remain installed. Automated output muted; shipped audio settings normal. WithMSU uses identical EXE and is independently fully hashed with39verifiedPCM."
+  },
+  "delivery": {
+    "version": "0.18.0",
+    "verified": true,
+    "editions": [
+      {
+        "path": "G:\\Nextcloud\\Games\\SNES\\F-Zero-Forever-0.18.0-windows-x64-without-msu.zip",
+        "sha256": "4f39194351957bfc7f662997d9d92012ad224041946611915df90a303dbf2629",
+        "bytes": 43991389
+      },
+      {
+        "path": "G:\\Nextcloud\\Games\\SNES\\F-Zero-Forever-0.18.0-windows-x64-with-msu.zip",
+        "sha256": "75c836d027d81478be07aba27144b27a3bd71feef135b01b5b0f0e872f0a8b7c",
+        "bytes": 929869293
+      }
+    ],
+    "older_editions_removed": true,
+    "preserved": "Other games, settings, saves and extracted builds unchanged"
+  },
+  "cache_validation": {
+    "cached_courses": 75,
+    "extracted_archives": 75,
+    "relocated_first_launch_reused_every_cache_file": true,
+    "edited_course_rebuilt": true,
+    "unchanged_courses_reused": true,
+    "first_launch_seconds": 6.94,
+    "edited_scan_seconds": 2.72
+  },
+  "retained_evidence": "G:\\Temp\\Codex\\fzero-release-0.18.0-20261104",
+  "dev_build": "F:/Projects/snesrecomp/_wt-fzero-track-packs/build/netplay",
+  "scope": "Version, changelog and player-package instructions only; rendering/simulation matches the owner-approved HD qualification. Source/dev build retained; no personal recordings or native saves/settings shipped. The local Nextcloud files were independently hashed; remote sync completion is not asserted."
+}

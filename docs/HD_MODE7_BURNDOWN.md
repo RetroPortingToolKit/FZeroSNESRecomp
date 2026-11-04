@@ -557,6 +557,24 @@ clips/captures and regression evidence. Failed disposable fixtures are cleaned;
 owner previews, saves/settings and approved clips are preserved. No Nextcloud
 or public release archive is replaced by this integration.
 
+## Post-qualification release, 2026-11-04
+
+F-Zero Forever0.18.0 delivers this qualified implementation in both MSU and
+non-MSU player ZIPs at `G:/Nextcloud/Games/SNES`. Source `c95eec84`, tag
+`v0.18.0`, [release PR22](https://github.com/RetroPortingToolKit/FZeroSNESRecomp/pull/22).
+The release metadata/package-instruction changes preserve the accepted runtime.
+Both copies were independently hashed before removing the0.17.0 pair.
+Each edition contains75 prebuilt courses/source caches; the music edition has
+39 approved recordings, the other has none. No personal WAVs, ROMs, saves,
+settings or development code are bundled.
+
+Relocated first launch reuses all cache files; editing one course rebuilds
+only that course. The fresh extracted player's actual launcher confirms
+Fit/4x/off/Auto with normal audio/window defaults. Native gameplay, contacts,
+five target shapes, transitions and31 GPU checks at4x pass using its packaged
+assets and installed packs. Detailed identities and release checks are in
+[the0.18.0 record](../captures/releases/0.18.0/qualification.json).
+
 ## References
 
 - [bsnes-hd feature and settings definitions](https://github.com/DerKoun/bsnes-hd#settings): Mode 7 scale, perspective correction and supersampling are separate concepts.
