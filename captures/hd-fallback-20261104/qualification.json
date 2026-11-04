@@ -4,7 +4,7 @@
     "gpu": "RadeonRX9060XT8GB",
     "mode": "Offline; single/local-versus unspecified",
     "warning": "HD detail limited to1x(8xrequested)",
-    "tester_confirmation": "pending"
+    "tester_confirmation": "Owner confirms candidate works for Radeon user; GPUactivation fixed. Brief electrical track-edge misalignment remains."
   },
   "cause": {
     "demonstrated": "Actual shared GPU fragment declares half, reserved by GLSL; reference compiler rejects both register330 and affine400 shaders. NVIDIA driver accepted them.",
@@ -57,6 +57,24 @@
     "standalone": false
   },
   "upstream_pr": "https://github.com/RetroPortingToolKit/snesrecomp/pull/255",
-  "status": "Qualified on available NVIDIA GPU and reference compiler; Windows AMD confirmation/merge/release pending. Current0.18.0 Nextcloud ZIPs unchanged.",
-  "raw_evidence": "G:\\Temp\\Codex\\fzero-hd-fallback-20261104"
+  "status": "GLSLactivation validated by tester. Separate barrier report open; combined merge/release pending.",
+  "raw_evidence": "G:\\Temp\\Codex\\fzero-hd-fallback-20261104",
+  "barrier_followup": {
+    "issue": "beads-8wg.5.129",
+    "mode": "Singleplayer",
+    "detail": "8xpresumed",
+    "behavior": "Brief, no particulartrigger; course/smoothing unspecified",
+    "local_check": {
+      "passed": true,
+      "actual_gpu": "availableNVIDIAhost",
+      "checks": 37,
+      "fractional_checks": 12,
+      "detail": 8,
+      "smoothing": 2,
+      "requested_fps": 120,
+      "scenario": "ActualstockSPstraight/corner/native1456-1457cameraalias route; originalinputs,no posewrites. SparseCPU/GPUoracle,notallpixels.",
+      "tester_case": "BriefWindowsAMDelectricaledge misalignment notidentifiedorqualified by thisrun"
+    },
+    "required": "Exact failing screenshot/clip and native replay/diagnostics from tester. Existing sampledGPUreference may help attribute GPU-vs-commongeometry; zero sparsemismatches alone doesnot ruleout theartifact."
+  }
 }
