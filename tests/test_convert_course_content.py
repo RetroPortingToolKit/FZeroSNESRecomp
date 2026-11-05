@@ -311,6 +311,78 @@ class ConversionBoundaries(unittest.TestCase):
             self.assertNotIn('tools/optional.asm', opened)
             self.assertIn('INSTRUCTIONS.txt', opened)  # Bounded platform hints only.
 
+    def test_reviewed_msu_companion_is_not_a_second_game_revision(self):
+        stock = bytes(0x8000)
+        game = b'G' + bytes(0x7fff)
+        addon = b'PATCHEOF'
+        with tempfile.TemporaryDirectory() as temp:
+            source = Path(temp) / 'with-music.zip'
+            source.write_bytes(archive_bytes([('game.sfc', game), ('fzedit-msu.ips', addon)]))
+            with patch.dict(converter.MSU_COMPANION_PATCHES, {converter.digest(addon): 'Reviewed test add-on'}), \
+                    patch.object(converter, 'donor', return_value=stock), \
+                    patch.object(converter, 'probe_msu_selector', return_value={'recognized': False}):
+                target, report = converter.read_submission(source, stock)
+                self.assertEqual(target, game)
+                self.assertEqual(report['donor_member'], 'game.sfc')
+                self.assertEqual(report['companion_patches'][0]['member'], 'fzedit-msu.ips')
+                source.write_bytes(archive_bytes([('game.sfc', game), ('fzedit-msu.ips', addon + b'changed')]))
+                target, report = converter.read_submission(source, stock)
+                self.assertIsNone(target)  # The familiar filename does not identify an add-on.
+                self.assertIn('different donor revisions', report['reason'])
+
+    def test_repeated_race_tables_keep_resources_music_and_cycle_bank(self):
+        rom = bytearray(0x20000)
+        def put(address, data):
+            offset = ((address & 0x7f0000) >> 1) | (address & 0x7fff)
+            rom[offset:offset + len(data)] = data
+        layout = dict(count=['3'], maps=['009000'], music=['009100'],
+                      opponents=['009200'], palette_cycles=['009300'])
+        put(0x009000, bytes(range(30)))
+        put(0x009100, bytes([0, 9, 18]))
+        put(0x009200, bytes(range(9)))
+        put(0x009300, bytes.fromhex('10 93 14 93 18 93'))
+        for slot in range(3):
+            put(0x009310 + slot * 4, struct.pack('<HH', 0x20 + slot * 16, 0x8000))
+        probe = dict(tracks=[dict(slot=slot, order_table_position=i, name=f'Race {i}', msu_track=10+i)
+                             for i, slot in enumerate((2, 0, 2))])
+        evidence = dict(opponents_policy='Recognized donor per-resource opponent table')
+        expanded, result, rows = converter.expand_repeated_races(bytes(rom), layout, probe, bytes(rom), evidence)
+        read = lambda key, size: converter.span(expanded, int(result[key][0], 16), size)
+        self.assertEqual(read('maps', 30), bytes(range(20, 30)) + bytes(range(10)) + bytes(range(20, 30)))
+        self.assertEqual(read('music', 3), bytes([18, 0, 18]))
+        self.assertEqual(read('opponents', 9), bytes([6, 7, 8, 0, 1, 2, 6, 7, 8]))
+        self.assertEqual([row['slot'] for row in rows['tracks']], [0, 1, 2])
+        self.assertEqual([row['source_slot'] for row in rows['tracks']], [2, 0, 2])
+        self.assertEqual([row['msu_track'] for row in rows['tracks']], [10, 11, 12])
+        report = dict(input_name='game.zip', target_sha256='a'*64, input_sha256='b'*64)
+        original_form = converter.review_form(report, probe)
+        self.assertEqual(original_form, converter.review_form(report, rows))
+        self.assertEqual(len({field['id'] for field in original_form['fields']}), len(original_form['fields']))
+        converter.review_values(report, original_form, None)
+        cycles = int(result['palette_cycles'][0], 16)
+        for index, value in enumerate((0x40, 0x20, 0x40)):
+            address = (cycles & 0xff0000) | int.from_bytes(converter.span(expanded, cycles+index*2, 2), 'little')
+            self.assertEqual(converter.span(expanded, address, 4), struct.pack('<HH', value, 0x8000))
+        with self.assertRaisesRegex(ValueError, 'outside'):
+            converter.expand_repeated_races(bytes(rom), layout,
+                dict(tracks=[dict(slot=3), dict(slot=3)]), bytes(rom), evidence)
+        self.assertEqual(evidence['repeated_race_resources']['unique_resources'], 2)
+        self.assertEqual(layout['maps'], ['009000'])  # No caller table is rewritten.
+        put(0x02fbda, bytes(range(45)))
+        fallback, tables, _ = converter.expand_repeated_races(bytes(rom), layout, probe, bytes(rom),
+            dict(opponents_policy='Original engine explosive-opponent frequencies by source GP position'))
+        self.assertEqual(converter.span(fallback, int(tables['opponents'][0], 16), 9),
+                         bytes([0, 15, 30, 1, 16, 31, 2, 17, 32]))
+
+    def test_metadata_probe_accepts_bounded_repeated_resources(self):
+        rom = bytearray(metadata_donor())
+        rom[0x81110:0x81112] = bytes([1, 1])
+        report = converter.probe_fzedit_metadata(rom)
+        self.assertEqual(report['status'], 'recognized-resource-metadata')
+        self.assertEqual(report['source_order_prefix'], [1, 1])
+        rom[0x81111] = 2
+        self.assertEqual(converter.probe_fzedit_metadata(rom)['status'], 'recognized-metadata-locators')
+
     def test_ambiguous_zip_publishes_report_and_member_resolves(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp); source = root/'different.zip'

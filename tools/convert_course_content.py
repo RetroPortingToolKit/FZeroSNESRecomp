@@ -28,7 +28,7 @@ from fuzee_course_format import decode as decode_fuzee, recognized as recognized
 from native_course_format import native_terrain_properties, decode_native_horizon
 from fuzee_course_import import probe_metadata as probe_fuzee_metadata, infer_layout as infer_fuzee_layout
 from import_astra_front import SOURCE_SHA256 as ASTRA_SOURCE_SHA256
-from inspect_bs_deluxe import STOCK_SHA256
+from inspect_bs_deluxe import STOCK_SHA256, apply_ips
 from parse_track_pack import donor, fields, recognize
 from reconstruct_fzedit_course import ALPHABET
 
@@ -44,6 +44,11 @@ PATCH_SUFFIXES = ('.ips', '.bps')
 AUDIO_SUFFIXES = ('.pcm', '.msu', '.wav', '.flac', '.mp3', '.ogg')
 KNOWN_IDS = ('astra-front', 'bower-league', 'cgp', 'max-league')
 ID_PATTERN = re.compile(r'[a-z0-9][a-z0-9-]{0,46}\Z')
+# Reviewed optional FZEdit MSU add-on: reset/audio hooks and the standard
+# arithmetic track selector only. A filename alone never identifies an add-on.
+MSU_COMPANION_PATCHES = {
+    '5ba7f4b4f545e93f9fed30d052ebb42d5021bc19cacfca909549451483a90c51': 'FZEdit MSU-1 add-on'
+}
 
 REVIEW = """The course resources could not be decoded and validated. No pack was created.
 
@@ -264,8 +269,13 @@ def read_zip_submission(source, stock, member):
                                       **metadata))
                 except ValueError as error:
                     errors.append(dict(member=entry.filename, reason=str(error)))
+        for candidate in valid:
+            companion = MSU_COMPANION_PATCHES.get(candidate.get('patch_sha256'))
+            if companion:
+                candidate['companion'] = companion
         report['archive_donor_candidates'] = valid
         report['archive_candidate_errors'] = errors
+        choices = valid if member is not None else [entry for entry in valid if not entry.get('companion')]
         # IPS has no source-platform checksum. Use an explicit patching
         # statement in the author's README only as a rejection hint, never as
         # permission to import data or choose one of multiple SNES targets.
@@ -288,14 +298,14 @@ def read_zip_submission(source, stock, member):
         elif len(candidates) > 8:
             report['reason'] = 'The archive has more than eight donor candidates; select an exact --member.'
             selected = None
-        elif not valid:
+        elif not choices:
             report['reason'] = 'No donor member could be applied or validated against the selected stock ROM.'
             selected = None
-        elif len({entry['profile'] or entry['target_sha256'] for entry in valid}) != 1:
+        elif len({entry['profile'] or entry['target_sha256'] for entry in choices}) != 1:
             report['reason'] = 'The archive contains different donor revisions; select an exact --member before conversion.'
             selected = None
         else:
-            selected = min(valid, key=lambda item: (item['input_kind'] != 'bps', item['input_kind'] == 'rom', item['member']))
+            selected = min(choices, key=lambda item: (item['input_kind'] != 'bps', item['input_kind'] == 'rom', item['member']))
         if other_game and not any(entry['profile'] for entry in valid):
             report['reason'] = ('The author\'s README says this patch is for F-Zero: Maximum Velocity '
                                 'on Game Boy Advance. This importer supports SNES F-Zero course data; '
@@ -307,6 +317,18 @@ def read_zip_submission(source, stock, member):
             limit = IMAGE_LIMIT + 512 if extension in ROM_SUFFIXES else INPUT_LIMIT
             target, metadata = decode_donor(read_zip_member(archive, entry, limit), extension, stock)
             report.update(metadata, donor_member=entry.filename)
+            companions = [item for item in valid if item.get('companion') and item['member'] != entry.filename]
+            if companions:
+                report['companion_patches'] = companions
+                report['warnings'].append('A verified optional MSU add-on was identified separately from the game patch. '
+                                          'Only its soundtrack numbering is used; no add-on code is installed.')
+                # Inspect the supplied add-on's selector on a disposable image.
+                # No add-on code executes or becomes part of the native pack.
+                for item in companions:
+                    patch = read_zip_member(archive, archive.getinfo(item['member']), INPUT_LIMIT)
+                    selector = probe_msu_selector(apply_ips(target, patch), 128)
+                    if selector.get('recognized'):
+                        report['companion_msu_selector'] = dict(selector, source_member=item['member'])
             if extension in PATCH_SUFFIXES:
                 report['patch_member'] = entry.filename
             if len(valid) > 1:
@@ -605,7 +627,7 @@ def probe_fzedit_metadata(target):
         if not 1 <= races <= 128:
             return result
         source_order = list(span(target, order_table, races))
-        if len(set(source_order)) != races or any(slot >= count for slot in source_order):
+        if any(slot >= count for slot in source_order):
             result['order_note'] = 'Internal resource count does not establish the published GP subset.'
             return result
         music = span(target, music_table, count)
@@ -843,8 +865,60 @@ def infer_fzedit_layout(target, stock, probe):
     return normalized, layout, evidence
 
 
+def expand_repeated_races(target, layout, probe, stock, evidence):
+    """Give repeated GP entries independent bounded resource/metadata slots."""
+    order = [row['slot'] for row in probe['tracks']]
+    if len(set(order)) == len(order):
+        return target, layout, probe
+    count = int(layout['count'][0])
+    if not 1 <= len(order) <= 128 or any(not 0 <= slot < count for slot in order):
+        raise ValueError('Repeated race resource index is outside the extraction layout')
+    layout = {key: list(values) for key, values in layout.items()}
+    widths = dict(pools=3, settings=1, palettes=3, maps=10, graphics=3, paths=3,
+                  names=3, sky_graphics=3, sky_back=3, sky_front=3, minimaps=3,
+                  map_positions=4, terrain=3, gradients=1, opponents=3, shortcuts=3, music=1)
+    def append(key, data):
+        nonlocal target
+        offset = (len(target) + 0x7fff) & ~0x7fff
+        address = ((offset // 0x8000) << 16) | 0x8000
+        if offset + len(data) > IMAGE_LIMIT:
+            raise ValueError('Expanded race resources exceed the donor size limit')
+        target += bytes(offset - len(target)) + data
+        layout[key] = [f'{address:06x}']
+    for key, width in widths.items():
+        if key in layout:
+            address = int(layout[key][0], 16)
+            append(key, b''.join(span(target, address + slot * width, width) for slot in order))
+    if evidence['opponents_policy'].startswith('Original engine'):
+        append('opponents', bytes(span(stock, 0x02fbda + level * 15 + position % 15, 1)[0]
+                                  for position in range(len(order)) for level in range(3)))
+    if 'palette_cycles' in layout:
+        address = int(layout['palette_cycles'][0], 16)
+        pointers, records = bytearray(), bytearray()
+        for slot in order:
+            pointer = (address & 0xff0000) | int.from_bytes(span(target, address + slot * 2, 2), 'little')
+            pointers += (0x8000 + len(order) * 2 + len(records)).to_bytes(2, 'little')
+            for index in range(15):
+                word = span(target, pointer + index * 2, 2)
+                records += word
+                if int.from_bytes(word, 'little') & 0x8000:
+                    break
+            else:
+                raise ValueError('Repeated race palette-cycle list has no bounded terminator')
+        append('palette_cycles', pointers + records)
+    layout['count'] = [str(len(order))]
+    probe = dict(probe, tracks=[dict(row, source_slot=row['slot'], slot=position)
+                               for position, row in enumerate(probe['tracks'])])
+    evidence['repeated_race_resources'] = dict(source_slots=order, race_entries=len(order),
+        unique_resources=len(set(order)), policy='Independent race slots; original resource order and per-race music retained')
+    return target, layout, probe
+
+
 def review_form(report, probe):
-    tracks = probe['tracks']; cups = (len(tracks)+4)//5
+    tracks = probe['tracks']
+    if len({row['slot'] for row in tracks}) != len(tracks):
+        tracks = [dict(row, source_slot=row['slot'], slot=position) for position, row in enumerate(tracks)]
+    cups = (len(tracks)+4)//5
     stem = PurePosixPath(report.get('donor_member', report['input_name'])).stem
     fields = [dict(id='pack_name', label='Pack name', type='text', value=stem.encode('utf-8')[:95].decode('utf-8','ignore')),
               dict(id='author', label='Course author', type='text', value='Unknown author')]
@@ -940,6 +1014,7 @@ def write_review_report(out, report):
 
 def convert_inferred(source, out, target, stock, report, probe, exporter, inspector, answers):
     normalized, layout, evidence = infer_fzedit_layout(target,stock,probe)
+    normalized, layout, probe = expand_repeated_races(normalized,layout,probe,stock,evidence)
     form = review_form(report,probe)
     required=[row.split('|',1)[1] for row in layout.get('require',[])]
     if required:
@@ -976,12 +1051,14 @@ def convert_inferred(source, out, target, stock, report, probe, exporter, inspec
                       omissions=['donor executable patches, vehicles, menus and global game rules',
                                  'original author editing layers/history for reconstructed courses'])
         if answers is None:
-            report.update(status='needs-input',message=f'{len(probe["tracks"])} editable courses passed validation. '
+            units = 'race entries' if evidence.get('repeated_race_resources') else 'editable courses'
+            report.update(status='needs-input',message=f'{len(probe["tracks"])} {units} passed validation. '
                           'Confirm the pack name, cup labels and course assignments to import them.')
         else:
             copy_archive_audio(source,report,pack)
+            units = 'race entries' if evidence.get('repeated_race_resources') else 'editable courses'
             report.update(status='converted',review_answers=values,
-                          message=f'{len(probe["tracks"])} editable courses imported with your labels and cup assignments.')
+                          message=f'{len(probe["tracks"])} {units} imported with your labels and cup assignments.')
             # Audio is optional; installed course data already passed byte checks.
             (pack/'conversion-report.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
             publish_pack(pack,out)
@@ -1192,6 +1269,12 @@ def convert(source, out, *, stock=None, exporter=None, inspector=None, patch_mem
     if profile is None:
         if target is not None:
             probe = report['donor_probe'] = probe_fzedit_metadata(target)
+            companion = report.get('companion_msu_selector', {})
+            if (not probe.get('msu_selector', {}).get('recognized') and companion.get('recognized')
+                    and len(probe.get('tracks', [])) <= len(companion['tracks'])):
+                probe['msu_selector'] = dict(companion, tracks=companion['tracks'][:len(probe.get('tracks', []))])
+                for row, number in zip(probe.get('tracks', []), companion['tracks']):
+                    row['msu_track'] = number
             count = probe.get('internal_resource_count')
             recordings = report.get('audio_inventory', {}).get('pcm_count', 0)
             detected = f'Detected {count} internal course resources' if count else 'The donor needs a reviewed course layout'

@@ -29,7 +29,11 @@ Use the plain version without a `fzero-55-preview` label.
 
 ## Current release
 
-**0.18.0** packages the accepted HD quality burndown: reconstructed perspective,
+**0.18.2** fixes fullscreen presentation scheduling and Gaiden-style repeated
+course imports, including the verified optional FZEdit MSU companion patch.
+The affected AMD system still needs a post-fix fullscreen retest; reporter
+logs establish the original 30 FPS startup versus 60 FPS after toggling.
+Both editions retain the accepted HD quality work: reconstructed perspective,
 exact nearest presentation, GPU cameras for every local player, separate
 2x/4x/8x detail and Off/2-sample smoothing, and a records return-fade fix.
 Fresh defaults are adaptive Fit, 4x detail, smoothing off and automatic FPS;
@@ -38,9 +42,9 @@ dropdown and user-supplied finish fanfare remain available.
 
 Both editions retain course sources, credits and freshly generated prebuilt
 caches. Only the with-MSU edition includes approved CGP/Astra recordings;
-neither includes personal callout WAVs. Shared engine `fb8cf15d` and launcher
+neither includes personal callout WAVs. Shared engine `d1ace29a` and launcher
 `b13c876` are frozen to the accepted implementation. Release tracking:
-`beads-8wg.5.127`; quality qualification: `beads-8wg.5.126`.
+`beads-8wg.5.131` and `beads-8wg.5.132`; quality qualification: `beads-8wg.5.126`.
 
 ## Preparing a release
 

@@ -1,5 +1,19 @@
 ﻿# Changelog
 
+## 0.18.2 - Fullscreen pacing and repeated-course imports
+
+- Advance presentation scheduling before GPU swaps can block, preventing an
+  extra refresh from being skipped. Initialize the renderer before entering
+  saved fullscreen mode and resynchronize pacing after Alt+Enter.
+- Recognize the verified optional FZEdit MSU add-on separately from a ZIP's
+  game patch. Unknown or changed patches still require explicit selection.
+- Preserve repeated GP course references as independent race entries, with
+  their original resources, palette cycles, SPC themes and MSU track numbers.
+  F-Zero Gaiden converts as 30 race entries using 24 distinct resources, with
+  all eight supplied PCM recordings mapped. Donor code, vehicles and global
+  gameplay changes remain excluded; course labels use the existing review form.
+- Retain adaptive Fit defaults and all explicit saved display/mod choices.
+
 ## 0.18.1 - HD compatibility and original CGP horizon shading
 
 - Use valid GLSL identifiers in the shared HD shader. Strict shader compilers
