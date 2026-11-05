@@ -264,7 +264,7 @@ void FzeroClockSimulationDone(FzeroClock *c) {
 bool FzeroClockPresentationDue(const FzeroClock *c, double now) {
   return now >= c->next_presentation;
 }
-void FzeroClockPresentationDone(FzeroClock *c, double now) {
+void FzeroClockPresentationBegin(FzeroClock *c, double now) {
   double period = 1.0 / c->presentation_hz;
   double overdue = fmax(0, now - c->next_presentation);
   uint64_t missed = (uint64_t)floor(overdue / period);

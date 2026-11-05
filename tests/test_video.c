@@ -66,7 +66,7 @@ static void clock_tests(void) {
       if (FzeroClockSimulationDue(&c, now)) FzeroClockSimulationDone(&c);
       if (FzeroClockPresentationDue(&c, now)) {
         CHECK(FzeroClockAlpha(&c, now) >= 0 && FzeroClockAlpha(&c, now) <= 1);
-        FzeroClockPresentationDone(&c, now);
+        FzeroClockPresentationBegin(&c, now);
       }
     }
     CHECK(c.simulation_frames == expected_frames);
@@ -77,7 +77,7 @@ static void clock_tests(void) {
   FzeroClockReset(&c, 10, 240);
   FzeroClockSimulationDone(&c);
   double simulation_deadline = c.next_simulation;
-  FzeroClockPresentationDone(&c, 10.05);
+  FzeroClockPresentationBegin(&c, 10.05);
   CHECK(c.missed_presentations >= 11);
   CHECK(c.next_presentation > 10.05);
   CHECK(c.next_simulation == simulation_deadline);
@@ -93,6 +93,26 @@ static void clock_tests(void) {
   CHECK(FzeroPresentationHz(0, NAN) == 60);
   CHECK(FzeroPresentationHz(0, 0) == 60);
   CHECK(FzeroPresentationHz(144, 60) == 144);
+
+  /* A 60/120 Hz swap completing just after vblank must leave the following
+   * submission due. Advancing from completion instead skips every other
+   * refresh, as in the AMD fullscreen report, despite cheap menu rendering. */
+  const unsigned vsync_rates[] = {60, 120};
+  for (unsigned i = 0; i < sizeof(vsync_rates) / sizeof(*vsync_rates); ++i) {
+    FzeroClockReset(&c, 0, vsync_rates[i]);
+    double now = 0, period = 1.0 / vsync_rates[i];
+    while (now < 10) {
+      while (FzeroClockSimulationDue(&c, now)) FzeroClockSimulationDone(&c);
+      CHECK(FzeroClockPresentationDue(&c, now));
+      FzeroClockPresentationBegin(&c, now);
+      now += period; /* GPU/driver blocks for one refresh. */
+      CHECK(FzeroClockPresentationDue(&c, now + 0.0001));
+    }
+    CHECK(llabs((long long)c.presentations - 10LL * vsync_rates[i]) <= 1);
+    CHECK(c.missed_presentations == 0);
+    CHECK(llabs((long long)c.simulation_frames -
+                (long long)ceil((now - period) * FZERO_SIMULATION_HZ)) <= 1);
+  }
 }
 
 static void config_tests(void) {

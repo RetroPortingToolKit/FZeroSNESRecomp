@@ -72,6 +72,8 @@ void FzeroClockReset(FzeroClock *clock, double now, double presentation_hz);
 bool FzeroClockSimulationDue(const FzeroClock *clock, double now);
 void FzeroClockSimulationDone(FzeroClock *clock);
 bool FzeroClockPresentationDue(const FzeroClock *clock, double now);
-void FzeroClockPresentationDone(FzeroClock *clock, double now);
+/* Advance at submission, before drawing/swap can block until the next vblank.
+ * Only deadlines missed before starting this frame count as dropped frames. */
+void FzeroClockPresentationBegin(FzeroClock *clock, double now);
 double FzeroClockAlpha(const FzeroClock *clock, double now);
 double FzeroClockNextDeadline(const FzeroClock *clock);

@@ -1054,6 +1054,16 @@ static double monotonic_seconds(void) {
   return (double)SDL_GetPerformanceCounter() / (double)SDL_GetPerformanceFrequency();
 }
 
+static void set_fullscreen(SDL_Window *window, bool enabled) {
+  snesrecomp_sdl_set_fullscreen(window, enabled);
+#if SNESRECOMP_SDL3
+  /* SDL3 may defer the transition. Query sizes/refresh and start the pacing
+   * clock only after the window has reached its requested presentation mode. */
+  if (!SDL_SyncWindow(window))
+    fprintf(stderr, "[fzero-display] Fullscreen transition did not settle: %s\n", SDL_GetError());
+#endif
+}
+
 static double display_refresh(SDL_Window *window) {
 #if SNESRECOMP_SDL3
   const SDL_DisplayMode *mode = SDL_GetCurrentDisplayMode(SDL_GetDisplayForWindow(window));
@@ -2165,8 +2175,6 @@ static int run_game(int argc, char **argv) {
           (use_gl_renderer ? SDL_WINDOW_OPENGL : 0) |
           (getenv("FZERO_TEST_LOCAL_UI_HIDDEN")?SDL_WINDOW_HIDDEN:0));
   if (!window) Die("Unable to create the game window");
-  if (launcher_settings.fullscreen && !g_compare_mode7)
-    snesrecomp_sdl_set_fullscreen(window, true);
   FzeroGlRenderer gl_renderer;
   SDL_Renderer *renderer = NULL;
   SDL_Texture *texture = NULL;
@@ -2187,7 +2195,6 @@ static int run_game(int argc, char **argv) {
       window=snesrecomp_sdl_create_window(kWindowTitle,initial_width,initial_height,
           SDL_WINDOW_RESIZABLE | kHighDpiFlag | (getenv("FZERO_TEST_LOCAL_UI_HIDDEN")?SDL_WINDOW_HIDDEN:0));
       if(!window)Die("Unable to create the native game window");
-      if(launcher_settings.fullscreen)snesrecomp_sdl_set_fullscreen(window,true);
     }
     if (gl_ok && want_gpu) {
       gl_renderer.hd_gpu=SnesHdGpuCreate();
@@ -2227,6 +2234,11 @@ static int run_game(int argc, char **argv) {
                                       launcher_settings.linear_filter != 0);
     snesrecomp_sdl_set_texture_opaque(texture);
   }
+  /* Match Alt+Enter: initialize the renderer in a normal window, then enter
+   * fullscreen with that renderer already attached. Some drivers otherwise
+   * retain a different swap/presentation state until a later mode cycle. */
+  if (launcher_settings.fullscreen && !g_compare_mode7)
+    set_fullscreen(window, true);
   if (texture_scale != requested_texture_scale) {
     char message[256];
     snprintf(message, sizeof(message),
@@ -2553,9 +2565,11 @@ static int run_game(int argc, char **argv) {
           case SDLK_RETURN: {
             if (!(mod & KMOD_ALT)) break;
             Uint32 flags = (Uint32)SDL_GetWindowFlags(window);
-            snesrecomp_sdl_set_fullscreen(
+            set_fullscreen(
                 window,
                 (flags & SNESRECOMP_SDL_WINDOW_FULLSCREEN_DESKTOP) == 0);
+            next_display_check = 0;
+            g_reset_presentation_clock = true;
             break;
           }
           default:
@@ -2923,6 +2937,10 @@ static int run_game(int argc, char **argv) {
     }
 
     if (benchmark || FzeroClockPresentationDue(&clock, now)) {
+      /* A synchronized swap may finish just after the next deadline. Advancing
+       * from that completion time skips another refresh, halving presentation
+       * on drivers that block here instead of in the desktop compositor. */
+      FzeroClockPresentationBegin(&clock, monotonic_seconds());
       uint64_t diagnostic_start = FzeroDiagnosticsBegin();
       /* The emergency portable grid path stays bounded. Successful GPU
        * camera packets use the requested detail, independently of this cap. */
@@ -2944,7 +2962,6 @@ static int run_game(int argc, char **argv) {
                                      FzeroFrameHeight());
       snes_rewind_note_framebuffer((const uint32_t *)pixels, logical_width,
                                    FzeroFrameHeight());
-      FzeroClockPresentationDone(&clock, monotonic_seconds());
       ++presentations;
     }
     if (running && !benchmark) {
