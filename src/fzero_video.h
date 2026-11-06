@@ -54,6 +54,9 @@ bool FzeroValidFps(unsigned fps);
 bool FzeroValidHdScale(unsigned scale);
 bool FzeroParseHdScale(const char *text, unsigned *scale);
 double FzeroPresentationHz(unsigned fps, double refresh);
+/* Auto follows vblank. Explicit rates use the host clock, including rates
+ * above the panel refresh; a second, blocking vsync limiter would cap them. */
+int FzeroPresentationSwapInterval(const FzeroVideoSettings *settings);
 FzeroViewport FzeroCalculateViewport(const FzeroVideoSettings *settings,
                                      int drawable_width, int drawable_height);
 FzeroRect FzeroDestination(FzeroViewport viewport, int width, int height);

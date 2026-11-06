@@ -69,6 +69,10 @@ double FzeroPresentationHz(unsigned fps, double refresh) {
   return fmin(refresh, 360);
 }
 
+int FzeroPresentationSwapInterval(const FzeroVideoSettings *s) {
+  return s->fps_enabled && s->fps && FzeroValidFps(s->fps) ? 0 : 1;
+}
+
 FzeroViewport FzeroCalculateViewport(const FzeroVideoSettings *s, int w, int h) {
   double aspect = 4.0 / 3.0;
   if (s->enhanced) {

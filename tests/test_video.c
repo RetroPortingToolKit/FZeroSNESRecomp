@@ -94,6 +94,19 @@ static void clock_tests(void) {
   CHECK(FzeroPresentationHz(0, 0) == 60);
   CHECK(FzeroPresentationHz(144, 60) == 144);
 
+  FzeroVideoSettings sync;
+  FzeroVideoDefaults(&sync);
+  CHECK(FzeroPresentationSwapInterval(&sync) == 1); /* Auto */
+  for (unsigned i = 1; i < sizeof(rates) / sizeof(*rates); ++i) {
+    sync.fps = rates[i];
+    CHECK(FzeroPresentationSwapInterval(&sync) == 0);
+  }
+  sync.fps_enabled = false;
+  CHECK(FzeroPresentationSwapInterval(&sync) == 1);
+  sync.fps_enabled = true;
+  sync.fps = 12345; /* invalid settings follow Auto, just like Hz selection */
+  CHECK(FzeroPresentationSwapInterval(&sync) == 1);
+
   /* A 60/120 Hz swap completing just after vblank must leave the following
    * submission due. Advancing from completion instead skips every other
    * refresh, as in the AMD fullscreen report, despite cheap menu rendering. */

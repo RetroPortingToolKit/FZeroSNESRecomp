@@ -58,6 +58,12 @@ skyline and road automatically. It works with HD off and does not filter track
 textures. Other packs keep their normal native shading.
 | MSU-1 and installed music | Single-player and versus; online music choices are local to each peer. Fresh settings default on. Missing songs use SNES music. Explicit saved opt-outs remain off. |
 
+Presentation FPS **Auto** follows display refresh; OpenGL keeps synchronized
+swaps in this mode. An explicit FPS selection uses the host timer without a
+second display-refresh limiter, including in fullscreen. The simulation keeps
+its original speed. Rendering above a monitor's refresh rate does not make
+that monitor display more complete frames per second.
+
 CGP original-car rebalances default on for single-player; conflicting BS
 vehicles default off. Saved settings take precedence. Extra CGP vehicles remain
 a separate choice.

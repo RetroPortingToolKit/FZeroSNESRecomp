@@ -277,7 +277,7 @@ static bool fzero_gl_init(FzeroGlRenderer *glr, SDL_Window *window,
   glr->window = window;
   glr->context = SDL_GL_CreateContext(window);
   if (!glr->context) return false;
-  SDL_GL_SetSwapInterval(1);
+  SDL_GL_SetSwapInterval(FzeroPresentationSwapInterval(&g_video));
   ogl_LoadFunctions();
   if (!ogl_IsVersionGEQ(3, 3)) {
     fprintf(stderr, "[fzero-gl] OpenGL 3.3 is required for GLSL shaders\n");
@@ -1072,6 +1072,31 @@ static double display_refresh(SDL_Window *window) {
   SDL_DisplayMode mode;
   return SDL_GetCurrentDisplayMode(SDL_GetWindowDisplayIndex(window), &mode) == 0 ? mode.refresh_rate : 0;
 #endif
+}
+
+static void set_presentation_sync(bool use_gl, SDL_Renderer *renderer) {
+  /* SDL presentation already uses the host clock without blocking vsync. */
+  const int interval = use_gl ? FzeroPresentationSwapInterval(&g_video) : 0;
+  int effective = -99;
+  if (use_gl) {
+#if SNESRECOMP_SDL3
+    const bool ok = SDL_GL_SetSwapInterval(interval);
+#else
+    const bool ok = SDL_GL_SetSwapInterval(interval) == 0;
+#endif
+    if (!ok)
+      fprintf(stderr, "[fzero-display] Cannot set swap interval %d: %s\n", interval, SDL_GetError());
+#if SNESRECOMP_SDL3
+    SDL_GL_GetSwapInterval(&effective);
+#else
+    effective = SDL_GL_GetSwapInterval();
+#endif
+  } else {
+    snesrecomp_sdl_set_render_vsync(renderer, interval);
+    effective = snesrecomp_sdl_get_render_vsync(renderer);
+  }
+  fprintf(stderr, "[fzero-display] Swap interval requested=%d effective=%d\n", interval, effective);
+  FzeroDiagnosticsEvent("swap_interval", effective);
 }
 
 static int write_frame_bmp(const char *path, const uint8_t *pixels, int width,
@@ -2239,6 +2264,7 @@ static int run_game(int argc, char **argv) {
    * retain a different swap/presentation state until a later mode cycle. */
   if (launcher_settings.fullscreen && !g_compare_mode7)
     set_fullscreen(window, true);
+  set_presentation_sync(use_gl_renderer, renderer);
   if (texture_scale != requested_texture_scale) {
     char message[256];
     snprintf(message, sizeof(message),
@@ -2522,6 +2548,7 @@ static int run_game(int argc, char **argv) {
           }
           if (!FzeroVideoSave(&g_video, kVideoConfig)) fprintf(stderr, "[fzero] Unable to save video settings\n");
           next_display_check = 0;
+          set_presentation_sync(use_gl_renderer, renderer);
           char title[192];
           snprintf(title, sizeof(title), "F-Zero Forever - %s - %s%u FPS",
                    g_video.enhanced ? FzeroAspectName(g_video.aspect) : "4:3",
@@ -2569,6 +2596,7 @@ static int run_game(int argc, char **argv) {
                 window,
                 (flags & SNESRECOMP_SDL_WINDOW_FULLSCREEN_DESKTOP) == 0);
             next_display_check = 0;
+            set_presentation_sync(use_gl_renderer, renderer);
             g_reset_presentation_clock = true;
             break;
           }
