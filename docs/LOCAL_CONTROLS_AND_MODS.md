@@ -35,6 +35,11 @@ handling switches do not change the fixed VS machine roster. All twelve VS
 machines use their CGP artwork, handling, energy boost and exhaust, including
 the original four cars.
 
+Each racer's view also shows the original orange **CHECK** mark when another
+player is close behind. Its position shows which side the rival is on, and
+its flash changes with distance. It clears when the rival passes or moves
+out of range. This applies automatically in local and online races.
+
 VS also includes four shared NPC bumpers, automatically in local and online
 races. They follow the course's original CPU driving lines and can collide
 with any player. All cameras see the same cars. They are traffic obstacles,

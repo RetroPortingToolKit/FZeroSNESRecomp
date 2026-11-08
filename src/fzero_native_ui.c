@@ -94,8 +94,10 @@ bool FzeroNativeUiInit(FzeroNativeUi *ui,FzeroActorTables t) {
     if(!count || first+count>256 || pos+count*sizes[mode]>0x100000)break;
     for(unsigned n=0;n<count;++n) {
       decode(ui->objects[first+n],t,pos+n*sizes[mode],mode==0?4:mode);
-      /* The native OBJ loader expands nontransparent 3bpp colors into the
-       * upper half of its palette. Menu BG tiles use the lower half. */
+      /* The OBJ loader places a one-plane mask in plane3 (CHECK), and
+       * expands nontransparent 3bpp colors into the upper palette half.
+       * Menu BG tiles use the lower half instead. */
+      if(mode==1)for(unsigned i=0;i<64;++i)ui->objects[first+n][i]*=8;
       if(mode==3)for(unsigned i=0;i<64;++i)if(ui->objects[first+n][i])ui->objects[first+n][i]|=8;
     }
     if(mode==2)for(unsigned n=0;n<10;++n)for(unsigned half=0;half<2;++half) {
@@ -382,6 +384,19 @@ static void pit_object(const FzeroNativeUi *ui,FzeroUiCanvas c,int offset_x,int 
     /* Native OBJ Y wraps at 256; the arrival starts above the viewport. */
     if(color)FzeroUiRect(c,offset_x+x+(int)col,(int)((y+row)&255),1,1,palette[color]);
   }
+}
+void FzeroUiRearWarning(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,
+    unsigned distance,uint64_t tick) {
+  if(!ui || !ui->valid || !c.scale)return;
+  /* $EA56 chooses the original near/middle/far flash masks. $EAA4 emits
+   * two16x16 CHECK pieces at native Y194 with palettes $31/$37. */
+  FzeroActorTables t=ui->tables;
+  unsigned band=distance<word(t,0xea73)?0:distance<word(t,0xea75)?1:2;
+  unsigned attr=(tick&byte(t,0xeb49+band))?byte(t,0xeab2):byte(t,0xeaae);
+  int extra=(c.width/(int)c.scale-256)/2;
+  unsigned y=byte(t,0xead7);
+  pit_object(ui,c,extra,x,y,byte(t,0xeadf),attr,16);
+  pit_object(ui,c,extra,x-16,y,byte(t,0xeae4),attr,16);
 }
 void FzeroUiPit(const FzeroNativeUi *ui,FzeroUiCanvas c,int offset_x,const FzeroActor *a) {
   if(!ui || !ui->valid || !a || !a->pit_pose)return;

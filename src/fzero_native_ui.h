@@ -69,6 +69,9 @@ void FzeroUiPlayerTag(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsign
 void FzeroUiRaceClock(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,const char *clock);
 void FzeroUiRaceInstruments(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,uint16_t health,unsigned speed,uint64_t tick);
 void FzeroUiBoosts(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,int y,unsigned count,bool active);
+/* Original CHECK OBJ artwork and distance-dependent palette flash. */
+void FzeroUiRearWarning(const FzeroNativeUi *ui,FzeroUiCanvas c,int x,
+    unsigned distance,uint64_t tick);
 /* Original remaining-laps/final-lap banner and S OK award, in simulation ticks
  * since the validated crossing. No wall clock or renderer-owned event state. */
 void FzeroUiLapNotice(const FzeroNativeUi *ui,FzeroUiCanvas c,unsigned completed,

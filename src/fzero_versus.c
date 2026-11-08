@@ -105,6 +105,35 @@ unsigned FzeroVersusRank(const FzeroVersusSnapshot *v,unsigned player) {
   for(unsigned i=0;i<FzeroVersusPlayers(v->config);++i)if(i!=player && ahead(v,i,player))++rank;
   return rank;
 }
+FzeroRearWarning FzeroVersusRearWarning(const FzeroVersusSnapshot *v,
+    unsigned player,FzeroActorTables tables) {
+  FzeroRearWarning warning={0};
+  if(!v || !tables.read || v->phase!=FZERO_VS_RACING ||
+      player>=v->config.player_count || v->config.player_count>FZERO_MAX_PLAYERS ||
+      v->racers[player].status!=FZERO_VS_ACTIVE)return warning;
+  /* $D952's distance metric and $EA1F's range, initialized from $02:FBC2.
+   * VS has several independent cameras: select the closest active human
+   * physically behind this racer, rather than the stock single-player rank
+   * list. Positive body-forward is behind in the native projection. */
+  unsigned nearest=tables.read(tables.context,0x02fbc2)|
+      (unsigned)tables.read(tables.context,0x02fbc3)<<8;
+  for(unsigned i=0;i<v->config.player_count;++i) {
+    if(i==player || v->racers[i].status!=FZERO_VS_ACTIVE)continue;
+    FzeroActorProjection p=FzeroActorProject(&v->racers[player].actor,&v->racers[i].actor,tables);
+    if(p.forward<=0)continue;
+    unsigned dx=(unsigned)(p.right<0?-p.right:p.right)/8;
+    unsigned dy=(unsigned)p.forward/8,distance=dx*dx+dy*dy;
+    if(distance>=nearest)continue;
+    nearest=distance;warning.visible=true;warning.distance=distance;
+    /* $EA27's lateral placement, centered and clamped inside the stock pane.
+     * Use the completed pose directly so load/rollback and repeated renders
+     * do not need a separate, frame-rate-dependent position history. */
+    warning.x=128+p.right*4;
+    if(warning.x<16)warning.x=16;
+    if(warning.x>240)warning.x=240;
+  }
+  return warning;
+}
 static unsigned result_winner(const FzeroVersusSnapshot *v) {
   unsigned winner=0,count=0;
   for(unsigned i=0;i<v->config.player_count;++i) {

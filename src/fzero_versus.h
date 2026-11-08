@@ -51,6 +51,15 @@ typedef struct FzeroVersusSnapshot {
 /* Native $E8E4 lap/checkpoint ordering, restricted to active human racers. */
 unsigned FzeroVersusRank(const FzeroVersusSnapshot *race,unsigned player);
 
+typedef struct FzeroRearWarning {
+  bool visible;
+  int x; /* Native 256-pixel pane coordinate, before widescreen centering. */
+  unsigned distance; /* Native squared distance in eight-world-unit steps. */
+} FzeroRearWarning;
+/* Derived from completed poses; never modifies the race or depends on FPS. */
+FzeroRearWarning FzeroVersusRearWarning(const FzeroVersusSnapshot *race,
+    unsigned player,FzeroActorTables tables);
+
 /* world is the stock course prepared by the guest; spawns are distinct stock
  * grid slots. It is copied once, and never read from a live guest during ticks.
  * Machine-specific human fields are initialized from each selected machine. */

@@ -1324,6 +1324,69 @@ static void test_native_lap_notices(void) {
   for(unsigned i=0;i<COUNT(actual);++i)CHECK(!actual[i]);
   puts("native lap notices:1440 frames match ADE4/C782 OBJ pixels, remaining-lap digits, FINAL LAP flash cadence, S OK expiry and centered widescreen2x; no start/finish notices");
 }
+static void test_native_rear_warning(void) {
+  FzeroActorTables tables={rom_read,NULL,original_profiles};
+  static FzeroNativeUi ui;CHECK(FzeroNativeUiInit(&ui,tables));
+  static uint32_t actual[256*224],expected[256*224],wide[384*224*4];
+  const unsigned distances[]={16,64,144,511};
+  const int lateral[]={-64,-8,0,8,64};
+  /* Execute the real CHECK handler with a newly selected following rival.
+   * Compare all native OBJ pixels, including the orange/bright flash, and
+   * exercise both clamped edges. Subsequent native position smoothing is
+   * intentionally replaced by completed-pose placement in the VS adapter. */
+  for(unsigned d=0;d<COUNT(distances);++d)for(unsigned lane=0;lane<COUNT(lateral);++lane)
+      for(unsigned tick=0;tick<16;++tick) {
+    memset(ram,0,sizeof(ram));ram[0xdc8]=1;ram[0x1152]=2;ram[0xb02]=128;
+    set_word(0x1172,(uint16_t)lateral[lane]);set_word(0x11a2,distances[d]);
+    set_word(0x1076,rom_read(NULL,0x02fbc2)|(unsigned)rom_read(NULL,0x02fbc3)<<8);
+    ram[0x10d1]=255;ram[0x51]=(uint8_t)tick;reference(0xe9b0);
+    int x=128+lateral[lane]*4;if(x<16)x=16;if(x>240)x=240;
+    memset(actual,0,sizeof(actual));memset(expected,0,sizeof(expected));
+    paint_native_obj(expected,&ui,54,16,0);paint_native_obj(expected,&ui,55,16,0);
+    FzeroUiRearWarning(&ui,(FzeroUiCanvas){actual,256,224,1},x,distances[d],tick);
+    CHECK(!memcmp(actual,expected,sizeof(actual)));
+    if(tick==3 && lane==2) {
+      memset(wide,0,sizeof(wide));
+      FzeroUiRearWarning(&ui,(FzeroUiCanvas){wide,768,448,2},x,distances[d],tick);
+      for(unsigned y=0;y<224;++y)for(unsigned xx=0;xx<384;++xx)
+        for(unsigned sy=0;sy<2;++sy)for(unsigned sx=0;sx<2;++sx)
+          CHECK(wide[(y*2+sy)*768+xx*2+sx]==(xx>=64 && xx<320?expected[y*256+xx-64]:0));
+    }
+  }
+  for(unsigned players=2;players<=4;++players) {
+    FzeroVersusSnapshot race={.config={.player_count=(uint8_t)players},.phase=FZERO_VS_RACING};
+    for(unsigned i=0;i<players;++i)race.racers[i].actor=(FzeroActor){.x=1000,.y=(uint16_t)(1000+i*64)};
+    FzeroRearWarning w=FzeroVersusRearWarning(&race,0,tables);
+    CHECK(w.visible && w.x==128 && w.distance==64);
+    CHECK(!FzeroVersusRearWarning(&race,players-1,tables).visible);
+    race.racers[1].actor.y=936; /* Ahead, despite retaining its race rank. */
+    if(players>2)race.racers[2].actor.y=1040;
+    w=FzeroVersusRearWarning(&race,0,tables);
+    CHECK(w.visible==(players>2));if(players>2)CHECK(w.distance==25);
+    for(unsigned i=1;i<players;++i)race.racers[i].actor.y=1200; /* Outside original range. */
+    CHECK(!FzeroVersusRearWarning(&race,0,tables).visible);
+    race.racers[1].actor.x=1128;race.racers[1].actor.y=1128; /* Exactly512: excluded by native BCS. */
+    CHECK(!FzeroVersusRearWarning(&race,0,tables).visible);
+    race.racers[1].actor.x=1000;
+    race.racers[1].actor.y=1064;race.racers[1].status=FZERO_VS_DNF;
+    CHECK(!FzeroVersusRearWarning(&race,0,tables).visible);
+    race.racers[1].status=FZERO_VS_FINISHED;
+    CHECK(!FzeroVersusRearWarning(&race,0,tables).visible);
+    race.racers[1].status=FZERO_VS_ACTIVE;race.racers[0].status=FZERO_VS_FINISHED;
+    CHECK(!FzeroVersusRearWarning(&race,0,tables).visible);
+    race.racers[0].status=FZERO_VS_ACTIVE;race.phase=FZERO_VS_COUNTDOWN;
+    CHECK(!FzeroVersusRearWarning(&race,0,tables).visible);
+    race.phase=FZERO_VS_RESULTS;CHECK(!FzeroVersusRearWarning(&race,0,tables).visible);
+    race.phase=FZERO_VS_RACING;
+    race.racers[0].actor=(FzeroActor){.x=8190,.y=4090};
+    race.racers[1].actor=(FzeroActor){.x=2,.y=16};
+    w=FzeroVersusRearWarning(&race,0,tables);CHECK(w.visible && w.x==144 && w.distance==4);
+    race.racers[0].actor=(FzeroActor){.x=1000,.y=1000,.facing=0x6000};
+    race.racers[1].actor=(FzeroActor){.x=1000,.y=936};
+    w=FzeroVersusRearWarning(&race,0,tables);CHECK(w.visible && w.x==128 && w.distance==64);
+  }
+  puts("rear CHECK:320 original-handler pixel comparisons, distance flash bands, centered2x,2-4P behind/ahead/range/status and wrapped/rotated poses passed");
+}
 static void test_native_flash_colors(void) {
   static const unsigned surface[]={25,26,39};
   for(unsigned sample=0;sample<1000;++sample) {
@@ -1846,6 +1909,7 @@ int main(int argc, char **argv) {
   test_transient_effects();
   test_native_hud();
   test_native_lap_notices();
+  test_native_rear_warning();
   test_native_flash_colors();
   test_stock_pits();
   test_native_pit_art();

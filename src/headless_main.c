@@ -157,6 +157,7 @@ static uint64_t logic_hash(void) {
 }
 #include "../tests/fzero_local_catalog_test.h"
 #include "../tests/fzero_feedback_test.h"
+#include "../tests/fzero_rear_warning_test.h"
 #include "../tests/fzero_lap_cues_test.h"
 #include "../tests/fzero_msu_state_test.h"
 
@@ -870,6 +871,7 @@ int main(int argc, char **argv) {
     }
     FzeroCaptureAfter();
     if(!feedback_check())return 10;
+    if(!rear_warning_check())return 10;
     if(!lap_cues_check(frame))return 10;
     if(FzeroCaptureReplayFailed())return 11;
     /* Private UI regressions need the final composed frame, including host

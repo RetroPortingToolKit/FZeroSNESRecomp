@@ -227,6 +227,8 @@ static void overlay(FzeroVersusVideo *v,uint32_t *p,FzeroViewport viewport,unsig
     }
   }
   if(r->status==FZERO_VS_ACTIVE)FzeroUiPit(ui,canvas,viewport.extra,&r->actor);
+  FzeroRearWarning rear=FzeroVersusRearWarning(s,pane,ui->tables);
+  if(rear.visible)FzeroUiRearWarning(ui,canvas,rear.x,rear.distance,s->tick);
   /* Native instruments overlay each complete scenery view, with transparent
    * font backing rather than a reserved HUD band. */
   char line[64],timer[32];
