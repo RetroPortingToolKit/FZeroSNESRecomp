@@ -1,26 +1,10 @@
-# F-Zero Forever Player Guide
+# Player guide
 
-Back to the [README](README.md). Building from source is covered in [BUILDING.md](BUILDING.md).
+[Back to the README](../README.md) · [Local controls and mod scopes](LOCAL_CONTROLS_AND_MODS.md) · [Netplay](NETPLAY.md)
 
-## Download And Play
+## Launching
 
-On Windows:
-
-1. Download the Windows x64 ZIP from the Releases page.
-2. Extract the whole ZIP.
-3. Run `F-Zero Forever.exe`.
-4. Pick your own *F-Zero (USA)* `.sfc` or `.smc` ROM when asked.
-
-On Linux:
-
-1. Download the Linux AppImage from the Releases page.
-2. Put your own *F-Zero (USA)* `.sfc` or `.smc` ROM next to it.
-3. Make the AppImage executable.
-4. Run it.
-
-The app remembers your ROM path after the first launch.
-
-Enable **Skip launcher on boot** to start directly with that ROM next time.
+Enable **Skip launcher on boot** to start directly with your remembered ROM next time.
 The choice is saved as `[General] SkipLauncher=1` in `config.ini` beside the
 executable. Run `F-Zero Forever.exe --launcher` (on Linux, run your AppImage
 with `--launcher`) or set the value to `0` to return to the launcher. The override also works
@@ -42,14 +26,13 @@ Open **Mods** for:
   **Every new lap** retains the existing default behavior.
 - **Widescreen:** makes races wider.
 - **Presentation FPS:** makes motion smoother on high refresh screens.
-- **HD Mode 7:** reconstructed perspective and finer track sampling, with a 4x default and optional edge smoothing. Local 2P/3P/4P uses the GPU; the portable grid fallback reports its 2x limit.
-- **Diagnostics:** optional local performance reports for troubleshooting; off by default. See [how to capture a report](docs/PERFORMANCE_DIAGNOSTICS.md).
-  Start at 2x. Above 4x can cause severe slowdown; use at your own risk.
+- **HD Mode 7:** reconstructed perspective and finer track sampling, with a 4x default and optional edge smoothing. Local 2P/3P/4P uses the GPU; the portable grid fallback reports its 2x limit. Start at 2x when tuning performance; settings above 4x can cause severe slowdown.
+- **Diagnostics:** optional local performance reports for troubleshooting; off by default. See [how to capture a report](PERFORMANCE_DIAGNOSTICS.md).
 - **BS Satellaview vehicles:** adds four machines independently of courses.
 - **BS Satellaview tracks:** adds the ten original BS courses; mutually exclusive with Track Pack Loader, whose CGP pack supplies corrected versions.
 - **CGP vehicles:** one opt-in mod for all three authored car groups (eight additional ships plus the original four). The separate original-car rebalances default on.
-- **CGP rules and fixes:** optional gameplay rules and fixes. See [source coverage](mods/cgp-source/README.md).
-- **Community Grand Prix (prototype):** a bundled course pack with one enable checkbox. Every enabled track pack adds its cups to the in-game leagues. See [installation and manifest instructions](mods/README.md).
+- **CGP rules and fixes:** optional gameplay rules and fixes. See [source coverage](../mods/cgp-source/README.md).
+- **Community Grand Prix (prototype):** a bundled course pack with one enable checkbox. Every enabled track pack adds its cups to the in-game leagues. See [installation and manifest instructions](../mods/README.md).
 
 When the Widescreen mod is on, its aspect setting wins over the normal Display aspect setting.
 
@@ -72,7 +55,7 @@ loader. An unreadable or invalid preset falls back to unfiltered output.
 
 **Soundtrack source:** the owner confirms the replacement PC-port archive
 already reconciles attribution. Historical exclusions remain enforced.
-See [source clearance and evidence](assets/music/CGP_ATTRIBUTION.md).
+See [source clearance and evidence](../assets/music/CGP_ATTRIBUTION.md).
 
 **Mods > Preset** offers Vanilla, Satellaview and Community Grand Prix.
 Each applies an editable recipe. CGP enables Track Pack Loader, which loads
@@ -86,8 +69,7 @@ title artwork is retained but hidden for a future course pack. No preset is appl
 Windows previews come in **with-msu** and **without-msu** ZIPs. Both support
 MSU playback; only with-msu includes the replacement **Community Grand Prix PC-port**
 soundtrack (29 attribution-cleared recordings). In **Settings > Audio**, **MSU-1 music** defaults on for fresh settings. Leave its source
-on **Installed pack music**, or select the CGP preset in Mods. Music starts
-off on a fresh installation. Missing tracks and unrelated track packs use
+on **Installed pack music**, or select the CGP preset in Mods. Missing tracks and unrelated track packs use
 SNES music. Track selection works in both Grand Prix and Practice.
 
 The smaller without-msu download contains no soundtrack files. Its Audio
@@ -113,8 +95,8 @@ filename prefix; `off` overrides a saved enabled setting. `FZERO_MSU1_PATCH`
 can point to the v11 IPS in another folder. Headless CGP music also requires
 `FZERO_RULES=cgp-msu` (or adding `cgp-msu` to other chosen rules).
 
-See [preset behavior and validation](docs/CGP_MUSIC_AND_PRESETS.md) and
-[soundtrack provenance / source-build import](assets/music/README.md).
+See [preset behavior and validation](CGP_MUSIC_AND_PRESETS.md) and
+[soundtrack provenance / source-build import](../assets/music/README.md).
 
 ## Save States And Rewind
 
@@ -222,5 +204,4 @@ description. A crash is not required. Nothing is uploaded automatically.
 The ZIP includes recent replay sessions, crash reports when present and the
 latest exit, performance and transport logs. It contains game memory, saves
 and local paths; share it privately when appropriate. See
-[recording and replay instructions](docs/DIAGNOSTIC_REPLAY.md).
-
+[recording and replay instructions](DIAGNOSTIC_REPLAY.md).

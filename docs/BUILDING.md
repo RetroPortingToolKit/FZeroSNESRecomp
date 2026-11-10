@@ -1,14 +1,11 @@
-# Building F-Zero Forever
-
-Back to the [README](README.md). Playing and settings are covered in the [player guide](PLAYER_GUIDE.md).
-
-## Build from source
+# Building from source
 
 Clone with submodules:
 
 ```bash
-git clone --recurse-submodules git@github.com:mstan/FZeroSNESRecomp.git
+git clone --recurse-submodules https://github.com/retroportingtoolkit/FZeroSNESRecomp.git
 cd FZeroSNESRecomp
+bash tools/bootstrap.sh
 ```
 
 Put your own USA ROM at `fzero.sfc`, then generate and build:
@@ -45,3 +42,5 @@ On Linux, `xvfb-run -a python3 tests/test_appimage_rom_persistence.py
 AppImage through the real zenity picker, then Play/quit and repeated relaunches.
 It requires `zenity` and `xdotool`; use a fresh output directory for each run.
 
+
+See [Contributing](../CONTRIBUTING.md) for dependency pins, generated-code rules and validation expectations.
