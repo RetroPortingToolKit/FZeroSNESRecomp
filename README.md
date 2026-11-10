@@ -12,7 +12,7 @@
 
 *BS F-Zero Deluxe — Forest III in ultrawide.*
 
-**F-Zero Forever is a native PC conversion of the original anti-gravity racer. It’s a special game with over 30 years of fandom. Our ambition was to go beyond what recomps usually do: simply make the game run on PC with some upgrades. We wanted to push the game the further it ever has.**
+**F-Zero Forever is a native PC conversion of the original anti-gravity racer. It’s a special game with over 30 years of fandom. Our ambition was to go beyond what recomps usually do: simply make the game run on PC with some upgrades. We wanted to push the game further than it has ever gone.**
 
 **It brings the original's breakneck racing together with an expansive collection of community tracks and machines, ambitious visual upgrades, and a whole new way to compete: local split-screen and online multiplayer.**
 
