@@ -1,7 +1,7 @@
 # F-Zero Forever
 
-A native PC build of *F-Zero* for SNES, with **75 additional course versions in
-15 cups**, **twelve CGP machines**, local and online multiplayer, widescreen and
+A native PC build of *F-Zero* for SNES, with **75 course versions in 15
+cups**, **twelve CGP machines**, local and online multiplayer, widescreen and
 HD Mode 7.
 
 You bring your own legally dumped *F-Zero (USA)* ROM. No ROM is included.
@@ -27,11 +27,11 @@ and run it.
 The app remembers your ROM. See the [player guide](PLAYER_GUIDE.md#download-and-play)
 for skipping the launcher on boot.
 
-## Track packs: 75 more course versions
+## Track packs: 75 course versions
 
 **Track Pack Loader** is on by default and freely switchable in Mods. Its
-bundled CGP, Astra Front, Bower and MAX packs add **75 course versions in
-15 cups**, alongside the untouched original 15 courses.
+bundled CGP, Astra Front, Bower and MAX packs bring the game to **75 course
+versions in 15 cups**. The original courses are untouched.
 
 Drop a compatible folder or ZIP into `mods/packs` and restart. All installed
 packs load together and add their cups to the in-game leagues. Raw FZEdit
