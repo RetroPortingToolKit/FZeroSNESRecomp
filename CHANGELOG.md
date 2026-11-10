@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## 0.19.0 - Multiplayer rear warnings and FPS pacing
+
+- Show the original orange CHECK warning in each multiplayer view when a
+  rival approaches from behind. Each local or online racer gets their own
+  warning, which clears as the rival draws alongside.
+- Honor an explicit presentation FPS target without also blocking on the
+  display limiter. Automatic mode continues to follow the display.
+- Include the 0.18.2 fullscreen scheduling and repeated-course import fixes,
+  with adaptive Fit and existing player settings preserved.
+
 ## 0.18.2 - Fullscreen pacing and repeated-course imports
 
 - Advance presentation scheduling before GPU swaps can block, preventing an

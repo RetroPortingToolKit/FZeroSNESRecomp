@@ -29,10 +29,11 @@ Use the plain version without a `fzero-55-preview` label.
 
 ## Current release
 
-**0.18.2** fixes fullscreen presentation scheduling and Gaiden-style repeated
-course imports, including the verified optional FZEdit MSU companion patch.
-The affected AMD system still needs a post-fix fullscreen retest; reporter
-logs establish the original 30 FPS startup versus 60 FPS after toggling.
+**0.19.0** restores the native CHECK rear warning in each multiplayer view
+and uses the selected FPS target to pace presentation when it is set
+explicitly. Automatic mode still follows the display. This release includes
+the fullscreen scheduling and Gaiden-style repeated course import fixes from
+0.18.2. The affected AMD system still needs a fullscreen startup retest.
 Both editions retain the accepted HD quality work: reconstructed perspective,
 exact nearest presentation, GPU cameras for every local player, separate
 2x/4x/8x detail and Off/2-sample smoothing, and a records return-fade fix.
