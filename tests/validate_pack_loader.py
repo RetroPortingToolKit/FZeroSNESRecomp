@@ -25,8 +25,11 @@ def main():
         assert not r.stderr,r.stderr
         return r.stdout
     folder=inspect(packs)
+    reviewed = 0
     for source in packs.glob('*/extraction.json'):
-        for course,expected in json.loads(source.read_text())['record_hashes'].items():
+        hashes = json.loads(source.read_text())['record_hashes']
+        reviewed += len(hashes)
+        for course,expected in hashes.items():
             assert f'{source.parent.name}/{course} {expected}' in folder
     zipped=out/'zipped';zipped.mkdir()
     for source in packs.iterdir():
@@ -38,7 +41,7 @@ def main():
     markers={f:f.stat().st_mtime_ns for f in (zipped/'.cache').glob('*.ready')}
     assert markers and inspect(zipped)==folder
     assert all(f.stat().st_mtime_ns==stamp for f,stamp in markers.items()),'ZIP cache was rewritten'
-    print('75 extracted records identities and folder/ZIP resources: PASS',flush=True)
+    print(f'{reviewed} extracted record identities and folder/ZIP resources: PASS',flush=True)
     # Invalid inputs must produce an error and never register a partial pack.
     invalid=out/'invalid';invalid.mkdir()
     with zipfile.ZipFile(invalid/'escape.zip','w') as z:
@@ -62,7 +65,7 @@ def main():
     print('ZIP traversal, unknown mechanics, missing resources and duplicate IDs rejected: PASS',flush=True)
     shutil.copytree(ROOT/'assets/vehicle-packs',out/'assets/vehicle-packs')
     shutil.copytree(ROOT/'assets/track-packs/presentation',out/'assets/track-packs/presentation')
-    for pack,cup in [('astra-front','astra'),('bower-league','bower'),('cgp','cgp-1'),('max-league','max')]:
+    for pack,cup in [('astra-velocity','eclipse'),('bower-league','bower'),('cgp','cgp-1'),('max-league','max')]:
         label=pack;ram=out/(label+'.ram')
         env=dict(clean,FZERO_PACKS_DIR=str(packs),FZERO_PACK_LOADER='1',FZERO_TRACK_PACKS=str(out/'settings'),
                  FZERO_DELUXE_DATA='embedded',FZERO_BS_CARS='0',FZERO_BS_TRACKS='0',FZERO_CGP_CARS='0',

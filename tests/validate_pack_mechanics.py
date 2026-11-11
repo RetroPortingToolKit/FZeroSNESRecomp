@@ -27,10 +27,12 @@ def main():
     print('Mechanics modules preserve all reviewed course/record hashes',flush=True)
     cases = [(label,cup,course,cars,True) for cars in (0,1) for label,cup,course in (
         ('native',('bs-deluxe' if cars else 'retail')+'/knight',0),
-        ('astra','astra-front/astra',0),('cgp','cgp/cgp-2',3),
+        ('cgp','cgp/cgp-2',3),
         ('rainbow','cgp/cgp-6',0),('max','max-league/max',2),('bower','bower-league/bower',3),
         ('velocity','astra-velocity/eclipse',0),('illusion','astra-velocity/apex',4))]
     cases += [('cgp','cgp/cgp-2',3,cars,False) for cars in (0,1)]
+    if (packs/'astra-front/pack.json').is_file():
+        cases += [('astra','astra-front/astra',0,cars,True) for cars in (0,1)]
     def run(case):
         label,cup,course,cars,legend=case
         folder=out/(f'{label}-cars{cars}'+('' if legend else '-no-legend'));folder.mkdir()
