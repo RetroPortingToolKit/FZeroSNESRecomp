@@ -123,7 +123,7 @@ def main():
                 ram, sram, log = run(label, env, 6400, ROUTE, FZERO_TEST_RECORDS_CUP='1',
                                     FZERO_STATE_SAVE=state, FZERO_TEST_SAVE_FRAME='6300')
                 assert ram[0x54:0x57] == b'\0\3\0' and log.count('records-fixture: finish crossing') == 5, label
-                vehicle = 'BLUE FALCON' if expanded else 'SHARED RECORDS'
+                vehicle = 'ALL CARS'
                 match = re.findall(rf'\[records-browser\] page=(\d+) vehicle={vehicle} selected=(\d+)', log)[-1]
                 selected = int(match[1]); column = selected//5
                 offset = (5, 0xac, 0x153)[column]-5
@@ -133,8 +133,9 @@ def main():
                 before = saves[0].read_bytes()
                 navigation = [('page-return', '60-66:1024,120-126:2048', BEST)]
                 if expanded:
-                    navigation += [('other-car', '60-66:512', EMPTY),
-                                   ('return-car', '60-66:512,120-126:2', BEST)]
+                    navigation += [('current-car', '60-66:512', BEST),
+                                   ('other-car', '60-66:512,120-126:512', EMPTY),
+                                   ('return-car', '60-66:512,120-126:512,180-186:2', BEST)]
                 for step, buttons, expected in navigation:
                     ram, sram, _ = run(label+'-'+step, env, 300, buttons, FZERO_STATE_LOAD=state)
                     assert ram[0x54:0x57] == b'\0\3\0' and totals(sram[offset:]) == [expected]*5, (label, step)

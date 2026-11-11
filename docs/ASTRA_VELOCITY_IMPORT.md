@@ -71,3 +71,11 @@ Dash retries use other safe authored approaches when a plate cannot be entered
 in its checkpoint direction at the first location. Native background contact
 can damage and redirect a grounded car onto the road; Illusion instead requires
 the falling-death response. The checks distinguish those contracts.
+
+The 0.20.0-rc.1 prerelease is based on released 0.19.1. Its `fall-down`
+capability uses bit 16; bit 8 remains the independent soft-horizon-fog
+capability. Gameplay hashes include fall-down and exclude the presentation
+flag, preserving existing CGP record identities. The current-base follow-up
+rebuilds all 95 course sources/caches and repeats course/music, scoped rules
+and focused fall/dash checks. Human testing is non-exhaustive; this prerelease
+is intended for wider validation.

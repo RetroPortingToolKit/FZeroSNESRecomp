@@ -103,7 +103,7 @@ The source supplies SPC music unless `music.spc` overrides it. SPC indices are:
 6 White Land I, 7 White Land II, 8 Fire Field, 9 Death Wind.
 
 `requires` declares native engine capabilities: `grip-magnets`, `up-magnets`,
-`rainbow-road`, and `fall-down`. These apply to this course, not every installed track.
+`rainbow-road`, `soft-horizon-fog`, and `fall-down`. These apply to this course, not every installed track.
 `fall-down` provides Illusion's off-road fall and wall bypass with normal gravity;
 `rainbow-road` also applies CGP Rainbow Road's increased gravity.
 Unknown capabilities reject the pack. This is not an ASM execution interface.

@@ -27,6 +27,10 @@ The current Windows release is **0.19.1**. Future fixes advance the patch
 version; new features advance the minor version. All bundle variants share
 that version. See [the release policy](docs/RELEASING_FZERO_FOREVER.md).
 
+The [Astra Velocity test prerelease, 0.20.0-rc.1](https://github.com/RetroPortingToolKit/FZeroSNESRecomp/releases/tag/v0.20.0-rc.1),
+adds twenty courses on the `feat/astra-velocity` branch while retaining 0.19.1's
+records, ghost and rendering fixes. Broader gameplay testing is still in progress.
+
 You bring your own legally dumped *F-Zero (USA)* ROM. No ROM is included.
 
 <p align="center">
