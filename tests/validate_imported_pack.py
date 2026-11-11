@@ -15,7 +15,7 @@ import shutil
 import subprocess
 import sys
 
-from validate_native_menus import player_route
+from validate_native_menus import player_route, ROSTERS
 from validate_records import BEST, EMPTY, ROUTE, totals
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +34,7 @@ def main():
     p.add_argument('--source', type=Path, help='Optional original ROM for independent metadata comparison')
     p.add_argument('--courses-only', action='store_true')
     p.add_argument('--records-only', action='store_true')
+    p.add_argument('--vehicle-engine',choices=('both','stock','expanded'),default='both')
     a = p.parse_args()
     build, stock, out = a.build.resolve(), a.stock.resolve(), a.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -78,6 +79,7 @@ def main():
                                 cwd=out,env=clean,capture_output=True,text=True,check=True)
     (out/'inspect.log').write_text(inspection.stdout+inspection.stderr,encoding='utf-8')
     results = []
+    engines=(0,1) if a.vehicle_engine=='both' else (int(a.vehicle_engine=='expanded'),)
 
     def run(label, env, frames, inputs='', **extra):
         setting = dict(env, SNESRECOMP_INPUT_SCRIPT=inputs,
@@ -110,11 +112,11 @@ def main():
         print(results[-1], flush=True)
 
     if not a.records_only:
-        cases = [(i+expanded*len(tracks), expanded, t) for expanded in (0, 1) for i,t in enumerate(tracks)]
+        cases = [(i+expanded*len(tracks), expanded, t) for expanded in engines for i,t in enumerate(tracks)]
         with ThreadPoolExecutor(max_workers=3) as pool:
             list(pool.map(course, cases))
     if not a.courses_only:
-        for expanded in (0, 1):
+        for expanded in engines:
             for ci, cup in enumerate(cups):
                 label = f"records-{'expanded' if expanded else 'retail'}-{cup}"
                 env = dict(base, FZERO_CGP_CARS='7' if expanded else '0',
@@ -133,9 +135,13 @@ def main():
                 before = saves[0].read_bytes()
                 navigation = [('page-return', '60-66:1024,120-126:2048', BEST)]
                 if expanded:
-                    navigation += [('current-car', '60-66:512', BEST),
-                                   ('other-car', '60-66:512,120-126:512', EMPTY),
-                                   ('return-car', '60-66:512,120-126:512,180-186:2', BEST)]
+                    # All Cars precedes the native roster, whose first entry
+                    # can be an imported car. Select the actual Blue Falcon
+                    # row before testing its neighboring empty identity.
+                    current=','.join(f'{40+i*20}-{46+i*20}:512' for i in range(1+ROSTERS[7].index(0)))
+                    navigation += [('current-car',current,BEST),
+                                   ('other-car',current+',160-166:512',EMPTY),
+                                   ('return-car',current+',160-166:512,220-226:2',BEST)]
                 for step, buttons, expected in navigation:
                     ram, sram, _ = run(label+'-'+step, env, 300, buttons, FZERO_STATE_LOAD=state)
                     assert ram[0x54:0x57] == b'\0\3\0' and totals(sram[offset:]) == [expected]*5, (label, step)
