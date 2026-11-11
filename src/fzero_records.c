@@ -35,6 +35,32 @@ static unsigned record_offset(unsigned slot) {
   static const unsigned starts[] = {5, 0xac, 0x153, 0x205, 0x2ac};
   return slot < 25 ? starts[slot / 5] + slot % 5 * 33 : 0x353 + (slot - 25) * 33;
 }
+static unsigned time_value(const uint8_t *time) {
+  return ((unsigned)(time[0] & 15) << 16) | ((unsigned)time[1] << 8) | time[2];
+}
+static void merge_rows(uint8_t *dest, uint8_t owners[11], const uint8_t *source, unsigned vehicle) {
+  for (unsigned row = 0; row < 10; ++row) {
+    const uint8_t *candidate = source + row * 3;
+    if ((candidate[0] & 15) >= 9) continue;
+    bool duplicate = false;
+    for (unsigned i = 0; i < 10; ++i)
+      if (owners[i] == vehicle && !memcmp(dest + i * 3, candidate, 3)) duplicate = true;
+    if (duplicate) continue;
+    for (unsigned i = 0; i < 10; ++i) {
+      if (time_value(candidate) < time_value(dest + i * 3)) {
+        memmove(dest + (i + 1) * 3, dest + i * 3, (9 - i) * 3);
+        memmove(owners + i + 1, owners + i, 9 - i);
+        memcpy(dest + i * 3, candidate, 3);
+        owners[i] = (uint8_t)vehicle;
+        break;
+      }
+    }
+  }
+  if (time_value(source + 30) < time_value(dest + 30)) {
+    memcpy(dest + 30, source + 30, 3);
+    owners[10] = (uint8_t)vehicle;
+  }
+}
 static void page_records(void) {
   FzeroRecordsView *v = FzeroRecordsViewState();
   uint8_t data[0x400];
@@ -43,13 +69,27 @@ static void page_records(void) {
     const CpPack *p = NULL;
     const CpCup *cup = FzeroTracksRuntimeCup(index, &p);
     FzeroTracksReadRecords(index, FzeroVehicleRecordIdentity(v->vehicle), data);
+    uint8_t all[12][0x400];
+    if (v->vehicle == FzeroVehicleCount())
+      for (unsigned car = 0; car < FzeroVehicleCount(); ++car)
+        FzeroTracksReadRecords(index, FzeroVehicleRecordIdentity(car), all[car]);
     for (unsigned row = 0; row < 5; ++row) {
       uint8_t *dest = g_sram + record_offset(column * 5 + row);
+      uint8_t *owners = FzeroRecordsRowVehicles(column * 5 + row);
+      memset(owners, v->vehicle < FzeroVehicleCount() ? v->vehicle : 255, 11);
       const CpTrack *track = FzeroTracksRuntimeTrack(index, row);
       if (track) {
         bool native = strcmp(p->adapter, "fzero-course-v1") != 0;
         unsigned source = native ? cup->slot * 5 + row : row;
         memcpy(dest, data + record_offset(source), 33);
+        if (v->vehicle == FzeroVehicleCount()) {
+          /* The unkeyed legacy records remain visible alongside every
+           * enabled car's private GP/Practice records. This is a read-only
+           * merge; its per-row identities live in the browser snapshot. */
+          for (unsigned car = 0; car < FzeroVehicleCount(); ++car) {
+            merge_rows(dest, owners, all[car] + record_offset(source), car);
+          }
+        }
       } else {
         for (unsigned i = 0; i < 11; ++i) memcpy(dest + i * 3, "\x09\x59\x99", 3);
       }
@@ -81,9 +121,6 @@ void FzeroRecordsTick(void) {
     v->page = v->previous_cup / 3;
     v->selected = (v->previous_cup % 3) * 5;
     v->vehicle = (uint8_t)FzeroVehicleCount();
-    const char *id = FzeroVehicleIdentity();
-    for (unsigned i = 0; id && i < FzeroVehicleCount(); ++i)
-      if (!strcmp(id, FzeroVehicleRecordIdentity(i))) v->vehicle = (uint8_t)i;
     page_records();
   }
   /* Input selects the next course before the native fade/DMA completes.

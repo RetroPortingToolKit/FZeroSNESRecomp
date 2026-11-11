@@ -1,5 +1,15 @@
 ﻿# Changelog
 
+## 0.19.1 - Records and ghosts across cars
+
+- Show the fastest times from all enabled cars by default, with each row's
+  car portrait. Use X/Y on the Records overview to filter by car.
+- Race another car's saved Practice ghost. Automatic prefers the current
+  car's recording; L/R on the Practice league screen selects a specific car.
+- Preserve each car's own ghost while another recording is selected,
+  including across current-build save states. Saving a new ghost still
+  replaces the current car's recording through the native Save Ghost dialog.
+
 ## 0.19.0 - Multiplayer rear warnings and FPS pacing
 
 - Show the original orange CHECK warning in each multiplayer view when a

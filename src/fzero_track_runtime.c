@@ -451,6 +451,10 @@ uint16_t FzeroTracksMenuInput(uint16_t input, const uint8_t *ram) {
     menu_hold = 0;
     return input;
   }
+  if (ram[0x58] && ram[0x14c8a] == 0xfe) {
+    unsigned edge = input & ~menu_last_input;
+    if (edge & (1024 | 2048)) FzeroVehicleGhostCycle((edge & 1024) != 0);
+  }
   /* A single vertical list, including every enabled pack. Horizontal input
    * belongs to the native menu and must not page through the cup catalog. */
   uint16_t direction = input & 0x34;
@@ -468,7 +472,7 @@ uint16_t FzeroTracksMenuInput(uint16_t input, const uint8_t *ram) {
   unsigned slot = imported_pack(active_pack) ? 0 : active_cup->slot;
   g_ram[FzeroDeluxeActive() ? 0x90 : 0x5a] = (uint8_t)slot;
   if (ram[0x58]) g_ram[0x53] = 0;
-  return input & ~0x34;
+  return input & ~(0x34 | (ram[0x58] && ram[0x14c8a] == 0xfe ? 3072 : 0));
 }
 unsigned FzeroTracksMenuIndex(void) {
   return menu_index;
@@ -502,6 +506,21 @@ void FzeroTracksRefreshCourse(void) {
       if (previous_practice(menu_index, FzeroVehicleIdentity(), previous)) {
         FzeroRecordsMergeCup(g_sram, previous, active_cup->slot);
         memcpy(g_ram + 0x14800, g_sram, 0x200);
+      }
+      if (FzeroDeluxeActive() && g_ram[0x54] && g_ram[0x58] && g_ram[0x14c8a] == 0xfe) {
+        unsigned chosen = FzeroVehicleGhostSource();
+        if (chosen < FzeroVehicleCount()) {
+          uint8_t other[32];
+          if (!FzeroTracksRecordKey(menu_index, FzeroVehicleRecordIdentity(chosen), other) ||
+              !FzeroRecordsImportGhost(other, g_ram[0x53])) FzeroRecordsGhostUnavailable();
+        } else if (g_sram[0x3a0] != g_ram[0x53]) {
+          /* Prefer this driver's own ghost, then stable roster order. */
+          for (unsigned car = 0; car < FzeroVehicleCount(); ++car) {
+            uint8_t other[32];
+            if (FzeroTracksRecordKey(menu_index, FzeroVehicleRecordIdentity(car), other) &&
+                FzeroRecordsImportGhost(other, g_ram[0x53])) break;
+          }
+        }
       }
     }
   }

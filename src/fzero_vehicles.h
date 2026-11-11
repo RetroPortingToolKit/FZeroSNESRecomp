@@ -16,6 +16,8 @@ const char *FzeroVehicleRecordName(unsigned index);
 bool FzeroVehicleRecordIcon(unsigned index, uint32_t pixels[16 * 16]);
 unsigned FzeroVehicleCount(void);
 unsigned FzeroVehicleSelected(void);
+unsigned FzeroVehicleGhostSource(void);
+void FzeroVehicleGhostCycle(bool previous);
 unsigned FzeroVehicleAcceleration(unsigned slot, unsigned speed);
 unsigned FzeroVehicleTurn(unsigned speed);
 struct Ppu;

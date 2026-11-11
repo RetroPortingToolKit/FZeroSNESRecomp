@@ -3,6 +3,7 @@
 #include "content_pack.h"
 #include "cpu_state.h"
 #include "fzero_gameplay.h"
+#include "fzero_records.h"
 #include "sha256.h"
 #include "snes/cart.h"
 #include "snes/interp_bridge.h"
@@ -75,7 +76,14 @@ const char *FzeroVehicleRecordIdentity(unsigned index) {
   return index < count ? vehicles[roster[index]].id : NULL;
 }
 const char *FzeroVehicleRecordName(unsigned index) {
-  return index < count ? vehicles[roster[index]].name : "SHARED RECORDS";
+  return index < count ? vehicles[roster[index]].name : "ALL CARS";
+}
+unsigned FzeroVehicleGhostSource(void) {
+  return g_ram[0x14cec] < count ? g_ram[0x14cec] : count;
+}
+void FzeroVehicleGhostCycle(bool previous) {
+  unsigned source = FzeroVehicleGhostSource(), choices = count + 1;
+  g_ram[0x14cec] = (uint8_t)((source + (previous ? choices - 1 : 1)) % choices);
 }
 static unsigned group_for(unsigned id) {
   if (id >= 4)
@@ -908,6 +916,7 @@ static void menu_hook(CpuState *cpu, uint32_t pc) {
     /* Deluxe saves a four/eight-car number in its ghost header. Reserve bit
      * 7 for our stable identity; leave its recording/checksum format intact. */
     cpu_write_a_m(cpu, (uint16_t)(0x80 | FzeroVehicleSelected()));
+    FzeroRecordsGhostWritten();
   } else if (pc == 0x1eb24f) {
     unsigned saved = cpu->A;
     if (saved & 0x80) {
@@ -971,6 +980,7 @@ static void menu_hook(CpuState *cpu, uint32_t pc) {
     g_ram[RIVAL_ID] = (uint8_t)roster[0];
     g_ram[RIVAL_FIRST] = 0;
     g_ram[RIVAL_VERSION] = 1;
+    g_ram[0x14cec] = 255; /* Automatic ghost source until L/R chooses a car. */
     g_ram[0x14c84] = (uint8_t)(index % 4);
     FzeroVehiclesSync();
     menu_resources(true);

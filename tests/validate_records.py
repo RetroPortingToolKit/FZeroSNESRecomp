@@ -91,7 +91,7 @@ def main():
             saved = files[0].read_bytes()
             assert len(saved) == 32+32768+512
             assert totals(saved[32:]) == [BEST]*5, 'CGP native writes missing'
-            assert '[records-browser] page=2 vehicle=BLUE FALCON selected=10' in log
+            assert '[records-browser] page=2 vehicle=ALL CARS selected=10' in log
             assert totals(sram[0x153-5:]) == [BEST]*5, 'Baron times missing from the third displayed cup'
             assert totals(sram) == [EMPTY]*5, 'Baron times incorrectly assigned to BS-1 CGP'
         else:

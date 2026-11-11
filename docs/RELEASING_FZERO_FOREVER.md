@@ -29,8 +29,14 @@ Use the plain version without a `fzero-55-preview` label.
 
 ## Current release
 
-**0.19.0** restores the native CHECK rear warning in each multiplayer view
-and uses the selected FPS target to pace presentation when it is set
+**0.19.1** displays records from all enabled cars by default, with per-row
+portraits and X/Y car filters. Practice can select another car's ghost with
+L/R on its league screen, while preserving the current car's saved recording.
+Native ghost saves and current-build borrowed save-state reloads are qualified
+for Dragon Bird and White Cat. Existing native saves need no conversion.
+
+The release retains **0.19.0**, which restores the native CHECK rear warning
+in each multiplayer view and uses the selected FPS target to pace presentation when it is set
 explicitly. Automatic mode still follows the display. This release includes
 the fullscreen scheduling and Gaiden-style repeated course import fixes from
 0.18.2. The affected AMD system still needs a fullscreen startup retest.

@@ -19,11 +19,11 @@ typedef struct CourseSaveState {
   uint8_t external, backup_valid, read_only, view;
   union { uint8_t key[32]; FzeroRecordsView browser; };
   uint8_t base_sram[0x8000], base_records[0x200];
+  uint8_t record_vehicles[15][11];
+  uint8_t ghost_borrowed, original_ghost[0x8000 - 0x3a0];
 } CourseSaveState;
 static CourseSaveState state;
 _Static_assert(sizeof(FzeroRecordsView) <= 32, "Records view must fit the snapshot key");
-_Static_assert(sizeof(CourseSaveState) == 4 + 32 + 0x8000 + 0x200,
-               "Preserve the legacy course-save snapshot layout");
 static char base_root[96];
 const char *FzeroTracksSaveBaseRoot(void) { return base_root; }
 static bool set_root(const uint8_t *key) {
@@ -65,9 +65,12 @@ void FzeroTracksFlush(void) {
     FzeroTracksReport("Cannot save imported cup records");
     return;
   }
-  bool ok = fwrite(state.key, 1, 32, f) == 32 &&
-            fwrite(g_sram, 1, g_sram_size, f) == (size_t)g_sram_size &&
-            fwrite(g_ram + 0x14800, 1, 0x200, f) == 0x200;
+  bool ok = fwrite(state.key, 1, 32, f) == 32;
+  if (state.ghost_borrowed) {
+    ok = ok && fwrite(g_sram, 1, 0x3a0, f) == 0x3a0 &&
+        fwrite(state.original_ghost, 1, g_sram_size - 0x3a0, f) == (size_t)g_sram_size - 0x3a0;
+  } else ok = ok && fwrite(g_sram, 1, g_sram_size, f) == (size_t)g_sram_size;
+  ok = ok && fwrite(g_ram + 0x14800, 1, 0x200, f) == 0x200;
   if (fclose(f))
     ok = false;
 #ifdef _WIN32
@@ -112,6 +115,7 @@ bool FzeroTracksRecordsSelect(const uint8_t *key) {
   if (g_sram_size < 0x200 || g_sram_size > 0x8000)
     return false;
   FzeroTracksFlush();
+  state.ghost_borrowed = 0;
   if (state.external && state.backup_valid) {
     memcpy(g_sram, state.base_sram, g_sram_size);
     memcpy(g_ram + 0x14800, state.base_records, 0x200);
@@ -196,6 +200,46 @@ bool FzeroRecordsRead(const uint8_t *key, uint8_t records[0x400]) {
   if (ok) memcpy(records, sram, 0x400);
   else FzeroTracksReport("Records file failed validation; displaying empty records without modifying it");
   return ok;
+}
+uint8_t *FzeroRecordsRowVehicles(unsigned slot) {
+  return state.view && slot < 15 ? state.record_vehicles[slot] : NULL;
+}
+bool FzeroRecordsImportGhost(const uint8_t key[32], unsigned course) {
+  if (!key || !state.external || g_sram_size < 0x400 || g_sram_size > 0x8000 || course > 255) return false;
+  char hex[65], path[160];
+  cp_hash_format(key, hex);
+  snprintf(path, sizeof(path), "%s/courses/%.32s/records.bin", base_root, hex);
+  FILE *f = fopen(path, "rb");
+  if (!f) return false;
+  uint8_t hash[32], sram[0x8000], mirror[0x200];
+  bool ok = fread(hash, 1, 32, f) == 32 && !memcmp(hash, key, 32) &&
+      fread(sram, 1, g_sram_size, f) == (size_t)g_sram_size &&
+      fread(mirror, 1, sizeof(mirror), f) == sizeof(mirror) && fgetc(f) == EOF;
+  fclose(f);
+  if (!ok || sram[0x3a0] != course) return false;
+  unsigned start = sram[0x3a2] | (unsigned)sram[0x3a3] << 8;
+  unsigned length = sram[0x3a4] | (unsigned)sram[0x3a5] << 8;
+  unsigned checksum = sram[0x3a6] | (unsigned)sram[0x3a7] << 8, sum = 0;
+  if (start < 0x400 || !length || start > (unsigned)g_sram_size ||
+      length > (unsigned)g_sram_size - start) return false;
+  for (unsigned i = 0; i < length; ++i) sum += sram[start + i];
+  if ((sum & 65535) != checksum) return false;
+  /* Leave this driver's ranked times and unlocks intact. The native ghost
+   * header carries the recording driver's stable identity for its artwork. */
+  if (!state.ghost_borrowed)
+    memcpy(state.original_ghost, g_sram + 0x3a0, (size_t)g_sram_size - 0x3a0);
+  state.ghost_borrowed = 1;
+  memcpy(g_sram + 0x3a0, sram + 0x3a0, (size_t)g_sram_size - 0x3a0);
+  fprintf(stderr, "[records-ghost] imported course=%u vehicle=%u\n", course, sram[0x3aa]);
+  return true;
+}
+void FzeroRecordsGhostWritten(void) { state.ghost_borrowed = 0; }
+void FzeroRecordsGhostUnavailable(void) {
+  if (!state.external || g_sram_size < 0x400 || g_sram_size > 0x8000) return;
+  if (!state.ghost_borrowed)
+    memcpy(state.original_ghost, g_sram + 0x3a0, (size_t)g_sram_size - 0x3a0);
+  state.ghost_borrowed = 1;
+  g_sram[0x3a0] = 255;
 }
 static unsigned time_value(const uint8_t *time) {
   return ((unsigned)(time[0] & 15) << 16) | ((unsigned)time[1] << 8) | time[2];

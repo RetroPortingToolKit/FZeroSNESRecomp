@@ -185,11 +185,13 @@ static void records_art(Canvas canvas, const FzeroRecordsView *view, unsigned cu
       }
   }
   uint32_t icon[16 * 16];
-  if (!FzeroDeluxeActive() || !FzeroVehicleRecordIcon(view->vehicle, icon)) return;
+  if (!FzeroDeluxeActive()) return;
   /* The native detail screen owns eleven 16x16 car reservations: ten ranked
    * times and best lap. Empty rows are hidden at Y=224. Use their positions,
-   * but draw the identity owning this records namespace, not its donor slot. */
+   * but draw each row's source identity rather than its donor slot. */
   for (unsigned row = 0; row < 11; ++row) {
+    const uint8_t *owners = FzeroRecordsRowVehicles(view->display_selected);
+    if (!owners || !FzeroVehicleRecordIcon(owners[row], icon)) continue;
     const uint8_t *oam = ram + 0x200 + row * 4;
     unsigned x = oam[0], y = oam[1];
     if (y + 16 > 224 || x + 16 > 256) continue;
@@ -256,6 +258,7 @@ void FzeroRecordsOverlay(uint32_t *pixels, unsigned width, unsigned height, size
   snprintf(label, sizeof(label), "L/R CUPS %u/%u", v->page + 1, (FzeroTracksRuntimeCount() + 2) / 3);
   record_text(c, 144, 192, label, 14, 0xffb8e8ff);
   record_text(c, 144, 204, FzeroVehicleCount() ? "X/Y CAR" : "SHARED TIMES", 14, 0xffb8e8ff);
+  record_text(c, 144, 216, FzeroVehicleRecordName(v->vehicle), 14, 0xffffffff);
 }
 /* Native substate 1 also owns the car information card. Its league panel
  * is installed before substate 2 accepts input. Follow the displayed tilemap
@@ -335,6 +338,13 @@ void FzeroTracksOverlay(uint32_t *pixels, unsigned width, unsigned height, size_
   menu_text(c, 234 - (int)strlen(page) * 8, 55, page, 5, MENU_CYAN);
   box(c, 112, 151, 122, 29, 0xff000000);
   if (practice) {
+    if (ram[0x14c8a] == 0xfe) {
+      unsigned source = FzeroVehicleGhostSource();
+      menu_text(c, 120, 151, "GHOST", 5, MENU_YELLOW);
+      menu_text(c, 112, 167, source < FzeroVehicleCount() ? FzeroVehicleRecordName(source) : "AUTOMATIC", 15, MENU_CYAN);
+      box(c, 106, 209, 140, 8, 0xff000000);
+      menu_text(c, 108, 209, "L/R GHOST CAR", 13, MENU_CYAN);
+    }
     box(c, 106, 197, 140, 8, 0xff000000);
     menu_text(c, 108, 197, "UP/DOWN TO SELECT", 17, MENU_CYAN);
     return;

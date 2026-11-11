@@ -106,6 +106,42 @@ int main(void) {
   CHECK(FzeroRecordsViewBegin());
   FzeroTracksSavesFinish();
   CHECK(!memcmp(original, sram, sizeof(original)) && !memcmp(mirror, g_ram + 0x14800, sizeof(mirror)));
+  /* A borrowed ghost is transient even if a flush or course switch occurs.
+   * Only an actual native Save Ghost commit releases the owned backup. */
+  CHECK(FzeroTracksRecordsSelect(b));
+  const uint8_t ghost_header[] = {4, 0, 0, 4, 4, 0, 10, 0};
+  memcpy(sram + 0x3a0, ghost_header, sizeof(ghost_header));
+  memcpy(sram + 0x400, "\x01\x02\x03\x04", 4);
+  sram[0x3aa] = 0x85;
+  FzeroTracksFlush();
+  CHECK(FzeroTracksRecordsSelect(a));
+  uint8_t owned[0x800 - 0x3a0];
+  memcpy(owned, sram + 0x3a0, sizeof(owned));
+  CHECK(!FzeroRecordsImportGhost(b, 3)); /* A different course cannot play. */
+  CHECK(!memcmp(owned, sram + 0x3a0, sizeof(owned)));
+  CHECK(FzeroRecordsImportGhost(b, 4) && sram[0x3aa] == 0x85);
+  sram[5] = 0x83;
+  FzeroTracksFlush();
+  CHECK(FzeroTracksRecordsSelect(b));
+  CHECK(FzeroTracksRecordsSelect(a) && sram[5] == 0x83);
+  CHECK(!memcmp(owned, sram + 0x3a0, sizeof(owned)));
+  FzeroRecordsGhostUnavailable();
+  CHECK(sram[0x3a0] == 255);
+  CHECK(FzeroTracksRecordsSelect(b));
+  CHECK(FzeroTracksRecordsSelect(a));
+  CHECK(!memcmp(owned, sram + 0x3a0, sizeof(owned)));
+  CHECK(FzeroRecordsImportGhost(b, 4));
+  sram[0x3aa] = 0x80;
+  FzeroRecordsGhostWritten();
+  CHECK(FzeroTracksRecordsSelect(b));
+  CHECK(FzeroTracksRecordsSelect(a) && sram[0x3aa] == 0x80);
+  CHECK(FzeroTracksRecordsSelect(b));
+  sram[0x400] ^= 1; /* Reject a damaged stream without touching either save. */
+  FzeroTracksFlush();
+  CHECK(FzeroTracksRecordsSelect(a));
+  CHECK(!FzeroRecordsImportGhost(b, 4) && sram[0x3aa] == 0x80);
+  FzeroTracksSavesFinish();
+  CHECK(!memcmp(original, sram, sizeof(original)) && !memcmp(mirror, g_ram + 0x14800, sizeof(mirror)));
   const char *path = "test-course-records/courses/01000000000000000000000000000000/records.bin";
   FILE *f = fopen(path, "wb");
   CHECK(f);

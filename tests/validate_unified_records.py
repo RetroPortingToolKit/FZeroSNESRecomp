@@ -15,6 +15,7 @@ from PIL import Image
 
 from validate_records import ROUTE, BEST
 from validate_practice_catalog import route
+from validate_native_menus import player_route
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -30,7 +31,9 @@ def main():
              if not k.startswith(('FZERO_', 'SNESRECOMP_', 'SDL_', 'LNG_'))}
     original = hashlib.sha256(stock.read_bytes()).digest()
     report = []
-    for name, cup, index in (('native', 'bs-deluxe/knight', 0), ('imported', 'astra-front/astra', 3)):
+    for name, cup, index, player in (('native', 'bs-deluxe/knight', 0, 0),
+                                    ('guest-car', 'bs-deluxe/knight', 0, 10),
+                                    ('imported', 'astra-front/astra', 3, 0)):
         folder = out/name
         folder.mkdir()
         shutil.copytree(ROOT/'assets', folder/'assets')
@@ -49,14 +52,15 @@ def main():
             assert result.returncode == 0, (name, label, result.stderr[-2000:])
             return (folder/f'{label}.ram').read_bytes(), (folder/f'{label}.sram').read_bytes()
 
-        run('gp', 6400, SNESRECOMP_INPUT_SCRIPT=ROUTE, FZERO_TEST_RECORDS_CUP='1')
+        gp_route = player_route(player)+',560-566:8,640-646:8,730-736:8,790-796:8'
+        run('gp', 6400, SNESRECOMP_INPUT_SCRIPT=gp_route, FZERO_TEST_RECORDS_CUP='1')
         paths = list((folder/'s').rglob('records.bin'))
         matching = [p for p in paths if p.read_bytes()[37:40] == BEST]
         assert len(matching) == 1, (name, matching)
         saved = matching[0]
         digest = saved.read_bytes()[:32]
         before = {str(p): p.read_bytes() for p in paths}
-        navigation = route(0, 255)+',1200-1206:8'
+        navigation = route(player, 255)+',1200-1206:8'
         navigation += ''.join(f',{1300+i*30}-{1303+i*30}:32' for i in range(index))
         navigation += ',1450-1456:8,1800-1806:8'
         ram, sram = run('practice', 2501, SNESRECOMP_INPUT_SCRIPT=navigation,
@@ -77,7 +81,7 @@ def main():
         assert current[40:43] == BEST, (name, 'GP time was lost')
         assert set(str(p) for p in (folder/'s').rglob('records.bin')) == set(before), 'Practice created a mode namespace'
         # Restart the process and enter GP: it must recover the Practice best.
-        _, sram = run('gp-restart', 1300, SNESRECOMP_INPUT_SCRIPT=ROUTE)
+        _, sram = run('gp-restart', 1300, SNESRECOMP_INPUT_SCRIPT=gp_route)
         assert sram[5:8] == practice_best, (name, 'Practice best absent on GP restart')
         unchanged = saved.read_bytes()
         # Records starts on the active cup's page. Do not tab to a different

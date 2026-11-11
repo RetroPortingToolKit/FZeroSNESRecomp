@@ -15,6 +15,11 @@ FzeroRecordsView *FzeroRecordsViewState(void);
 bool FzeroRecordsViewBegin(void);
 void FzeroRecordsViewEnd(void);
 bool FzeroRecordsRead(const uint8_t *key, uint8_t records[0x400]);
+/* Read-only source lookup; only a validated native ghost stream is copied. */
+bool FzeroRecordsImportGhost(const uint8_t key[32], unsigned course);
+void FzeroRecordsGhostWritten(void);
+void FzeroRecordsGhostUnavailable(void);
+uint8_t *FzeroRecordsRowVehicles(unsigned slot);
 void FzeroRecordsMergeCup(uint8_t records[0x400], const uint8_t previous[0x400], unsigned cup);
 void FzeroRecordsTick(void);
 uint16_t FzeroRecordsInput(uint16_t input);

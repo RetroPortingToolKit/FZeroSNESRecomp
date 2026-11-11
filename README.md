@@ -21,7 +21,7 @@ See [pack authoring and music](docs/PACK_FORMAT.md) for JSON manifests,
 raw FZEdit exports, extracted course resources and separate audio packs.
 [Mods and source-game differences](MODS.md) describes scoped mechanics.
 
-The current Windows release is **0.19.0**. Future fixes advance the patch
+The current Windows release is **0.19.1**. Future fixes advance the patch
 version; new features advance the minor version. All bundle variants share
 that version. See [the release policy](docs/RELEASING_FZERO_FOREVER.md).
 
@@ -79,6 +79,11 @@ with a ROM path before or after it. A missing or invalid remembered ROM opens
 the launcher so you can select a valid copy.
 
 ## Settings
+
+Records shows the fastest times across all enabled cars. Use X/Y on its
+overview to filter by car. In Practice, L/R on the league screen chooses the
+ghost's car; Automatic prefers your current car's recording, then another
+available recording. Selecting another ghost preserves your own saved ghost.
 
 Open **Settings > Display** for:
 
