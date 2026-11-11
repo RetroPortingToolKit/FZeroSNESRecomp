@@ -476,7 +476,8 @@ if(FZERO_PACK_SOURCE AND FZERO_STAGE_RELEASE_CONTENT)
                 --out "$<TARGET_FILE_DIR:FZeroSNESRecomp>/mods/packs/cgp"
             COMMENT "Staging verified CGP music by course filename" VERBATIM)
     endif()
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/music/astra-front/moon.pcm")
+    if(EXISTS "${FZERO_PACK_SOURCE}/astra-front/pack.json" AND
+       EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/music/astra-front/moon.pcm")
         find_package(Python3 COMPONENTS Interpreter REQUIRED)
         set_property(TARGET FZeroSNESRecomp APPEND PROPERTY LINK_DEPENDS
             "${CMAKE_CURRENT_SOURCE_DIR}/assets/music/astra-front.json"

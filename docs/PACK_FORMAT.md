@@ -160,9 +160,10 @@ byte-for-byte against the previously decoded courses, including presentation
 fields excluded from record hashes. Unknown patches still need format
 and mechanics qualification; their filenames cannot establish compatibility.
 
-The converted examples contain CGP's 55 course versions (15 revised originals,
-10 revised BS courses, 30 additional courses), Astra Front's 10, Astra Velocity's
-20, MAX's 5, and Bower's 5. Extraction recovers layout, tile/palette/horizon/minimap resources,
+The default bundle contains CGP's 55 course versions (15 revised originals,
+10 revised BS courses, 30 additional courses), Astra Velocity's 20, MAX's 5,
+and Bower's 5. Astra Velocity replaces the older ten-course Astra Front pack.
+Extraction recovers layout, tile/palette/horizon/minimap resources,
 checkpoints, opponents/shortcuts, intro text, native music and reviewed terrain
 requirements. It does not recover author layers, filenames, editing history,
 ASM source, or absent MSU recordings. These examples preserve the 0.2.0 decoded
@@ -223,9 +224,9 @@ pack's `music/` folder. Drop it in, restart, and enable MSU-1.
 Create `music/` if it is absent.
 
 ```text
-mods/packs/astra-front/
-    courses/u-zero-1.zip
-    music/u-zero-1.pcm
+mods/packs/astra-velocity/
+    courses/big-blue.zip
+    music/big-blue.pcm
 ```
 
 For raw FZEdit input, `courses/coast/Coast.fzm` uses `music/Coast.pcm`.
@@ -239,8 +240,9 @@ Missing recordings use SNES music. Adding music does not change course records.
 CGP recordings now ship in `mods/packs/cgp/music`, following the same rule for
 race songs. There is no separate `cgp-audio` folder in new bundles. Shared menu
 cues retain the existing adapter filenames in that folder. Original numbered
-MSU packs can be renamed to match the course ZIPs. The music bundle includes
-all ten supplied Astra recordings; the smaller download uses the same paths.
+MSU packs can be renamed to match the course ZIPs. Astra Velocity uses its authored
+SNES music unless matching course recordings are added. The superseded Astra
+Front pack and its ten recordings are no longer included in the default bundle.
 
 This convention requires 0.4.0 or newer. The older 0.3.0 tester ZIPs still need
 their original prefixed recordings.

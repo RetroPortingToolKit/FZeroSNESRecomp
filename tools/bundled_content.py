@@ -7,6 +7,8 @@ import argparse
 import json
 from pathlib import Path
 
+BUNDLED_PACK_IDS = ('bower-league', 'cgp', 'max-league', 'astra-velocity')
+
 
 def write_index(mods, packs):
     entries = []

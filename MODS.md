@@ -175,10 +175,10 @@ SNES audio. Changing the default soundtrack keeps your individual replacements.
 For **course music**, place the recording in that pack's `music` folder and
 match the course filename: `courses/moon.zip` uses `music/moon.pcm`. The filenames inside a ZIP do not
 change this rule.
-The music bundle includes the ten supplied Astra recordings in
-`mods/packs/astra-front/music`. You can add those same files to the smaller
-download without changing any JSON. Astra's course music does not replace
-CGP's menu songs.
+Astra Velocity replaces the older Astra and Front leagues in the default
+bundle and uses its authored SNES music. Matching recordings can be added to
+`mods/packs/astra-velocity/music` without changing any JSON. Its course music
+does not replace CGP's menu songs.
 
 Pack authors can copy the `menu_music` object from CGP's `courses.json` as a
 template. Its six keys are `countdown`, `ready`, `lost-life`, `title`, `select`

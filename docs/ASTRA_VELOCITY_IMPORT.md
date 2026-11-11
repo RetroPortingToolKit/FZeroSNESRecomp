@@ -1,8 +1,8 @@
 # Astra Velocity P1
 
 Worthy / MF9_05's twenty courses ship as a default bundled pack alongside
-CGP, Astra Front, Bower and MAX. The collection now has 95 imported course
-versions in 19 cups, plus the original 15 courses in three cups.
+CGP, Bower and MAX, replacing the earlier Astra and Front leagues. The collection
+now has 85 imported course versions in 17 cups, plus the original 15 courses in three cups.
 
 | Cup | Courses in authored order |
 | --- | --- |
@@ -14,8 +14,8 @@ versions in 19 cups, plus the original 15 courses in three cups.
 The source intro for Mute City II contains two spaces before II; the display
 string preserves them. IDs normalize whitespace. Names, order and SNES music
 come from the donor's loaders and tables. Separate MSU recordings were not
-provided; this pack uses its authored SNES music. Existing CGP and Astra Front
-recordings remain assigned to their own packs.
+provided; this pack uses its authored SNES music. CGP recordings remain assigned
+to CGP. The superseded Astra Front pack and its recordings are no longer bundled.
 
 All courses require the existing CGP grip-magnet and up-magnet adapters.
 Illusion alone requires `fall-down`: off-road void starts the falling death
@@ -79,3 +79,10 @@ flag, preserving existing CGP record identities. The current-base follow-up
 rebuilds all 95 course sources/caches and repeats course/music, scoped rules
 and focused fall/dash checks. Human testing is non-exhaustive; this prerelease
 is intended for wider validation.
+
+The 0.20.0-rc.2 bundle removes the superseded Astra Front pack and its recordings.
+The four remaining packs contain 85 course versions in 17 cups. Their editable
+sources, mechanics and record identities are unchanged from rc.1. Existing
+user-import support for Astra Front remains available. Extract the new bundle
+into a fresh directory; overlaying an older installation can leave its old
+`mods/packs/astra-front` folder installed. Preserve native saves and settings.

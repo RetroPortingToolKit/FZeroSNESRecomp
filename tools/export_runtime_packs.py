@@ -16,6 +16,7 @@ from parse_track_pack import donor, fields
 from pack_manifest import write_index
 from reconstruct_fzedit_course import reconstruct
 from course_tool_paths import ROOT
+from bundled_content import BUNDLED_PACK_IDS
 
 def export_pack(stock, result, base, root, exporter, priority=0, native_resources=None,
                 credit_bytes=None, source_label='reviewed patch extraction; not original FZEdit project'):
@@ -35,7 +36,7 @@ def main():
     parser.add_argument('--exporter', type=Path, default=ROOT/'build/FZeroExportCourses.exe')
     args = parser.parse_args()
     stock = args.stock.read_bytes()
-    for priority, ident in enumerate(('astra-front','bower-league','cgp','max-league','astra-velocity')):
+    for priority, ident in enumerate(BUNDLED_PACK_IDS):
         base = ROOT/'assets/track-packs'/ident
         data = fields(base.with_suffix('.ini'))
         result = donor(stock, base.with_suffix('.ips').read_bytes())

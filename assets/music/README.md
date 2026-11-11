@@ -58,8 +58,10 @@ are user-supplied and are not part of this soundtrack bundle.
 The supplied `astra front msu (1).zip` contains ten course recordings. Import
 it with `python tools/import_astra_music.py "path/to/astra front msu (1).zip"`.
 The reviewed hashes and loop points are in `astra-front.json`. The source set
-stays in ignored `music/astra-front`; releases copy the recordings into the
-Astra pack's `music/` directory without renaming or modifying their contents.
+stays in ignored `music/astra-front` and can be staged into an independently
+installed Astra Front pack. Astra Velocity replaces Astra Front in the default
+bundle; the older pack and its recordings are no longer included in releases.
+Astra Velocity uses its authored SNES music.
 
 CGP's six non-course recordings are declared in its `courses.json`, using the
 reference template in `cgp-menu.json`. **Mods > Menu and event music** displays

@@ -14,8 +14,7 @@ import struct
 import subprocess
 import zipfile
 from import_cgp_music import verify_music, stage_course_music
-from import_astra_music import stage_music as stage_astra_music
-from bundled_content import write_index
+from bundled_content import BUNDLED_PACK_IDS, write_index
 
 ROOT = Path(__file__).resolve().parents[1]
 p = argparse.ArgumentParser(description=__doc__)
@@ -25,7 +24,7 @@ p.add_argument("--output", default="release-stage", help="Parent for a fresh ver
 p.add_argument("--label", default="", help="Optional local build label, such as fzero-55")
 p.add_argument("--exe", default="F-Zero Forever.exe", help="Desktop executable filename in the build directory")
 p.add_argument("--music", choices=("bundled", "external"), default="bundled",
-               help="Include the approved CGP and Astra soundtracks, or retain MSU support without audio files")
+               help="Include the approved CGP soundtrack, or retain MSU support without audio files")
 p.add_argument("--profile", choices=("player", "developer"), default="player",
                help="Player bundles contain runtime files and credits; developer bundles also include source/reference material")
 p.add_argument("--packs", type=Path, required=True, help="Reviewed exported course packs; never copy arbitrary installed packs")
@@ -33,8 +32,6 @@ p.add_argument("--deluxe-mods", type=Path, default=ROOT / "captures/bs-deluxe/mo
                help="Imported Deluxe directory; its credits and provenance ship with the build")
 p.add_argument("--cgp-music", type=Path, default=ROOT / "music/cgp",
                help="Verified CGP soundtrack source (reuses existing imports)")
-p.add_argument("--astra-music", type=Path, default=ROOT / "music/astra-front",
-               help="Verified Astra soundtrack source (reuses existing imports)")
 a = p.parse_args()
 bundled_music = a.music == "bundled"
 developer = a.profile == "developer"
@@ -111,7 +108,7 @@ shutil.copytree(ROOT / "assets/shaders", stage / "assets/shaders")
 # Release inputs are explicit: never copy a user's installation or stale cache.
 pack_root = a.packs.resolve()
 expected_courses = {}
-for ident in ("astra-front","bower-league","cgp","max-league","astra-velocity"):
+for ident in BUNDLED_PACK_IDS:
     source=pack_root/ident
     descriptor=json.loads((source/"pack.json").read_text(encoding="utf-8"))
     if descriptor["id"]!=ident: raise SystemExit("Pack identity mismatch")
@@ -121,7 +118,7 @@ for ident in ("astra-front","bower-league","cgp","max-league","astra-velocity"):
     shutil.copytree(source,stage/"mods/packs"/ident,ignore=shutil.ignore_patterns(
         ".cache","*.pcm","*.msu", *([] if developer else ["extraction.json", "import-validation.json"])))
 write_index(stage / "mods", [stage / "mods/packs" / ident for ident in
-                            ("astra-front", "bower-league", "cgp", "max-league", "astra-velocity")])
+                            BUNDLED_PACK_IDS])
 # Use the real loader in the clean staging installation. Its content-keyed
 # source extraction and compiled-course caches travel with the ZIP, avoiding
 # conversion on first launch while retaining ordinary edit invalidation.
@@ -145,7 +142,6 @@ music = a.cgp_music
 if bundled_music:
     music_manifest = verify_music(music)
     stage_course_music(music, stage / "mods/packs/cgp")
-    stage_astra_music(a.astra_music, stage / "mods/packs/astra-front")
 (stage / "assets/music").mkdir(parents=True, exist_ok=True)
 if developer:
     shutil.copy2(ROOT / "assets/music/cgp.json", stage / "assets/music/cgp.json")
@@ -209,7 +205,7 @@ if developer:
     shutil.copy2(ROOT/"docs/PACK_FORMAT.md",stage/"docs/PACK_FORMAT.md")
 # MODS.md links to these instructions in player downloads too.
 (stage / "docs").mkdir(exist_ok=True)
-player_guides = ("PACK_FORMAT.md", "CGP_COURSE_CAPABILITIES.md", "CGP_SNES_MUSIC.md", "ASTRA_FRONT_IMPORT.md", "FUZEE_FORMAT.md", "DIAGNOSTIC_REPLAY.md", "NETPLAY.md", "LOCAL_CONTROLS_AND_MODS.md", "HD_MODE7.md")
+player_guides = ("PACK_FORMAT.md", "CGP_COURSE_CAPABILITIES.md", "CGP_SNES_MUSIC.md", "ASTRA_FRONT_IMPORT.md", "ASTRA_VELOCITY_IMPORT.md", "FUZEE_FORMAT.md", "DIAGNOSTIC_REPLAY.md", "NETPLAY.md", "LOCAL_CONTROLS_AND_MODS.md", "HD_MODE7.md")
 for filename in player_guides:
     shutil.copy2(ROOT / "docs" / filename, stage / "docs" / filename)
 shutil.copy2(ROOT / "mods/PARSE_MANIFEST.md", stage / "mods/PARSE_MANIFEST.md")
@@ -241,7 +237,8 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "See MODS.md and mods/CONVERSION.md for details.\n\n"
     "Mods > Track Pack Loader defaults on and loads every folder/ZIP in mods/packs. Restart after installing packs.\n"
     "The original 15 courses remain available. Loader and BS Satellaview Tracks exclude each other.\n"
-    "The included CGP, Astra Front, Astra Velocity, Bower and MAX packs add 19 cups / 95 course versions.\n"
+    "The included CGP, Astra Velocity, Bower and MAX packs add 17 cups / 85 course versions.\n"
+    "Astra Velocity replaces the earlier Astra and Front leagues.\n"
     "Vehicle packs, rules and screen override remain separate options. CGP preset enables the full experience.\n\n"
     "Required course mechanics load automatically with their pack and have no separate switches.\n"
     "Legend difficulty defaults on; performance diagnostics default off; MSU-1 defaults on with SNES fallback for missing songs. Saved choices are respected.\n\n"
@@ -257,7 +254,7 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "Choose both recordings before enabling it. Boost-power timing offers Lap 2 only (once per race).\n"
     "The final-lap recording retains its separate timing.\n"
     "No callout recordings are included. See MODS.md.\n\n"
-    + ("CGP and Astra audio are included in their mods/packs/<pack>/music folders.\n" if bundled_music else "Audio is not included; you can add it to each pack's music folder.\n") +
+    + ("CGP audio is included in mods/packs/cgp/music. Astra Velocity uses its authored SNES music.\n" if bundled_music else "Audio is not included; you can add it to each pack's music folder.\n") +
     "Course ZIPs contain editable projects; example.zip contains example.fzm and uses music/example.pcm.\n"
     "Bundled courses include a ready-to-use cache in mods/packs/.cache.\n"
     "Changed or newly added courses rebuild their cache automatically on launch.\n"
@@ -353,7 +350,7 @@ for path in sorted(stage.rglob("*")):
                 or path.name.lower().startswith("crt-geom")):
             raise SystemExit(f"Forbidden payload: {path}")
         if path.suffix.lower() in (".pcm", ".msu") and (
-                not bundled_music or path.parent not in (stage / "mods/packs/cgp/music", stage / "mods/packs/astra-front/music")):
+                not bundled_music or path.parent != stage / "mods/packs/cgp/music"):
             raise SystemExit(f"Unapproved music payload: {path}")
         manifest["files"][path.relative_to(stage).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
 manifest_path = stage / "manifest.json" if developer else stage.parent / (stage.name + ".manifest.json")

@@ -4,8 +4,9 @@ A native PC build of *F-Zero* for SNES.
 
 This build includes **Track Pack Loader**, enabled by default
 and freely switchable in Mods.
-Its bundled CGP, Astra Front, Astra Velocity, Bower and MAX packs add **95 course versions in
-19 cups**, alongside the untouched original 15 courses. Astra Velocity includes
+Its bundled CGP, Astra Velocity, Bower and MAX packs add **85 course versions in
+17 cups**, alongside the untouched original 15 courses. Astra Velocity replaces
+the earlier Astra and Front leagues and includes
 the Eclipse, Oblivion, Vector and Apex cups; Illusion retains its fall-down
 mechanic and normal gravity. Drop a compatible
 folder or ZIP into `mods/packs` and restart. All installed packs load together.
@@ -27,8 +28,8 @@ The current Windows release is **0.19.1**. Future fixes advance the patch
 version; new features advance the minor version. All bundle variants share
 that version. See [the release policy](docs/RELEASING_FZERO_FOREVER.md).
 
-The [Astra Velocity test prerelease, 0.20.0-rc.1](https://github.com/RetroPortingToolKit/FZeroSNESRecomp/releases/tag/v0.20.0-rc.1),
-adds twenty courses on the `feat/astra-velocity` branch while retaining 0.19.1's
+The [Astra Velocity test prerelease, 0.20.0-rc.2](https://github.com/RetroPortingToolKit/FZeroSNESRecomp/releases/tag/v0.20.0-rc.2),
+replaces Astra and Front with twenty courses on the `feat/astra-velocity` branch while retaining 0.19.1's
 records, ghost and rendering fixes. Broader gameplay testing is still in progress.
 
 You bring your own legally dumped *F-Zero (USA)* ROM. No ROM is included.
