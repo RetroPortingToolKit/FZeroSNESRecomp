@@ -163,6 +163,8 @@ def main():
         p.add_argument('--'+key, type=Path, required=True)
     p.add_argument('--pack', action='append', required=True)
     p.add_argument('--course', action='append', help='Optional course IDs to limit the run')
+    p.add_argument('--kind',action='append',choices=('PIT','BARRIER','JUMP','DASH','BACKGROUND','WALL','fuzz'),
+                   help='Limit a focused follow-up to specific interaction types')
     p.add_argument('--seed', type=int, default=106082)
     p.add_argument('--geometry-root', type=Path, help='Optional independent source geometry for negative controls')
     p.add_argument('--explore', action='store_true', help='Capture one course and heading calibration')
@@ -202,6 +204,16 @@ def main():
         write(0xd51,0,1)
         write(0xc3,0,1)
         write(0xd00,case['checkpoint'],1)
+        # Teleport the complete checkpoint prerequisite. Leaving cached gates
+        # at the starting grid makes dense/overlapping paths select unrelated
+        # angles before the car reaches an otherwise valid dash plate.
+        checkpoint=case['checkpoint']
+        previous=checkpoint-1 if checkpoint else ram[0xad]
+        for index,xaddr,yaddr,aaddr,faddr in ((checkpoint,0x1080,0x108e,0x109d,0x10aa),
+                                            (previous,0x108c,0x109a,0x10a9,0x10b6)):
+            write(xaddr,word(ram,0x1200+index*2));write(yaddr,word(ram,0x1400+index*2))
+            write(aaddr,ram[0x1600+index],1);write(faddr,ram[0x1700+index],1)
+        write(0xc5,ram[0x1600+checkpoint],1)
         path = folder/(case['label']+'.events')
         path.write_text('\n'.join(entries)+'\n',encoding='ascii')
         return path
@@ -215,6 +227,10 @@ def main():
                 if a.course and ident not in a.course:
                     continue
                 course = courses[ident]
+                required=set(manifest.get('requires',[]))|set(course.get('requires',[]))
+                for module in manifest.get('mechanics',[])+course.get('mechanics',[]):
+                    required.update(json.loads((a.packs_root/pack_id/module).read_text())['requires'])
+                fall_down=bool(required & {'fall-down','rainbow-road'})
                 folder = a.out/pack_id/ident
                 folder.mkdir(parents=True)
                 width,height,tiles,terrain = source_map((a.geometry_root or a.packs_root)/pack_id/course['source'])
@@ -233,14 +249,16 @@ def main():
                     return
                 rng = random.Random(f'{a.seed}:{pack_id}:{ident}')
                 cases=[]
-                for kind in ('PIT','BARRIER','JUMP','DASH','BACKGROUND'):
+                for kind in ('PIT','BARRIER','JUMP','DASH','BACKGROUND')+(('WALL',) if fall_down else ()):
                     location=terrain_approach(kind,width,height,tiles,terrain,rng)
+                    if a.kind and kind not in a.kind:continue
                     if location:
                         cases.append(dict(location,label=kind.lower(),kind=kind))
                     else:
                         report['skipped'].append(dict(pack=pack_id,course=ident,kind=kind,reason='No suitable authored approach'))
-                cases.append(dict(label='fuzz',kind='fuzz',x=word(ram,0xb70),y=word(ram,0xb90),
-                                  heading=word(ram,0xbd0),speed=0x180))
+                if not a.kind or 'fuzz' in a.kind:
+                    cases.append(dict(label='fuzz',kind='fuzz',x=word(ram,0xb70),y=word(ram,0xb90),
+                                      heading=word(ram,0xbd0),speed=0x180))
                 for case in cases:
                     case['checkpoint']=nearest_checkpoint(ram,case['x'],case['y'])
                     buttons='0-119:1'
@@ -279,6 +297,22 @@ def main():
                                 metrics=summarize(trace)
                                 if any(r[0xd51]&0x30 for r in trace):
                                     break
+                            # Some plates have no safe entry in the native
+                            # checkpoint direction at this location. Try a
+                            # bounded set of other authored approaches. Only
+                            # pose/checkpoint prerequisites change; terrain,
+                            # boost flags and outcomes still come from physics.
+                            for attempt in range(6):
+                                if any(r[0xd51]&0x30 for r in trace):break
+                                direction=(contact[0xc5]<<8) if contact else None
+                                location=terrain_approach('DASH',width,height,tiles,terrain,rng,direction)
+                                if not location:break
+                                case.update(location,label=f'dash-other-{attempt}')
+                                case['checkpoint']=nearest_checkpoint(ram,case['x'],case['y'])
+                                final,trace=run(folder,case['label'],frames,dict(setting,FZERO_STATE_LOAD=str(state),
+                                    FZERO_TEST_WRAM_SCRIPT=str(approach(folder,case)),SNESRECOMP_INPUT_SCRIPT=buttons))
+                                metrics=summarize(trace)
+                                contact=next((r for r in trace if r[0xcd0]==case['target_tile']),None)
                         check.update(metrics)
                         assert metrics['distance']>=8, 'Car never moved'
                         if case['kind']!='fuzz':
@@ -291,9 +325,25 @@ def main():
                         elif case['kind']=='DASH':
                             assert any(r[0xd51]&0x30 for r in trace), 'Dash plate did not activate boost'
                         elif case['kind']=='BARRIER':
-                            assert metrics['min_health']<0x300, 'Boundary did not damage the car'
+                            if fall_down:
+                                assert metrics['min_health']==0x300, 'Fall-down barrier unexpectedly damaged the car'
+                            else:
+                                assert metrics['min_health']<0x300, 'Boundary did not damage the car'
+                        elif case['kind']=='WALL':
+                            assert metrics['death'], 'Fall-down wall crossing did not reach the void'
+                            dead=next(r for r in trace if r[0xc3]&64)
+                            assert dead[0xcf]==6 and dead[0x1075]==0, 'Expected the falling death animation'
                         elif case['kind']=='BACKGROUND':
-                            assert metrics['death'], 'Off-course void did not trigger destruction'
+                            if fall_down:
+                                assert metrics['death'], 'Fall-down void did not trigger destruction'
+                            else:
+                                # Native grounded background contact damages
+                                # and redirects the car. Wind/walls can return
+                                # it to road before its energy runs out; unlike
+                                # Illusion, contact is not an instant death.
+                                assert metrics['death'] or (metrics['min_health']<0x300 and
+                                    any(r[0xcc0]&128 for r in trace)), 'No native off-course damage/destruction response'
+                                check['off_course_response']='destruction' if metrics['death'] else 'native damage and redirection'
                         report['checks'].append(check)
                         print(ident,case['kind'],'PASS',metrics,flush=True)
                     except (AssertionError,subprocess.TimeoutExpired) as error:

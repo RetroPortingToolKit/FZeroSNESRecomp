@@ -72,6 +72,11 @@ def main():
     base = dict(clean, FZERO_DELUXE_DATA='embedded', FZERO_BS_CARS='0', FZERO_BS_TRACKS='0',
                 FZERO_CGP_REBALANCE='0', FZERO_RULES='', FZERO_TRACK_PACKS='packs',
                 FZERO_TEST_SAVE_SRAM='1', FZERO_PACKS_DIR=str(out/'mods/packs'), FZERO_PACK_LOADER='1')
+    # Releases ship serially populated caches. Build this same cache before
+    # concurrent game processes: cold extraction into one directory can race.
+    inspection = subprocess.run([str(build/'FZeroInspectPacks.exe'), str(out/'mods/packs')],
+                                cwd=out,env=clean,capture_output=True,text=True,check=True)
+    (out/'inspect.log').write_text(inspection.stdout+inspection.stderr,encoding='utf-8')
     results = []
 
     def run(label, env, frames, inputs='', **extra):

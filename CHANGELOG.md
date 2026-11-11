@@ -1,4 +1,12 @@
-﻿# Changelog
+# Changelog
+
+## 0.20.0 - Astra Velocity (prerelease)
+
+- Bundle Worthy / MF9_05's Astra Velocity P1: twenty courses in Eclipse,
+  Oblivion, Vector and Apex, with authored artwork, order and SNES music.
+- Preserve Illusion's fall-down collision and wall behavior with normal
+  gravity, separately from CGP Rainbow Road's increased gravity.
+- Include editable course ZIPs through the existing bundled-pack pipeline.
 
 ## 0.19.1 - Records and ghosts across cars
 

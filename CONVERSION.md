@@ -7,7 +7,7 @@ the next time you press Play. For an unpacked editor export, choose its FZM
 file with its companions beside it, or ZIP the whole export. There is one
 Import button for all of these inputs. The list also shows installed mod files.
 
-CGP, Astra Front, Bower and MAX are included packs. This page cannot remove or
+CGP, Astra Front, Astra Velocity, Bower and MAX are included packs. This page cannot remove or
 replace them. Huckmine belongs to CGP; it is not an additional default pack.
 
 Patch conversion uses your selected original game ROM. You do not need Python
@@ -51,7 +51,7 @@ The converter accepts `.ips`, `.bps`, a hacked `.sfc`/`.smc`/`.rom`/`.fig` image
 or a ZIP containing these files, including downloads with MSU recordings and
 documentation. It checks the resulting ROM's contents rather than trusting a
 filename. Direct-import profiles cover Astra Front, Bower League, the current
-CGP P3test revision, and MAX League Classic/Modern. Other supported FZEdit-based
+CGP P3test revision, Astra Velocity P1, and MAX League Classic/Modern. Other supported FZEdit-based
 revisions use the interactive review. Older revisions do not inherit a known
 pack's identity or compatibility claims.
 

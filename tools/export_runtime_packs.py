@@ -35,7 +35,7 @@ def main():
     parser.add_argument('--exporter', type=Path, default=ROOT/'build/FZeroExportCourses.exe')
     args = parser.parse_args()
     stock = args.stock.read_bytes()
-    for priority, ident in enumerate(('astra-front','bower-league','cgp','max-league')):
+    for priority, ident in enumerate(('astra-front','bower-league','cgp','max-league','astra-velocity')):
         base = ROOT/'assets/track-packs'/ident
         data = fields(base.with_suffix('.ini'))
         result = donor(stock, base.with_suffix('.ips').read_bytes())
@@ -71,7 +71,7 @@ def _export_pack(stock, result, base, root, exporter, priority, ident, data, nat
                 sections[key]=resource[at:at+size];at+=size
             metadata=sections[17]
             entry=dict(id=tid,name=name,source=f'courses/{tid}.fzc',
-                       requires=[label for bit,label in [(1,'grip-magnets'),(2,'up-magnets'),(4,'rainbow-road'),(8,'soft-horizon-fog')] if metadata[16]&bit])
+                       requires=[label for bit,label in [(1,'grip-magnets'),(2,'up-magnets'),(4,'rainbow-road'),(8,'soft-horizon-fog'),(16,'fall-down')] if metadata[16]&bit])
             if metadata[17]: entry['music']=dict(spc=metadata[18]//9)
             if metadata[19]: entry.setdefault('music',{}).update(soundtrack=sections[16].split(b'\0')[0].decode(),track=metadata[19])
             manifest['courses'].append(entry)
@@ -115,7 +115,8 @@ def _export_pack(stock, result, base, root, exporter, priority, ident, data, nat
             course['mechanics']=[mechanic_module(course['id'],extra)]
     source_projects = {}
     credits={'astra-front':'Astra-Front-credits.txt','bower-league':'Bower-League-credits.txt',
-             'cgp':'CGP-credits.txt','max-league':'MAX-League-credits.txt'}
+             'cgp':'CGP-credits.txt','max-league':'MAX-League-credits.txt',
+             'astra-velocity':'Astra-Velocity-credits.txt'}
     if credit_bytes is None:
         credit_bytes = (ROOT/'assets/track-packs'/credits[ident]).read_bytes()
     extracted_huckmine = None

@@ -24,11 +24,12 @@ def main():
     for audit in packs.glob('*/extraction.json'):
         for track, digest in json.loads(audit.read_text())['record_hashes'].items():
             assert f'{audit.parent.name}/{track} {digest}' in inspected
-    print('Mechanics modules preserve all 75 course/record hashes',flush=True)
+    print('Mechanics modules preserve all reviewed course/record hashes',flush=True)
     cases = [(label,cup,course,cars,True) for cars in (0,1) for label,cup,course in (
         ('native',('bs-deluxe' if cars else 'retail')+'/knight',0),
         ('astra','astra-front/astra',0),('cgp','cgp/cgp-2',3),
-        ('rainbow','cgp/cgp-6',0),('max','max-league/max',2),('bower','bower-league/bower',3))]
+        ('rainbow','cgp/cgp-6',0),('max','max-league/max',2),('bower','bower-league/bower',3),
+        ('velocity','astra-velocity/eclipse',0),('illusion','astra-velocity/apex',4))]
     cases += [('cgp','cgp/cgp-2',3,cars,False) for cars in (0,1)]
     def run(case):
         label,cup,course,cars,legend=case
@@ -44,10 +45,12 @@ def main():
                               cwd=folder,env=env,capture_output=True,text=True,timeout=180)
         log=result.stdout+result.stderr;(folder/'run.log').write_text(log,encoding='utf-8')
         assert result.returncode==0 and 'rules-probe: PASS' in log,(case,log[-2200:])
-        if label in ('astra','cgp','rainbow'):
+        if label in ('astra','cgp','rainbow','velocity','illusion'):
             assert 'ASM parity PASS' in log and 'grounded grip' in log,case
         else:
             assert 'native downpull cases=48 PASS' in log,case
+        if label in ('illusion','rainbow'):
+            assert f'gravity={"stock" if label=="illusion" else "high"} PASS' in log,case
         print(folder.name+': scoped mechanics PASS',flush=True)
     with ThreadPoolExecutor(max_workers=3) as pool:
         list(pool.map(run,cases))

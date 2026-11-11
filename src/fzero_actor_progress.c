@@ -64,7 +64,9 @@ static unsigned boundary_average(unsigned old,unsigned wall) {
   unsigned angle=(old>>1)+(wall>>1)+(d>=96?96:0);
   return angle>=192?angle-192:angle;
 }
-static void rebound(FzeroActor *a) {
+static void rebound(FzeroActor *a,const uint8_t world[0x20000]) {
+  if ((world[FZERO_WORLD_FEATURES] & (FZERO_TERRAIN_RAINBOW | FZERO_TERRAIN_FALL_DOWN)) &&
+      (a->ground_flags & 0x20)) return;
   unsigned old=a->momentum>>8,angle=old;
   a->slide=a->next_checkpoint_angle; /* $1D is scratch until physics recomputes slide. */
   if (a->ground_flags&0x80) angle=a->wall_angle;
@@ -90,7 +92,7 @@ int FzeroActorCheckpointForward(FzeroActor *a,const uint8_t world[0x20000],Fzero
     a->next_checkpoint_angle=next.angle;a->next_checkpoint_flags=next.flags;
     delta=1;
   } else if (!(a->status2&1)) a->wall_angle=direction(s,t);
-  rebound(a);
+  rebound(a,world);
   return delta;
 }
 int FzeroActorCheckpointBackward(FzeroActor *a,const uint8_t world[0x20000],FzeroActorTables t) {
@@ -106,7 +108,7 @@ int FzeroActorCheckpointBackward(FzeroActor *a,const uint8_t world[0x20000],Fzer
     a->previous_checkpoint_angle=prev.angle;a->previous_checkpoint_flags=prev.flags;
     delta=-1;
   } else if (a->status2&1) a->wall_angle=direction(s,t);
-  rebound(a);
+  rebound(a,world);
   return delta;
 }
 int FzeroActorProgressTick(FzeroActor *a,const uint8_t world[0x20000],FzeroActorTables t,uint8_t tick) {

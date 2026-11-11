@@ -42,7 +42,7 @@ ZIP_DIRECTORY_LIMIT = 8 * 1024 * 1024
 ROM_SUFFIXES = ('.sfc', '.smc', '.rom', '.fig')
 PATCH_SUFFIXES = ('.ips', '.bps')
 AUDIO_SUFFIXES = ('.pcm', '.msu', '.wav', '.flac', '.mp3', '.ogg')
-KNOWN_IDS = ('astra-front', 'bower-league', 'cgp', 'max-league')
+KNOWN_IDS = ('astra-front', 'bower-league', 'cgp', 'max-league', 'astra-velocity')
 ID_PATTERN = re.compile(r'[a-z0-9][a-z0-9-]{0,46}\Z')
 # Reviewed optional FZEdit MSU add-on: reset/audio hooks and the standard
 # arithmetic track selector only. A filename alone never identifies an add-on.

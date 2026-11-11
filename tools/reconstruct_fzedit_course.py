@@ -196,7 +196,7 @@ def reconstruct(resource, output, ident, name, author, credits=b''):
     group('cycles',[],['CycleData'],dict(**raw(palette_cycles=s[15]),has_palette_cycles=m[14],palette_cycle_count=m[15]))
     add('_Reconstruction.json',json.dumps(dict(format='fzero.reconstruction',version=1,origin='Reconstructed from reviewed runtime data; not the original author project.',groups=groups),indent=2)+'\n')
     add('.fzm',''.join(f'{k}={v}\n' for k,v in props.items()))
-    requirements=[label for bit,label in [(1,'grip-magnets'),(2,'up-magnets'),(4,'rainbow-road'),(8,'soft-horizon-fog')] if m[16]&bit]
+    requirements=[label for bit,label in [(1,'grip-magnets'),(2,'up-magnets'),(4,'rainbow-road'),(8,'soft-horizon-fog'),(16,'fall-down')] if m[16]&bit]
     index=dict(format=1,id=ident,name=name,author=author,cups=[dict(id='course',name=name,courses=['course'])],courses=[dict(id='course',name=name,source=stem+'.fzm',requires=requirements)])
     with tempfile.TemporaryDirectory() as tmp:
         write_index(tmp,index)

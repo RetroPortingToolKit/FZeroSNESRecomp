@@ -484,7 +484,7 @@ void FzeroActorDamageSurface(FzeroActor *a, FzeroActorTables t) {
 void FzeroActorCourseDamage(FzeroActor *a,FzeroActorTables t,const uint8_t world[0x20000]) {
   unsigned features=world[FZERO_WORLD_FEATURES];uint8_t surface=a->surface;
   if(features&FZERO_TERRAIN_GRIP_MAGNETS)a->surface&=~8u;
-  if(features&FZERO_TERRAIN_RAINBOW) {
+  if(features&(FZERO_TERRAIN_RAINBOW|FZERO_TERRAIN_FALL_DOWN)) {
     unsigned flags=a->ground_flags|((a->state&0x80)?0:a->surface&12);
     flags&=0x8c;
     if(a->race_state || !flags) {a->surface=surface;return;}

@@ -17,7 +17,7 @@ int FzeroActorTick(FzeroActor *a,const uint8_t world[0x20000],FzeroActorTables t
   if (!a->race_state && !a->recovery_active) {
     FzeroActorTurnStage(a);FzeroActorInputAction(a,t);FzeroActorCourseTurnPerformance(a,t,world);
     uint8_t ground=a->ground_flags;
-    if(world[FZERO_WORLD_FEATURES]&FZERO_TERRAIN_RAINBOW)a->ground_flags=0;
+    if(world[FZERO_WORLD_FEATURES]&(FZERO_TERRAIN_RAINBOW|FZERO_TERRAIN_FALL_DOWN))a->ground_flags=0;
     FzeroActorSpinTrigger(a);a->ground_flags=ground;FzeroActorFailedStart(a);
   } else if (!a->race_state && a->recovery_active) a->action=0x10;
   FzeroActorScratch s;FzeroActorScratchReset(&s);

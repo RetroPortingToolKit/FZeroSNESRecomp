@@ -36,7 +36,7 @@ const char *FzeroGameplayError(void) { return error; }
 const uint8_t *FzeroGameplaySignature(void) { return signature; }
 static void sign_program(const uint8_t *rom, size_t size) {
   /* Bump the adapter version when a host rule changes its guest semantics. */
-  uint8_t key[36] = {3, 0, 0, 0};
+  uint8_t key[36] = {4, 0, 0, 0};
   sha256_compute(rom, size, key + 4);
   sha256_compute(key, sizeof(key), signature);
 }
@@ -105,6 +105,13 @@ static bool effective_rule(FzeroRule rule) {
 }
 static bool available_rule(FzeroRule rule) {
   return (FzeroTracksRequiredFeatures() & feature_for_rule(rule)) != 0;
+}
+static bool fall_down(void) {
+  const FzeroCourse *course = FzeroTracksCurrentCourse();
+  return course && (course->required & (FZERO_COURSE_RAINBOW | FZERO_COURSE_FALL_DOWN));
+}
+static bool has_fall_down(void) {
+  return (FzeroTracksRequiredFeatures() & (FZERO_COURSE_RAINBOW | FZERO_COURSE_FALL_DOWN)) != 0;
 }
 static void up_magnet(CpuState *cpu) {
   unsigned actor = cpu->X & 255, tile = r16(0xcd0 + actor);
@@ -278,8 +285,8 @@ static void rule_hook(CpuState *cpu, uint32_t pc) {
     break;
   }
   case 0x008976:
-    if (available_rule(FZERO_RULE_RAINBOW)) {
-      g_ram[0xadf] = effective_rule(FZERO_RULE_RAINBOW) ? 255 : 0;
+    if (has_fall_down()) {
+      g_ram[0xadf] = fall_down() ? 255 : 0;
       if (g_ram[0xadf])
         g_ram[0x1075] = 0;
     }
@@ -335,7 +342,7 @@ static void rule_hook(CpuState *cpu, uint32_t pc) {
     }
     break;
   case 0x0098f5:
-    if (g_ram[0xadf] && effective_rule(FZERO_RULE_RAINBOW)) {
+    if (g_ram[0xadf] && fall_down()) {
       unsigned flags = g_ram[0] & 0x8c;
       if (flags & 128) {
         g_ram[0xc3] |= 0x40;
@@ -346,13 +353,13 @@ static void rule_hook(CpuState *cpu, uint32_t pc) {
     }
     break;
   case 0x00ba20:
-    if (g_ram[0xadf] && effective_rule(FZERO_RULE_RAINBOW)) {
+    if (g_ram[0xadf] && fall_down()) {
       accum(cpu, 0);
       interp_bridge_pre_opcode_redirect(0x00ba25);
     }
     break;
   case 0x00e70b:
-    if (!cpu->X && g_ram[0xadf] && effective_rule(FZERO_RULE_RAINBOW))
+    if (!cpu->X && g_ram[0xadf] && fall_down())
       interp_bridge_pre_opcode_redirect(0x00e716);
     break;
   case 0x1ec740:
@@ -491,7 +498,7 @@ void FzeroGameplayInstallHooks(void) {
     interp_bridge_set_pre_opcode_hook(0x1ec740, rule_hook);
     interp_bridge_set_pre_opcode_hook(0x1ed04f, rule_hook);
   }
-  if (available_rule(FZERO_RULE_RAINBOW)) {
+  if (has_fall_down()) {
     interp_bridge_set_pre_opcode_hook(0x008976, rule_hook);
     const unsigned sites[] = {0x0091e6, 0x0098f5, 0x00ba20, 0x00e70b};
     for (unsigned i = 0; i < sizeof(sites) / sizeof(*sites); ++i)

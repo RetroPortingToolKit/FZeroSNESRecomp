@@ -143,7 +143,8 @@ bool FzeroCourseLayoutRead(const char *path, FzeroCourseLayout *out, char *error
       unsigned flag = !strcmp(feature, "grip-magnets") ? FZERO_COURSE_GRIP_MAGNETS
                       : !strcmp(feature, "up-magnets") ? FZERO_COURSE_UP_MAGNETS
                       : !strcmp(feature, "rainbow-road") ? FZERO_COURSE_RAINBOW
-                      : !strcmp(feature, "soft-horizon-fog") ? FZERO_COURSE_SOFT_HORIZON_FOG : 0;
+                      : !strcmp(feature, "soft-horizon-fog") ? FZERO_COURSE_SOFT_HORIZON_FOG
+                      : !strcmp(feature, "fall-down") ? FZERO_COURSE_FALL_DOWN : 0;
       if (!flag) {
         fclose(f);
         return fail(error, cap, "Unsupported required course feature");

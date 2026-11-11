@@ -103,7 +103,9 @@ The source supplies SPC music unless `music.spc` overrides it. SPC indices are:
 6 White Land I, 7 White Land II, 8 Fire Field, 9 Death Wind.
 
 `requires` declares native engine capabilities: `grip-magnets`, `up-magnets`,
-and `rainbow-road`. These apply to this course, not every installed track.
+`rainbow-road`, and `fall-down`. These apply to this course, not every installed track.
+`fall-down` provides Illusion's off-road fall and wall bypass with normal gravity;
+`rainbow-road` also applies CGP Rainbow Road's increased gravity.
 Unknown capabilities reject the pack. This is not an ASM execution interface.
 New data can load without a game update; a genuinely new mechanic requires
 an engine implementation first. See MODS.md for the existing mechanic details.
@@ -145,7 +147,7 @@ retain the original ASM sources for that work.
 For reviewed ROM hacks without editor source, `tools/export_runtime_packs.py`
 applies the known patches privately, extracts resources and uses
 `tools/reconstruct_fzedit_course.py` to recover a single-course editor ZIP for
-each resource. All 75 shipped entries reference ZIPs. Releases include compiled
+each resource. All 95 shipped entries reference ZIPs. Releases include compiled
 `.fzc` files in `mods/packs/.cache/courses/` and extracted projects in
 `mods/packs/.cache/sources/`, generated from those exact ZIPs during packaging.
 These content-keyed caches remain valid when the install moves. Edited or
@@ -159,8 +161,8 @@ fields excluded from record hashes. Unknown patches still need format
 and mechanics qualification; their filenames cannot establish compatibility.
 
 The converted examples contain CGP's 55 course versions (15 revised originals,
-10 revised BS courses, 30 additional courses), Astra's 10, MAX's 5, and Bower's
-5. Extraction recovers layout, tile/palette/horizon/minimap resources,
+10 revised BS courses, 30 additional courses), Astra Front's 10, Astra Velocity's
+20, MAX's 5, and Bower's 5. Extraction recovers layout, tile/palette/horizon/minimap resources,
 checkpoints, opponents/shortcuts, intro text, native music and reviewed terrain
 requirements. It does not recover author layers, filenames, editing history,
 ASM source, or absent MSU recordings. These examples preserve the 0.2.0 decoded

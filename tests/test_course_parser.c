@@ -39,7 +39,7 @@ static unsigned resource(unsigned size) {
 static void requirements(void) {
   const char *path = "course-requirements-test.layout";
   const char *cases[] = {
-      "require=all|grip-magnets\nrequire=all|soft-horizon-fog\nrequire=1|up-magnets\nrequire=1|rainbow-road\nmusic=108000\nspc=1|mute-city\nintro_glyph=a7|0f8da2|0f8db2\nmsu_source=astra-front\nmsu=1|10\n",
+      "require=all|grip-magnets\nrequire=0|fall-down\nrequire=all|soft-horizon-fog\nrequire=1|up-magnets\nrequire=1|rainbow-road\nmusic=108000\nspc=1|mute-city\nintro_glyph=a7|0f8da2|0f8db2\nmsu_source=astra-front\nmsu=1|10\n",
       "require=all|unknown\n", "require=2|up-magnets\n",
       "require=128|up-magnets\n", "require=-1|up-magnets\n",
       "require=+1|up-magnets\n", "require=|up-magnets\n",
@@ -74,7 +74,7 @@ static void requirements(void) {
     CHECK(valid == (i == 0));
     if (valid) {
       CHECK(layout.required == (FZERO_COURSE_GRIP_MAGNETS | FZERO_COURSE_SOFT_HORIZON_FOG));
-      CHECK(!layout.course_required[0]);
+      CHECK(layout.course_required[0] == FZERO_COURSE_FALL_DOWN);
       CHECK(layout.course_required[1] == (FZERO_COURSE_UP_MAGNETS | FZERO_COURSE_RAINBOW));
       CHECK(layout.music == 0x108000 && !layout.spc_override[0] && layout.spc_override[1] == 1);
       CHECK(layout.intro_glyph_count == 1 && layout.intro_glyphs[0].code == 0xa7);

@@ -111,7 +111,7 @@ shutil.copytree(ROOT / "assets/shaders", stage / "assets/shaders")
 # Release inputs are explicit: never copy a user's installation or stale cache.
 pack_root = a.packs.resolve()
 expected_courses = {}
-for ident in ("astra-front","bower-league","cgp","max-league"):
+for ident in ("astra-front","bower-league","cgp","max-league","astra-velocity"):
     source=pack_root/ident
     descriptor=json.loads((source/"pack.json").read_text(encoding="utf-8"))
     if descriptor["id"]!=ident: raise SystemExit("Pack identity mismatch")
@@ -119,9 +119,9 @@ for ident in ("astra-front","bower-league","cgp","max-league"):
     for course, digest in extraction["record_hashes"].items():
         expected_courses[f"{ident}/{course}"] = digest
     shutil.copytree(source,stage/"mods/packs"/ident,ignore=shutil.ignore_patterns(
-        ".cache","*.pcm","*.msu", *([] if developer else ["extraction.json"])))
+        ".cache","*.pcm","*.msu", *([] if developer else ["extraction.json", "import-validation.json"])))
 write_index(stage / "mods", [stage / "mods/packs" / ident for ident in
-                            ("astra-front", "bower-league", "cgp", "max-league")])
+                            ("astra-front", "bower-league", "cgp", "max-league", "astra-velocity")])
 # Use the real loader in the clean staging installation. Its content-keyed
 # source extraction and compiled-course caches travel with the ZIP, avoiding
 # conversion on first launch while retaining ordinary edit invalidation.
@@ -241,7 +241,7 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "See MODS.md and mods/CONVERSION.md for details.\n\n"
     "Mods > Track Pack Loader defaults on and loads every folder/ZIP in mods/packs. Restart after installing packs.\n"
     "The original 15 courses remain available. Loader and BS Satellaview Tracks exclude each other.\n"
-    "The included CGP, Astra, Bower and MAX packs add 15 cups / 75 course versions.\n"
+    "The included CGP, Astra Front, Astra Velocity, Bower and MAX packs add 19 cups / 95 course versions.\n"
     "Vehicle packs, rules and screen override remain separate options. CGP preset enables the full experience.\n\n"
     "Required course mechanics load automatically with their pack and have no separate switches.\n"
     "Legend difficulty defaults on; performance diagnostics default off; MSU-1 defaults on with SNES fallback for missing songs. Saved choices are respected.\n\n"

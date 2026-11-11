@@ -1,0 +1,19 @@
+F-Zero Astra Velocity
+
+Hack by MF9_05 / Worthy. Original F-Zero by Nintendo.
+Uses Community Grand Prix components; see the bundled CGP credits for the
+component authors.
+
+Imported from Astra Velocity (CGP) P1, with twenty published courses in the
+Eclipse, Oblivion, Vector and Apex cups. Source revision SHA-256:
+795548cb23e48731ca5c34aed551165515e195f03db249e710fa0abe241a54f8
+
+The resource patch is a course-data derivative, not the full ROM or a
+replacement executable. The player supplies an original USA F-Zero ROM.
+The port retains the authored names, ordering, SNES music selections and
+CGP-compatible magnet mechanics. Illusion alone requires fall-down rules,
+with the original gravity of this revision. Vehicle/global rule choices
+remain independent. No Astra Velocity music recordings were supplied.
+
+Course ZIPs are reconstructed editable FZEdit projects, not the author's
+original working files. See docs/ASTRA_VELOCITY_IMPORT.md for scope and checks.

@@ -144,13 +144,13 @@ int main(void) {
     "\"courses\":[{\"id\":\"a\",\"name\":\"A\",\"source\":\"course.fzc\",\"mechanics\":[\"rainbow.json\"]},"
     "{\"id\":\"b\",\"name\":\"B\",\"source\":\"course.fzc\"}]}";
   const char *grip = "{\"format\":1,\"id\":\"grip\",\"engine\":\"fzero-course-v1\",\"requires\":[\"grip-magnets\",\"up-magnets\"]}";
-  const char *rainbow = "{\"format\":1,\"id\":\"rainbow\",\"engine\":\"fzero-course-v1\",\"requires\":[\"rainbow-road\"]}";
+  const char *rainbow = "{\"format\":1,\"id\":\"rainbow\",\"engine\":\"fzero-course-v1\",\"requires\":[\"rainbow-road\",\"fall-down\"]}";
   write_file("test-pack-discovery/b/grip.json",grip,strlen(grip));
   write_file("test-pack-discovery/b/rainbow.json",rainbow,strlen(rainbow));
   CHECK(FzeroCourseFileWrite("test-pack-discovery/b/course.fzc", &c,error,sizeof(error)));
   write_pack("test-pack-discovery/b", scoped, "scoped", "Scoped");
   CHECK(FzeroTracksInit("test-pack-discovery/settings",true));
-  CHECK(FzeroPacksLoadCourse("scoped",0,&copy,error,sizeof(error)) && copy.required==7);
+  CHECK(FzeroPacksLoadCourse("scoped",0,&copy,error,sizeof(error)) && copy.required==23);
   CHECK(FzeroPacksLoadCourse("scoped",1,&copy,error,sizeof(error)) && copy.required==3);
   CHECK(FzeroPacksLoadCourse("one",0,&copy,error,sizeof(error)) && copy.required==0);
   CHECK(!FzeroPacksCourseMusic("scoped",0,music_b,sizeof(music_b)));

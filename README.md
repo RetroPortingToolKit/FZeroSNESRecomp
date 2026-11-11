@@ -4,8 +4,10 @@ A native PC build of *F-Zero* for SNES.
 
 This build includes **Track Pack Loader**, enabled by default
 and freely switchable in Mods.
-Its bundled CGP, Astra Front, Bower and MAX packs add **75 course versions in
-15 cups**, alongside the untouched original 15 courses. Drop a compatible
+Its bundled CGP, Astra Front, Astra Velocity, Bower and MAX packs add **95 course versions in
+19 cups**, alongside the untouched original 15 courses. Astra Velocity includes
+the Eclipse, Oblivion, Vector and Apex cups; Illusion retains its fall-down
+mechanic and normal gravity. Drop a compatible
 folder or ZIP into `mods/packs` and restart. All installed packs load together.
 BS Satellaview Tracks excludes the loader; vehicle options remain independent.
 Optional race music uses the same filename as the course source, in its pack's

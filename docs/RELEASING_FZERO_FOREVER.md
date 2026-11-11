@@ -83,7 +83,8 @@ directory. Changed/new projects still rebuild automatically.
 3. Build and perform checks appropriate to the actual changes, then commit.
 4. Package both music variants with `tools/make_release.py`, omitting
    `--label`, and passing the reviewed editable course set with
-   `--packs captures/reconstructed-projects-03/packs`. Keep its extraction
+   `--packs captures/astra-velocity/packs` (all five packs, 95 imported courses).
+   Regenerate this set with `tools/export_runtime_packs.py` when needed. Keep its extraction
    manifests for the pack parity check; do not package the installed cache.
    Its version checks require the cache, executable and `VERSION`
    to agree. A fix release produces filenames such as

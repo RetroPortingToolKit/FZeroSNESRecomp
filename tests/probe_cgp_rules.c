@@ -439,6 +439,37 @@ static bool rules_probe(void) {
       CHECK(g_ram[0x14] == (rainbow ? 0x38 : 0x18));
     }
   }
+  {
+    const FzeroCourse *course = FzeroTracksCurrentCourse();
+    unsigned features = course ? course->required : 0;
+    if (features & (FZERO_COURSE_RAINBOW | FZERO_COURSE_FALL_DOWN)) {
+      CpuState c = state(0x30);
+      g_ram[0xadf] = 255;
+      g_ram[0x14] = 0x18;
+      CHECK(fragment(&c, 0x0091e6, 0x0091eb, 0, false));
+      CHECK(g_ram[0x14] == (features & FZERO_COURSE_RAINBOW ? 0x38 : 0x18));
+      for (unsigned flags = 0; flags < 256; ++flags) {
+        c = state(0x30);
+        g_ram[0] = (uint8_t)flags;
+        g_ram[0xc3] = g_ram[0xcf] = g_ram[0xf38] = 0;
+        g_ram[0xd40] = 3;
+        CHECK(fragment(&c, 0x0098f5, 0x009967, 0x00992d, false));
+        CHECK(stopped == ((flags & 0x8c) && !(flags & 128) ? 0x00992d : 0x009967));
+        CHECK(g_ram[0xc3] == (flags & 128 ? 0x40 : 0));
+        CHECK(g_ram[0xcf] == (flags & 128 ? 6 : 0));
+        CHECK(g_ram[0xf38] == (flags & 128 ? 3 : 0));
+        c = state(0x30); g_ram[0xcc0] = (uint8_t)flags;
+        CHECK(fragment(&c, 0x00ba20, 0x00ba25, 0, false));
+        CHECK(!(c.A & 255));
+      }
+      c = state(0x30); c.X = 0;
+      CHECK(fragment(&c, 0x00e70b, 0x00e716, 0, false));
+      c = state(0x30); c.X = 2; g_ram[0xcc2] = 0;
+      CHECK(fragment(&c, 0x00e70b, 0x00e710, 0, false));
+      fprintf(stderr, "rules-probe: fall-down collision flags=256, wall spin/bounce, gravity=%s PASS\n",
+              features & FZERO_COURSE_RAINBOW ? "high" : "stock");
+    }
+  }
   if (FzeroRuleEnabled(FZERO_RULE_LEGEND)) {
     /* Launch acceleration must match that vehicle, even with Legend active.
      * D71 changes to a shared-table index only at the donor's handoff sites. */
