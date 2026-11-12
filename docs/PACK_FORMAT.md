@@ -162,7 +162,7 @@ and mechanics qualification; their filenames cannot establish compatibility.
 
 The default bundle contains CGP's 55 course versions (15 revised originals,
 10 revised BS courses, 30 additional courses), Astra Velocity's 20, MAX's 5,
-and Bower's 5. Astra Velocity replaces the older ten-course Astra Front pack.
+and Bower's 5.
 Extraction recovers layout, tile/palette/horizon/minimap resources,
 checkpoints, opponents/shortcuts, intro text, native music and reviewed terrain
 requirements. It does not recover author layers, filenames, editing history,
@@ -241,8 +241,7 @@ CGP recordings now ship in `mods/packs/cgp/music`, following the same rule for
 race songs. There is no separate `cgp-audio` folder in new bundles. Shared menu
 cues retain the existing adapter filenames in that folder. Original numbered
 MSU packs can be renamed to match the course ZIPs. Astra Velocity uses its authored
-SNES music unless matching course recordings are added. The superseded Astra
-Front pack and its ten recordings are no longer included in the default bundle.
+SNES music unless matching course recordings are added.
 
 This convention requires 0.4.0 or newer. The older 0.3.0 tester ZIPs still need
 their original prefixed recordings.

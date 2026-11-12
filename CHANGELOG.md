@@ -4,8 +4,8 @@
 
 - Bundle Worthy / MF9_05's Astra Velocity P1: twenty courses in Eclipse,
   Oblivion, Vector and Apex, with authored artwork, order and SNES music.
-- Replace the older Astra and Front leagues with Astra Velocity. The default
-  bundle contains four packs, 85 imported courses and 17 imported cups.
+- Refresh the bundled course collection: four packs, 85 imported courses and
+  17 imported cups, alongside the original 15 courses.
 - Preserve Illusion's fall-down collision and wall behavior with normal
   gravity, separately from CGP Rainbow Road's increased gravity.
 - Include editable course ZIPs through the existing bundled-pack pipeline.

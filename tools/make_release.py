@@ -238,7 +238,6 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "Mods > Track Pack Loader defaults on and loads every folder/ZIP in mods/packs. Restart after installing packs.\n"
     "The original 15 courses remain available. Loader and BS Satellaview Tracks exclude each other.\n"
     "The included CGP, Astra Velocity, Bower and MAX packs add 17 cups / 85 course versions.\n"
-    "Astra Velocity replaces the earlier Astra and Front leagues.\n"
     "Vehicle packs, rules and screen override remain separate options. CGP preset enables the full experience.\n\n"
     "Required course mechanics load automatically with their pack and have no separate switches.\n"
     "Legend difficulty defaults on; performance diagnostics default off; MSU-1 defaults on with SNES fallback for missing songs. Saved choices are respected.\n\n"

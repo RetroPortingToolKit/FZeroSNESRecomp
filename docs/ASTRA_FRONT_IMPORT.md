@@ -1,8 +1,5 @@
 # Astra Front import
 
-The default bundle uses [Astra Velocity](ASTRA_VELOCITY_IMPORT.md) in place of
-these two cups. This profile remains supported for independent imports.
-
 Reviewed source: the owner's `F-ZERO Astra Front.sfc`, unheadered SHA-256
 `76e03d7ef6d1c5e63da554f00e48843f589ec1407a4aaf80ed46af5df4f988c0`.
 This revision publishes **two cups / ten courses**. Its 65 internal resource
