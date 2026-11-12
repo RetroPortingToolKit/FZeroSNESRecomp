@@ -175,8 +175,9 @@ SNES audio. Changing the default soundtrack keeps your individual replacements.
 For **course music**, place the recording in that pack's `music` folder and
 match the course filename: `courses/moon.zip` uses `music/moon.pcm`. The filenames inside a ZIP do not
 change this rule.
-Astra Velocity uses its authored SNES music. Matching recordings can be added to
-`mods/packs/astra-velocity/music` without changing any JSON. Its course music
+Astra Velocity's twenty P3 recordings are included in the MSU edition under
+`mods/packs/astra-velocity/music`. The other edition uses its authored SNES music
+until matching recordings are added, without changing any JSON. Its course music
 does not replace CGP's menu songs.
 
 Pack authors can copy the `menu_music` object from CGP's `courses.json` as a

@@ -59,7 +59,23 @@ The supplied `astra front msu (1).zip` contains ten course recordings. Import
 it with `python tools/import_astra_music.py "path/to/astra front msu (1).zip"`.
 The reviewed hashes and loop points are in `astra-front.json`. The source set
 stays in ignored `music/astra-front` and can be staged into an independently
-installed Astra Front pack. Astra Velocity uses its authored SNES music.
+installed Astra Front pack.
+
+## Astra Velocity
+
+The MSU edition includes twenty course recordings from the supplied
+`F-Zero Astra Velocity (CGP) P3.zip`. Its patch confirms the imported course
+names, order and arithmetic music selector. The importer preserves PCM bytes
+and loop points, staging them by course filename in `mods/packs/astra-velocity/music`.
+The file identities and mapping are recorded in `astra-velocity.json`.
+
+```powershell
+python tools/import_astra_velocity_music.py 'path/to/F-Zero Astra Velocity (CGP) P3.zip'
+```
+
+This creates ignored `music/astra-velocity`. The release packager verifies it
+before including recordings; the without-MSU edition retains the authored SNES
+music and supports adding these same files later.
 
 CGP's six non-course recordings are declared in its `courses.json`, using the
 reference template in `cgp-menu.json`. **Mods > Menu and event music** displays

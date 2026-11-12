@@ -55,6 +55,11 @@ neither includes personal callout WAVs. Shared engine `d1ace29a` and launcher
 
 ## Preparing a release
 
+The Astra Velocity preview's with-MSU edition includes twenty verified P3
+recordings alongside the CGP soundtrack. Import them with
+`tools/import_astra_velocity_music.py` and provide `--astra-velocity-music`
+when the retained source is outside `music/astra-velocity`.
+
 Tester bundles use the default `--profile player`: runtime resources, short
 launch instructions, credits and licenses only. Integrity manifests remain
 beside the ZIPs. Use `--profile developer` for a separate `-dev` bundle with

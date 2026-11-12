@@ -14,6 +14,7 @@ import struct
 import subprocess
 import zipfile
 from import_cgp_music import verify_music, stage_course_music
+from import_astra_velocity_music import stage_music as stage_astra_velocity_music
 from bundled_content import BUNDLED_PACK_IDS, write_index
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -24,7 +25,7 @@ p.add_argument("--output", default="release-stage", help="Parent for a fresh ver
 p.add_argument("--label", default="", help="Optional local build label, such as fzero-55")
 p.add_argument("--exe", default="F-Zero Forever.exe", help="Desktop executable filename in the build directory")
 p.add_argument("--music", choices=("bundled", "external"), default="bundled",
-               help="Include the approved CGP soundtrack, or retain MSU support without audio files")
+               help="Include the CGP and Astra Velocity soundtracks, or retain MSU support without audio files")
 p.add_argument("--profile", choices=("player", "developer"), default="player",
                help="Player bundles contain runtime files and credits; developer bundles also include source/reference material")
 p.add_argument("--packs", type=Path, required=True, help="Reviewed exported course packs; never copy arbitrary installed packs")
@@ -32,6 +33,8 @@ p.add_argument("--deluxe-mods", type=Path, default=ROOT / "captures/bs-deluxe/mo
                help="Imported Deluxe directory; its credits and provenance ship with the build")
 p.add_argument("--cgp-music", type=Path, default=ROOT / "music/cgp",
                help="Verified CGP soundtrack source (reuses existing imports)")
+p.add_argument("--astra-velocity-music", type=Path, default=ROOT / "music/astra-velocity",
+               help="Verified Astra Velocity P3 recordings")
 a = p.parse_args()
 bundled_music = a.music == "bundled"
 developer = a.profile == "developer"
@@ -142,10 +145,12 @@ music = a.cgp_music
 if bundled_music:
     music_manifest = verify_music(music)
     stage_course_music(music, stage / "mods/packs/cgp")
+    stage_astra_velocity_music(a.astra_velocity_music, stage / "mods/packs/astra-velocity")
 (stage / "assets/music").mkdir(parents=True, exist_ok=True)
 if developer:
     shutil.copy2(ROOT / "assets/music/cgp.json", stage / "assets/music/cgp.json")
     shutil.copy2(ROOT / "assets/music/astra-front.json", stage / "assets/music/astra-front.json")
+    shutil.copy2(ROOT / "assets/music/astra-velocity.json", stage / "assets/music/astra-velocity.json")
     shutil.copy2(ROOT / "assets/music/README.md", stage / "assets/music/README.md")
     shutil.copy2(ROOT / "assets/music/CGP_ATTRIBUTION.md", stage / "assets/music/CGP_ATTRIBUTION.md")
 if bundled_music and music_manifest.get("attribution_review", {}).get("status") == "incomplete":
@@ -253,7 +258,7 @@ shutil.copy2(ROOT / "tools/collect_diagnostics.cmd", stage / "Collect diagnostic
     "Choose both recordings before enabling it. Boost-power timing offers Lap 2 only (once per race).\n"
     "The final-lap recording retains its separate timing.\n"
     "No callout recordings are included. See MODS.md.\n\n"
-    + ("CGP audio is included in mods/packs/cgp/music. Astra Velocity uses its authored SNES music.\n" if bundled_music else "Audio is not included; you can add it to each pack's music folder.\n") +
+    + ("CGP and Astra Velocity recordings are included in their pack music folders.\n" if bundled_music else "Audio is not included; you can add it to each pack's music folder.\n") +
     "Course ZIPs contain editable projects; example.zip contains example.fzm and uses music/example.pcm.\n"
     "Bundled courses include a ready-to-use cache in mods/packs/.cache.\n"
     "Changed or newly added courses rebuild their cache automatically on launch.\n"
@@ -349,7 +354,7 @@ for path in sorted(stage.rglob("*")):
                 or path.name.lower().startswith("crt-geom")):
             raise SystemExit(f"Forbidden payload: {path}")
         if path.suffix.lower() in (".pcm", ".msu") and (
-                not bundled_music or path.parent != stage / "mods/packs/cgp/music"):
+                not bundled_music or path.parent not in (stage / "mods/packs/cgp/music", stage / "mods/packs/astra-velocity/music")):
             raise SystemExit(f"Unapproved music payload: {path}")
         manifest["files"][path.relative_to(stage).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
 manifest_path = stage / "manifest.json" if developer else stage.parent / (stage.name + ".manifest.json")

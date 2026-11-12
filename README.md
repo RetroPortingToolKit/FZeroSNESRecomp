@@ -27,7 +27,7 @@ The current Windows release is **0.19.1**. Future fixes advance the patch
 version; new features advance the minor version. All bundle variants share
 that version. See [the release policy](docs/RELEASING_FZERO_FOREVER.md).
 
-The [Astra Velocity test prerelease, 0.20.0-rc.2](https://github.com/RetroPortingToolKit/FZeroSNESRecomp/releases/tag/v0.20.0-rc.2),
+The [Astra Velocity test prerelease, 0.20.0-rc.3](https://github.com/RetroPortingToolKit/FZeroSNESRecomp/releases/tag/v0.20.0-rc.3),
 features twenty courses on the `feat/astra-velocity` branch while retaining 0.19.1's
 records, ghost and rendering fixes. Broader gameplay testing is still in progress.
 
@@ -146,10 +146,10 @@ options remain editable. The console ending-credits patch is retired. F-Zero 55
 title artwork is retained but hidden for a future course pack. No preset is applied automatically on startup.
 
 Windows previews come in **with-msu** and **without-msu** ZIPs. Both support
-MSU playback; only with-msu includes the replacement **Community Grand Prix PC-port**
-soundtrack (29 attribution-cleared recordings). In **Settings > Audio**, **MSU-1 music** defaults on for fresh settings. Leave its source
-on **Installed pack music**, or select the CGP preset in Mods. Music starts
-off on a fresh installation. Missing tracks and unrelated track packs use
+MSU playback; with-msu includes the **Community Grand Prix PC-port** soundtrack
+(29 recordings) and **Astra Velocity P3** soundtrack (20 recordings).
+In **Settings > Audio**, **MSU-1 music** defaults on for fresh settings. Leave its source
+on **Installed pack music**, or select the CGP preset in Mods. Missing tracks use
 SNES music. Track selection works in both Grand Prix and Practice.
 
 The smaller without-msu download contains no soundtrack files. Its Audio

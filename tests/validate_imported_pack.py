@@ -1,6 +1,6 @@
 """Private-ROM smoke qualification for a newly added course pack.
 
-Checks every course's real SPC selection/render capture on retail and expanded
+Checks every course's SPC selection or installed PCM playback/render capture on retail and expanded
 engines, then both engines' completed-cup records, detail navigation, vehicle
 isolation and battery-save reload. Finish fixtures seed times, not driven laps.
 """
@@ -14,6 +14,7 @@ import re
 import shutil
 import subprocess
 import sys
+import wave
 
 from validate_native_menus import player_route, ROSTERS
 from validate_records import BEST, EMPTY, ROUTE, totals
@@ -35,6 +36,8 @@ def main():
     p.add_argument('--courses-only', action='store_true')
     p.add_argument('--records-only', action='store_true')
     p.add_argument('--vehicle-engine',choices=('both','stock','expanded'),default='both')
+    p.add_argument('--music', choices=('native', 'pcm'), default='native',
+                   help='Check native SPC selection or installed course PCM playback')
     a = p.parse_args()
     build, stock, out = a.build.resolve(), a.stock.resolve(), a.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
@@ -73,6 +76,8 @@ def main():
     base = dict(clean, FZERO_DELUXE_DATA='embedded', FZERO_BS_CARS='0', FZERO_BS_TRACKS='0',
                 FZERO_CGP_REBALANCE='0', FZERO_RULES='', FZERO_TRACK_PACKS='packs',
                 FZERO_TEST_SAVE_SRAM='1', FZERO_PACKS_DIR=str(out/'mods/packs'), FZERO_PACK_LOADER='1')
+    if a.music == 'pcm':
+        base.update(FZERO_RULES='cgp-msu', SNESRECOMP_MSU1=str(out/'mods/packs/installed-music'))
     # Releases ship serially populated caches. Build this same cache before
     # concurrent game processes: cold extraction into one directory can race.
     inspection = subprocess.run([str(build/'FZeroInspectPacks.exe'), str(out/'mods/packs')],
@@ -102,11 +107,20 @@ def main():
         env = dict(base, FZERO_CGP_CARS='7' if expanded else '0', SNESRECOMP_SAVE_ROOT=f's{index}',
                    FZERO_CUP=f"{a.pack}/{track['cup']}", FZERO_TEST_COURSE=str(ordinal), FZERO_ASPECT='21:9')
         inputs = player_route(0, 7)+',600-606:8,730-736:8,900-906:8,960-966:8' if expanded else ROUTE
-        ram, _, log = run(label, env, 1750, inputs, FZERO_RULE_PROBE='1')
+        audio = {'SNESRECOMP_WAV': str(out/f'{label}.wav')} if a.music == 'pcm' else {}
+        ram, _, log = run(label, env, 1750, inputs, FZERO_RULE_PROBE='1', **audio)
         assert ram[0x54:0x56] == b'\2\3', (label, ram[0x54:0x57].hex())
         from audit_track_metadata import SONGS
         apu = (out/f'{label}.apu').read_bytes()
-        assert apu[0x7fe] == 8+SONGS.index(track['snes_music']), (label, apu[0x7fe])
+        if a.music == 'pcm':
+            # Guest RAM retains command 6; the host resolves the course's PCM.
+            assert ram[0x180] == 6 and ram[0x183] == 1, (label, 'Race music adapter inactive')
+            assert ram[0x182] == 0, (label, 'PCM fallback occurred')
+            with wave.open(str(out/f'{label}.wav')) as recording:
+                recording.setpos(max(0, recording.getnframes() - 64080))
+                assert any(recording.readframes(64080)), (label, 'Silent mixed output')
+        else:
+            assert apu[0x7fe] == 8+SONGS.index(track['snes_music']), (label, apu[0x7fe])
         assert 'rules-probe: PASS' in log
         results.append(label+': race/music/mechanics PASS')
         print(results[-1], flush=True)

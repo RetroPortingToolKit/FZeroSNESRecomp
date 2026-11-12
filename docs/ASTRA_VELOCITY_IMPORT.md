@@ -13,9 +13,12 @@ plus the original 15 courses in three cups.
 
 The source intro for Mute City II contains two spaces before II; the display
 string preserves them. IDs normalize whitespace. Names, order and SNES music
-come from the donor's loaders and tables. Separate MSU recordings were not
-provided; this pack uses its authored SNES music. CGP recordings remain assigned
-to CGP.
+come from the donor's loaders and tables. The MSU edition includes twenty P3
+recordings matched to the authored course order. The supplied P3 patch confirms
+the same course names/order and the selector `10 + 5 * cup + race`; the course
+resources remain the qualified P1 import. Original PCM bytes and loop points
+are preserved. With MSU disabled or a recording absent, the authored SNES music
+plays. CGP recordings remain assigned to CGP.
 
 All courses require the existing CGP grip-magnet and up-magnet adapters.
 Illusion alone requires `fall-down`: off-road void starts the falling death

@@ -9,6 +9,8 @@
 - Preserve Illusion's fall-down collision and wall behavior with normal
   gravity, separately from CGP Rainbow Road's increased gravity.
 - Include editable course ZIPs through the existing bundled-pack pipeline.
+- Include twenty course-matched Astra Velocity P3 recordings in the MSU edition,
+  preserving their original audio and loop points. Missing recordings use SNES music.
 
 ## 0.19.1 - Records and ghosts across cars
 

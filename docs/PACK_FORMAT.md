@@ -240,8 +240,9 @@ Missing recordings use SNES music. Adding music does not change course records.
 CGP recordings now ship in `mods/packs/cgp/music`, following the same rule for
 race songs. There is no separate `cgp-audio` folder in new bundles. Shared menu
 cues retain the existing adapter filenames in that folder. Original numbered
-MSU packs can be renamed to match the course ZIPs. Astra Velocity uses its authored
-SNES music unless matching course recordings are added.
+MSU packs can be renamed to match the course ZIPs. The MSU edition also includes
+twenty Astra Velocity P3 recordings in `mods/packs/astra-velocity/music`. Missing
+recordings use the authored SNES music.
 
 This convention requires 0.4.0 or newer. The older 0.3.0 tester ZIPs still need
 their original prefixed recordings.

@@ -1,0 +1,170 @@
+{
+  "name": "Astra Velocity P3 soundtrack",
+  "format": "msu1-pcm-1",
+  "source_archive": "F-Zero Astra Velocity (CGP) P3.zip",
+  "source_archive_sha256": "d6e458e573a1ee358e946718964f9bd3cabe057be7baac8c6e862e50e530e9d9",
+  "selector_patch_sha256": "21f2930f83142c34a488d0ab92793614c9c34ac51964df1645d251af58c5e802",
+  "selector_formula": "10 + 5 * cup + race",
+  "tracks": {
+    "big-blue.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-10.pcm",
+      "track": 10,
+      "bytes": 21139916,
+      "sha256": "ee3079b8e675559530bfed93777d56d1f6561e0774b51e9f18741b290697aaed",
+      "loop": 0,
+      "frames": 5284977
+    },
+    "death-wind.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-11.pcm",
+      "track": 11,
+      "bytes": 20278292,
+      "sha256": "9351024a005c4da027478ef476880c79786268a0c1ee2a3983285fea7f1e1d88",
+      "loop": 0,
+      "frames": 5069571
+    },
+    "mars.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-12.pcm",
+      "track": 12,
+      "bytes": 11708448,
+      "sha256": "8a2cbf265495029a128dd660e3ba94ebaf4cfebd2e74d10ced4c9af314a43999",
+      "loop": 0,
+      "frames": 2927110
+    },
+    "red-canyon.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-13.pcm",
+      "track": 13,
+      "bytes": 21255880,
+      "sha256": "c4623c4c4b608af134373055432f3340dd211f1f22f395766a11001d4ff3241d",
+      "loop": 0,
+      "frames": 5313968
+    },
+    "huckmine.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-14.pcm",
+      "track": 14,
+      "bytes": 17359856,
+      "sha256": "8b0491d8ba38c3f46d08940dd57c5f755ad68276a7e04fe2314dfb90181c03c3",
+      "loop": 0,
+      "frames": 4339962
+    },
+    "candany.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-15.pcm",
+      "track": 15,
+      "bytes": 97440776,
+      "sha256": "426e145f8541a0645e9cdc8416883bc05f46157bac9b276edfe188df407d27df",
+      "loop": 0,
+      "frames": 24360192
+    },
+    "mute-city-i.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-16.pcm",
+      "track": 16,
+      "bytes": 17780772,
+      "sha256": "0d0199e13993fed8d7163241ff5d703572efba1ead7459d7cb055a33a99e5add",
+      "loop": 0,
+      "frames": 4445191
+    },
+    "brutal-wind-i.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-17.pcm",
+      "track": 17,
+      "bytes": 67470344,
+      "sha256": "90de9fb18a20ee6969bedd0ba0f58b2caa1c4b62e6e3cceda0c14de0ba8d34b0",
+      "loop": 0,
+      "frames": 16867584
+    },
+    "marine-city.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-18.pcm",
+      "track": 18,
+      "bytes": 27472212,
+      "sha256": "62adc591af3610c96c7b09cd3cda9895e60e6985cdad7a86a0e8e40210963770",
+      "loop": 0,
+      "frames": 6868051
+    },
+    "fire-field.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-19.pcm",
+      "track": 19,
+      "bytes": 29843716,
+      "sha256": "c5b8cc49137aa21d8bf8130461084299d42552c853d0477b9795f61f2353b2d3",
+      "loop": 0,
+      "frames": 7460927
+    },
+    "zone-zero.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-20.pcm",
+      "track": 20,
+      "bytes": 20342552,
+      "sha256": "3034bfa9b0009ac132267aed4e7a609056c8566062ccf2c82a8b28f60620fbb0",
+      "loop": 0,
+      "frames": 5085636
+    },
+    "sand-ocean.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-21.pcm",
+      "track": 21,
+      "bytes": 12388992,
+      "sha256": "8907daa0fd25af5dcfd8945da91599fdaa1a7b55f30e5351950c38e460f46540",
+      "loop": 0,
+      "frames": 3097246
+    },
+    "metal-field.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-22.pcm",
+      "track": 22,
+      "bytes": 56295944,
+      "sha256": "4174340413678d8a9af869019866ceea9574269371ab1af1975e459cdc30f5b6",
+      "loop": 0,
+      "frames": 14073984
+    },
+    "vulcanom.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-23.pcm",
+      "track": 23,
+      "bytes": 43737644,
+      "sha256": "27a7a286da97b28be637728966a22ca0a360c96a5e90d59ae6f8369e237aee75",
+      "loop": 0,
+      "frames": 10934409
+    },
+    "death-city.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-24.pcm",
+      "track": 24,
+      "bytes": 43974152,
+      "sha256": "efd1e317214ff5d468177fe369de2e944eb3db99455f704763cc2783b91f7acb",
+      "loop": 0,
+      "frames": 10993536
+    },
+    "mute-city-ii.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-25.pcm",
+      "track": 25,
+      "bytes": 33812300,
+      "sha256": "f0d83c98ba985446aa3cb9c459bfafc6ff9d0e1f39b4821edd2cbd3b9e152363",
+      "loop": 0,
+      "frames": 8453073
+    },
+    "white-woods.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-26.pcm",
+      "track": 26,
+      "bytes": 31919952,
+      "sha256": "ab19844f7e7cd783e85ac2612fad5fe5a20f552ac70e198387daf4813bf93f82",
+      "loop": 0,
+      "frames": 7979986
+    },
+    "brutal-wind-ii.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-27.pcm",
+      "track": 27,
+      "bytes": 67470344,
+      "sha256": "90de9fb18a20ee6969bedd0ba0f58b2caa1c4b62e6e3cceda0c14de0ba8d34b0",
+      "loop": 0,
+      "frames": 16867584
+    },
+    "synobazz.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-28.pcm",
+      "track": 28,
+      "bytes": 6214468,
+      "sha256": "ad6e02290f4bb203f5e6bb18876afdea41e7c7bfedd06d120f8dfa2770680f2c",
+      "loop": 0,
+      "frames": 1553615
+    },
+    "illusion.pcm": {
+      "source": "F-Zero Astra Velocity (CGP) P3-29.pcm",
+      "track": 29,
+      "bytes": 20263392,
+      "sha256": "d6b884d472f7c536d59e81dc872a839554c6e75f1df83e80bcc1e97a6fa50478",
+      "loop": 0,
+      "frames": 5065846
+    }
+  }
+}

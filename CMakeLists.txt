@@ -476,6 +476,17 @@ if(FZERO_PACK_SOURCE AND FZERO_STAGE_RELEASE_CONTENT)
                 --out "$<TARGET_FILE_DIR:FZeroSNESRecomp>/mods/packs/cgp"
             COMMENT "Staging verified CGP music by course filename" VERBATIM)
     endif()
+    if(EXISTS "${FZERO_PACK_SOURCE}/astra-velocity/pack.json" AND
+       EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/music/astra-velocity/big-blue.pcm")
+        set_property(TARGET FZeroSNESRecomp APPEND PROPERTY LINK_DEPENDS
+            "${CMAKE_CURRENT_SOURCE_DIR}/assets/music/astra-velocity.json"
+            "${CMAKE_CURRENT_SOURCE_DIR}/tools/import_astra_velocity_music.py")
+        add_custom_command(TARGET FZeroSNESRecomp POST_BUILD
+            COMMAND ${Python3_EXECUTABLE} "${CMAKE_CURRENT_SOURCE_DIR}/tools/import_astra_velocity_music.py"
+                --stage-course-from "${CMAKE_CURRENT_SOURCE_DIR}/music/astra-velocity"
+                --out "$<TARGET_FILE_DIR:FZeroSNESRecomp>/mods/packs/astra-velocity"
+            COMMENT "Staging verified Astra Velocity music by course filename" VERBATIM)
+    endif()
     if(EXISTS "${FZERO_PACK_SOURCE}/astra-front/pack.json" AND
        EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/music/astra-front/moon.pcm")
         find_package(Python3 COMPONENTS Interpreter REQUIRED)
