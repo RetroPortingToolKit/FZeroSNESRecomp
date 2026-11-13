@@ -14,6 +14,8 @@ Our team consists of veteran developers from the RetroPortingToolkit team, and F
 
 We worked with the community and combined several of the highest quality rom hacks for the game, including: **Community Grand Prix, Astra Front, Bower, and MAX**. You can even bring your own rom hacks and create your own races. This is the largest combination of tracks EVER for F-Zero.
 
+> All bundled ROM hack content is included with explicit permission from its authors and creators. AI was not used in any way to modify the ROM hacks or their content. The inclusion of their work in this project should not be taken as a statement of their views on AI.
+
 We made sure to preserve every custom feature that was built for each GP, including **CGP's magnets, jumps, and gravity changes**, with selectable gameplay rules and **Legend difficulty** for another challenge.
 
 <img src="docs/screenshots/11-Bower-Red-Canyon-III.png" width="100%" alt="11 Bower Red Canyon III">
