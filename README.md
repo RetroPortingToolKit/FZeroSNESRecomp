@@ -14,7 +14,7 @@ Our team consists of veteran developers from the RetroPortingToolkit team, and F
 
 We worked with the community and combined several of the highest quality rom hacks for the game, including: **Community Grand Prix, Astra Front, Bower, and MAX**. You can even bring your own rom hacks and create your own races. This is the largest combination of tracks EVER for F-Zero.
 
-We made sure to preserve every custom feature that was built for each GP, including **CGP's magnets, jumps, and gravity changes**, with selectable gameplay rules and**Legend difficulty** for another challenge.
+We made sure to preserve every custom feature that was built for each GP, including **CGP's magnets, jumps, and gravity changes**, with selectable gameplay rules and **Legend difficulty** for another challenge.
 
 <img src="docs/screenshots/11-Bower-Red-Canyon-III.png" width="100%" alt="11 Bower Red Canyon III">
 
@@ -42,15 +42,15 @@ Choose from **twelve CGP machines**: eight additional vehicles and CGP versions 
 
 ## Introducing split-screen and netplay.
 
-We have also added multiplayer! You can play with 2 players via local split-screen, or up to 4 players via online netplay. Each player can compete with their own vehicle, and we made sure that player collisions, bumper traffic, minimaps and race positions work correctly. Configure your players in the launcher, enable **Local Multiplayer**, then choose**VS MODE** on the title screen.
+We have also added multiplayer! You can play with 2 players via local split-screen, or up to 4 players via online netplay. Each player can compete with their own vehicle, and we made sure that player collisions, bumper traffic, minimaps and race positions work correctly. Configure your players in the launcher, enable **Local Multiplayer**, then choose **VS MODE** on the title screen.
 
 **Multiplayer supports rollback netcode**, LAN discovery, Direct IP, and online lobbies
 
 ## So many HD settings.
 
-**HD Mode 7** reconstructs the track perspective with finer sampling at**2×, 4×, or 8× detail**, optional edge smoothing, and GPU rendering for every local player. Start at 2× when tuning performance; higher settings are more demanding.
+**HD Mode 7** reconstructs the track perspective with finer sampling at **2×, 4×, or 8× detail**, optional edge smoothing, and GPU rendering for every local player. Start at 2× when tuning performance; higher settings are more demanding.
 
-Pair it with **16:9, 21:9, 32:9, or Fit** widescreen modes, or keep the classic 4:3 view. Presentation rates from**60 to 360 FPS** give high-refresh displays smoother motion, independently of the HD Mode 7 setting.
+Pair it with **16:9, 21:9, 32:9, or Fit** widescreen modes, or keep the classic 4:3 view. Presentation rates from **60 to 360 FPS** give high-refresh displays smoother motion, independently of the HD Mode 7 setting.
 
 <img src="docs/screenshots/bs-forest-iii-race.png" width="100%" alt="bs forest iii race">
 
@@ -74,7 +74,7 @@ Visuals are upgraded too: it supports any aspect ratio (including 16:9, 21:9, 32
 
 ## Bring your own races, or make them!
 
-Bring your favorite supported hacks together instead of keeping each in a separate installation. The launcher's **Custom Content importer** accepts**F-Zero Edit projects, ZIP archives, IPS/BPS patches, and supported ROM hacks**, validating and installing compatible content into your library.
+Bring your favorite supported hacks together instead of keeping each in a separate installation. The launcher's **Custom Content importer** accepts **F-Zero Edit projects, ZIP archives, IPS/BPS patches, and supported ROM hacks**, validating and installing compatible content into your library.
 
 Create courses in F-Zero Edit and import them to race, or install a drop-in pack that keeps its **courses, cups, scenery, music, and supported mechanics** together. Track Pack Loader loads compatible installed packs alongside the original courses.
 
@@ -102,9 +102,9 @@ Create courses in F-Zero Edit and import them to race, or install a drop-in pack
 
 | Action | Keyboard | Gamepad |
 | --- | --- | --- |
-| Open save-state browser | **F7** |**Select + R** |
-| Open offline rewind | **R** |**Select + L** |
-| Quick save / quick load | Assign in **Controls → Host Shortcuts** | Assign in**Controls → Host Shortcuts** |
+| Open save-state browser | **F7** | **Select + R** |
+| Open offline rewind | **R** | **Select + L** |
+| Quick save / quick load | Assign in **Controls → Host Shortcuts** | Assign in **Controls → Host Shortcuts** |
 
 Bindings are customizable. For save slots, shaders, HD Mode 7, music, and configuration details, see the [player guide](docs/PLAYER_GUIDE.md).
 
@@ -138,19 +138,19 @@ For Windows playtest builds, reproduce the issue, quit, and run **Collect diagno
 
 ## The people behind Forever
 
-F-Zero Forever was made primarily as a collaboration between the **RetroPortingToolkit developers** and the creators of the**F-Zero Community Grand Prix ROM hack**.
+F-Zero Forever was made primarily as a collaboration between the **RetroPortingToolkit developers** and the creators of the **F-Zero Community Grand Prix ROM hack**.
 
 | Role | Contributors |
 | --- | --- |
-| **Development** |**GameMaster** — [GitHub](https://github.com/mstan) · [1379.tech](https://1379.tech/) · Discord: `gamemaster` |
-| **Design** |**Shokunin** — [GitHub](https://github.com/tetrisgm) · [Twitter](https://twitter.com/tetrisgm) |
-| **QA** |**Worthy MF9**,**Fennor**,**MatoLabu** |
+| **Development** | **GameMaster** — [GitHub](https://github.com/mstan) · [1379.tech](https://1379.tech/) · Discord: `gamemaster` |
+| **Design** | **Shokunin** — [GitHub](https://github.com/tetrisgm) · [Twitter](https://twitter.com/tetrisgm) |
+| **QA** | **Worthy MF9**, **Fennor**, **MatoLabu** |
 
-Built with **[SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp)**,**[RetroPortingToolkit](https://retroportingtoolkit.com)**,**[F-Zero CGP](https://romhackplaza.org/romhacks/f-zero-community-grand-prix-cgp-super-nintendo-romhack)**, and**F-Zero VS**. The launcher uses [recomp-ui](https://github.com/RetroPortingToolKit/recomp-ui).
+Built with **[SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp)**, **[RetroPortingToolkit](https://retroportingtoolkit.com)**, **[F-Zero CGP](https://romhackplaza.org/romhacks/f-zero-community-grand-prix-cgp-super-nintendo-romhack)**, and **F-Zero VS**. The launcher uses [recomp-ui](https://github.com/RetroPortingToolKit/recomp-ui).
 
-**BS F-Zero Deluxe** is included with permission from**GuyPerfect, Porthor, and PowerPanda**. See [soundtrack attribution](assets/music/CGP_ATTRIBUTION.md) for music credits and provenance. Thank you to the course authors, contributors, and playtesters who help this project grow.
+**BS F-Zero Deluxe** is included with permission from **GuyPerfect, Porthor, and PowerPanda**. See [soundtrack attribution](assets/music/CGP_ATTRIBUTION.md) for music credits and provenance. Thank you to the course authors, contributors, and playtesters who help this project grow.
 
-> **Bring your own game.** You need a legally dumped, unmodified**F-Zero (USA)** ROM in `.sfc` or `.smc` format. No ROM is included.
+> **Bring your own game.** You need a legally dumped, unmodified **F-Zero (USA)** ROM in `.sfc` or `.smc` format. No ROM is included.
 
 ## License
 
