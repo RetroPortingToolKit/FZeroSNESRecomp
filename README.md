@@ -1,290 +1,124 @@
 # F-Zero Forever
 
-A native PC build of *F-Zero* for SNES.
-
-This build includes **Track Pack Loader**, enabled by default
-and freely switchable in Mods.
-Its bundled CGP, Astra Front, Bower and MAX packs add **75 course versions in
-15 cups**, alongside the untouched original 15 courses. Drop a compatible
-folder or ZIP into `mods/packs` and restart. All installed packs load together.
-BS Satellaview Tracks excludes the loader; vehicle options remain independent.
-Optional race music uses the same filename as the course source, in its pack's
-`music/` folder: `courses/example.fzc` or `example.fzm` uses `music/example.pcm`.
-MSU-1 and **Installed pack music** default on for fresh settings; missing songs use the SNES soundtrack. Explicit saved choices are respected.
-**CGP original-car rebalances** and **Local Multiplayer** also default on. Choose
-VS MODE on the title menu for local split-screen. BS vehicles are a separate,
-conflicting opt-in; saved choices remain respected.
-
-See [local controls and mod scopes](docs/LOCAL_CONTROLS_AND_MODS.md) for player assignments, unpausable multiplayer and mod settings.
-
-See [pack authoring and music](docs/PACK_FORMAT.md) for JSON manifests,
-raw FZEdit exports, extracted course resources and separate audio packs.
-[Mods and source-game differences](MODS.md) describes scoped mechanics.
-
-The current local tester release is **0.17.0**. Future fixes advance the patch
-version; new features advance the minor version. All bundle variants share
-that version. See [the release policy](docs/RELEASING_FZERO_FOREVER.md).
-
-You bring your own legally dumped *F-Zero (USA)* ROM. No ROM is included.
-
-<p align="center">
-  <img src="docs/screenshots/bs-forest-iii-race-21x9.png" width="96%" alt="BS F-Zero Deluxe Forest III race in 21:9">
-  <br>
-  <img src="docs/screenshots/widescreen-title.png" width="48%" alt="F-Zero title screen in widescreen">
-  <img src="docs/screenshots/bs-blue-thunder.png" width="48%" alt="BS F-Zero Deluxe Blue Thunder machine select">
-  <br>
-  <img src="docs/screenshots/bs-forest-iii-race.png" width="48%" alt="BS F-Zero Deluxe Forest III race in 16:9">
-  <img src="docs/screenshots/bs-forest-iii.png" width="48%" alt="BS F-Zero Deluxe Forest III course select">
-</p>
-
-## Features
-
-- Play *F-Zero* as a native app.
-- Local two-to-four-player racing: choose 2/3/4 players in the Local Multiplayer mod, configure their launcher controls, then choose **VS MODE** on the original title menu. Two players use top/bottom views; three or four use a 2x2 grid. Keyboard layouts may be separate or shared.
-- [Versus netplay](docs/NETPLAY.md) through recomp-ui and recomp-net: two to four participants each get a full viewport; the host selects 4:3, 16:9 (default), or 21:9.
-- Widescreen modes: 16:9, 21:9, 32:9, and Fit.
-- Optional [HD Mode 7](docs/HD_MODE7.md): 2x, 4x and 8x track detail, optional edge smoothing, and GPU rendering for every local player. Independent of widescreen and presentation FPS.
-- High refresh presentation: 60, 90, 120, 144, 165, 240, or 360 FPS.
-- Display shaders: CRT Soft, LCD Grid, Sharp, Warm Composite, or your own GLSL shader.
-- Save states with a slot browser and thumbnails, opened with **F7** or **Select + R**.
-- Offline rewind: step back through the last few seconds and drop back in.
-- Gamepad support through SDL.
-- Optional BS F-Zero Deluxe content.
-- Discoverable [track and audio packs](docs/PACK_FORMAT.md), including raw FZEdit course exports. Reviewed ROM/IPS/BPS conversion is an author-side step.
-- Optional bundled CGP soundtrack, custom MSU-1 packs and editable content presets.
-
-## Download And Play
-
-On Windows:
-
-1. Download the Windows x64 ZIP from the Releases page.
-2. Extract the whole ZIP.
-3. Run `F-Zero Forever.exe`.
-4. Pick your own *F-Zero (USA)* `.sfc` or `.smc` ROM when asked.
-
-On Linux:
-
-1. Download the Linux AppImage from the Releases page.
-2. Put your own *F-Zero (USA)* `.sfc` or `.smc` ROM next to it.
-3. Make the AppImage executable.
-4. Run it.
-
-The app remembers your ROM path after the first launch.
-
-Enable **Skip launcher on boot** to start directly with that ROM next time.
-The choice is saved as `[General] SkipLauncher=1` in `config.ini` beside the
-executable. Run `F-Zero Forever.exe --launcher` (on Linux, run your AppImage
-with `--launcher`) or set the value to `0` to return to the launcher. The override also works
-with a ROM path before or after it. A missing or invalid remembered ROM opens
-the launcher so you can select a valid copy.
-
-## Settings
-
-Open **Settings > Display** for:
-
-- **Aspect ratio:** 4:3, 16:9, 21:9, 32:9, or Fit.
-- **Shader:** None (default), CRT Soft, LCD Grid, Sharp, Warm Composite, or a custom shader.
-
-Open **Mods** for:
-
-- **Lap voice callouts:** supply your boost-power and final-lap WAV recordings.
-  **Boost-power timing > Lap 2 only (once per race)** announces boost only when
-  the first racer starts lap 2; the final-lap callout is unchanged.
-  **Every new lap** retains the existing default behavior.
-- **Widescreen:** makes races wider.
-- **Presentation FPS:** makes motion smoother on high refresh screens.
-- **HD Mode 7:** reconstructed perspective and finer track sampling, with a 4x default and optional edge smoothing. Local 2P/3P/4P uses the GPU; the portable grid fallback reports its 2x limit.
-- **Diagnostics:** optional local performance reports for troubleshooting; off by default. See [how to capture a report](docs/PERFORMANCE_DIAGNOSTICS.md).
-  Start at 2x. Above 4x can cause severe slowdown; use at your own risk.
-- **BS Satellaview vehicles:** adds four machines independently of courses.
-- **BS Satellaview tracks:** adds the ten original BS courses; mutually exclusive with Track Pack Loader, whose CGP pack supplies corrected versions.
-- **CGP vehicles:** one opt-in mod for all three authored car groups (eight additional ships plus the original four). The separate original-car rebalances default on.
-- **CGP rules and fixes:** optional gameplay rules and fixes. See [source coverage](mods/cgp-source/README.md).
-- **Community Grand Prix (prototype):** a bundled course pack with one enable checkbox. Every enabled track pack adds its cups to the in-game leagues. See [installation and manifest instructions](mods/README.md).
-
-When the Widescreen mod is on, its aspect setting wins over the normal Display aspect setting.
-
-### Importing CRT-Geom or another shader
-
-In **Settings > Display**, use **Browse** beside Shader to select your own
-`.glslp` preset or `.glsl` shader. Keep the preset's accompanying files and
-subdirectories intact: for example, `crt-geom.glslp` needs
-`shaders/crt-geom.glsl` beside it. The app remembers the selected path; it
-does not copy the pack, so leave it in a permanent location. RetroArch Slang
-(`.slangp`) presets are not supported by this OpenGL path.
-
-[CRT-Geom is available upstream](https://github.com/libretro/glsl-shaders/tree/master/crt).
-It carries GPL-2.0-or-later terms. It is **not bundled**: redistribution
-compatibility with this app's differently licensed dependencies has not been
-established. User-selected CRT-Geom has been tested through the existing shader
-loader. An unreadable or invalid preset falls back to unfiltered output.
-
-### Presets and MSU-1 music
-
-**Soundtrack source:** the owner confirms the replacement PC-port archive
-already reconciles attribution. Historical exclusions remain enforced.
-See [source clearance and evidence](assets/music/CGP_ATTRIBUTION.md).
-
-**Mods > Preset** offers Vanilla, Satellaview and Community Grand Prix.
-Each applies an editable recipe. CGP enables Track Pack Loader, which loads
-all installed packs; Vanilla and Satellaview disable it. Display, controls
-and rewind remain untouched.
-CGP enables all its courses, twelve cars, original-car rebalances, rules
-including Legend, Community Grand Prix title and bundled music. Individual
-options remain editable. The console ending-credits patch is retired. F-Zero 55
-title artwork is retained but hidden for a future course pack. No preset is applied automatically on startup.
-
-Windows previews come in **with-msu** and **without-msu** ZIPs. Both support
-MSU playback; only with-msu includes the replacement **Community Grand Prix PC-port**
-soundtrack (29 attribution-cleared recordings). In **Settings > Audio**, **MSU-1 music** defaults on for fresh settings. Leave its source
-on **Installed pack music**, or select the CGP preset in Mods. Music starts
-off on a fresh installation. Missing tracks and unrelated track packs use
-SNES music. Track selection works in both Grand Prix and Practice.
-
-The smaller without-msu download contains no soundtrack files. Its Audio
-settings let you browse for your own music folder. The CGP preset uses that
-custom music when configured, or SNES audio until you supply it. All courses,
-cars, gameplay options and other assets are identical between the two ZIPs.
-
-**Custom...** opens a picker for your pack's `.msu` file. Existing custom
-folder settings are retained. Standard packs require the supported
-**Conn/Cubear v11** `f-zero_msu1.ips` beside their numbered PCM files (available
-from the [authors' page](https://www.zeldix.net/t2768-bs-f-zero-deluxe-msu-1)).
-Keep the pack's original prefix and track numbering. Packs without this
-patch use CGP numbering. The v11 patch and third-party custom audio are not
-bundled. Unsupported patch versions are refused with an original-audio fallback.
-
-Keep using your **unmodified USA ROM**. Adapters apply in memory, including
-all derived vehicle images; no ROM file is rewritten. Save states and rewind
-restart the selected song from its beginning rather than its exact playback
-position. Existing non-MSU record/save namespaces remain separate.
-
-For command-line use, `SNESRECOMP_MSU1` can select a `.msu` file, folder or
-filename prefix; `off` overrides a saved enabled setting. `FZERO_MSU1_PATCH`
-can point to the v11 IPS in another folder. Headless CGP music also requires
-`FZERO_RULES=cgp-msu` (or adding `cgp-msu` to other chosen rules).
+*The most tracks, most cups, split screen, up to 4p multiplayer, HD mode 7, for F-Zero.*
 
-See [preset behavior and validation](docs/CGP_MUSIC_AND_PRESETS.md) and
-[soundtrack provenance / source-build import](assets/music/README.md).
+**F-Zero Forever is a modern PC conversion of the original SNES anti-gravity racer.**
 
-## Save States And Rewind
+**Rather than a predictable port of the game, our ambition was to push the game to new heights, with overwhelming amounts of modes and content, and all the technical improvements we could throw at it.**
 
-### The save-state menu
+Our team consists of veteran developers from the RetroPortingToolkit team, and F-Zero modders from the F-Zero Community Grand Prix team. For this special game, we spent over 7 weeks working on new features, daily.
 
-Press **F7**, or hold **Select + R** on a gamepad, to open the save-state
-browser. The game freezes while it is open, so a state you take is that exact
-moment.
-
-- **Up / Down** or the **arrow keys** pick one of 12 numbered slots or the **Quick** slot.
-- **A** on a pad, or **X** on the keyboard, loads the selected slot.
-- **X** on a pad, or **S** on the keyboard, saves to it.
-- **B** on a pad, or **Escape**, closes the menu without doing anything.
-- **1**-**9** jump straight to a slot.
-- **Q** jumps to the Quick slot.
+## F-Zero Forever includes:
 
-Each slot shows a thumbnail of the moment it was saved, so you can tell them
-apart without loading them. The browser stays centered at 4:3, including in
-widescreen windows.
+## 75 races. 15 cups.
 
-### Quick save and quick load
+We worked with the community and combined several of the highest quality rom hacks for the game, including: **Community Grand Prix, Astra Front, Bower, and MAX**. You can even bring your own rom hacks and create your own races. This is the largest combination of tracks EVER for F-Zero.
 
-Open **Controls** in recomp-ui and find **Host Shortcuts**. Assign **Quick Save**
-and **Quick Load** to keyboard keys, controller buttons, or controller button
-combinations. These start unbound so they don't take over a gameplay button.
+> All bundled ROM hack content is included with explicit permission from its authors and creators. AI was not used in any way to modify the ROM hacks or their content. The inclusion of their work in this project should not be taken as a statement of their views on AI.
 
-Quick Save overwrites the dedicated Quick slot. Quick Load restores it. Each
-press performs one action, even if you hold the button. A message confirms the
-result. The Quick slot also appears in the save browser and has a thumbnail;
-it is separate from your 12 numbered saves.
-The Quick slot stays accessible when you return to the title or change courses.
+We made sure to preserve every custom feature that was built for each GP, including **CGP's magnets, jumps, and gravity changes**, with selectable gameplay rules and **Legend difficulty** for another challenge.
 
-### Rewind
+<img src="docs/screenshots/11-Bower-Red-Canyon-III.png" width="100%" alt="11 Bower Red Canyon III">
 
-Press **R**, or hold **Select + L** on a gamepad, to open the rewind
-filmstrip. It shows the recent past as a strip of frames:
+*Bower · Red Canyon III*
 
-- **Left / Right** scrub back and forward. Hold a direction to keep scrubbing.
-- **A** on a pad, or **Enter** / **Space**, jumps to the selected moment.
-- **B** on a pad, or **Escape**, leaves without changing anything.
+<img src="docs/screenshots/12-MAX-Metal-Forest.png" width="100%" alt="12 MAX Metal Forest">
 
-Rewind is **on by default**. You can turn it off in the launcher's **Settings**,
-where you can also set:
+*MAX · Metal Forest*
 
-- **Rewind depth:** how many snapshots to keep (50, 100, 150, or 200).
-- **Rewind interval:** how many frames apart they are (1, 4, 8, 12, 15, or 30).
+<img src="docs/screenshots/15-CGP-Rainbow-Road.png" width="100%" alt="15 CGP Rainbow Road">
 
-More snapshots make the history longer; a shorter interval makes it finer.
-Both cost memory: one snapshot of *F-Zero* is about 330 KB, so 100 of them is
-roughly 33 MB. At the default 50 snapshots every 15 frames you can step back
-about 12 seconds.
+*CGP · Rainbow Road*
 
-### Changing the keys
+## Twelve cars.
 
-Both keys are rebindable in the launcher's **Controls** page, as
-**SaveStateMenu** and **Rewind**. They are saved to `config.ini` next to the
-executable and take effect the next time you start the game. The rewind
-switch, depth and interval are remembered in the same file.
+Choose from **twelve CGP machines**: eight additional vehicles and CGP versions of the original four, each with its authored artwork, handling, energy boosts, and exhaust. Explore separate vehicle packs and original-car rebalances, or enable the optional Satellaview machines!
 
-F-Zero's keyboard shoulder defaults are **D = L** and **C = R**. These and
-the rewind binding apply only to F-Zero; saved custom bindings remain respected.
-**Ctrl+R** still resets the game.
+<img src="docs/screenshots/16-CGP-Dragon-Bird.png" width="100%" alt="16 CGP Dragon Bird">
 
-The numbered-slot keys - **F1**-**F12** to load a slot, **Shift + F1**-**F12**
-to save one - still work. **F7** is reserved for the save-state browser by
-default; its slot is available through that browser. **F8** is now a normal
-numbered-slot key. Rebinding the browser elsewhere frees F7 as well. A key
-assigned to Quick Save or Quick Load takes priority over its old action.
+*Dragon Bird · CGP roster*
 
-### Where states are kept
+<img src="docs/screenshots/02-Satellaview-Blue-Thunder.png" width="100%" alt="02 Satellaview Blue Thunder">
 
-Stock *F-Zero* and BS F-Zero Deluxe keep separate states, because they are
-different cartridges and their snapshots are not interchangeable:
+*Blue Thunder · Satellaview roster*
 
-| Mode | Slot files |
-| --- | --- |
-| Stock | `saves/fzero<N>.sav` |
-| BS F-Zero Deluxe | `saves/bs-deluxe/fzero-bs-deluxe<N>.sav` |
-| Stock + MSU-1 | `saves/msu1/fzero-msu1<N>.sav` |
-| BS Deluxe + MSU-1 | `saves/bs-deluxe/msu1/fzero-bs-deluxe-msu1<N>.sav` |
+## Introducing split-screen and netplay.
 
-A thumbnail sits beside each as `.sav.thumb`. If a state from the other mode
-somehow ends up in a slot, loading it is refused and the game keeps running -
-the title bar says so and nothing is disturbed.
+We have also added multiplayer! You can play with 2 players via local split-screen, or up to 4 players via online netplay. Each player can compete with their own vehicle, and we made sure that player collisions, bumper traffic, minimaps and race positions work correctly. Configure your players in the launcher, enable **Local Multiplayer**, then choose **VS MODE** on the title screen.
 
-## BS F-Zero Deluxe
+**Multiplayer supports rollback netcode**, LAN discovery, Direct IP, and online lobbies
 
-BS F-Zero Deluxe is included with permission from its authors:
-GuyPerfect, Porthor, and PowerPanda.
+## So many HD settings.
 
-The release includes two BS Deluxe files:
+**HD Mode 7** reconstructs the track perspective with finer sampling at **2×, 4×, or 8× detail**, optional edge smoothing, and GPU rendering for every local player. Start at 2× when tuning performance; higher settings are more demanding.
 
-- `mods/bs-deluxe.dat` is used by this app.
-- `patches/bs-deluxe-usa.ips` is the upstream v1.1 USA SNES patch for your own ROM.
+Pair it with **16:9, 21:9, 32:9, or Fit** widescreen modes, or keep the classic 4:3 view. Presentation rates from **60 to 360 FPS** give high-refresh displays smoother motion, independently of the HD Mode 7 setting.
 
-No patched ROM is included.
+<img src="docs/screenshots/bs-forest-iii-race.png" width="100%" alt="bs forest iii race">
 
-## Reporting playtest problems
+*Room to see the next corner: Forest III in widescreen.*
 
-Recent inputs and checkpoints are recorded by default, including local and
-online VS. Reproduce the problem, quit, then double-click **Collect diagnostics.cmd**
-beside the game and send the ZIP it selects with an approximate time and a
-description. A crash is not required. Nothing is uploaded automatically.
+[HD Mode 7 options and performance →](docs/HD_MODE7.md)
 
-The ZIP includes recent replay sessions, crash reports when present and the
-latest exit, performance and transport logs. It contains game memory, saves
-and local paths; share it privately when appropriate. See
-[recording and replay instructions](docs/DIAGNOSTIC_REPLAY.md).
+Visuals are upgraded too: it supports any aspect ratio (including 16:9, 21:9, 32:9), unlimited frame rates, and HD Mode 7. It's the prettiest the game has ever looked.
 
-## Build From Source
+<img src="docs/screenshots/05-Local-split-screen-ranks-and-minimaps.png" width="100%" alt="05 Local split screen ranks and minimaps">
 
-Clone with submodules:
+*Two racers. Two views. One race.*
+
+### Online, with the whole screen to yourself
+
+<img src="docs/screenshots/08-Online-independent-viewport.png" width="100%" alt="08 Online independent viewport">
+
+*Online racing gives each player their own full viewport.*
+
+[Local controls and setup →](docs/LOCAL_CONTROLS_AND_MODS.md) · [Netplay guide →](docs/NETPLAY.md)
+
+## Bring your own races, or make them!
+
+Bring your favorite supported hacks together instead of keeping each in a separate installation. The launcher's **Custom Content importer** accepts **F-Zero Edit projects, ZIP archives, IPS/BPS patches, and supported ROM hacks**, validating and installing compatible content into your library.
+
+Create courses in F-Zero Edit and import them to race, or install a drop-in pack that keeps its **courses, cups, scenery, music, and supported mechanics** together. Track Pack Loader loads compatible installed packs alongside the original courses.
+
+<img src="docs/screenshots/17-Custom-Content-importer.png" width="100%" alt="17 Custom Content importer">
+
+*Import supported content and browse your installed packs.*
+
+**Already have a compatible pack?** Drop its folder or ZIP into `mods/packs` and restart. BS Satellaview Tracks and Track Pack Loader are mutually exclusive; vehicle options remain separate.
+
+[Installing packs →](mods/README.md) · [Creating and importing content →](docs/PACK_FORMAT.md) · [Supported mechanics and mods →](MODS.md)
+
+## And even more!
+
+- **A soundtrack for every circuit.** Expanded MSU-1 support includes CGP and Astra soundtracks, course music, and menu/event songs in single-player and multiplayer. Missing tracks automatically fall back to SNES music.
+- **Records that know what you raced.** Custom-course and vehicle-aware records and ghosts, expanded cup browsing, matching course scenery, and correct vehicle identities.
+- **Another shot at that corner.** A save-state browser with thumbnails, twelve numbered slots, a dedicated Quick slot, and bindable keyboard/controller Quick Save and Quick Load shortcuts. Offline rewind lets you step back and try again.
+- **Your own combination of mods.** Independent vehicle packs, original-car rebalances, editable gameplay presets, and selectable title-screen artwork.
+- **The look you remember—or a new one.** CRT Soft, LCD Grid, Sharp, Warm Composite, and support for custom GLSL shaders.
+- **Controls that fit your setup.** SDL gamepad support, configurable keyboard/controller bindings, and host shortcuts.
+- **Satellaview on your PC.** Optional BS F-Zero Deluxe courses and vehicles, included with their authors' permission.
+
+<img src="docs/screenshots/09-Save-state-browser.png" width="100%" alt="09 Save state browser">
+
+## A few useful shortcuts
+
+| Action | Keyboard | Gamepad |
+| --- | --- | --- |
+| Open save-state browser | **F7** | **Select + R** |
+| Open offline rewind | **R** | **Select + L** |
+| Quick save / quick load | Assign in **Controls → Host Shortcuts** | Assign in **Controls → Host Shortcuts** |
+
+Bindings are customizable. For save slots, shaders, HD Mode 7, music, and configuration details, see the [player guide](docs/PLAYER_GUIDE.md).
+
+## Build something fast
 
 ```bash
-git clone --recurse-submodules git@github.com:mstan/FZeroSNESRecomp.git
+git clone --recurse-submodules https://github.com/retroportingtoolkit/FZeroSNESRecomp.git
 cd FZeroSNESRecomp
+bash tools/bootstrap.sh
 ```
 
-Put your own USA ROM at `fzero.sfc`, then generate and build:
+With the build dependencies installed, place your legally obtained USA ROM at `fzero.sfc` in the repository root, then generate and build:
 
 ```bash
 bash tools/regen.sh
@@ -292,34 +126,36 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-Local ROMs, generated files, saves, captures, and builds are ignored by git.
+The regeneration script verifies the ROM before generating source. ROMs, generated files, saves, captures, and builds stay out of git.
 
-Run the ROM-free regression suites with `ctest --test-dir build --output-on-failure`.
-With your local ROM and the upstream patch ZIP, `tests/test_msu_integration.py`
-checks stock/Deluxe playback using generated test tones, missing-track fallback
-and invalid-patch rejection. On Windows, `tests/test_desktop_integration.py`
-additionally checks real launcher persistence, imported shaders, controller
-overlays and save/load. Both scripts accept `--help` and keep their test data
-under ignored `captures/` directories; neither bundles music or a shader.
+[Build and validation instructions →](docs/BUILDING.md) · [Contributing →](CONTRIBUTING.md) · [Conversion notes →](CONVERSION.md)
 
-`python tests/test_rom_persistence.py --source build` checks ROM selection
-through the actual Windows file dialog, then Play/close and repeated restarts.
-It also checks cancellation, an invalid pick, and selecting a moved ROM. It
-requires an interactive desktop and never seeds the ROM cache itself.
+## Help improve the next lap
 
-`python tests/test_launcher_options.py --source build --rom PATH
---output captures/launcher-options` exercises the real Skip Launcher control,
-relaunch/recovery, and typed HD resolution persistence. On Linux, prefix it
-with `xvfb-run -a`. `--appimage-layout` also checks settings beside an AppImage
-instead of inside its executable directory, using the AppImage environment.
+Found a problem? [Open an issue](https://github.com/retroportingtoolkit/FZeroSNESRecomp/issues) with your build version, platform, enabled mods, and steps to reproduce it.
 
-On Linux, `xvfb-run -a python3 tests/test_appimage_rom_persistence.py
---appimage PATH --output captures/rom-persistence-linux` exercises the packaged
-AppImage through the real zenity picker, then Play/quit and repeated relaunches.
-It requires `zenity` and `xdotool`; use a fresh output directory for each run.
+For Windows playtest builds, reproduce the issue, quit, and run **Collect diagnostics.cmd** beside the game. Nothing uploads automatically. Diagnostic archives contain game memory, saves, and local paths; share them privately when appropriate.
+
+[How to collect and replay diagnostics →](docs/DIAGNOSTIC_REPLAY.md)
+
+## The people behind Forever
+
+F-Zero Forever was made primarily as a collaboration between the **RetroPortingToolkit developers** and the creators of the **F-Zero Community Grand Prix ROM hack**.
+
+| Role | Contributors |
+| --- | --- |
+| **Development** | **GameMaster** — [GitHub](https://github.com/mstan) · [1379.tech](https://1379.tech/) · Discord: `gamemaster` |
+| **Design** | **Shokunin** — [GitHub](https://github.com/tetrisgm) · [Twitter](https://twitter.com/tetrisgm) |
+| **QA** | **Worthy MF9**, **Fennor**, **MatoLabu** |
+
+Built with **[SNESRecomp](https://github.com/RetroPortingToolKit/snesrecomp)**, **[RetroPortingToolkit](https://retroportingtoolkit.com)**, **[F-Zero CGP](https://romhackplaza.org/romhacks/f-zero-community-grand-prix-cgp-super-nintendo-romhack)**, and **F-Zero VS**. The launcher uses [recomp-ui](https://github.com/RetroPortingToolKit/recomp-ui).
+
+**BS F-Zero Deluxe** is included with permission from **GuyPerfect, Porthor, and PowerPanda**. See [soundtrack attribution](assets/music/CGP_ATTRIBUTION.md) for music credits and provenance. Thank you to the course authors, contributors, and playtesters who help this project grow.
+
+> **Bring your own game.** You need a legally dumped, unmodified **F-Zero (USA)** ROM in `.sfc` or `.smc` format. No ROM is included.
 
 ## License
 
-MIT License, Copyright (c) 2026 Matthew Stanley. See `LICENSE`. Bundled dependencies keep their own licenses under `licenses/` in each release; BS F-Zero Deluxe content is included with its authors' permission and is not covered by this license.
+Project code is licensed under the [MIT License](LICENSE), © 2026 Matthew Stanley. Bundled dependencies retain their own licenses, included under `licenses/` in releases. BS F-Zero Deluxe content is included with its authors' permission and is not covered by the project's MIT license.
 
-*F-Zero* belongs to Nintendo. The game ROM is not included.
+*F-Zero belongs to Nintendo. No game ROM is distributed with this project.*
