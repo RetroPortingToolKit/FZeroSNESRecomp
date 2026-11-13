@@ -1,8 +1,9 @@
 # F-Zero Forever
 
-To add the game to Steam on Windows or Linux, open the launcher's small **...**
-menu beside **Play** and choose **Add to Steam...**. Place the game in its
-permanent folder first, exit Steam completely, add it, then reopen Steam.
+To add the game to Steam on Windows or Linux, click the small **Steam logo**
+to the left of **Netplay**. Place the game in its permanent folder first.
+If several profiles are available, choose your Steam display name. The button
+hides after adding the game or when it is launched through Steam.
 
 *The most tracks, most cups, split screen, up to 4p multiplayer, HD mode 7, for F-Zero.*
 
