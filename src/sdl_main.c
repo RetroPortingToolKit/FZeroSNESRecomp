@@ -790,6 +790,7 @@ static int resolve_rom(const char *executable, const char *explicit_rom,
   memset(&game, 0, sizeof(game));
   launcher_profile_apply("snes", &game);
   game.name = "F-Zero Forever";
+  game.steam_shortcut_enabled = 1;
   game.region = "(USA)";
   game.known_sha1_hex = kFzeroSha1;
   game.num_known_sha1 = 1;

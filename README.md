@@ -1,5 +1,9 @@
 # F-Zero Forever
 
+To add the game to Steam on Windows or Linux, open the launcher's small **...**
+menu beside **Play** and choose **Add to Steam...**. Place the game in its
+permanent folder first, exit Steam completely, add it, then reopen Steam.
+
 *The most tracks, most cups, split screen, up to 4p multiplayer, HD mode 7, for F-Zero.*
 
 **F-Zero Forever is a modern PC conversion of the original SNES anti-gravity racer.**
